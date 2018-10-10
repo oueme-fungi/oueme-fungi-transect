@@ -1,0 +1,15 @@
+usearch v10.0.240_i86linux32, 4.0Gb RAM (65.8Gb total), 40 cores
+/gpfs/hpchome/bahram/LOTUS/usearch10 -uchime2_ref myTorrent/tmpFiles//otu_seeds.fna -db /gpfs/hpchome/bahram/LOTUS/lotus_pipeline//DB//ITS_chimera/ITS1_ITS2_datasets/uchime_sh_refs_dynamic_develop_985_11.03.2015.ITS2.fasta -mode balanced -strand plus -chimeras myTorrent/ExtraFiles//chimeras_ref.fa -notmatched myTorrent/otus.fa -threads 1 -log myTorrent/LotuSLogS//uchime_refdb.log 
+Started Wed Jul 25 19:57:58 2018
+00:00 42Mb    100.0% Reading myTorrent/tmpFiles//otu_seeds.fna
+00:00 53Mb    100.0% Reading /gpfs/hpchome/bahram/LOTUS/lotus_pipeline//DB//ITS_chimera/ITS1_ITS2_datasets/uchime_sh_refs_dynamic_develop_985_11.03.2015.ITS2.fasta
+00:00 20Mb    100.0% Converting to upper case
+00:00 21Mb    100.0% Word stats
+00:00 21Mb    100.0% Alloc rows
+00:00 39Mb    100.0% Build index
+01:00 47Mb    100.0% Chimeras 380/5868 (6.5%), in db 195 (3.3%), not matched 5293 (90.2%)
+57907 mallocs, 70 frees
+
+Finished Wed Jul 25 19:58:58 2018
+Elapsed time 01:00
+Max memory 53Mb

@@ -1,0 +1,65 @@
+Script started on Fri Jul 27 08:22:21 2018
+### CHIMERA FILTERING ###
+
+When using the incorporated tools, please cite as follows:
+
+vsearch - github.com/torognes/vsearch
+Copyright (C) 2014-2015, Torbjorn Rognes, Frederic Mahe and Tomas Flouri.
+________________________________________________
+input=/shared/Shared_folder/Metagenomics/africa/Combined_pacbio/Pacbio.fasta
+Working directory=/shared/Shared_folder/Metagenomics/africa/Combined_pacbio
+
+### Denovo + reference database chimera filtering ###
+
+# Abundance annotation for de novo chimera filtering
+# id=0.97
+vsearch --cluster_fast /shared/Shared_folder/Metagenomics/africa/Combined_pacbio/Pacbio.fasta --id 0.97 --centroids centroids.fasta --sizeout
+vsearch v1.11.1_linux_x86_64, 13.7GB RAM, 1 cores
+
+1331352 nt in 4843 seqs, min 87, max 1585, avg 275
+Clusters: 864 Size min 1, max 318, avg 5.6
+
+# Sort by size
+vsearch --sortbysize centroids.fasta --output sortbysize.fasta
+vsearch v1.11.1_linux_x86_64, 13.7GB RAM, 1 cores
+
+279218 nt in 864 seqs, min 87, max 1585, avg 323
+Median abundance: 1
+
+# De novo chimera detection
+# abskew=2
+vsearch --uchime_denovo sortbysize.fasta --abskew 2 --chimeras chimeras_denovo.fasta --nonchimeras nonchimeras_denovo.fasta
+vsearch v1.11.1_linux_x86_64, 13.7GB RAM, 1 cores
+
+279218 nt in 864 seqs, min 87, max 1585, avg 323
+Taking abundance information into account, this corresponds to
+
+# vsearch DECLUSTER
+vsearch --usearch_global /shared/Shared_folder/Metagenomics/africa/Combined_pacbio/Pacbio.fasta --db nonchimeras_denovo.fasta --id 0.97 --fasta_width 0 --matched Filtered_ChimerasDenovo.fasta --notmatched ChimerasDenovo.fasta
+vsearch v1.11.1_linux_x86_64, 13.7GB RAM, 1 cores
+
+265132 nt in 822 seqs, min 87, max 1585, avg 323
+
+### Reference db chimera filtering
+# db=/root/.babitassh/uchime_reference_dataset_01.12.2016.ITS2.fasta
+
+vsearch --uchime_ref Filtered_ChimerasDenovo.fasta --db /root/.babitassh/uchime_reference_dataset_01.12.2016.ITS2.fasta --fasta_width 0 --chimeras ChimerasRef.fasta --nonchimeras Filtered_ChimerasDenovoRef.fasta --xsize
+vsearch v1.11.1_linux_x86_64, 13.7GB RAM, 1 cores
+
+6346807 nt in 29034 seqs, min 80, max 1641, avg 219
+Taking abundance information into account, this corresponds to
+
+Input fasta file = 4843 sequences
+Output (Filtered_ChimerasDenovoRef.fasta) file = 4689 sequences
+   (Filtered_ChimerasDenovo.fasta = 4766 sequences)
+
+##########################
+DONE
+############################
+Chimera filtering finished
+##############################
+output = Filtered_ChimerasDenovoRef.fasta
+################################
+You may close this window now!
+
+Script done on Fri Jul 27 08:23:00 2018

@@ -1,0 +1,140 @@
+Script started on Fri Jun  8 09:48:40 2018
+### DEMULTILPEXING ###
+
+When using the incorporated tools, please cite as follows:
+
+mothur (v1.36.1) - Schloss, P.D., et al., 2009. Introducing mothur: Open-Source, Platform-Independent, Community-Supported Software for Describing and Comparing Microbial Communities. Applied and Environmental Microbiology 75, 7537-7541.
+www.mothur.org
+
+OBITools (v1.2.9) - Boyer F., Mercier C., Bonin A., et al., 2016. OBITOOLS: a UNIX-inspired software package for DNA metabarcoding. Molecular Ecology Resources 16, 176-182.
+Distributed under the CeCILL free software licence version 2
+metabarcoding.org//obitools/doc/index.html
+
+vsearch (v1.11.1) - github.com/torognes/vsearch
+Copyright (C) 2014-2015, Torbjorn Rognes, Frederic Mahe and Tomas Flouri.
+
+Fastx Toolkit (v0.0.14) - hannonlab.cshl.edu/fastx_toolkit
+Distributed under the Affero GPL (AGPL) version 3 by the Free Software Foundation
+
+fqgrep (v0.4.4) - github.com/indraniel/fqgrep
+Copyright (c) 2011-2016, Indraniel Das
+________________________________________________
+
+Working directory = /shared/Shared_folder/Metagenomics/africa/483_2
+
+Input=/shared/Shared_folder/Metagenomics/africa/483_2/pb_483_002.reads_of_insert.trim.fastq
+   #Input fastq contains 4623 sequences
+oligos=/shared/Shared_folder/Metagenomics/africa/483_2/oligo1.txt
+
+# Renaming sequence headers ...
+
+Renamed sequence headers to Seq1, Seq2, ...
+
+# Fastq to fasta
+vsearch --fastq_filter r_pb_483_002.reads_of_insert.trim.fastq --fasta_width 0 --fastaout r_pb_483_002.reads_of_insert.trim.fasta
+vsearch v1.11.1_linux_x86_64, 13.7GB RAM, 1 cores
+
+4623 sequences kept (of which 0 truncated), 0 sequences discarded.
+
+### Demultiplexing with mothur ###
+
+bdiffs=0
+
+mothur > trim.seqs(fasta=r_pb_483_002.reads_of_insert.trim.fasta, oligos=/shared/Shared_folder/Metagenomics/africa/483_2/oligo1.txt, bdiffs=0, processors=4)
+
+Using 4 processors.
+1000
+1128
+
+mothur > trim.seqs(fasta=r_pb_483_002.reads_of_insert.trim.fasta, oligos=/shared/Shared_folder/Metagenomics/africa/483_2/oligo1.txt, bdiffs=0, processors=4)
+
+Using 4 processors.
+1000
+1182
+
+mothur > trim.seqs(fasta=r_pb_483_002.reads_of_insert.trim.fasta, oligos=/shared/Shared_folder/Metagenomics/africa/483_2/oligo1.txt, bdiffs=0, processors=4)
+
+Using 4 processors.
+1000
+1202
+
+mothur > trim.seqs(fasta=r_pb_483_002.reads_of_insert.trim.fasta, oligos=/shared/Shared_folder/Metagenomics/africa/483_2/oligo1.txt, bdiffs=0, processors=4)
+
+Using 4 processors.
+1000
+1111
+Appending files from process 820
+Appending files from process 821
+Appending files from process 822
+
+Group count: 
+A1	35
+A2	19
+A3	31
+A4	18
+A5	53
+A6	30
+A7	1
+B1	6
+B2	23
+B3	36
+B4	18
+B5	51
+B6	18
+C1	34
+C12	1
+C2	22
+C3	11
+C4	34
+C5	28
+C6	51
+C8	41
+D1	49
+D2	13
+D3	21
+D4	49
+D5	37
+D6	23
+D8	20
+E1	32
+E12	2
+E2	18
+E4	30
+E5	55
+E6	28
+E8	3
+F1	30
+F2	17
+F3	14
+F4	21
+F6	3
+G1	22
+G2	17
+G3	20
+G4	18
+G5	1
+G6	5
+H1	33
+H2	43
+H3	17
+H5	1
+H6	39
+Total of all groups is 1242
+
+Output File Names: 
+r_pb_483_002.reads_of_insert.trim.trim.fasta
+r_pb_483_002.reads_of_insert.trim.scrap.fasta
+r_pb_483_002.reads_of_insert.trim.groups
+
+##########################
+DONE
+############################
+Demultiplexing finished
+##############################
+output fasta = Demultiplexed.fasta, contains 1242 sequences
+output groups = Demultiplexed.groups
+unidentified = unidentified.fasta
+################################
+You may close this window now!
+
+Script done on Fri Jun  8 09:48:41 2018

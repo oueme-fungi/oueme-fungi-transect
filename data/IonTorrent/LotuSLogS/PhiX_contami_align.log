@@ -1,0 +1,15 @@
+usearch v10.0.240_i86linux32, 4.0Gb RAM (65.8Gb total), 40 cores
+/gpfs/hpchome/bahram/LOTUS/usearch10 -usearch_local myTorrent/tmpFiles//otu_seeds.fna -db /gpfs/hpchome/bahram/LOTUS/lotus_pipeline//DB//phiX.fasta -uc myTorrent/tmpFiles//otu_seeds.fna.cont_hit.uc -query_cov .8 -log myTorrent/LotuSLogS//PhiX_contami_align.log -id .95 -threads 1 -strand both 
+Started Wed Jul 25 19:57:55 2018
+00:00 40Mb    100.0% Reading /gpfs/hpchome/bahram/LOTUS/lotus_pipeline//DB//phiX.fasta
+00:00 6.4Mb   100.0% Masking (fastnucleo)
+00:00 7.4Mb   100.0% Word stats
+00:00 7.4Mb   100.0% Alloc rows
+00:00 7.4Mb   100.0% Build index
+Db load time 0 secs (0s)
+Search time 3 secs (3.00s)
+132276 mallocs, 131678 frees
+
+Finished Wed Jul 25 19:57:58 2018
+Elapsed time 00:03
+Max memory 44Mb
