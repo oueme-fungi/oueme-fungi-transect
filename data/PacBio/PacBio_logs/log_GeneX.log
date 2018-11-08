@@ -1,4 +1,4 @@
-Script started on Fri Jul 27 08:23:33 2018
+Script started on Mon Sep  3 09:25:28 2018
 ### Gene extraction ###
 
 When using the incorporated tools, please cite as follows:
@@ -22,10 +22,10 @@ ____________________________________________________
 
 mothur > unique.seqs(fasta=/shared/Shared_folder/Metagenomics/africa/Combined_pacbio/Filtered_ChimerasDenovoRef.fasta)
 1000	838
-2000	1572
-3000	2329
+2000	1573
+3000	2330
 4000	3084
-4689	3633
+4690	3634
 
 Output File Names: 
 /shared/Shared_folder/Metagenomics/africa/Combined_pacbio/Filtered_ChimerasDenovoRef.names
@@ -46,31 +46,31 @@ ITSx -i /shared/Shared_folder/Metagenomics/africa/Combined_pacbio/Filtered_Chime
 ITSx -- Identifies ITS sequences and extracts the ITS region
 Version: 1.0.11
 -----------------------------------------------------------------
-Fri Jul 27 08:23:34 2018 : Preparing HMM database (should be quick)...
-Fri Jul 27 08:23:34 2018 : Checking and handling input sequence data (should not take long)...
-Fri Jul 27 08:23:34 2018 : Doing paralellised comparison to HMM database (this may take a long while)...
-    Fri Jul 27 08:24:25 2018 : Bryophyta analysis of main strand finished.
-    Fri Jul 27 08:24:25 2018 : Bacillariophyta analysis of main strand finished.
-    Fri Jul 27 08:24:32 2018 : Amoebozoa analysis of main strand finished.
-    Fri Jul 27 08:25:03 2018 : Euglenozoa analysis of main strand finished.
-    Fri Jul 27 08:25:57 2018 : Rhodophyta analysis of main strand finished.
-    Fri Jul 27 08:26:16 2018 : Phaeophyceae analysis of main strand finished.
-    Fri Jul 27 08:26:19 2018 : Chlorophyta analysis of main strand finished.
-    Fri Jul 27 08:26:28 2018 : Alveolates analysis of main strand finished.
-    Fri Jul 27 08:27:44 2018 : Marchantiophyta analysis of main strand finished.
-    Fri Jul 27 08:28:17 2018 : Haptophyceae analysis of main strand finished.
-    Fri Jul 27 08:28:42 2018 : Oomycota analysis of main strand finished.
-    Fri Jul 27 08:28:42 2018 : Raphidophyceae analysis of main strand finished.
-    Fri Jul 27 08:29:14 2018 : Synurophyceae analysis of main strand finished.
-    Fri Jul 27 08:30:05 2018 : Rhizaria analysis of main strand finished.
-    Fri Jul 27 08:30:25 2018 : Eustigmatophyceae analysis of main strand finished.
-    Fri Jul 27 08:34:48 2018 : Tracheophyta analysis of main strand finished.
-    Fri Jul 27 08:35:23 2018 : Metazoa analysis of main strand finished.
-    Fri Jul 27 08:35:26 2018 : Fungi analysis of main strand finished.
-    Fri Jul 27 08:35:26 2018 : All processes finished.
-Fri Jul 27 08:35:26 2018 : Parallel HMM-scan finished.
-Fri Jul 27 08:35:26 2018 : Analysing results of HMM-scan (this might take quite some time)...
-Fri Jul 27 08:35:28 2018 : Extraction finished!
+Mon Sep  3 09:25:29 2018 : Preparing HMM database (should be quick)...
+Mon Sep  3 09:25:29 2018 : Checking and handling input sequence data (should not take long)...
+Mon Sep  3 09:25:29 2018 : Doing paralellised comparison to HMM database (this may take a long while)...
+    Mon Sep  3 09:26:10 2018 : Bryophyta analysis of main strand finished.
+    Mon Sep  3 09:26:11 2018 : Bacillariophyta analysis of main strand finished.
+    Mon Sep  3 09:26:18 2018 : Amoebozoa analysis of main strand finished.
+    Mon Sep  3 09:26:49 2018 : Euglenozoa analysis of main strand finished.
+    Mon Sep  3 09:27:39 2018 : Rhodophyta analysis of main strand finished.
+    Mon Sep  3 09:27:59 2018 : Phaeophyceae analysis of main strand finished.
+    Mon Sep  3 09:28:00 2018 : Chlorophyta analysis of main strand finished.
+    Mon Sep  3 09:28:09 2018 : Alveolates analysis of main strand finished.
+    Mon Sep  3 09:29:22 2018 : Marchantiophyta analysis of main strand finished.
+    Mon Sep  3 09:29:54 2018 : Haptophyceae analysis of main strand finished.
+    Mon Sep  3 09:30:15 2018 : Oomycota analysis of main strand finished.
+    Mon Sep  3 09:30:18 2018 : Raphidophyceae analysis of main strand finished.
+    Mon Sep  3 09:30:49 2018 : Synurophyceae analysis of main strand finished.
+    Mon Sep  3 09:31:43 2018 : Rhizaria analysis of main strand finished.
+    Mon Sep  3 09:32:12 2018 : Eustigmatophyceae analysis of main strand finished.
+    Mon Sep  3 09:37:34 2018 : Tracheophyta analysis of main strand finished.
+    Mon Sep  3 09:38:13 2018 : Metazoa analysis of main strand finished.
+    Mon Sep  3 09:38:17 2018 : Fungi analysis of main strand finished.
+    Mon Sep  3 09:38:17 2018 : All processes finished.
+Mon Sep  3 09:38:17 2018 : Parallel HMM-scan finished.
+Mon Sep  3 09:38:17 2018 : Analysing results of HMM-scan (this might take quite some time)...
+Mon Sep  3 09:38:19 2018 : Extraction finished!
 -----------------------------------------------------------------
 Thank you for using ITSx!
 Please report bugs or unsupported lineages to itsx@microbiology.se
@@ -112,4 +112,4 @@ Output = ITSx_out.*.redundant.fasta
 ###################################
 You may close this window now!
 
-Script done on Fri Jul 27 08:35:29 2018
+Script done on Mon Sep  3 09:38:20 2018
