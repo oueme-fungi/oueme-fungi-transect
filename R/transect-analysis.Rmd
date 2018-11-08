@@ -1,0 +1,68 @@
+---
+title: "Upper Ouémé Forest Fungi -- Soil Transect Analysis"
+author: "Brendan Furneaux"
+date: '`r paste0("October 10, 2018; Last modified ", strftime(file.mtime(knitr::current_input()), "%B %d, %Y"))`'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load libraries.
+```{r}
+library(magrittr)
+library(tidyverse)
+library(readxl)
+```
+
+Define the required files.
+```{r}
+base.dir <- str_extract(getwd(), ".+oueme-fungi-transect")
+data.dir <- file.path(base.dir, "data")
+soils.dir <- file.path(data.dir, "soils")
+soils.file <- file.path(soils.dir, "transectsoil_corrected.csv")
+
+lab.dir <- file.path(data.dir, "lab_setup")
+plate.file <- file.path(lab.dir, "Brendan soil.xlsx")
+
+pacbio.dir <- file.path(data.dir, "PacBio")
+pacbio.otu.file <- file.path(pacbio.dir, "OTU_table.txt")
+
+iontorrent.dir <- file.path(data.dir, "IonTorrent")
+iontorrent.otu.file <- file.path(iontorrent.dir, "OTU_,matrix.txt")
+```
+
+Load the soil chemistry data
+```{r}
+soils <- read_tsv(soils.file, locale = locale(decimal_mark = ",")) %>%
+  extract("Echantillon", into = c("Plot", "Sample", "Date"),
+          regex = "(V1P[123])T([0-9]+)-([0-9]{4}-[0-9]{1,2}-[0-9]{1,2})") %>%
+  mutate_at("Date", as.Date)
+```
+
+Load the data for the sample placements in the plates
+```{r}
+plate <- read_xlsx(plate.file, "Concentration samples", skip = 1, col_names = TRUE) %>%
+  rename(Comment = X__1, Well = row) %>%
+  select (-X__2)
+
+```
+
+
+Load the IonTorrent OTU table
+```{r}
+ion.otu <- read_tsv(iontorrent.otu.file) %>%
+  column_to_rownames("OTU") %>%
+  as.matrix
+```
+
+```{r}
+pb.otu <- read_tsv(pacbio.otu.file)
+
+pb.otumatrix <- pb.otu %>%
+  select(Group:H7) %>%
+  column_to_rownames("Group") %>%
+  as.matrix
+```
+
