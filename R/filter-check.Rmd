@@ -1,0 +1,76 @@
+---
+title: "Filter check"
+output: beamer_presentation
+---
+
+```{r setup}
+source("install_packages.R")
+
+library(magrittr)
+library(tidyverse)
+library(glue)
+library(Biostrings)
+library(ShortRead)
+library(ggplot2)
+
+if (interactive()) {
+  base.dir <- getwd() %>%
+    str_extract(".*oueme-fungi-transect")
+  data.dir <- file.path(base.dir, "data")
+  lab.dir <- file.path(data.dir, "lab_setup")
+  gits7.file <- file.path(lab.dir, "Hectors tag primer plates.xlsx")
+  its1.lr5.file <- file.path(lab.dir, "Brendan soil2.xlsx")
+  tag.files <- list.files(file.path(lab.dir, "tags"), ".+\\.fasta", full.names = TRUE)
+  pacbio.dir <- file.path(data.dir, "PacBio")
+  pacbio.fastq.files <- list.files(pacbio.dir, "\\.fastq\\.gz", full.names = TRUE)
+  in.name <- "pb_500_001"
+  in.fastq <- file.path(pacbio.dir, "pb_500_001.reads_of_insert.fastq.gz")
+  in.fwd <- str_replace(in.fastq, fixed(".fastq.gz"), ".gits7.blast")
+  in.rev <- str_replace(in.fastq, fixed(".fastq.gz"), ".primer.blast")
+  out.fastq <- str_replace(in.fastq, fixed(".fastq.gz"), ".demux.fastq.gz")
+  out.groups <- str_replace(in.fastq, fixed(".fastq.gz"), ".groups")
+  platekey <- file.path(lab.dir, "gITS7_platekey.csv")
+  plate <- "short_002"
+}
+```
+
+```{r}
+fastq <- readFastq(out.fastq)
+qual <- tibble(
+  eexp = 10^(-1 * as(fastq@quality, "matrix")/10) %>%
+  rowSums(na.rm = TRUE),
+  length = width(fastq),
+  erate = eexp/length)
+
+ggplot(qual, aes(x = erate)) +
+  stat_ecdf(geom = "step") +
+  scale_x_log10(name = "Expected number of errors per base") +
+  scale_y_continuous(name = "Fraction passing")
+
+ggplot(qual, aes(x = eexp)) +
+  stat_ecdf(geom = "step") +
+  scale_x_log10(name = "Expected number of errors") +
+  scale_y_continuous(name = "Fraction passing")
+
+ggplot(qual, aes(x = length)) +
+  stat_ecdf(geom = "step") +
+  scale_x_log10(name = "Length (bp)") +
+  scale_y_continuous(name = "Fraction Greater than length")
+  
+```
+
+```{r}
+fastq@sread[width(fastq)>3000] %>% as.character
+```
+
+
+```{r}
+library(dada2)
+out2.fastq <- str_replace(out.fastq, fixed(".fastq"), ".trim.fastq")
+filterAndTrim(out.fastq, out2.fastq, maxLen = 2999)
+derep <- derepFastq(out2.fastq)
+
+err <- learnErrors(derep, errorEstimationFunction = dada2:::PacBioErrfun, multithread = TRUE)
+dd <- dada(derep, err = err, BAND_SIZE=32, multithread = TRUE)
+```
+

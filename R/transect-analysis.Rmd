@@ -2,67 +2,705 @@
 title: "Upper Ouémé Forest Fungi -- Soil Transect Analysis"
 author: "Brendan Furneaux"
 date: '`r paste0("October 10, 2018; Last modified ", strftime(file.mtime(knitr::current_input()), "%B %d, %Y"))`'
-output: html_document
+output:
+  beamer_presentation:
+    keep_tex: TRUE
+  bookdown::pdf_document2:
+    keep_tex: TRUE
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-Load libraries.
-```{r}
+knitr::opts_chunk$set(echo = FALSE, fig.width = 5, fig.height = 5)
 library(magrittr)
 library(tidyverse)
 library(readxl)
+library(rwantshue)
+colorscheme <- iwanthue(seed=12, force_init = TRUE)
+doctype <- knitr::opts_knit$get("rmarkdown.pandoc.to")
+
+if (! is.null(doctype) && doctype == "beamer") {
+  knitr::opts_chunk$set(message = FALSE, warning = FALSE, out.width = "100%", fig.height = 4, fig.width = 8)
+}
 ```
 
-Define the required files.
-```{r}
+# Doctype
+
+Doctype is `r doctype`.
+
+```{r include = FALSE}
 base.dir <- str_extract(getwd(), ".+oueme-fungi-transect")
 data.dir <- file.path(base.dir, "data")
 soils.dir <- file.path(data.dir, "soils")
 soils.file <- file.path(soils.dir, "transectsoil_corrected.csv")
 
 lab.dir <- file.path(data.dir, "lab_setup")
-plate.file <- file.path(lab.dir, "Brendan soil.xlsx")
+plate.file <- file.path(lab.dir, "Brendan_soil.xlsx")
+tags.file <- file.path(lab.dir, "Hectors_tag_primer_plates.xlsx")
 
 pacbio.dir <- file.path(data.dir, "PacBio")
-pacbio.otu.file <- file.path(pacbio.dir, "OTU_table.txt")
+pacbio.otu.file <- file.path(pacbio.dir, "PACBIO_OTU_table.xlsx")
+pacbio.funguild.file <- file.path(pacbio.dir, "PacBio_FUNGuild_in.guilds.web.txt")
+pacbio.group.files <- list.files(pacbio.dir, "*.groups")
 
 iontorrent.dir <- file.path(data.dir, "IonTorrent")
-iontorrent.otu.file <- file.path(iontorrent.dir, "OTU_,matrix.txt")
+iontorrent.otu.file <- file.path(iontorrent.dir, "higherLvl", "OTU.txt")
+iontorrent.classification.file <- file.path(iontorrent.dir, "hiera_BLAST.txt")
+iontorrent.funguild.file <- file.path(iontorrent.dir, "IonTorrent_FUNGuild.guilds.txt")
+iontorrent.repseq.file <- file.path(iontorrent.dir, "Otus_rep_seqs.fa")
 ```
 
-Load the soil chemistry data
+
 ```{r}
+# Load the soil chemistry data
 soils <- read_tsv(soils.file, locale = locale(decimal_mark = ",")) %>%
   extract("Echantillon", into = c("Plot", "Sample", "Date"),
           regex = "(V1P[123])T([0-9]+)-([0-9]{4}-[0-9]{1,2}-[0-9]{1,2})") %>%
   mutate_at("Date", as.Date)
 ```
 
-Load the data for the sample placements in the plates
+
 ```{r}
+# Load the data for the sample placements in the plates
+
+true_tags <- read_xlsx(plate.file, "Taggar fITS7", skip = 1) %>%
+  map(list(1:3, 5:7, 9:11), ~ select(.y, !!.x), .) %>%
+  map_dfr(set_names, c("Well", "No", "Tag"))
+
+wrong_tags <- read_xlsx(tags.file, skip = 1) %>%
+  select(Well = LOCATION, oligoname) %>%
+  mutate(Tag = str_replace(oligoname, "gITS7mod-", "") %>% as.numeric)
+
+well_key <- wrong_tags %>%
+  left_join(select(true_tags, Tag, True_Well = Well))
+
 plate <- read_xlsx(plate.file, "Concentration samples", skip = 1, col_names = TRUE) %>%
   rename(Comment = X__1, Well = row) %>%
-  select (-X__2)
+  select (-X__2) %>%
+  # Sample number consists of site, location along transect, and possible qualifier
+  tidyr::extract("Sample", c("Site", "X", "Qual"), "(V1P[13]|T[12])[ -][ST](\\d+)(\\D*)$") %>%
+  mutate_at("X", as.integer) %>%
+  # Sites were recorded differently in the two years
+  mutate(Site = case_when(Site == "V1P1" ~ "Ang",
+                          Site == "V1P3" ~ "Gan",
+                          Site == "T1" ~ "Gan",
+                          Site == "T2" ~ "Ang",
+                          TRUE ~ NA_character_)) %>%
+  # For some site/years, coordinates were measured from the edge of the plot rather than numbered from 1--25 
+  group_by(Year, Site) %>%
+  mutate(X = X - if (!any(is.na(X)) && max(X) > 25) 12 else 0) %>%
+  ungroup %>%
+  tidyr::extract("Well", c("Row", "Column"), "([A-H])(\\d+)", remove = FALSE) %>%
+  mutate_at("Row", factor, levels = LETTERS) %>%
+  mutate_at(c("Column", "Row"), as.integer) %>%
+  mutate(sample_type = factor(Comment, levels = c("Blank", "Pos", "Pos. Kontroll")) %>%
+           fct_collapse(Blank = "Blank", Pos = c("Pos", "Pos. Kontroll")) %>%
+           fct_explicit_na("Sample"))
 
+
+
+plate %>% group_by(Year, Site) %>%
+  summarize_at("X", c("min", "max"))
 ```
 
 
-Load the IonTorrent OTU table
+
 ```{r}
+# Load the IonTorrent OTU table
 ion.otu <- read_tsv(iontorrent.otu.file) %>%
+  mutate(n_reads = rowSums(select_if(., is_numeric))) %>%
+  left_join(read_tsv(iontorrent.classification.file)) %>%
+  select(-matches("[A-H]\\d+"), -contains("ITS")) %>%
+  left_join(read_tsv(iontorrent.funguild.file) %>% rename(OTU = Group)) %>%
+  select(-matches("[A-H]\\d+"), -contains("ITS")) %>%
+  rename(Kingdom = Domain) %>%
+  dplyr::mutate_at(dplyr::vars(Phylum:Species), dplyr::na_if, "?") %>%
+  dplyr::mutate_at(dplyr::vars(Phylum:Species), dplyr::na_if, "unidentified") %>%
+  
+  # make "unident." as informative as possible
+  dplyr::mutate_at("Kingdom", replace_na, "unident.") %>%
+  dplyr::mutate(Phylum = ifelse(is.na(Phylum),
+                                ifelse(is.na(Kingdom),
+                                       NA_character_,
+                                       paste0("unident. ", Kingdom)),
+                                Phylum),
+                Class = ifelse(is.na(Class),
+                                ifelse(is.na(Phylum),
+                                       NA_character_,
+                                       paste0("unident. ", Phylum)),
+                                Class),
+                Order = ifelse(is.na(Order),
+                                ifelse(is.na(Class),
+                                       NA_character_,
+                                       paste0("unident. ", Class)),
+                                Order),
+                Family = ifelse(is.na(Family),
+                                ifelse(is.na(Order),
+                                       NA_character_,
+                                       paste0("unident. ", Order)),
+                                Family),
+                Genus = ifelse(is.na(Genus),
+                                ifelse(is.na(Family),
+                                       NA_character_,
+                                       paste0("unident. ", Family)),
+                                Genus),
+                Species = ifelse(is.na(Species),
+                                ifelse(is.na(Genus),
+                                       NA_character_,
+                                       paste0(Genus, " sp.")),
+                                Species)) %>%
+  mutate_at(dplyr::vars(Kingdom:Species),
+            str_replace,
+            "(unident\\. )*unident(ified|\\.)",
+            "ZZZZunident.") %>%
+  
+  # Sort taxonomically. Put the "unident." at the end
+  arrange(Kingdom, Phylum, Class, Order, Family, Genus, Species) %>%
+  mutate_at(dplyr::vars(Kingdom:Species),
+            str_replace,
+            "ZZZZ",
+            "") %>%
+  
+  # Add the representative sequence for each OTU and calculate the length
+  left_join(
+    seqinr::read.fasta(file = iontorrent.repseq.file, as.string = TRUE) %>%
+    { tibble(OTU = names(.),
+             RepSeq = unlist(.),
+             SeqLen = str_length(RepSeq)) }) %>%
+  
+  # Remove the positive control
+  filter(is.na(Species) | Species != "Agaricus bisporus") %>%
+  
+  # Keep the data in this order.
+  mutate_at(dplyr::vars(Kingdom:Species),
+            ~ factor(.) %>% fct_inorder)
+  
+
+ion.platemap <- read_tsv(iontorrent.otu.file) %>%
   column_to_rownames("OTU") %>%
-  as.matrix
+  as.matrix %>%
+  colSums %>%
+  tibble(Well = names(.), n_reads = .) %>%
+  mutate_at("Well", plyr::mapvalues, well_key$Well, well_key$True_Well, FALSE) %>%
+  full_join(plate %>%
+              select(Plate, Well, sample_type) %>%
+              full_join(
+                expand.grid(Plate = 1:2,
+                            Row = LETTERS[1:8],
+                            Column = 1:12) %>%
+                  tidyr::unite(Well, Row, Column, sep = ""))) %>%
+  mutate(Plate = "IonTorrent") %>%
+  mutate_at("sample_type", fct_explicit_na, "None") %>%
+  group_by_if(~ !is.factor(.)) %>%
+  summarize(sample_type = paste(as.character(sort(unique(sample_type))), collapse = "/")) %>%
+  ungroup %>%
+  mutate(f_reads = n_reads / max(n_reads)) %>%
+  tidyr::extract("Well", c("Row", "Column"), "([A-H])(\\d+)") %>%
+  mutate_at("Row", factor, levels = LETTERS) %>%
+  mutate_at(c("Column", "Row"), as.integer)
 ```
 
-```{r}
-pb.otu <- read_tsv(pacbio.otu.file)
+# Demultiplexing
+
+\tiny
+
+We used a forward primer which included the forward IonTorrent sequencing adapter and an index, which distinguishes the well the sample was place in in the plate.
+
+\center
+
+```{tikz out.width = "60%"}
+\begin{tikzpicture}[line width=7]
+
+\newcommand{\fadapt}{\draw[red] (start) -- node[midway, below]{fwd adapter}  ++(3, 0) coordinate (start);}
+\newcommand{\well}{\draw[blue] (start) -- node[midway, above]{well index}  ++(1, 0) coordinate (start);}
+\newcommand{\gITS}{\draw[black!30!green] (start) -- node[midway, below]{gITS7}  ++(1.5, 0) coordinate (start);}
+\newcommand{\seq}{\draw[black] (start) -- ++(1, 0) coordinate (start);
+\draw[black, dotted] (start) -- node[midway, below]{sequence} ++(2,0) coordinate(start);
+\draw[black] (start) -- ++(1,0) coordinate (start);}
+\newcommand{\ITS}{\draw[cyan] (start) -- node[midway, below]{ITS4}  ++(1.5, 0) coordinate (start);}
+\newcommand{\plate}{\draw[orange!40!yellow] (start) -- node[midway, above]{plate index}  ++(1, 0) coordinate (start);}
+
+\newcommand{\radapt}{\draw[pink] (start) -- node[midway, below]{rev adapter}  ++(3, 0) coordinate (start);}
+
+\newcommand{\fprimer}{\coordinate (pstart) at (start);
+\fadapt
+\well
+\gITS
+\coordinate (end) at (start);
+\path (end) ++(0,0.75) coordinate (end);
+\draw[line width = 2, dashed, |-|] (pstart) ++(0, 0.75) -- node[midway, above]{fwd primer}  (end);}
+
+\newcommand{\rprimer}{\coordinate (pstart) at (start);
+\ITS
+\coordinate (end) at (start);
+\path (end) ++(0,0.751) coordinate (end);
+\draw[line width = 2, dashed, |-|] (pstart) ++(0,0.75) -- node[midway, above]{rev primer}  (end);}
+
+
+
+\coordinate (start) at (0,0);
+\fprimer
+\seq
+\rprimer
+\end{tikzpicture}
+```
+
+# Demultiplexing
+
+\tiny
+
+Because we had more than 96 samples, we used two plates.  The same indexes were used for both plates.
+
+During IonTorrent library prep, sequencing adapters were ligated on to the amplicons.  The forward adapters included index barcodes to distinguish the two plates.  The orientation of the adapters was presumably random with respect to our amplicons.
+
+\center
+
+```{tikz out.width = "60%"}
+\begin{tikzpicture}[line width=7]
+
+\newcommand{\fadapt}{\draw[red] (start) -- node[midway, below]{fwd adapter}  ++(3, 0) coordinate (start);}
+\newcommand{\well}{\draw[blue] (start) -- node[midway, above]{well index}  ++(1, 0) coordinate (start);}
+\newcommand{\gITS}{\draw[black!30!green] (start) -- node[midway, below]{gITS7}  ++(1.5, 0) coordinate (start);}
+\newcommand{\seq}{\draw[black] (start) -- ++(1, 0) coordinate (start);
+\draw[black, dotted] (start) -- node[midway, below]{sequence} ++(2,0) coordinate(start);
+\draw[black] (start) -- ++(1,0) coordinate (start);}
+\newcommand{\ITS}{\draw[cyan] (start) -- node[midway, below]{ITS4}  ++(1.5, 0) coordinate (start);}
+\newcommand{\plate}{\draw[orange!40!yellow] (start) -- node[midway, above]{plate index}  ++(1, 0) coordinate (start);}
+
+\newcommand{\radapt}{\draw[pink] (start) -- node[midway, below]{rev adapter}  ++(3, 0) coordinate (start);}
+
+\newcommand{\fprimer}{\coordinate (pstart) at (start);
+\fadapt
+\well
+\gITS
+\coordinate (end) at (start);
+\path (end) ++(0,0.75) coordinate (end);
+\draw[line width = 2, dashed, |-|] (pstart) ++(0, 0.75) -- node[midway, above]{fwd primer}  (end);}
+
+\newcommand{\rprimer}{\coordinate (pstart) at (start);
+\ITS
+\coordinate (end) at (start);
+\path (end) ++(0,0.751) coordinate (end);
+\draw[line width = 2, dashed, |-|] (pstart) ++(0,0.75) -- node[midway, above]{rev primer}  (end);}
+
+
+
+\coordinate (start) at (0,0);
+\fprimer
+\seq
+\rprimer
+
+\coordinate (start) at (-4, -4);
+\fadapt\plate\fprimer\seq\rprimer\radapt
+
+\coordinate (start) at (-3, -6.5);
+\radapt\fprimer\seq\rprimer\plate\fadapt
+\end{tikzpicture}
+```
+
+# Demultiplexing
+
+\tiny
+
+Prior to sequencing, IonTorrent uses surface-bound amplification to cover beads with many copies of the same sequence.  The forward adapter binds to the surface.
+
+Our samples all contained two copies of the forward adapter.  Which one was used in each amplification step is random, but over the course of the entire amplification, the ones which result in shorter amplicons should be favored.
+
+\center 
+
+```{tikz out.width = "60%"}
+\begin{tikzpicture}[line width=7]
+
+\newcommand{\fadapt}{\draw[red] (start) -- node[midway, below]{fwd adapter}  ++(3, 0) coordinate (start);}
+\newcommand{\well}{\draw[blue] (start) -- node[midway, above]{well index}  ++(1, 0) coordinate (start);}
+\newcommand{\gITS}{\draw[black!30!green] (start) -- node[midway, below]{gITS7}  ++(1.5, 0) coordinate (start);}
+\newcommand{\seq}{\draw[black] (start) -- ++(1, 0) coordinate (start);
+\draw[black, dotted] (start) -- node[midway, below]{sequence} ++(2,0) coordinate(start);
+\draw[black] (start) -- ++(1,0) coordinate (start);}
+\newcommand{\ITS}{\draw[cyan] (start) -- node[midway, below]{ITS4}  ++(1.5, 0) coordinate (start);}
+\newcommand{\plate}{\draw[orange!40!yellow] (start) -- node[midway, above]{plate index}  ++(1, 0) coordinate (start);}
+
+\newcommand{\radapt}{\draw[pink] (start) -- node[midway, below]{rev adapter}  ++(3, 0) coordinate (start);}
+
+\newcommand{\fprimer}{\coordinate (pstart) at (start);
+\fadapt
+\well
+\gITS
+\coordinate (end) at (start);
+\path (end) ++(0,0.75) coordinate (end);
+\draw[line width = 2, dashed, |-|] (pstart) ++(0, 0.75) -- node[midway, above]{fwd primer}  (end);}
+
+\newcommand{\rprimer}{\coordinate (pstart) at (start);
+\ITS
+\coordinate (end) at (start);
+\path (end) ++(0,0.751) coordinate (end);
+\draw[line width = 2, dashed, |-|] (pstart) ++(0,0.75) -- node[midway, above]{rev primer}  (end);}
+
+
+
+\coordinate (start) at (0,0);
+\fprimer
+\seq
+\rprimer
+
+\coordinate (start) at (-4, -4);
+\fadapt\plate\fprimer\seq\rprimer\radapt
+
+\coordinate (start) at (-3, -6.5);
+\radapt\fprimer\seq\rprimer\plate\fadapt
+
+\coordinate (start) at (0, -10.5);
+\fprimer\seq\rprimer\radapt
+
+\coordinate (start) at (0, -13);
+\fprimer\seq\rprimer\plate\fadapt
+\end{tikzpicture}
+```
+
+# Plates
+```{r platemap}
+pacbio.group.files %>%
+  file.path(pacbio.dir, .) %>%
+  map_dfr(read_csv) %>%
+  group_by(group) %>%
+  summarize(n_reads = n()) %>%
+  ungroup %>%
+  tidyr::extract(group, c("Plate", "Well"), "(\\w+_\\d+)_([A-H]\\d+)") %>%
+  tidyr::extract("Well", c("Row", "Column"), "([A-H])(\\d+)") %>%
+  mutate_at("Row", factor, levels = LETTERS) %>%
+  mutate_at(c("Column", "Row"), as.integer) %>%
+  group_by(Plate) %>%
+  mutate(f_reads = n_reads / max(n_reads)) %>%
+  ggplot(aes(Column, Row, size = f_reads)) + 
+  facet_wrap(facets = "Plate", ncol = 3) + 
+  # geom_raster(aes(fill = sample_type)) +
+  geom_point(aes(alpha = ifelse(f_reads > 0, 1, 0))) +
+  # scale_fill_discrete(name = "Type") +
+  scale_size(name = "Normalized\nReads", range = c(0.1, 3), trans = "log1p") +
+  scale_alpha(guide = FALSE) +
+  ggplot2::coord_equal() +
+  scale_y_reverse(breaks = 1:8, labels = LETTERS[1:8]) +
+  scale_x_continuous(breaks = 1:12, limits = c(0.5, 12.5)) +
+  # scale_fill_brewer(name = "", type = "qual", palette = 3) +
+  theme(legend.box = "vertical", legend.position = "bottom", legend.key.size = unit(4, "mm"))
+
+
+pb.otu <- read_excel(pacbio.otu.file)
 
 pb.otumatrix <- pb.otu %>%
-  select(Group:H7) %>%
   column_to_rownames("Group") %>%
-  as.matrix
+  select(A7_483_1:H7_483_1) %>%
+  as.matrix %>%
+  t %>%
+  as.tibble(rownames = "Sample") %>%
+  tidyr::extract("Sample", c("Well", "Plate"), regex = "([A-H]1?[0-9])_483_([12])", remove = FALSE) %>%
+  mutate_at("Plate", as.integer) %>%
+  mutate_at("Well", plyr::mapvalues, well_key$Well, well_key$True_Well, FALSE)
+
+pb.otumatrix %>%
+  full_join(plate %>% select(Plate, Well, sample_type)) %>%
+  tidyr::extract("Well", c("Row", "Column"), "([A-H])(\\d+)") %>%
+  mutate_at("Row", factor, levels = LETTERS) %>%
+  mutate_at(c("Column", "Row"), as.integer) %>%
+  mutate_at("Plate", paste, "PacBio") %>%
+  mutate(n_reads = rowSums(select(., starts_with("Otu")))) %>%
+  full_join(expand(., Row, Column, Plate)) %>%
+  mutate(n_reads = ifelse(is.na(n_reads), 0, n_reads)) %>%
+  group_by(Plate) %>%
+  mutate(f_reads = n_reads / max(n_reads),
+         sample_type = ifelse(is.na(sample_type), "None", as.character(sample_type))) %>%
+  ungroup %>%
+  select(Row, Column, Plate, n_reads, f_reads, sample_type) %>%
+  bind_rows(ion.platemap) %>%
+  mutate_at("sample_type", factor, levels = c("Sample", "Pos", "Blank", "Pos/Sample", "Blank/Sample", "Sample/None", "Pos/None", "Blank/None", "None")) %>%
+  
+  ggplot(aes(Column, Row, size = f_reads)) + 
+  facet_wrap(facets = "Plate", ncol = 3) + 
+  geom_raster(aes(fill = sample_type)) +
+  geom_point(aes(alpha = ifelse(f_reads > 0, 1, 0))) +
+  scale_fill_discrete(name = "Type") +
+  scale_size(name = "Normalized\nReads", range = c(0.1, 3), trans = "log1p") +
+  scale_alpha(guide = FALSE) +
+  ggplot2::coord_equal() +
+  scale_y_reverse(breaks = 1:8, labels = LETTERS[1:8]) +
+  scale_x_continuous(breaks = 1:12, limits = c(0.5, 12.5)) +
+  scale_fill_brewer(name = "", type = "qual", palette = 3) +
+  theme(legend.box = "vertical", legend.position = "bottom", legend.key.size = unit(4, "mm"))
 ```
 
+
+
+```{r}
+# Parse out the identification and classification
+pb.otu %<>% select(-(A1_483_1:`ITS1-4_500_1`)) %>%
+  #parse the name
+  dplyr::bind_cols(
+    stringr::str_split(.$X__2, stringr::fixed("|"), n = 5, simplify = TRUE) %>%
+      tibble::as_data_frame() %>%
+      set_names(c("Subject.Name", "Accession", "Species.Hypothesis",
+                  "Ref.Type", "Classification"))) %>%
+  tidyr::extract("Classification",
+                 c("Kingdom", "Phylum", "Class", "Order",
+                                 "Family", "Genus", "Species"),
+                 "k__(.+)_p__(.+)_c__(.+)_o__(.+)_f__(.+)_g__(.+)_s__(.+)") %>%
+  dplyr::select(-X__2) %>%
+  
+  # calculate the length of each sequence
+  dplyr::mutate(SeqLen = str_length(RepSeq)) %>%
+  
+  #change "unident." to NA
+  dplyr::mutate_at(dplyr::vars(Phylum:Species), dplyr::na_if, "unident.") %>%
+  # make "unident." as informative as possible
+  dplyr::mutate_at("Kingdom", replace_na, "unident.") %>%
+  dplyr::mutate(Phylum = ifelse(is.na(Phylum),
+                                ifelse(is.na(Kingdom),
+                                       NA_character_,
+                                       paste0("unident. ", Kingdom)),
+                                Phylum),
+                Class = ifelse(is.na(Class),
+                                ifelse(is.na(Phylum),
+                                       NA_character_,
+                                       paste0("unident. ", Phylum)),
+                                Class),
+                Order = ifelse(is.na(Order),
+                                ifelse(is.na(Class),
+                                       NA_character_,
+                                       paste0("unident. ", Class)),
+                                Order),
+                Family = ifelse(is.na(Family),
+                                ifelse(is.na(Order),
+                                       NA_character_,
+                                       paste0("unident. ", Order)),
+                                Family),
+                Genus = ifelse(is.na(Genus),
+                                ifelse(is.na(Family),
+                                       NA_character_,
+                                       paste0("unident. ", Family)),
+                                Genus),
+                Species = ifelse(is.na(Species),
+                                ifelse(is.na(Genus),
+                                       NA_character_,
+                                       paste0(Genus, " sp.")),
+                                Species)) %>%
+  mutate_at(dplyr::vars(Kingdom:Species),
+            str_replace,
+            "(unident\\. )*unident(ified|\\.)",
+            "ZZZZunident.") %>%
+  
+  # Sort taxonomically. Put the "unident." at the end
+  arrange(Kingdom, Phylum, Class, Order, Family, Genus, Species) %>%
+  mutate_at(dplyr::vars(Kingdom:Species),
+            str_replace,
+            "ZZZZ",
+            "") %>%
+  mutate_at(dplyr::vars(Kingdom:Species),
+            ~ factor(.) %>% fct_inorder) %>%
+  
+  # Remove the positive control
+  filter(is.na(Species) | Species != "Agaricus_bisporus") %>%
+  
+  # Add guild assignments
+  left_join(read_tsv(pacbio.funguild.file))
+  
+```
+
+
+```{r}
+# Parse the total sequence count
+pb.otu %<>%
+  rename(n_reads = `OTU_ID=seqs_no`) %>%
+  mutate_at("n_reads", str_replace, "Otu\\d+=", "") %>%
+  mutate_at("n_reads", as.integer)
+```
+
+```{r}
+all.otu <- bind_rows(
+  mutate(pb.otu, tech = "PacBio"),
+  mutate(ion.otu, tech = "IonTorrent")
+) %>%
+  mutate_at(dplyr::vars(Kingdom:Species),
+            str_replace,
+            "(unident\\. )*unident(ified|\\.)",
+            "ZZZZunident.") %>%
+  # Sort taxonomically. Put the "unident." at the end
+  arrange(Kingdom, Phylum, Class, Order, Family, Genus, Species) %>%
+  mutate_at(dplyr::vars(Kingdom:Species),
+            str_replace,
+            "ZZZZ",
+            "") %>%
+  mutate_at(dplyr::vars(Kingdom:Species),
+            ~ factor(.) %>% fct_inorder)
+```
+
+
+```{r}
+rand_palette <- partial(colorscheme$hex,
+                        color_space = hcl_presets$colorblind_friendly,
+                        force_mode = FALSE)
+```
+
+```{r}
+summarize_taxonomy <- function(data, band_rank, group_rank, ...,
+                               band_prop = 0.02, group_prop = 0.05, min_reads = 2,
+                               print.table = if (is.null(get0("doctype"))) TRUE else
+                                 if (doctype == "beamer") FALSE else
+                                   TRUE) {
+  band_rank <- ensym(band_rank)
+  group_rank <- ensym(group_rank)
+  classification <- tidyselect::vars_select(names(data), Kingdom:!!band_rank)
+  data <- filter(data, Kingdom != "", n_reads >= min_reads, ...)
+  data <- mutate_at(data, classification, fct_drop)
+  
+  # count the reads and OTUs for taxa at each rank
+  
+  if ("tech" %in% names(data)) data <- group_by(data, tech)
+  for(rank in classification) {
+    data <- group_by_at(data, rank, .add = TRUE)
+    data <-
+      mutate(data,
+             !!(glue::glue("{rank}.otus")) := n(),
+             !!(glue::glue("{rank}.reads")) := sum(n_reads))
+  }
+  class_counts <- glue::glue("{classification}.reads")
+  data <- group_by_at(data, class_counts, .add = TRUE)
+  data <- summarize(data,
+                    `# OTUs` = n(),
+                    `# reads` = sum(n_reads))
+  while(is_grouped_df(data)) data <- ungroup(data)
+  
+  # Order each rank by number of reads, with most reads first.
+  data <- arrange_at(data, class_counts, .funs = desc)
+  data <- mutate_at(data, classification, fct_inorder)
+  
+  # Print the data
+  if (print.table)
+    print(knitr::kable(select(data, one_of(classification), `# OTUs`, `# reads`),
+                       booktabs = TRUE))
+  
+  # Group taxa with a small fraction of the total OTUs and reads (on all techs) into "Other"
+  if ("tech" %in% names(data)) data <- group_by(data, tech)
+  
+  data <- mutate(data,
+                 total_OTUs = sum(`# OTUs`),
+                 total_reads = sum(`# reads`))
+  data <- group_by(data, !!group_rank, add = TRUE)
+  data <- mutate(data,
+                 group_OTUs = sum(`# OTUs`),
+                 group_reads = sum(`# reads`))
+  data <- group_by(data, !!band_rank, add = TRUE)
+  data <- mutate(data,
+                 band_OTUs = sum(`# OTUs`),
+                 band_reads = sum(`# reads`))
+  while(is_grouped_df(data)) data <- ungroup(data)
+  
+  data <- mutate_at(data, deparse(group_rank), as.character)
+  data <- group_by(data, !!group_rank)
+  data <- mutate(data,
+                 group_other = !any(group_OTUs >= group_prop * total_OTUs,
+                                     group_reads >= group_prop * total_reads))
+  data <- ungroup(data)
+  data <- mutate(data, !!group_rank := ifelse(group_other, "other", !!group_rank),
+                 !!band_rank := as.character(!!band_rank))
+  
+  data <- group_by_at(data, classification)
+  data <- mutate(data,
+                 band_other = !any(band_OTUs >= band_prop * total_OTUs,
+                                   band_reads >= band_prop * total_reads))
+  data <- ungroup(data)
+  data <- mutate(data, !!band_rank := ifelse(band_other, paste("other", !!group_rank), !!band_rank))
+  data <- mutate_at(data, deparse(band_rank), str_replace, "other( other)+", "other")
+  
+  
+  # data <- mutate_at(data, deparse(band_rank), fct_lump, w = data$`# OTUs`,
+  #                   prop = band_prop, other_level = "other")
+  # data <- mutate_at(data, deparse(group_rank), fct_lump, w = data$`# OTUs`,
+  #                   prop = group_prop, other_level = "other")
+  data <- mutate_at(data, classification, . %>% factor %>% fct_inorder)
+  
+  pal <- rand_palette(n = n_distinct(data[[deparse(band_rank)]]))
+  data <- tidyr::gather(data, key = "count", value = "value", "# OTUs", "# reads")
+  
+  p1 <- ggplot(data, aes(x = !!group_rank, y = value, fill = !!band_rank)) +
+    facet_wrap(facets = vars(count, tech), nrow = 2, scales = "free_y", labeller = label_wrap_gen(multi_line=FALSE)) +
+    geom_col(position = "stack") +
+    scale_x_discrete(deparse(group_rank), expand = c(0, 0)) +
+    scale_fill_manual(values = pal) +
+    theme(axis.text.x = element_text(angle = -20, vjust = 1, hjust = 0),
+          legend.position = "bottom", legend.text = element_text(size = 8),
+          legend.key.height = unit(5, "mm"))
+}
+```
+
+# High level taxonomic ID
+```{r, results='asis', fig.cap="OTU richness and read count for Phyla and Kingdoms, based on ITS2 metabarcoding"}
+#debugonce(summarize_taxonomy)
+summarize_taxonomy(all.otu, Phylum, Kingdom) + theme(legend.position = "right")
+```
+
+# Class-level Taxon ID
+```{r, results = 'asis', fig.cap="OTU richness and read count for Classes and Phyla, based on ITS2 metabarcoding"}
+summarize_taxonomy(all.otu, Class, Phylum) + theme(legend.position = "right")
+```
+
+# Order-level taxon ID
+
+```{r, results = 'asis', fig.cap="OTU richness and read count for Orders and Phyla, based on ITS2 metabarcoding"}
+summarize_taxonomy(all.otu, Order, Phylum) + theme(legend.position = "right")
+```
+
+# Genus-level taxon ID: Basidiomycota
+
+```{r, results='asis', fig.cap="OTU richness and read count for Orders and Genera in Basidiomycota, based on ITS2 metabarcoding"}
+summarize_taxonomy(all.otu, Genus, Order, Phylum == "Basidiomycota") + theme(legend.position = "right")
+```
+
+# Genus-level taxon ID: ECM
+
+```{r, results='asis', fig.cap="OTU richness and read count for Orders and Genera, probable ECM species only, based on FUNGuild assignment of OTUs from ITS2 metabarcoding"}
+summarize_taxonomy(all.otu, Genus, Order, str_detect(Guild, "Ectomycorrhizal")) + theme(legend.position = "right")
+```
+
+# Guild assignment
+```{r}
+all.otu %>%
+  rename(`# reads` = n_reads) %>%
+  mutate(`# OTUs` = 1) %>%
+  mutate_at("Guild", str_replace, "^-$", "unknown") %>%
+  mutate(Guild = fct_lump(Guild, prop = 0.02, w = `# reads`)) %>%
+  tidyr::gather(key = "count", value = "value", "# OTUs", "# reads") %>%
+  ggplot(aes(x = Guild, y = value, fill = Guild)) +
+    facet_wrap(facets = vars(count, tech), nrow = 2, scales = "free_y") +
+    geom_col(position = "stack") +
+    scale_x_discrete("Guild", expand = c(0, 0)) +
+    scale_fill_discrete( guide = "none") +
+    theme(axis.text.x = element_text(angle = -20, vjust = 1, hjust = 0), legend.position = "bottom")
+```
+
+# Genus-level ID: Saprotrophs
+```{r, results='asis', fig.cap="OTU richness and read count for Orders and Genera in Basidiomycota, based on short-read PacBio data"}
+summarize_taxonomy(all.otu, Genus, Order, str_detect(Guild, "Undefined Saprotroph")) + theme(legend.position = "right")
+```
+
+# Sequence length distribution
+
+```{r fig.width = 5, fig.height = 3}
+ ggplot(all.otu, aes(SeqLen, ..density.., weight = n_reads, group = tech, color = tech)) +
+  geom_freqpoly() +
+  # facet_wrap(facets = vars(tech)) +
+  scale_y_log10(name = "fraction of reads (log scale)") +
+  scale_x_continuous(name = "Sequence length") +
+  guides(color = guide_legend(direction = "horizontal", title = NULL)) +
+  theme(legend.position = "bottom")
+```
+
+# Taxon ID: short PacBio sequences
+```{r, results='asis', fig.cap="OTU richness and read count for Orders and Genera, representative sequence < 100bp"}
+summarize_taxonomy(all.otu, Genus, Order, SeqLen < 100) + theme(legend.position = "right")
+```
+
+# Taxon ID: long PacBio sequences
+\tiny
+```{r, results='asis', fig.cap="OTU richness and read count for Orders and Genera, probable ECM species only, based on FUNGuild assignment of OTUs from ITS2 metabarcoding"}
+all.otu %>% filter(SeqLen > 350) %>%
+  select(Group, n_reads, SeqLen, Order:Species) %>%
+  knitr::kable(booktabs = TRUE)
+```

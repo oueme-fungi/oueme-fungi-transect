@@ -1,0 +1,58 @@
+\begin{tikzpicture}[line width=5]
+
+\newcommand{\fadapt}{\draw[red] (start) -- node[midway, below]{fwd adapter}  ++(3, 0) coordinate (start);}
+\newcommand{\well}{\draw[blue] (start) -- node[midway, above]{well index}  ++(1, 0) coordinate (start);}
+\newcommand{\gITS}{\draw[black!30!green] (start) -- node[midway, below]{gITS7}  ++(1.5, 0) coordinate (start);}
+\newcommand{\seq}{\draw[black] (start) -- ++(1, 0) coordinate (start);
+\draw[black, dotted] (start) -- node[midway, below]{sequence} ++(2,0) coordinate(start);
+\draw[black] (start) -- ++(1,0) coordinate (start);}
+\newcommand{\ITS}{\draw[cyan] (start) -- node[midway, below]{ITS4}  ++(1.5, 0) coordinate (start);}
+
+
+
+\coordinate (start) at (3,3);
+\fadapt
+\well
+\gITS
+\seq
+\ITS4
+
+\draw[line width = 5, red] (0,0) -- node[midway, below]{fwd adapter} (3,0);
+\draw[line width = 5, blue] ++(0,0) -- node[midway,above]{well index} ++(1,0);
+\draw[line width = 5, black!30!green] (4,0) -- node[midway, below]{gITS7} (5.5,0);
+\draw[line width = 5] (5.5,0) -- (6.5,0);
+\draw[line width = 5, dotted](6.5,0) -- node[midway, below]{sequence} (9,0);
+\draw[line width = 5] (9,0) -- (10,0);
+\draw[line width = 5, cyan] (10,0) -- node[midway, below]{ITS4} (11.5,0);
+%\draw[line width = 5, purple] (11.5,0) -- node[midway, below]{rev adapter} (14.5,0);
+\draw (0,0.5) -- (0,1) -- node[midway, above]{fwd primer}(5.5,1) -- (5.5, 0.5);
+\draw (10,0.5) -- (10,1) -- node[midway, above]{rev primer}(11.5,1) -- (11.5, 0.5);
+
+\draw[line width = 5, red] (-4,-3) -> node[midway, below]{fwd adapter} (-1,-3);
+\draw[line width = 5, black!20!yellow] (-1,-3) -- node[midway,above]{plate index}(0,-3);
+\draw[line width = 5, red] (0,-3) -- node[midway, below]{fwd adapter} (3,-3);
+\draw[line width = 5, blue] (3,-3) -- node[midway,above]{well index}(4,-3);
+\draw[line width = 5, black!30!green] (4,-3) -- node[midway, below]{gITS7} (5.5,-3);
+\draw[line width = 5] (5.5,-3) -- (6.5,-3);
+\draw[line width = 5, dotted](6.5,-3) -- node[midway, below]{sequence} (9,-3);
+\draw[line width = 5] (9,-3) -- (10,-3);
+\draw[line width = 5, cyan] (10,-3) -- node[midway, below]{ITS4} (11.5,-3);
+\draw[line width = 5, orange] (11.5,-3) -> node[midway, below]{rev adapter} (14.5,-3);
+%\draw[line width = 5, purple] (11.5,0) -- node[midway, below]{rev adapter} (14.5,0);
+\draw (0,-2.25) -- (0,-2) -- node[midway, above]{fwd primer}(5.5,-2) -- (5.5, -2.25);
+\draw (10,-2.25) -- (10,-2) -- node[midway, above]{rev primer}(11.5,-2) -- (11.5, -2.25);
+
+\draw[line width = 5, red] (-4,-3 - 3) -> node[midway, below]{fwd adapter} (-1,-3- 3);
+\draw[line width = 5, black!20!yellow] (-1,-3- 3) -- node[midway,above]{plate index}(0,-3- 3);
+\draw[line width = 5, red] (11.5-0,-3- 3) -- node[midway, below]{fwd adapter} (11.5-3,-3- 3);
+\draw[line width = 5, blue] (11.5-3,-3- 3) -- node[midway,above]{well index}(11.5-4,-3- 3);
+\draw[line width = 5, black!30!green] (11.5-4,-3- 3) -- node[midway, below]{gITS7} (11.5-5.5,-3- 3);
+\draw[line width = 5] (11.5-5.5,-3- 3) -- (11.5-6.5,-3- 3);
+\draw[line width = 5, dotted](11.5-6.5,-3- 3) -- node[midway, below]{sequence} (11.5-9,-3- 3);
+\draw[line width = 5] (11.5-9,-3- 3) -- (11.5-10,-3- 3);
+\draw[line width = 5, cyan] (11.5-10,-3- 3) -- node[midway, below]{ITS4} (11.5-11.5,-3- 3);
+\draw[line width = 5, orange] (11.5,-3- 3) -> node[midway, below]{rev adapter} (14.5,-3- 3);
+%\draw[line width = 5, purple] (11.5,0) -- node[midway, below]{rev adapter} (14.5,0);
+\draw (11.5-0,-2.25- 3) -- (11.5-0,-2- 3) -- node[midway, above]{fwd primer}(11.5-5.5,-2- 3) -- (11.5-5.5, -2.25- 3);
+\draw (11.5-10,-2.25- 3) -- (11.5-10,-2- 3) -- node[midway, above]{rev primer}(11.5-11.5,-2- 3) -- (11.5-11.5, -2.25- 3);
+\end{tikzpicture}

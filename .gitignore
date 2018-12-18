@@ -3,3 +3,9 @@
 .RData
 .Ruserdata
 *.xlsx#
+*.Rout
+*-tikzDictionary
+*.demux.*
+*.blast
+*.groups
+demux.make

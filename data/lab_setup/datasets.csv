@@ -1,0 +1,3 @@
+Dataset,Seq.Run,Forward,Reverse,PlateKey,SampleKey.File,SampleKey.Sheet
+short,pb_483,gits7,its4,gITS7_platekey.csv,Brendan_soil.xlsx,Concentration samples
+long,pb_500,its1,lr5,ITS1_LR5_platekey.csv,Brendan_soil2.xlsx,Concentration samples
