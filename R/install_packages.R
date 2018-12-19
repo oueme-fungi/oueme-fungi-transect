@@ -34,6 +34,7 @@ lapply(c("ShortRead",
        force.install = force.install)
 
 lapply(c("benjjneb/dada2",
-         "hoesler/rwantshue"),
+         "hoesler/rwantshue",
+         "mhahsler/rBLAST"),
        maybe.install.Git,
        force.install = force.install)

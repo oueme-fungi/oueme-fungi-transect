@@ -19,13 +19,24 @@ if (interactive()) {
   demux.dir <- file.path(data.dir, "demultiplex")
   plate.dir <- file.path(demux.dir, dset)
   target <- file.path(plate.dir, paste0(plate, "_A1.fasta.gz"))
+} else {
+  in.groups <- str_subset(prereqs, "\\.groups")
+  in.fastq <- str_subset(prereqs, "\\.fastq\\.gz")
 }
+stopifnot(file.exists(in.groups),
+          file.exists(in.fastq))
 
 the_group <- str_replace(target, fixed(".fasta.gz"), "") %>%
   basename
-fastq <- readFastq(in.fastq)
 groups <- read_csv(in.groups) %>%
   filter(group == the_group)
 if (!dir.exists(dirname(target))) dir.create(dirname(target), recursive = TRUE)
-fastq %>% magrittr::extract(as.character(.@id) %in% groups$qseqid) %>%
-  writeFastq(file = target)
+if (file.exists(target)) {
+  file.remove(target)
+}
+file.create(target)
+fastq <- FastqStreamer(in.fastq)
+while (length(fq <- yield(fastq))) {
+  fq %>% magrittr::extract(as.character(.@id) %in% groups$qseqid) %>%
+    writeFastq(file = target, mode = "a")
+}

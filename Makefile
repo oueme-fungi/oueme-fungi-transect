@@ -3,9 +3,10 @@
 SHELL=/bin/bash
 
 # Set up directory and file names
-BASEDIR != pwd
+BASEDIR != $(shell pwd)
 
 DATADIR=${BASEDIR}/data
+SEQDIR=${BASEDIR}/raw_data
 DEMUXDIR=${DATADIR}/demultiplex
 LABDIR=$(DATADIR)/lab_setup
 PACBIODATA=${DATADIR}/PacBio
@@ -24,11 +25,13 @@ OPT = --vanilla -q
 # default variables for R
 RVARS = base.dir <- '${BASEDIR}'; \
         data.dir <- '$(DATADIR)'; \
+        seq.dir <- '$(SEQDIR)'; \
         lab.dir <- '$(LABDIR)'; \
         gits7.file <- '$(GITS7_TAGFILE)'; \
         its1.lr5.file <- '$(LR5_TAGFILE)'; \
         tags.dir <- '$(TAG_ROOT)'; \
-        dataset.file <- '$(DATASET)';
+        dataset.file <- '$(DATASET)'; \
+        stem <- '$*';
 # Command to knit an Rmarkdown file
 RMD = cd $(<D) && R $(ROPT) -e "require(rmarkdown); $(RVARS) render('$(<F)', output_format = 'pdf_document', output_dir = '../output')"
 # command to run an R script
@@ -75,6 +78,10 @@ demux.make : make_demux.R $(DATASET)
 
 include demux.make
 
+# make a .fasta.gz from a .bam
+%.fasta.gz : %.bam
+	samtools fastq $< -0 $@
+
 # make a blast database from a fasta file
 %.nhr %.nin %.nsq : %.fasta
 	makeblastdb -in $< -out $* -dbtype nucl
@@ -94,11 +101,11 @@ include demux.make
 	$(TAGBLAST)
 
 # demultiplex 
-
-%.groups %.demux.fastq.gz : demultiplex_all.R %.fastq.gz
+# additional prerequisites are added in demux.make
+%.groups %.demux.fastq.gz : demultiplex_all.R
 	$(R)
 
-$(DEMUXDIR)/%.fasta.gz : demultiplex_one.R $(DATASET)
+%.group.fasta.gz : demultiplex_one.R $(DATASET)
 	mkdir -p $(dir $@)
 	$(R)
 
@@ -110,11 +117,6 @@ $(DEMUXDIR)/%.fasta.gz : demultiplex_one.R $(DATASET)
 # blast a fastq.gz file against the reference (taxonomy) database
 %.blast : %.fastq.gz $(REF_ROOT).nhr \
           $(REF_ROOT).nin $(REF_ROOT).nsq
-	gzip -dc $< | \
-	paste - - - - | \
-	cut -f 1,2 | \
-	tr "\t" "\n" | \
-	sed "s/^@/>/" | \
 	$(TAGBLAST)
 
 # convert a fastq.gz file to fasta; (don't) rename the sequences to be the file name plus an index
@@ -129,13 +131,14 @@ $(DEMUXDIR)/%.fasta.gz : demultiplex_one.R $(DATASET)
 # generate fasta files of the (tagged) primers
 $(TAG_ROOT)/gits7.fasta : $(GITS7_TAGFILE)
 $(TAG_ROOT)/its4.fasta : $(GITS7_TAGFILE)
+$(TAG_ROOT)/gits7_ion.fasta : $(GITS7_TAGFILE)
 $(TAG_ROOT)/lr5.fasta : $(LR5_TAGFILE)
 $(TAG_ROOT)/its1.fasta : $(LR5_TAGFILE)
 $(TAG_ROOT)/%.fasta : %.extract.R
 	$(R)
 
 # the script for creating fasta files of the primers is the same for every set, it just looks at its own name to know what to do.
-$(BASEDIR)/R/%.extract.R : tags.extract.R
+%.extract.R : tags.extract.R
 	cd $(BASEDIR)/R && ln -s $< $@
 
-.PRECIOUS : %.fasta %.nin %.nhr %.nsq
+.PRECIOUS : %.fasta %.nin %.nhr %.nsq %.blast

@@ -13,10 +13,10 @@ if (interactive()) {
   gits7.file <- file.path(lab.dir, "Hectors_tag_primer_plates.xlsx")
   its1.lr5.file <- file.path(lab.dir, "Brendan_soil2.xlsx")
   tags.dir <- file.path(lab.dir, "tags")
-  which.tags = c("gits7", "its1", "lr5", "its5")
+  which.tags = c("gits7", "its1", "lr5", "its5", "gits7-ion")
 } else {
   which.tags = basename(sys.frame(1)$ofile) %>%
-    str_extract("(gits7|its1|lr5|its4)")
+    str_extract("(gits7(_ion)?|its1|lr5|its4)")
 }
 
 # given a DNA sequence including IUPAC ambiguous bases, give all possible realizations
@@ -72,6 +72,16 @@ if ("lr5" %in% which.tags) {
     mutate(object = paste0(pad, barcode, primer)) %>%
     select(object, name = oligoname)
 }
+# read the gITS7 tags, and remove sequencing adapter
+if ("gits7_ion" %in% which.tags) {
+  tags$gits7_ion <- read_xlsx(gits7.file, skip = 1)
+  
+  ionA <- tags$gits7_ion %>% filter(oligoname == "Ion-A") %$% sequence
+  tags$gits7_ion %<>%
+    mutate_at("sequence", str_replace, ionA, "") %>%
+    select(name = oligoname, object = sequence) %>%
+    filter(str_detect(name, "gITS7mod"))
+}
 
 # make the ambiguous bases explicit
 tags <- map(tags,
@@ -81,8 +91,6 @@ tags <- map(tags,
               mutate(v = seq_along(object)) %>%
               ungroup %>%
               tidyr::unite( "name", name, v, sep = "_v"))
-
-tags$primer
 
 # parse them and write output file(s)
 if (!dir.exists(tags.dir)) dir.create(tags.dir)

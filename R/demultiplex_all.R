@@ -7,6 +7,7 @@ library(seqinr)
 library(glue)
 library(Biostrings)
 library(ShortRead)
+library(rBLAST)
 
 seq_count <- function(data, description) {
   if ("sample" %in% names(data)){
@@ -29,21 +30,37 @@ if (interactive()) {
     str_extract(".*oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
   lab.dir <- file.path(data.dir, "lab_setup")
+  seq.dir <- file.path(base.dir, "raw_data")
+  dataset <- "short-ion"
+  seq.run <- "is_057"
+  fullstem <- file.path(seq.dir, dataset, seq.run)
+  in.fastq <- file.path(fullstem, "rawdata", "bc-subset", "IonXpress_001_rawlib.basecaller.fastq.gz")
+  
   gits7.file <- file.path(lab.dir, "Hectors tag primer plates.xlsx")
   its1.lr5.file <- file.path(lab.dir, "Brendan soil2.xlsx")
   tag.files <- list.files(file.path(lab.dir, "tags"), ".+\\.fasta", full.names = TRUE)
-  pacbio.dir <- file.path(data.dir, "PacBio")
-  pacbio.fastq.files <- list.files(pacbio.dir, "\\.fastq\\.gz", full.names = TRUE)
-  in.name <- "pb_483_001"
-  in.fastq <- file.path(pacbio.dir, "pb_483_001.reads_of_insert.fastq.gz")
-  in.fwd <- str_replace(in.fastq, fixed(".fastq.gz"), ".gits7.blast")
+  
+  in.fwd <- str_replace(in.fastq, fixed(".fastq.gz"), ".gits7_ion.blast")
   in.rev <- str_replace(in.fastq, fixed(".fastq.gz"), ".its4.blast")
   # in.mid <- str_replace(in.fastq, fixed(".fastq.gz"), ".its4.blast")
   out.fastq <- str_replace(in.fastq, fixed(".fastq.gz"), ".demux.fastq.gz")
   out.groups <- str_replace(in.fastq, fixed(".fastq.gz"), ".groups")
   platekey <- file.path(lab.dir, "gITS7_platekey.csv")
   plate <- "short_001"
+} else {
+  tag.files <- str_subset(prereqs, "tags.+\\.fasta")
+  in.fastq <- str_subset(prereqs, "\\.fastq\\.gz")
+  platekey <- str_subset(prereqs, "_platekey\\.csv")
+  out.fastq <- paste0(stem, ".demux.fastq.gz")
+  out.groups <- paste0(stem, ".groups")
 }
+
+stopifnot(file.exists(tag.files),
+          file.exists(in.fastq),
+          file.exists(in.fwd),
+          file.exists(in.rev),
+          file.exists(platekey),
+          !exists("in.mid") || file.exists(in.mid))
 
 tags <- map(tag.files, read.fasta) %>%
   flatten %>%
@@ -51,12 +68,6 @@ tags <- map(tag.files, read.fasta) %>%
           tag = getName(.),
           length = str_length(seq))} %>%
   unique
-
-stopifnot(file.exists(in.fastq),
-          file.exists(in.fwd),
-          file.exists(in.rev),
-          file.exists(platekey),
-          !exists("in.mid") || file.exists(in.mid))
 
 fastq <- readFastq(in.fastq)
 
