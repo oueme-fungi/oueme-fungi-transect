@@ -18,41 +18,37 @@ if (interactive()) {
     str_extract(".*oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
   lab.dir <- file.path(data.dir, "lab_setup")
-  gits7.file <- file.path(lab.dir, "Hectors tag primer plates.xlsx")
-  its1.lr5.file <- file.path(lab.dir, "Brendan soil2.xlsx")
-  tag.files <- list.files(file.path(lab.dir, "tags"), ".+\\.fasta", full.names = TRUE)
-  pacbio.dir <- file.path(data.dir, "PacBio")
-  pacbio.fastq.files <- list.files(pacbio.dir, "\\.fastq\\.gz", full.names = TRUE)
-  in.name <- "pb_500_001"
-  in.fastq <- file.path(pacbio.dir, "pb_500_001.reads_of_insert.fastq.gz")
-  in.fwd <- str_replace(in.fastq, fixed(".fastq.gz"), ".gits7.blast")
-  in.rev <- str_replace(in.fastq, fixed(".fastq.gz"), ".primer.blast")
-  out.fastq <- str_replace(in.fastq, fixed(".fastq.gz"), ".demux.fastq.gz")
-  out.groups <- str_replace(in.fastq, fixed(".fastq.gz"), ".groups")
-  platekey <- file.path(lab.dir, "gITS7_platekey.csv")
-  plate <- "short_002"
+  seq.dir <- file.path(base.dir, "raw_data")
+  dataset.file <- file.path(lab.dir, "datasets.csv")
+  datasets <- read_csv(dataset.file) %>%
+    mutate(demux.dir = file.path(seq.dir, Dataset, Seq.Run, "demultiplex"),
+           files = map(demux.dir, list.files, pattern = "*.fastq.gz",
+                       full.names = TRUE)) %>%
+    unnest() %>%
+    mutate(filesize = file.size(files)) %>%
+    filter(filesize > 0) %>%
+    mutate(fastq = map(files, readFastq),
+           eexp = map(fastq, ~ 10^(-1 * as(.@quality, "matrix")/10) %>%
+                        rowSums(na.rm = TRUE)),
+           length = map(fastq, width)) %>%
+    select(-fastq) %>%
+    unnest %>%
+    mutate(erate = eexp/length)
 }
 ```
 
 ```{r}
-fastq <- readFastq(out.fastq)
-qual <- tibble(
-  eexp = 10^(-1 * as(fastq@quality, "matrix")/10) %>%
-  rowSums(na.rm = TRUE),
-  length = width(fastq),
-  erate = eexp/length)
-
-ggplot(qual, aes(x = erate)) +
+ggplot(datasets, aes(x = erate, group = Dataset, color = Dataset)) +
   stat_ecdf(geom = "step") +
   scale_x_log10(name = "Expected number of errors per base") +
   scale_y_continuous(name = "Fraction passing")
 
-ggplot(qual, aes(x = eexp)) +
+ggplot(datasets, aes(x = eexp, group = Dataset, color = Dataset)) +
   stat_ecdf(geom = "step") +
   scale_x_log10(name = "Expected number of errors") +
   scale_y_continuous(name = "Fraction passing")
 
-ggplot(qual, aes(x = length)) +
+ggplot(datasets, aes(x = length, group = Dataset, color = Dataset)) +
   stat_ecdf(geom = "step") +
   scale_x_log10(name = "Length (bp)") +
   scale_y_continuous(name = "Fraction Greater than length")

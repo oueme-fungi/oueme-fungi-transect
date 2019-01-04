@@ -11,7 +11,7 @@ maybe.install.Bioc <- function(package, force.install = FALSE, version = "3.8") 
 }
 
 maybe.install.Git <- function(package, force.install = FALSE) {
-  if (!requireNamespace(package, quietly = TRUE) || force.install)
+  if (!requireNamespace(strsplit(package, "/")[[1]][2], quietly = TRUE) || force.install)
     devtools::install_github(package)
 }
 
@@ -35,6 +35,7 @@ lapply(c("ShortRead",
 
 lapply(c("benjjneb/dada2",
          "hoesler/rwantshue",
-         "mhahsler/rBLAST"),
+         "mhahsler/rBLAST",
+         "hadley/multidplyr"),
        maybe.install.Git,
        force.install = force.install)

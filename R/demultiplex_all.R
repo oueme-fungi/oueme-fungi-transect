@@ -2,6 +2,7 @@ source("install_packages.R")
 
 library(magrittr)
 library(tidyverse)
+library(multidplyr)
 library(readxl)
 library(seqinr)
 library(glue)
@@ -34,33 +35,47 @@ if (interactive()) {
   dataset <- "short-ion"
   seq.run <- "is_057"
   fullstem <- file.path(seq.dir, dataset, seq.run)
-  in.fastq <- file.path(fullstem, "rawdata", "bc-subset", "IonXpress_001_rawlib.basecaller.fastq.gz")
+  in.fastq <- file.path(fullstem, "rawdata", "no_bc-subset", "rawlib.basecaller.fastq.gz")
+  demux.dir <- file.path(fullstem, "demultiplex")
   
   gits7.file <- file.path(lab.dir, "Hectors tag primer plates.xlsx")
   its1.lr5.file <- file.path(lab.dir, "Brendan soil2.xlsx")
   tag.files <- list.files(file.path(lab.dir, "tags"), ".+\\.fasta", full.names = TRUE)
   
-  in.fwd <- str_replace(in.fastq, fixed(".fastq.gz"), ".gits7_ion.blast")
-  in.rev <- str_replace(in.fastq, fixed(".fastq.gz"), ".its4.blast")
+  blastdb.fwd <- file.path(lab.dir, "tags", "gits7_ion")
+  blastdb.rev <- file.path(lab.dir, "tags", "its4")
+  
+  # in.fwd <- str_replace(in.fastq, fixed(".fastq.gz"), ".gits7_ion.blast")
+  # in.rev <- str_replace(in.fastq, fixed(".fastq.gz"), ".its4.blast")
   # in.mid <- str_replace(in.fastq, fixed(".fastq.gz"), ".its4.blast")
-  out.fastq <- str_replace(in.fastq, fixed(".fastq.gz"), ".demux.fastq.gz")
-  out.groups <- str_replace(in.fastq, fixed(".fastq.gz"), ".groups")
-  platekey <- file.path(lab.dir, "gITS7_platekey.csv")
-  plate <- "short_001"
+  #out.fastq <- str_replace(in.fastq, fixed(".fastq.gz"), ".demux.fastq.gz")
+  #out.groups <- str_replace(in.fastq, fixed(".fastq.gz"), ".groups")
+  platekey.file <- file.path(lab.dir, "gITS7_platekey.csv")
+  plate <- "short_ion_001"
 } else {
   tag.files <- str_subset(prereqs, "tags.+\\.fasta")
+  glue("tag file: {tag.files}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
   in.fastq <- str_subset(prereqs, "\\.fastq\\.gz")
-  platekey <- str_subset(prereqs, "_platekey\\.csv")
-  out.fastq <- paste0(stem, ".demux.fastq.gz")
-  out.groups <- paste0(stem, ".groups")
+  glue("in fastq: {in.fastq}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
+  platekey.file <- str_subset(prereqs, "_platekey\\.csv")
+  glue("platekey: {platekey.file}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
 }
 
 stopifnot(file.exists(tag.files),
           file.exists(in.fastq),
-          file.exists(in.fwd),
-          file.exists(in.rev),
-          file.exists(platekey),
+          file.exists(platekey.file),
+          file.exists(paste0(blastdb.fwd, c(".nin", ".nsq", ".nhr"))),
+          file.exists(paste0(blastdb.rev, c(".nin", ".nsq", ".nhr"))),
           !exists("in.mid") || file.exists(in.mid))
+
+if (!dir.exists(demux.dir)) {
+  dir.create(demux.dir)
+}
+
+blast_opts = c("-task blastn-short",
+               "-culling_limit 10",
+               "-num_threads 3")
+blast_cols = "qseqid sseqid length qcovs nident pident bitscore evalue sstart send qstart qend"
 
 tags <- map(tag.files, read.fasta) %>%
   flatten %>%
@@ -69,34 +84,56 @@ tags <- map(tag.files, read.fasta) %>%
           length = str_length(seq))} %>%
   unique
 
-fastq <- readFastq(in.fastq)
+platekey <- read_csv(platekey.file) %>%
+  mutate(plate = plate) %>%
+  unite("group", plate, well, sep = "_") %>%
+  mutate(out.file = glue("{file.path(demux.dir, group)}.fastq.gz"))
 
-tagblast <-
-  # Read the files
-  c(F = in.fwd, R = in.rev, M = if (exists("in.mid")) in.mid else NULL) %>%
-  map(read_delim,
-          delim = "\t",
-          col_names = c("qseqid", "sseqid", "length", "qcovs",
-                        "nident", "pident", "bitscore", "evalue",
-                        "sstart", "send", "qstart", "qend")) %>%
-  tibble(direction = names(.), data = .) %>%
-  unnest(data) %>%
-  left_join(tibble(qseqid = as.character(fastq@id),
-                   qlength = width(fastq@sread),
-                   idx = seq_along(qseqid)))%>%
-  left_join(tags %>%
-              select(sseqid = tag, slength = length))
+blankread <- ShortReadQ()
 
-midtags <- tibble()
+for (f in platekey$out.file) {
+  if (file.exists(f)) file.remove(f)
+  writeFastq(blankread, file = f)
+}
+
+fastq <- FastqStreamer(in.fastq, n = 10000)
+
+blastlist <- list()
+blastlist$F <- blast(db = blastdb.fwd, type = "blastn")
+blastlist$R <- blast(db = blastdb.rev, type = "blastn")
+
+clust <- multidplyr::get_default_cluster()
+
+cluster_library(clust, c("stringr", "dplyr", "rBLAST"))
+
+while (length(fq <- yield(fastq))) {
+  names(fq@sread) <- fq@id
+  cat("Blasting...\n")
+  tagblast <- parLapply(cl = clust,
+                        X = blastlist,
+                        fun = predict,
+                        newdata = fq@sread,
+                        BLAST_args = blast_opts,
+                        custom_format = blast_cols) %>%
+    tibble(direction = names(.), data = .) %>%
+    unnest(data) %>%
+    left_join(tibble(qseqid = as.character(fq@id),
+                     qlength = width(fq@sread),
+                     idx = seq_along(qseqid)))%>%
+    left_join(tags %>%
+                select(sseqid = tag, slength = length))
+  
+cat("Demultiplexing...\n")
 
 tagblast2 <- tagblast  %>%
   # gITS7 and ITS1 are forward primers; LR5 is reverse
   mutate(primer = str_extract(sseqid, "(gITS7|ITS1|LR5|ITS4)")) %>%
   tidyr::separate(sseqid, c("tag", "v"), sep = "_v") %>%
-  seq_count("with at least one tag match")%>%
+  partition(qseqid, cluster = clust) %>%
+#  seq_count("with at least one tag match")%>%
   # remove matches with less than 90% coverage of the tag
   filter(length / slength >= 0.9) %>%
-  seq_count("match at least 90% of tag length") %>%
+#  seq_count("match at least 90% of tag length") %>%
   # filter(length - nident <= 3) %>%
   # seq_count("with at most 3 tag mismatches") %>%
   # take away matches to a degenerate variant with lower score
@@ -110,27 +147,28 @@ tagblast2 <- tagblast  %>%
   filter(evalue < 10*min(evalue)) %>%
   # remove sequences that still have more than one hit in each direction
   filter(n() == 1) %>%
-  seq_count("with no more than one distinct tag in each direction") %>% 
-  ungroup %>%
+#  seq_count("with no more than one distinct tag in each direction") %>% 
+  group_by() %>%
   select(idx, qseqid, tag, direction, sstart:qend, length, qlength, slength) %>%
   # find sequences which are reversed
   mutate(rev.comp = if_else(direction == "F",
                             sstart > send & qend > qstart,
                             sstart < send & qstart < qend)
   ) %>%
-  select(-sstart, -send, -slength, -length) %T>%
-  {midtags <<- filter(., direction == "M")} %>%
+  select(-sstart, -send, -slength, -length) %>%
+  collect() %>%
+#  {midtags <<- filter(., direction == "M")} %>%
   # put the forward and reverse tag on the same line
-  {full_join(filter(., direction == "F"),
+  {inner_join(filter(., direction == "F"),
              filter(., direction == "R"),
              by = c("idx", "qseqid", "qlength", "rev.comp"),
              suffix = c(".fwd", ".rev"))} %>%
   # take only sequences with both tags
-  filter(complete.cases(.)) %>%
-  seq_count("with tags in both directions") %>%
-  {if (exists("in.mid")) semi_join(., midtags, by = "idx") %>%
-      seq_count("with a single middle site") else
-        .} %>%
+  # filter(complete.cases(.)) %>%
+  # seq_count("with tags in both directions") %>%
+  # {if (exists("in.mid")) semi_join(., midtags, by = "idx") %>%
+  #     seq_count("with a single middle site") else
+  #       .} %>%
   # calculate where to trim to remove the tags
   mutate(trimstart = if_else(rev.comp,
                              qlength - qstart.fwd + 2L,
@@ -140,26 +178,20 @@ tagblast2 <- tagblast  %>%
                            qstart.rev - 1L)) %>%
   # the tags must be in the correct order
   filter(trimend > trimstart) %>%
-  seq_count("with tags appearing in correct order") %>%
+  # seq_count("with tags appearing in correct order") %>%
   select(idx, qseqid, tag.fwd, tag.rev, rev.comp, trimstart, trimend) %>%
-  arrange(idx)
+  arrange(idx) %>%
+  left_join(platekey) %>%
+  group_by(group)
 
 revcomps <- filter(tagblast2, rev.comp)$idx
+fq[revcomps] <- reverseComplement(fq[revcomps])
 
-fastq[revcomps] <- reverseComplement(fastq[revcomps])
-fastq <- fastq[tagblast2$idx]
-tagblast2 %<>% mutate(newseqid = glue("{in.name}_{idx}"))
-fastq@id <- BStringSet(tagblast2$newseqid)
-
-
-fastq <- narrow(fastq, start = tagblast2$trimstart, end = tagblast2$trimend)
-
-if (file.exists(out.fastq)) file.remove(out.fastq)
-writeFastq(fastq, file = out.fastq)
-
-tagblast2 %>%
-  select(seqid = newseqid, tag.fwd, tag.rev) %>%
-  left_join(read_csv(platekey)) %>%
-  mutate(group = paste(plate, well, sep = "_")) %>%
-  select(seqid, group) %>%
-  write_csv(out.groups)
+do(tagblast2,
+   out = {
+     fqsub = fq[.$idx]
+     fqsub <- narrow(fqsub, start = .$trimstart, end = .$trimend)
+     writeFastq(object = fqsub, file = .$out.file[1],
+                mode = "a")
+   })
+}

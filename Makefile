@@ -3,25 +3,24 @@
 SHELL=/bin/bash
 
 # Set up directory and file names
-BASEDIR != $(shell pwd)
+BASEDIR := $(shell pwd)
 
-DATADIR=${BASEDIR}/data
-SEQDIR=${BASEDIR}/raw_data
-DEMUXDIR=${DATADIR}/demultiplex
-LABDIR=$(DATADIR)/lab_setup
-PACBIODATA=${DATADIR}/PacBio
-REF_ROOT=${DATADIR}/reference/reference
-TAG_ROOT=${DATADIR}/lab_setup/tags
-TAGS=gits7 its1 lr5 its4
-TAG_FILES=$(addsuffix .fasta,$(addprefix $(TAG_ROOT),$(TAGS)))
-ALL_PREFIX=${DATADIR}
-DATASET=$(LABDIR)/datasets.csv
+DATADIR := ${BASEDIR}/data
+SEQDIR := ${BASEDIR}/raw_data
+LABDIR := $(DATADIR)/lab_setup
+PACBIODATA := ${DATADIR}/PacBio
+REF_ROOT := ${DATADIR}/reference/reference
+TAG_ROOT := ${LABDIR}/tags
+TAGS := gits7 gits7_ion its1 lr5 its4
+TAG_FILES := $(addsuffix .fasta,$(addprefix $(TAG_ROOT),$(TAGS)))
+ALL_PREFIX := ${DATADIR}
+DATASET := $(LABDIR)/datasets.csv
 
-GITS7_TAGFILE=$(LABDIR)/Hectors_tag_primer_plates.xlsx
-LR5_TAGFILE=$(LABDIR)/Brendan_soil2.xlsx
+GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
+LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
 
 # Options for R
-OPT = --vanilla -q
+OPT := --vanilla -q
 # default variables for R
 RVARS = base.dir <- '${BASEDIR}'; \
         data.dir <- '$(DATADIR)'; \
@@ -31,15 +30,17 @@ RVARS = base.dir <- '${BASEDIR}'; \
         its1.lr5.file <- '$(LR5_TAGFILE)'; \
         tags.dir <- '$(TAG_ROOT)'; \
         dataset.file <- '$(DATASET)'; \
-        stem <- '$*';
+        stem <- '$*'; \
+        target <- '$@'; \
+        prereqs <- unlist(strsplit('$^', ' '));
 # Command to knit an Rmarkdown file
 RMD = cd $(<D) && R $(ROPT) -e "require(rmarkdown); $(RVARS) render('$(<F)', output_format = 'pdf_document', output_dir = '../output')"
 # command to run an R script
-R = cd $(<D) && R $(ROPT) -e "$(RVARS) target <- '$@'; prereqs <- strsplit('$^', ' '); source('$(<F)', echo = TRUE)" &>"$(notdir $(patsubst %.R,%.Rout,$*.$(<F)))"
+R = cd $(<D) && R $(ROPT) -e "$(RVARS) source('$(<F)', echo = TRUE)" &>"$(patsubst %.R,%.Rout,$@.$(<F))"
 # shell commands to convert fastq.gz to fasta
 FASTAQ_A = gzip -dc $< | paste - - - - | cut -f 1,2 | tr "\t" "\n" | sed "s/^@/>/"
 # columns to use in blasting
-TAGBLAST_COLS = qseqid sseqid length qcovs nident pident bitscore evalue sstart send qstart qend
+TAGBLAST_COLS := qseqid sseqid length qcovs nident pident bitscore evalue sstart send qstart qend
 # shell commands to blast a fastq.gz against a tag database
 TAGBLAST = $(FASTAQ_A) | blastn \
 -task blastn-short \
@@ -49,96 +50,69 @@ TAGBLAST = $(FASTAQ_A) | blastn \
 -num_threads 3 \
 >$@
 
-# find raw PacBio files, generate target names for processed versions
-SHORTPACBIO = $(shell find ${PACBIODATA} -iregex ".*pb_483_[0-9]+\.reads_of_insert\.fastq\.gz")
-LONGPACBIO = $(shell find ${PACBIODATA} -iregex ".*pb_500_[0-9]+\.reads_of_insert\.fastq\.gz")
-PACBIOFASTA = $(patsubst %.fastq.gz,%.fasta,$(SHORTPACBIO) $(LONGPACBIO))
-PACBIOTAGBLAST_GITS7 = $(patsubst %.fastq.gz,%.gits7.blast,$(SHORTPACBIO))
-PACBIOTAGBLAST_ITS4 = $(patsubst %.fastq.gz,%.its4.blast,$(SHORTPACBIO))
-PACBIOTAGBLAST_LR5 = $(patsubst %.fastq.gz,%.lr5.blast,$(LONGPACBIO))
-PACBIOTAGBLAST_ITS1 = $(patsubst %.fastq.gz,%.its1.blast,$(LONGPACBIO))
-PACBIOTAGBLAST = $(PACBIOTAGBLAST_GITS7) $(PACBIOTAGBLAST_ITS4) $(PACBIOTAGBLAST_LR5) $(PACBIOTAGBLAST_ITS1)
-PACBIOLONGDEMUX  = $(patsubst %.fastq.gz,%.groups,$(LONGPACBIO))
-PACBIOSHORTDEMUX = $(patsubst %.fastq.gz,%.groups,$(SHORTPACBIO))
-PACBIOTRIMDEMUX = $(patsubst %.fastq.gz,%.demux.trim.fastq.gz,$(LONGPACBIO) $(SHORTPACBIO))
-
 
 # define paths to look for fast[aq] files
-vpath %.fasta ${REF_ROOT}:${PACBIODATA}
-vpath %.fastq.gz ${PACBIODATA}
+vpath %.fasta ${REF_ROOT}:${TAGROOT}
 vpath %.R $(BASEDIR)/R
 
-.PHONY: all
+.PHONY: all demultiplex
 
-all : demultiplex
+all: trim
 
-# create a makefile to demultiplex the files
-demux.make : make_demux.R $(DATASET)
+# Create a makefile to demultiplex the files.
+# This will read the plate definitions
+# and look in the data directory to see what raw files are present
+# and how they need to be demultiplexed, so that we don't need to specify
+# every file by hand here.
+demux.make: make_demux.R $(DATASET)
 	$(R)
 
 include demux.make
 
-# make a .fasta.gz from a .bam
-%.fasta.gz : %.bam
+# Rule to make a .fasta.gz from a .bam
+%.fastq.gz: %.bam
 	samtools fastq $< -0 $@
 
-# make a blast database from a fasta file
-%.nhr %.nin %.nsq : %.fasta
+# Rule to make a blast database from a fasta file
+%.nhr %.nin %.nsq: %.fasta
 	makeblastdb -in $< -out $* -dbtype nucl
 
-# blast fasta files against the tags databases
-%.gits7.blast : TAG_FILE := $(TAG_ROOT)/gits7
-%.gits7.blast : %.fastq.gz $(TAG_ROOT)/gits7.nhr $(TAG_ROOT)/gits7.nin $(TAG_ROOT)/gits7.nsq
-	$(TAGBLAST)
-%.its1.blast : TAG_FILE := $(TAG_ROOT)/its1
-%.its1.blast : %.fastq.gz $(TAG_ROOT)/its1.nhr $(TAG_ROOT)/its1.nin $(TAG_ROOT)/its1.nsq
-	$(TAGBLAST)
-%.lr5.blast : TAG_FILE := $(TAG_ROOT)/lr5
-%.lr5.blast : %.fastq.gz $(TAG_ROOT)/lr5.nhr $(TAG_ROOT)/lr5.nin $(TAG_ROOT)/lr5.nsq
-	$(TAGBLAST)
-%.its4.blast : TAG_FILE := $(TAG_ROOT)/its4
-%.its4.blast : %.fastq.gz $(TAG_ROOT)/its4.nhr $(TAG_ROOT)/its4.nin $(TAG_ROOT)/its4.nsq
-	$(TAGBLAST)
-
-# demultiplex 
-# additional prerequisites are added in demux.make
-%.groups %.demux.fastq.gz : demultiplex_all.R
-	$(R)
-
-%.group.fasta.gz : demultiplex_one.R $(DATASET)
-	mkdir -p $(dir $@)
-	$(R)
-
-# quality trim
-
-%.trim.fastq.gz %.scrap.fastq.gz : %.fastq.gz
-	vsearch --fastq_filter $< --fastq_qmax 50 --fastq_maxee_rate 0.001 --fastq_minlen 150 --fastq_maxns 0 --fastqout_discarded $*.scrap.fastq.gz --fastqout $*.trim.fastq.gz
-
-# blast a fastq.gz file against the reference (taxonomy) database
-%.blast : %.fastq.gz $(REF_ROOT).nhr \
+# Rule to blast a fastq.gz file against the reference (taxonomy) database
+%.blast: %.fastq.gz $(REF_ROOT).nhr \
           $(REF_ROOT).nin $(REF_ROOT).nsq
 	$(TAGBLAST)
 
-# convert a fastq.gz file to fasta; (don't) rename the sequences to be the file name plus an index
-#%.fasta : %.fastq.gz
-#	gzip -dc $< | \
-#	paste - - - - | \
-#	cut -f 1,2 | \
-#	tr "\t" "\n" | \
-#	sed "s/^@/>/" >$@
-#awk 'BEGIN {x=1} /^@/ {printf(">$(basename $(basename $(@F)))-%08d\n", x++)} !/^@/ {print}'
-
-# generate fasta files of the (tagged) primers
-$(TAG_ROOT)/gits7.fasta : $(GITS7_TAGFILE)
-$(TAG_ROOT)/its4.fasta : $(GITS7_TAGFILE)
-$(TAG_ROOT)/gits7_ion.fasta : $(GITS7_TAGFILE)
-$(TAG_ROOT)/lr5.fasta : $(LR5_TAGFILE)
-$(TAG_ROOT)/its1.fasta : $(LR5_TAGFILE)
-$(TAG_ROOT)/%.fasta : %.extract.R
+# Rule to generate fasta files of the (tagged) primers from the various files
+# they are stored in.
+$(TAG_ROOT)/gits7.fasta: $(GITS7_TAGFILE)
+$(TAG_ROOT)/its4.fasta: $(GITS7_TAGFILE)
+$(TAG_ROOT)/gits7_ion.fasta: $(GITS7_TAGFILE)
+$(TAG_ROOT)/lr5.fasta: $(LR5_TAGFILE)
+$(TAG_ROOT)/its1.fasta: $(LR5_TAGFILE)
+$(TAG_ROOT)/%.fasta: %.extract.R
 	$(R)
 
-# the script for creating fasta files of the primers is the same for every set, it just looks at its own name to know what to do.
-%.extract.R : tags.extract.R
-	cd $(BASEDIR)/R && ln -s $< $@
+# Rule to filter and trim a (demultilpexed) fastq file
+# The name of the source file is generated by make.demux.R and found in
+# demux.make (in order to place them in seperate directories).
 
-.PRECIOUS : %.fasta %.nin %.nhr %.nsq %.blast
+%.trim.fastq.gz : quality_trim.R
+	mkdir -p $(@D)
+	$(R)
+
+.INTERMEDIATE: $(TAG_ROOT)/gits7 \
+               $(TAG_ROOT)/its4 \
+               $(TAG_ROOT)/gits7_ion \
+               $(TAG_ROOT)/lr5 \
+               $(TAG_ROOT)/its1
+
+$(TAG_ROOT)/%: $(TAG_ROOT)/%.nsq \
+               $(TAG_ROOT)/%.nhr \
+               $(TAG_ROOT)/%.nin ;
+
+# the script for creating fasta files of the primers is the same for every set,
+# it just looks at its own name to know what to do.
+%.extract.R: tags.extract.R
+	cd $(BASEDIR)/R && ln -srf $(<F) $(@F)
+
+.PRECIOUS: %.fasta %.nin %.nhr %.nsq
