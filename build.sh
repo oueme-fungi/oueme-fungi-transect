@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 #!/bin/bash -l
+=======
+#!/bin/bash
+>>>>>>> 56d7fb57d9a8b4b6d8cf8bf25b157bfa8c43ec1a
 
 # Runs bioinformatics pipeline to demultiplex, quality filter, and denoise
 # sequences from IonTorrent and PacBio runs in Oueme Fungi transect project
