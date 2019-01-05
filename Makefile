@@ -15,12 +15,13 @@ TAGS := gits7 gits7_ion its1 lr5 its4
 TAG_FILES := $(addsuffix .fasta,$(addprefix $(TAG_ROOT),$(TAGS)))
 ALL_PREFIX := ${DATADIR}
 DATASET := $(LABDIR)/datasets.csv
+PREREQLIST = $^
 
 GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
 LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
 
 # Options for R
-OPT := --vanilla -q
+ROPT := --vanilla -q
 # default variables for R
 RVARS = base.dir <- '${BASEDIR}'; \
         data.dir <- '$(DATADIR)'; \
@@ -32,7 +33,8 @@ RVARS = base.dir <- '${BASEDIR}'; \
         dataset.file <- '$(DATASET)'; \
         stem <- '$*'; \
         target <- '$@'; \
-        prereqs <- unlist(strsplit('$^', ' '));
+        prereqs <- unlist(strsplit('$(PREREQLIST)', ' ')); \
+        splits <- unlist(strsplit('$(SPLITS)', ' '));
 # Command to knit an Rmarkdown file
 RMD = cd $(<D) && R $(ROPT) -e "require(rmarkdown); $(RVARS) render('$(<F)', output_format = 'pdf_document', output_dir = '../output')"
 # command to run an R script
@@ -55,7 +57,7 @@ TAGBLAST = $(FASTAQ_A) | blastn \
 vpath %.fasta ${REF_ROOT}:${TAGROOT}
 vpath %.R $(BASEDIR)/R
 
-.PHONY: all demultiplex
+.PHONY: all demultiplex dada trim
 
 all: trim
 
@@ -72,6 +74,33 @@ include demux.make
 # Rule to make a .fasta.gz from a .bam
 %.fastq.gz: %.bam
 	samtools fastq $< -0 $@
+
+# How many cores do we have?
+# Note: this is used to decide how many pieces to split files into for
+# demultiplexing. It does not in itself determine how many cores will be used
+# in the pipeline.  That is determined by the -j flag to make! However, in
+# general, this will allow all cores to be usefully utilized.
+NCORES := $(shell nproc)
+SPLITS := $(shell echo x{a..z}{a..z} | cut -d' ' -f 1-$(NCORES))
+
+# Rules to split a fasta.gz into one file per processor
+# .split is an empty flag file. Its recipe generates all the other files.
+%.split : %.fastq.gz
+	touch $@.prestamp
+	zcat $< | \
+	paste - - - - | \
+	split -n r/4 --filter 'sed "s/\t/\n/g" | gzip -c >$*-$$FILE.fastq.gz'
+	mv -f $@.prestamp $@
+# each split file depends on the index
+define SPLITRECIPE =
+%-$(1).fastq.gz : %.split ;
+
+endef
+
+$(foreach INDEX,$(SPLITS),$(eval $(call SPLITRECIPE,$(INDEX))))
+
+# rule to put the demultiplexed files back together
+UNSPLIT = zcat $^ | gzip -c >$@ && rm -f $^
 
 # Rule to make a blast database from a fasta file
 %.nhr %.nin %.nsq: %.fasta
@@ -98,6 +127,15 @@ $(TAG_ROOT)/%.fasta: %.extract.R
 
 %.trim.fastq.gz : quality_trim.R
 	mkdir -p $(@D)
+	$(R)
+
+# Rule to find amplicon sequence variants (ASV).
+# source files needed to be added as additional prerequisites
+# (done in demux.make)
+# The prereq list gets too long to pass to R for this command, so we override
+# it with just the name of the directory.
+%.asv.RDS : PREREQLIST=$(sort $(dir $^))
+%.asv.RDS : dada.R
 	$(R)
 
 .INTERMEDIATE: $(TAG_ROOT)/gits7 \

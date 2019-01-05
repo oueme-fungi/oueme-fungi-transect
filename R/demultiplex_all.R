@@ -2,7 +2,7 @@ source("install_packages.R")
 
 library(magrittr)
 library(tidyverse)
-library(multidplyr)
+# library(multidplyr)
 library(readxl)
 library(seqinr)
 library(glue)
@@ -52,6 +52,7 @@ if (interactive()) {
   #out.groups <- str_replace(in.fastq, fixed(".fastq.gz"), ".groups")
   platekey.file <- file.path(lab.dir, "gITS7_platekey.csv")
   plate <- "short_ion_001"
+  shard <- 'xaa'
 } else {
   tag.files <- str_subset(prereqs, "tags.+\\.fasta")
   glue("tag file: {tag.files}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
@@ -87,7 +88,7 @@ tags <- map(tag.files, read.fasta) %>%
 platekey <- read_csv(platekey.file) %>%
   mutate(plate = plate) %>%
   unite("group", plate, well, sep = "_") %>%
-  mutate(out.file = glue("{file.path(demux.dir, group)}.fastq.gz"))
+  mutate(out.file = glue("{file.path(demux.dir, group)}-{shard}.fastq.gz"))
 
 blankread <- ShortReadQ()
 
@@ -96,25 +97,24 @@ for (f in platekey$out.file) {
   writeFastq(blankread, file = f)
 }
 
-fastq <- FastqStreamer(in.fastq, n = 10000)
+fastq <- FastqStreamer(in.fastq)
 
 blastlist <- list()
 blastlist$F <- blast(db = blastdb.fwd, type = "blastn")
 blastlist$R <- blast(db = blastdb.rev, type = "blastn")
 
-clust <- multidplyr::get_default_cluster()
+# clust <- multidplyr::get_default_cluster()
 
-cluster_library(clust, c("stringr", "dplyr", "rBLAST"))
+# cluster_library(clust, c("stringr", "dplyr", "rBLAST"))
 
 while (length(fq <- yield(fastq))) {
   names(fq@sread) <- fq@id
   cat("Blasting...\n")
-  tagblast <- parLapply(cl = clust,
-                        X = blastlist,
-                        fun = predict,
-                        newdata = fq@sread,
-                        BLAST_args = blast_opts,
-                        custom_format = blast_cols) %>%
+  tagblast <- lapply(X = blastlist,
+                     FUN = predict,
+                     newdata = fq@sread,
+                     BLAST_args = blast_opts,
+                     custom_format = blast_cols) %>%
     tibble(direction = names(.), data = .) %>%
     unnest(data) %>%
     left_join(tibble(qseqid = as.character(fq@id),
@@ -129,13 +129,13 @@ tagblast2 <- tagblast  %>%
   # gITS7 and ITS1 are forward primers; LR5 is reverse
   mutate(primer = str_extract(sseqid, "(gITS7|ITS1|LR5|ITS4)")) %>%
   tidyr::separate(sseqid, c("tag", "v"), sep = "_v") %>%
-  partition(qseqid, cluster = clust) %>%
-#  seq_count("with at least one tag match")%>%
+  # partition(qseqid, cluster = clust) %>%
+  seq_count("with at least one tag match")%>%
   # remove matches with less than 90% coverage of the tag
   filter(length / slength >= 0.9) %>%
-#  seq_count("match at least 90% of tag length") %>%
+  seq_count("match at least 90% of tag length") %>%
   # filter(length - nident <= 3) %>%
-  # seq_count("with at most 3 tag mismatches") %>%
+  seq_count("with at most 3 tag mismatches") %>%
   # take away matches to a degenerate variant with lower score
   group_by(qseqid, tag) %>%
   summarize_all(dplyr::first) %>%
@@ -147,7 +147,7 @@ tagblast2 <- tagblast  %>%
   filter(evalue < 10*min(evalue)) %>%
   # remove sequences that still have more than one hit in each direction
   filter(n() == 1) %>%
-#  seq_count("with no more than one distinct tag in each direction") %>% 
+  seq_count("with no more than one distinct tag in each direction") %>% 
   group_by() %>%
   select(idx, qseqid, tag, direction, sstart:qend, length, qlength, slength) %>%
   # find sequences which are reversed
@@ -156,7 +156,7 @@ tagblast2 <- tagblast  %>%
                             sstart < send & qstart < qend)
   ) %>%
   select(-sstart, -send, -slength, -length) %>%
-  collect() %>%
+  # collect() %>%
 #  {midtags <<- filter(., direction == "M")} %>%
   # put the forward and reverse tag on the same line
   {inner_join(filter(., direction == "F"),
@@ -165,7 +165,7 @@ tagblast2 <- tagblast  %>%
              suffix = c(".fwd", ".rev"))} %>%
   # take only sequences with both tags
   # filter(complete.cases(.)) %>%
-  # seq_count("with tags in both directions") %>%
+  seq_count("with tags in both directions") %>%
   # {if (exists("in.mid")) semi_join(., midtags, by = "idx") %>%
   #     seq_count("with a single middle site") else
   #       .} %>%
@@ -178,7 +178,7 @@ tagblast2 <- tagblast  %>%
                            qstart.rev - 1L)) %>%
   # the tags must be in the correct order
   filter(trimend > trimstart) %>%
-  # seq_count("with tags appearing in correct order") %>%
+  seq_count("with tags appearing in correct order") %>%
   select(idx, qseqid, tag.fwd, tag.rev, rev.comp, trimstart, trimend) %>%
   arrange(idx) %>%
   left_join(platekey) %>%

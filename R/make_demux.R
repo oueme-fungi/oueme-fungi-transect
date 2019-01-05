@@ -13,6 +13,9 @@ if (interactive()) {
   lab.dir <- file.path(data.dir, "lab_setup")
   dataset.file <- file.path(lab.dir, "datasets.csv")
   target <- file.path(base.dir, "demux.make")
+  splits <- expand.grid(letters, letters) %>%
+    glue_data("x{Var2}{Var1}") %>%
+    magrittr::extract(1:4)
 } else {
   if (dirname(target) == ".") target <- file.path(base.dir, basename(target))
 }
@@ -35,21 +38,34 @@ cat("#############################",
     sep = "\n",
     file = target)
 
+# find potential source files
 datasets <- read_csv(dataset.file) %>%
+  mutate(dada.file = glue("$(DATADIR)/{Dataset}_{Seq.Run}.asv.RDS"))
+
+datasets %>%
+  with(paste0("dada : ", paste0(dada.file, collapse = ' \\\n       '))) %>%
+  cat("\n\n", sep = "", file = target, append = TRUE)
+
+datasets %<>%
   mutate(rootdir = file.path(seq.dir, Dataset, Seq.Run), 
          file = map2(rootdir,
                      glue("({Seq.Run}_\\d+\\.reads_of_insert\\.fastq\\.gz|^rawlib.basecaller.bam)"),
                      list.files,
-                     recursive = TRUE),
+                     recursive = TRUE) %>%
+           # don't include any that have already been split
+           map(discard,
+               str_detect,
+               pattern = "-(x[a-z][a-z])\\.fasta\\.gz"),
          rootdir = str_replace(rootdir, fixed(seq.dir), "$(SEQDIR)"),
-         demux.dir = file.path(rootdir, "demultiplex"))
-
-datasets %<>%
+         demux.dir = file.path(rootdir, "demultiplex")) %>%
   unnest(file) %>%
+  mutate(shard = list(splits)) %>%
+  unnest(shard) %>%
   mutate(rootdir = str_replace(rootdir, fixed(seq.dir), "$(SEQDIR)"),
          Stem = str_replace(file, fixed(".reads_of_insert.fastq.gz"), ""),
          Stem = str_replace(Stem, "_?rawlib\\.basecaller\\.bam", ""),
          InFile = str_replace(file, fixed(".bam"), ".fastq.gz"),
+         InFile = str_replace(InFile, fixed(".fastq.gz"), glue("-{shard}.fastq.gz")),
          Plate = str_match(Stem, glue("{Seq.Run}_(\\d+)$"))[,2],
          Plate = replace_na(Plate, "001"),
          Plate = glue("{Dataset}-{Plate}"),
@@ -59,11 +75,13 @@ datasets %<>%
 #Instructions to demultiplex
 #This needs to be done once per sequence library.
 datasets %>%
-  glue_data("{demux.dir}/.{Plate} : RVARS += blastdb.fwd <- '{blastdb.fwd}'; |",
+  glue_data(".INTERMEDIATE: {demux.dir}/.{Plate}-{shard}",
+            "{demux.dir}/.{Plate}-{shard} : RVARS += blastdb.fwd <- '{blastdb.fwd}'; |",
             "  blastdb.rev <- '{blastdb.rev}'; |",
             "  plate <- '{Plate}'; |",
-            "  demux.dir <- '{demux.dir}';",
-            "{demux.dir}/.{Plate} : demultiplex_all.R |",
+            "  demux.dir <- '{demux.dir}'; |",
+            "  shard <- '{shard}';",
+            "{demux.dir}/.{Plate}-{shard} : demultiplex_all.R |",
             "  {rootdir}/{InFile} |",
             "  {blastdb.fwd} |",
             "  {blastdb.rev} |",
@@ -83,21 +101,36 @@ datasets %>%
 
 
 # List of groups which need to be extracted.
-datasets %>%
+datasets %<>%
   mutate(PlateKey = file.path(lab.dir, PlateKey),
          PlateKey = map(PlateKey, read_csv)) %>%
   unnest(PlateKey) %>%
-  mutate(OutFile = glue("{file.path(demux.dir, Plate)}_{well}.fastq.gz"),
-         TrimFile = str_replace(OutFile,
+  mutate(OutFile = glue("{file.path(demux.dir, Plate)}_{well}-{shard}.fastq.gz"))
+
+datasets %>% glue_data("{OutFile} : {demux.dir}/.{Plate}-{shard} ;",
+                       .sep = "\n",
+                       .trim = FALSE) %>%
+  glue_collapse(sep = "\n\n") %>%
+  cat("\n", ., file = target, append = TRUE, sep = "")
+
+
+datasets %>%
+  mutate(demux.file = str_replace(OutFile, fixed(glue("-{shard}")), "")) %>%
+  group_by(dada.file, demux.file) %>%
+  summarize(shard.file = paste0(OutFile, collapse = " ")) %>%
+  mutate(TrimFile = str_replace(demux.file,
                                 fixed("demultiplex"),
                                 "trim"),
          TrimFile = str_replace(TrimFile,
                                 fixed(".fastq.gz"),
                                 ".trim.fastq.gz")) %>%
-  glue_data("demultiplex : {OutFile}",
-            "{OutFile} : {demux.dir}/.{Plate} ;",
+  glue_data("demultiplex : {demux.file}",
+            ".INTERMEDIATE : {shard.file}",
+            "{demux.file} : {shard.file}",
+            "\t$(UNSPLIT)",
             "trim : {TrimFile}",
-            "{TrimFile} : {OutFile}",
+            "{TrimFile} : {demux.file}",
+            "{dada.file} : {TrimFile}",
             .sep = "\n",
             .trim = FALSE) %>%
   glue_collapse(sep = "\n\n") %>%
