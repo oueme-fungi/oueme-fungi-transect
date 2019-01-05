@@ -19,4 +19,8 @@ make -j$(nproc) trim &>make.log
 # denoise to find amplicon sequence variants.
 # For this target, many files are processed together, but the dada2 library
 # which is used is already multithreaded, so run a serial make.
+<<<<<<< HEAD
 make dada &>>make.log
+=======
+make dada
+>>>>>>> 21744c25a49cb99a800eab10ae3943e8c81c6eca
