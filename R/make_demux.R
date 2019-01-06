@@ -1,6 +1,6 @@
 # Generate a makefile to 
 
-source("install_packages.R")
+source("install_packages.R", echo = TRUE)
 
 library(magrittr)
 library(tidyverse)
