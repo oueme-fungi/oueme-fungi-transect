@@ -9,7 +9,7 @@
 #SBATCH -t 24:00:00
 #SBATCH -J oueme-fungi-transect
 
-module load R/3.5.0 bioinfo-tools blast samtools 
+module load R/3.5.0 R_packages/3.5.0 bioinfo-tools blast samtools 
 
 # demultiplex and quality filter
 # For these targets, operations can be done in parallel on many files,
