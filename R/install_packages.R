@@ -6,21 +6,23 @@ cat("Libraries:\n")
 print(.libPaths())
 
 maybe.install <- function(package, force.install = FALSE) {
-  if (!requireNamespace(package, quietly = TRUE) || force.install)
+  if (!requireNamespace(package, quietly = TRUE) || force.install){
     cat("Need to install", package, ":\n")
-    install.packages(package)
+    install.packages(package)}
 }
 
 maybe.install.Bioc <- function(package, force.install = FALSE, version = "3.8") {
-  if (!requireNamespace(package, quietly = TRUE) || force.install)
+  if (!requireNamespace(package, quietly = TRUE) || force.install){
     cat("Need to install", package, ":\n")
-    BiocManager::install(package, version = version)
+  
+  BiocManager::install(package, version = version)
+  }
 }
 
 maybe.install.Git <- function(package, force.install = FALSE) {
-  if (!requireNamespace(strsplit(package, "/")[[1]][2], quietly = TRUE) || force.install)
+  if (!requireNamespace(strsplit(package, "/")[[1]][2], quietly = TRUE) || force.install){
     cat("Need to install", package, ":\n")
-    devtools::install_github(package)
+    devtools::install_github(package)}
 }
 
 
