@@ -23,7 +23,7 @@ LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
 # Options for R
 ROPT := --vanilla -q
 # default variables for R
-RVARS = option(repos = c(CRAN = 'https://ftp.acc.umu.se/mirror/CRAN/')); \
+RVARS = options(repos = c(CRAN = 'https://ftp.acc.umu.se/mirror/CRAN/')); \
         base.dir <- '${BASEDIR}'; \
         data.dir <- '$(DATADIR)'; \
         seq.dir <- '$(SEQDIR)'; \
