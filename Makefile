@@ -21,7 +21,7 @@ GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
 LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
 
 # Options for R
-ROPT := --vanilla -q
+ROPT := --no-save --no-restore -q
 # default variables for R
 RVARS = options(repos = c(CRAN = 'https://ftp.acc.umu.se/mirror/CRAN/')); \
         base.dir <- '${BASEDIR}'; \
