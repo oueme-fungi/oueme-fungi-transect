@@ -9,14 +9,14 @@
 #SBATCH -t 24:00:00
 #SBATCH -J oueme-fungi-transect
 
-module load R/3.5.0 R_packages/3.5.0 bioinfo-tools blast samtools 
+module load R/3.5.0 R_packages/3.5.0 gcc bioinfo-tools blast samtools 
 
 # demultiplex and quality filter
 # For these targets, operations can be done in parallel on many files,
 # so run parallel make.
-make -j$(nproc) trim &>make.log
+make -j$(nproc) trim
 
 # denoise to find amplicon sequence variants.
 # For this target, many files are processed together, but the dada2 library
 # which is used is already multithreaded, so run a serial make.
-make dada &>>make.log
+make dada
