@@ -1,0 +1,10 @@
+## Project Info
+# UGC_ID is_057
+# NGI_ID NGI03426
+# PI Martin Ryberg
+#
+## Additional Info
+# The rawdata is in two different versions in the folder:
+The folder bc contains the automaticly created bc-split data
+The folder no_bc contains the data without barcode splitting: this means that the adaptor and the barcode are still in the read.
+The data comes in bam-files.

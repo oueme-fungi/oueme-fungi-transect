@@ -9,3 +9,6 @@
 *.blast
 *.groups
 demux.make
+R/lib/*
+slurm-*.out
+make.log

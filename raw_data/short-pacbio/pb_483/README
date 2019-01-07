@@ -1,0 +1,15 @@
+## Project Info
+# UGC_ID PB483
+# NGI_ID NGI03426
+# PI	 Martin Ryberg 
+#
+## Additional Info
+# 
+# The folder subreads contains the filtered subreads.
+# The folder reports contains the run-reports.
+# The folder rawdata contains the SMRTcell data necessary for the analysis in SMRTportal.
+#
+## Sample Info
+Name		UGC_ID   	Barcode	Comment
+"BSoil1"	pb_488_001	-	Sample loaded badly on RSII, one extra cell included
+"BSoil2"	pb_488_002	-	Sample loaded badly on RSII, one extra cell included
