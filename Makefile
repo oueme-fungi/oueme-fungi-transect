@@ -89,7 +89,7 @@ SPLITS := $(shell echo x{a..z}{a..z} | cut -d' ' -f 1-$(NCORES))
 	touch $@.prestamp
 	zcat $< | \
 	paste - - - - | \
-	split -n r/4 --filter 'sed "s/\t/\n/g" | gzip -c >$*-$$FILE.fastq.gz'
+	split -n r/$(NCORES) --filter 'sed "s/\t/\n/g" | gzip -c >$*-$$FILE.fastq.gz'
 	mv -f $@.prestamp $@
 # each split file depends on the index
 define SPLITRECIPE =
