@@ -82,6 +82,8 @@ include demux.make
 # general, this will allow all cores to be usefully utilized.
 NCORES := $(shell nproc)
 SPLITS := $(shell echo x{a..z}{a..z} | cut -d' ' -f 1-$(NCORES))
+$(info "ncores: $(NCORES)")
+$(info "splits: $(SPLITS)")
 
 # Rules to split a fasta.gz into one file per processor
 # .split is an empty flag file. Its recipe generates all the other files.
