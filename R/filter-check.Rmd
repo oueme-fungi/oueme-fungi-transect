@@ -4,7 +4,7 @@ output: beamer_presentation
 ---
 
 ```{r setup}
-source("install_packages.R")
+# source("install_packages.R")
 
 library(magrittr)
 library(tidyverse)

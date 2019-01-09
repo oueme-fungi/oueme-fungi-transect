@@ -1,5 +1,5 @@
 
-source("install_packages.R", echo = TRUE)
+# source("install_packages.R", echo = TRUE)
 library(magrittr)
 library(tidyverse)
 library(dada2)
