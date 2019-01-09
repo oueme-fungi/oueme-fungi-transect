@@ -9,6 +9,9 @@
 #SBATCH -t 24:00:00
 #SBATCH -J oueme-fungi-transect
 
+# always redo this makefile, in case something (number of cores!) changes.
+rm demux.make
+
 module load R/3.5.0 gcc bioinfo-tools blast samtools 
 
 # demultiplex and quality filter
