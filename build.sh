@@ -5,11 +5,11 @@
 
 #SBATCH -A snic2018-8-131
 #SBATCH -p node
-#SBATCH -n 1
+#SBATCH -n 20
 #SBATCH -t 24:00:00
 #SBATCH -J oueme-fungi-transect
 
-module load R/3.5.0 R_packages/3.5.0 gcc bioinfo-tools blast samtools 
+module load R/3.5.0 gcc bioinfo-tools blast samtools 
 
 # demultiplex and quality filter
 # For these targets, operations can be done in parallel on many files,
