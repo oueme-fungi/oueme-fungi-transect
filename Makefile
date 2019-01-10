@@ -38,7 +38,7 @@ RVARS = base.dir <- '${BASEDIR}'; \
 # Command to knit an Rmarkdown file
 RMD = cd $(<D) && R $(ROPT) -e "require(rmarkdown); $(RVARS) render('$(<F)', output_format = 'pdf_document', output_dir = '../output')"
 # command to run an R script
-R = cd $(<D) && R $(ROPT) -e "$(RVARS) source('$(<F)', echo = TRUE)" &>"$(patsubst %.R,%.Rout,$@.$(<F))"
+R = cd $(<D) && R $(ROPT) -e "source(".Rprofile"); $(RVARS) source('$(<F)', echo = TRUE)" &>"$(patsubst %.R,%.Rout,$@.$(<F))"
 # shell commands to convert fastq.gz to fasta
 FASTAQ_A = gzip -dc $< | paste - - - - | cut -f 1,2 | tr "\t" "\n" | sed "s/^@/>/"
 # columns to use in blasting
