@@ -8,4 +8,9 @@ local({
 #### -- Packrat Autoloader (version 0.5.0) -- ####
 source("packrat/init.R", echo = TRUE)
 #### -- End Packrat Autoloader -- ####
-packrat::restore()
+local({
+  s <- packrat::status()
+  if (is.null(s) || any(s$packrat.version != s$library.version)) {
+    packrat::restore()
+  }
+})
