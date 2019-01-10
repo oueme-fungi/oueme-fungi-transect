@@ -21,7 +21,7 @@ GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
 LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
 
 # Options for R
-ROPT := --no-save --no-restore -q
+ROPT := --vanilla
 # default variables for R
 RVARS = base.dir <- '${BASEDIR}'; \
         data.dir <- '$(DATADIR)'; \
@@ -38,7 +38,7 @@ RVARS = base.dir <- '${BASEDIR}'; \
 # Command to knit an Rmarkdown file
 RMD = cd $(<D) && R $(ROPT) -e "require(rmarkdown); $(RVARS) render('$(<F)', output_format = 'pdf_document', output_dir = '../output')"
 # command to run an R script
-R = cd $(<D) && R $(ROPT) -e "source('.Rprofile'); $(RVARS) source('$(<F)', echo = TRUE)" &>"$(patsubst %.R,%.Rout,$@.$(<F))"
+R = cd $(<D) && R $(ROPT) -e "source('.Rprofile', echo = TRUE); $(RVARS) source('$(<F)', echo = TRUE)" &>"$(patsubst %.R,%.Rout,$@.$(<F))"
 # shell commands to convert fastq.gz to fasta
 FASTAQ_A = gzip -dc $< | paste - - - - | cut -f 1,2 | tr "\t" "\n" | sed "s/^@/>/"
 # columns to use in blasting
