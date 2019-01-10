@@ -136,7 +136,7 @@ $(TAG_ROOT)/%.fasta: %.extract.R
 # (done in demux.make)
 # The prereq list gets too long to pass to R for this command, so we override
 # it with just the name of the directory.
-%.asv.RDS : PREREQLIST=$(sort $(dir $^))
+%.asv.RDS : private PREREQLIST=$(sort $(dir $^))
 %.asv.RDS : dada.R
 	$(R)
 
