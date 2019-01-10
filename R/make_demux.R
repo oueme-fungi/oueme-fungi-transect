@@ -88,7 +88,7 @@ datasets %>%
             "  $(TAG_ROOT)/{Forward}.fasta |",
             "  $(TAG_ROOT)/{Reverse}.fasta |",
             "  $(LABDIR)/{PlateKey}",
-            "\t[ -e $(@D) ] || mkdir $(@D)",
+            "\t[ -e $(@D) ] || mkdir -p $(@D)",
             "\trm -f $@.prestamp",
             "\ttouch $@.prestamp",
             "\t$(R)",
