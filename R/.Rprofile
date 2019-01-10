@@ -1,1 +1,1 @@
-source ("../.Rprofile")
+source ("../.Rprofile", chdir = TRUE)
