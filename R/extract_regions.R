@@ -20,8 +20,8 @@ if (interactive()) {
   seq.file <-  glue("{file.path(seq.dir, dataset, seq.run, 'demultiplex', dataset)}-{plate}_{well}.fastq.gz")
   stem <- str_replace(position.file, fixed(".positions.txt"), "")
 } else {
-  position.file <- str_extract(prereqs, fixed(".positions.txt"))
-  seq.file <- str_extract(prereqs, fixed(".fasta.gz"))
+  position.file <- str_subset(prereqs, fixed(".positions.txt"))
+  seq.file <- str_subset(prereqs, fixed(".fastq.gz"))
 }
 
 
@@ -38,9 +38,10 @@ pos <- read_tsv(position.file, col_names = c("seq", "length", "SSU", "ITS1",
 for (r in c("ITS1", "ITS2", "LSU")) {
   out.file <- glue("{stem}.{r}.fastq.gz")
   if (file.exists(out.file)) file.remove(out.file)
-  fastq <- ShortReadQ()
-  writeFastq(fastq, out.file)
-  p <- filter(pos, region == r)
+  writeFastq(ShortReadQ(), out.file)
+  p <- filter(pos, region == r,
+              !is.na(start),
+              !is.na(end))
   fastq <- readFastq(seq.file)
   fastq <- fastq[match(p$seq, fastq@id)] %>%
     narrow(start = p$start, end = p$end)
