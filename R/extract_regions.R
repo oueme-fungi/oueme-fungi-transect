@@ -28,12 +28,19 @@ if (interactive()) {
 stopifnot(file.exists(position.file),
           file.exists(seq.file))
 
-pos <- read_tsv(position.file, col_names = c("seq", "length", "SSU", "ITS1",
-                                             "5_8S", "ITS2", "LSU", "comment")) %>%
-  gather(key = "region", value = "pos", SSU:LSU) %>%
-  mutate_at("pos", str_extract, pattern = "\\d+-\\d+") %>%
-  tidyr::extract(pos, into = c("start", "end"), regex = "(\\d+)-(\\d+)") %>%
-  mutate_at(vars(start:end), as.integer)
+pos <- tibble(seq = character(0),
+              length = character(0),
+              region = character(0),
+              start = integer(0),
+              end = integer(0))
+if (file.size(position.file > 0)) {
+  pos <- read_tsv(position.file, col_names = c("seq", "length", "SSU", "ITS1",
+                                               "5_8S", "ITS2", "LSU", "comment")) %>%
+    gather(key = "region", value = "pos", SSU:LSU) %>%
+    mutate_at("pos", str_extract, pattern = "\\d+-\\d+") %>%
+    tidyr::extract(pos, into = c("start", "end"), regex = "(\\d+)-(\\d+)") %>%
+    mutate_at(vars(start:end), as.integer)
+}
 
 for (r in c("ITS1", "ITS2", "LSU")) {
   out.file <- glue("{stem}.{r}.fastq.gz")
