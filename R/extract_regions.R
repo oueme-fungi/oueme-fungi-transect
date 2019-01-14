@@ -14,16 +14,19 @@ if (interactive()) {
   # choose a dataset and run for testing.
   dataset <- "long-pacbio"
   seq.run <- "pb_500"
-  plate <- "002"
-  well <- "D6"
-  position.file <- glue("{file.path(seq.dir, dataset, seq.run, 'trim', dataset)}-{plate}_{well}.trim.positions.txt")
-  seq.file <-  glue("{file.path(seq.dir, dataset, seq.run, 'trim', dataset)}-{plate}_{well}.trim.fastq.gz")
+  plate <- "001"
+  well <- "F2"
+  position.file <- glue("{file.path(seq.dir, dataset, seq.run, 'demultiplex', dataset)}-{plate}_{well}.positions.txt")
+  seq.file <-  glue("{file.path(seq.dir, dataset, seq.run, 'demultiplex', dataset)}-{plate}_{well}.fastq.gz")
   stem <- str_replace(position.file, fixed(".positions.txt"), "")
 } else {
   position.file <- str_extract(prereqs, fixed(".positions.txt"))
   seq.file <- str_extract(prereqs, fixed(".fasta.gz"))
 }
 
+
+stopifnot(file.exists(position.file),
+          file.exists(seq.file))
 
 pos <- read_tsv(position.file, col_names = c("seq", "length", "SSU", "ITS1",
                                              "5_8S", "ITS2", "LSU", "comment")) %>%
@@ -42,5 +45,4 @@ for (r in c("ITS1", "ITS2", "LSU")) {
   fastq <- fastq[match(p$seq, fastq@id)] %>%
     narrow(start = p$start, end = p$end)
   writeFastq(fastq, out.file, mode = "a")
-  dada2::plotQualityProfile(out.file) %>% print
 }
