@@ -45,7 +45,7 @@ datasets <- read_csv(dataset.file) %>%
   unnest(Regions) %>%
   mutate(Regions = as.character(Regions) %>%
            paste0(".", .) %>%
-           str_replace(fixed("_NULL"), ""),
+           str_replace(fixed(".NULL"), ""),
          dada.file = glue("$(DATADIR)/{Dataset}_{Seq.Run}{Regions}.asv.Rdata"))
 
 datasets %>%
