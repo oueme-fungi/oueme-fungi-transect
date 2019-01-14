@@ -1,6 +1,6 @@
 # Generate a makefile to 
 
-source("install_packages.R", echo = TRUE)
+#source("install_packages.R", echo = TRUE)
 
 library(magrittr)
 library(tidyverse)
@@ -40,7 +40,13 @@ cat("#############################",
 
 # find potential source files
 datasets <- read_csv(dataset.file) %>%
-  mutate(dada.file = glue("$(DATADIR)/{Dataset}_{Seq.Run}.asv.RDS"))
+  mutate(Regions = map(Regions, ~parse(text = .)) %>%
+           map(eval)) %>%
+  unnest(Regions) %>%
+  mutate(Regions = as.character(Regions) %>%
+           paste0(".", .) %>%
+           str_replace(fixed("_NULL"), ""),
+         dada.file = glue("$(DATADIR)/{Dataset}_{Seq.Run}{Regions}.asv.Rdata"))
 
 datasets %>%
   with(paste0("dada : ", paste0(dada.file, collapse = ' \\\n       '))) %>%
@@ -94,11 +100,10 @@ datasets %>%
             "\t$(R)",
             "\tmv -f $@.prestamp $@",
             .sep = "\n") %>%
+  unique %>%
   glue_collapse(sep = "\n\n") %>%
   str_replace_all(fixed("|\n"), "\\\n") %>%
   cat("\n", sep = "", file = target, append = TRUE)
-
-
 
 # List of groups which need to be extracted.
 datasets %<>%
@@ -110,6 +115,7 @@ datasets %<>%
 datasets %>% glue_data("{OutFile} : {demux.dir}/.{Plate}-{shard} ;",
                        .sep = "\n",
                        .trim = FALSE) %>%
+  unique %>%
   glue_collapse(sep = "\n\n") %>%
   cat("\n", ., file = target, append = TRUE, sep = "")
 
@@ -118,22 +124,30 @@ datasets %>%
   mutate(demux.file = str_replace(OutFile, fixed(glue("-{shard}")), "")) %>%
   group_by(dada.file, demux.file) %>%
   summarize(shard.file = paste0(OutFile, collapse = " ")) %>%
-  mutate(TrimFile = str_replace(demux.file,
-                                fixed("demultiplex"),
-                                "trim"),
-         TrimFile = str_replace(TrimFile,
-                                fixed(".fastq.gz"),
-                                ".trim.fastq.gz")) %>%
   glue_data("demultiplex : {demux.file}",
             ".INTERMEDIATE : {shard.file}",
             "{demux.file} : {shard.file}",
             "\t$(UNSPLIT)",
-            "trim : {TrimFile}",
-            "{TrimFile} : {demux.file}",
-            "{dada.file} : {TrimFile}",
             .sep = "\n",
             .trim = FALSE) %>%
   glue_collapse(sep = "\n\n") %>%
   cat("\n", ., file = target, append = TRUE, sep = "")
 
-  
+datasets %>%
+  mutate(region.file = str_replace(OutFile, fixed(glue("-{shard}")),
+                                   Regions)) %>%
+  select(region.file, dada.file) %>%
+  unique %>%
+  mutate(trim.file = str_replace(region.file,
+                                fixed("demultiplex"),
+                                "trim"),
+         trim.file = str_replace(trim.file,
+                                fixed(".fastq.gz"),
+                                ".trim.fastq.gz")) %>%
+  glue_data("trim : {trim.file}",
+            "{trim.file} : {region.file}",
+            "{dada.file} : {trim.file}",
+            .sep = "\n",
+            .trim = FALSE) %>%
+  glue_collapse(sep = "\n\n") %>%
+  cat("\n", ., file = target, append = TRUE, sep = "")

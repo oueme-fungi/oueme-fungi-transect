@@ -40,7 +40,7 @@ RMD = cd $(<D) && R $(ROPT) -e "require(rmarkdown); $(RVARS) render('$(<F)', out
 # command to run an R script
 R = cd $(<D) && R -e "source('.Rprofile', echo = TRUE); $(RVARS) source('$(<F)', echo = TRUE)" $(ROPT) &>"$(patsubst %.R,%.Rout,$@.$(<F))"
 # shell commands to convert fastq.gz to fasta
-FASTAQ_A = gzip -dc $< | paste - - - - | cut -f 1,2 | tr "\t" "\n" | sed "s/^@/>/"
+FASTQ_A = zcat $< | paste - - - - | cut -f 1,2 | tr "\t" "\n" | sed "s/^@/>/" >$@
 # columns to use in blasting
 TAGBLAST_COLS := qseqid sseqid length qcovs nident pident bitscore evalue sstart send qstart qend
 # shell commands to blast a fastq.gz against a tag database
@@ -74,6 +74,19 @@ include demux.make
 # Rule to make a .fasta.gz from a .bam
 %.fastq.gz: %.bam
 	samtools fastq $< -0 $@
+
+# make a .fasta from a .fastq.gz
+%.fasta : %.fastq.gz
+	$(FASTQ_A)
+
+# use ITSx to find ITS and LSU sequences
+%.positions.txt : %.fasta
+	ITSx -t f -i $< --summary F --fasta F --graphical F \
+	--not-found F --complement F --save_regions "" -o $*
+
+# split a fastq.gz file into ITS1, ITS2, and LSU
+%.ITS1.fastq.gz %.ITS2.fastq.gz %.LSU.fastq.gz : extract_regions.R %.fastq.gz %.positions.txt
+	$(R)
 
 # How many cores do we have?
 # Note: this is used to decide how many pieces to split files into for
@@ -136,8 +149,13 @@ $(TAG_ROOT)/%.fasta: %.extract.R
 # (done in demux.make)
 # The prereq list gets too long to pass to R for this command, so we override
 # it with just the name of the directory.
-%.asv.RDS : private PREREQLIST=$(sort $(dir $^))
-%.asv.RDS : dada.R
+%.asv.Rdata : private PREREQLIST=$(sort $(dir $^))
+%.asv.Rdata : dada.R
+	$(R)
+
+# Rule to assign taxonomy to ASVs
+# The correct reference file needs to be added as a separate rule.
+%.asv.taxonomy.RDS : %.asv.Rdata assign_taxonomy.R
 	$(R)
 
 .INTERMEDIATE: $(TAG_ROOT)/gits7 \

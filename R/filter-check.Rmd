@@ -38,21 +38,40 @@ if (interactive()) {
 ```
 
 ```{r}
+library("scales")
+reverselog_trans <- function(base = exp(1)) {
+    trans <- function(x) -log(x, base)
+    inv <- function(x) base^(-x)
+    trans_new(paste0("reverselog-", format(base)), trans, inv, 
+              log_breaks(base = base), 
+              domain = c(1e-100, Inf))
+}
+
 ggplot(datasets, aes(x = erate, group = Dataset, color = Dataset)) +
-  stat_ecdf(geom = "step") +
-  scale_x_log10(name = "Expected number of errors per base") +
+  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
+  scale_x_continuous(name = "Expected number of errors per base",
+                     trans = reverselog_trans(10)) +
   scale_y_continuous(name = "Fraction passing")
 
 ggplot(datasets, aes(x = eexp, group = Dataset, color = Dataset)) +
-  stat_ecdf(geom = "step") +
-  scale_x_log10(name = "Expected number of errors") +
+  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
+  scale_x_continuous(name = "Expected number of errors",
+                     trans = reverselog_trans(10)) +
   scale_y_continuous(name = "Fraction passing")
 
 ggplot(datasets, aes(x = length, group = Dataset, color = Dataset)) +
-  stat_ecdf(geom = "step") +
+  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
   scale_x_log10(name = "Length (bp)") +
   scale_y_continuous(name = "Fraction Greater than length")
   
+```
+```{r}
+datasets %>%
+  group_by(Dataset) %>%
+  do(out = dada2::plotQualityProfile(.$files, aggregate = TRUE) %>%
+       print) %>%
+  invisible
+
 ```
 
 ```{r}

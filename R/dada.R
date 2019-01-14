@@ -18,9 +18,10 @@ if (interactive()) {
   trim.dir <- file.path(fullstem, "trim")
   in.files <- list.files(path = trim.dir,
                         pattern = "\\.trim\\.fastq\\.gz$",
-                        full.names = TRUE)
+                        full.names = TRUE) 
   
   target <- paste0(file.path(data.dir, dataset), "_", seq.run, ".RDS")
+  dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
   cat("prereqs: ", prereqs, "\n")
   in.files <- list.files(path = prereqs,
@@ -44,6 +45,9 @@ datasets %<>% filter(Dataset == dataset,
 err.fun <- ifelse(datasets$Tech == "PacBio",
                   PacBioErrfun,
                   loessErrfun)
+if (!is.na(datasets$DadaOpt)) {
+  do.call(setDadaOpt, parse(text = datasets$DadaOpt))
+}
 
 # from here, based on sample script at http://benjjneb.github.io/dada2/bigdata.html
 # File parsing
@@ -54,14 +58,7 @@ set.seed(100)
 err <- learnErrors(in.files, nbases = 1e8, multithread=TRUE, randomize=TRUE,
                    errorEstimationFunction = err.fun,
                    verbose = TRUE)
-# Infer sequence variants
-dds <- vector("list", length(sample.names))
-names(dds) <- sample.names
-#for(sam in sample.names) {
-#  cat("Processing:", sam, "\n")
-  derep <- derepFastq(in.files)#[[sam]])
-  dds <- dada(derep, err=err, multithread=TRUE, pool = TRUE)
-#}
-# Construct sequence table and write to disk
-seqtab <- makeSequenceTable(dds)
-saveRDS(dds, target) # CHANGE ME to where you want sequence table saved
+derep <- derepFastq(in.files)#[[sam]])
+asv <- dada(derep, err=err, multithread=TRUE, pool = TRUE)
+
+save(derep, asv, file = target)
