@@ -122,7 +122,9 @@ datasets %>% glue_data("{OutFile} : {demux.dir}/.{Plate}-{shard} ;",
 
 datasets %>%
   mutate(demux.file = str_replace(OutFile, fixed(glue("-{shard}")), "")) %>%
-  group_by(dada.file, demux.file) %>%
+  select(demux.file, OutFile) %>%
+  unique() %>%
+  group_by(demux.file) %>%
   summarize(shard.file = paste0(OutFile, collapse = " ")) %>%
   glue_data("demultiplex : {demux.file}",
             ".INTERMEDIATE : {shard.file}",
