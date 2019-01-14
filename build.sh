@@ -12,7 +12,7 @@
 # always redo this makefile, in case something (number of cores!) changes.
 rm demux.make
 
-module load R/3.5.0 gcc bioinfo-tools blast samtools 
+module load R/3.5.0 gcc bioinfo-tools blast samtools ITSx 
 
 # demultiplex and quality filter
 # For these targets, operations can be done in parallel on many files,
