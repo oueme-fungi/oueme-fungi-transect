@@ -33,12 +33,11 @@ RVARS = base.dir <- '${BASEDIR}'; \
         dataset.file <- '$(DATASET)'; \
         stem <- '$*'; \
         target <- '$@'; \
-        prereqs <- unlist(strsplit('$(PREREQLIST)', ' ')); \
         splits <- unlist(strsplit('$(SPLITS)', ' '));
 # Command to knit an Rmarkdown file
 RMD = cd $(<D) && R $(ROPT) -e "require(rmarkdown); $(RVARS) render('$(<F)', output_format = 'pdf_document', output_dir = '../output')"
 # command to run an R script
-R = cd $(<D) && R -e "source('.Rprofile', echo = TRUE); $(RVARS) source('$(<F)', echo = TRUE)" $(ROPT) &>"$(patsubst %.R,%.Rout,$@.$(<F))"
+R = cd $(<D) && echo $^ | R -e "source('.Rprofile', echo = TRUE); $(RVARS) source('$(<F)', echo = TRUE)" $(ROPT) &>"$(patsubst %.R,%.Rout,$@.$(<F))"
 # shell commands to convert fastq.gz to fasta
 FASTQ_A = zcat $< | paste - - - - | cut -f 1,2 | tr "\t" "\n" | sed "s/^@/>/" >$@
 # columns to use in blasting
@@ -174,3 +173,11 @@ $(TAG_ROOT)/%: $(TAG_ROOT)/%.nsq \
 	cd $(BASEDIR)/R && ln -srf $(<F) $(@F)
 
 .PRECIOUS: %.fasta %.nin %.nhr %.nsq
+
+data/demux.counts : demultiplex
+	for file in $$(find raw_data -name *demultiplex_all.Rout) ; do cat $$file | grep sequences | sed 's@^@'"$$file"': @'; done >$@
+
+data/fastq.counts :
+	 for file in $^ ; do echo $$file, $$(zcat $$file | grep -c '^@'); done >$@
+
+

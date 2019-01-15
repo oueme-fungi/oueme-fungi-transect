@@ -54,6 +54,12 @@ if (interactive()) {
   plate <- "short_ion_001"
   shard <- 'xaa'
 } else {
+  con <- file("stdin")
+  open(con, blocking = TRUE)
+  prereqs <- readLines(con)
+  close(con)
+  prereqs <- str_split(prereqs, " ") %>% unlist
+  
   tag.files <- str_subset(prereqs, "tags.+\\.fasta")
   glue("tag file: {tag.files}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
   in.fastq <- str_subset(prereqs, "\\.fastq\\.gz")
@@ -74,8 +80,7 @@ if (!dir.exists(demux.dir)) {
 }
 
 blast_opts = c("-task blastn-short",
-               "-culling_limit 10",
-               "-num_threads 3")
+               "-culling_limit 10")
 blast_cols = "qseqid sseqid length qcovs nident pident bitscore evalue sstart send qstart qend"
 
 tags <- map(tag.files, read.fasta) %>%

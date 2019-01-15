@@ -65,13 +65,22 @@ datasets %<>%
          rootdir = str_replace(rootdir, fixed(seq.dir), "$(SEQDIR)"),
          demux.dir = file.path(rootdir, "demultiplex")) %>%
   unnest(file) %>%
-  mutate(shard = list(splits)) %>%
-  unnest(shard) %>%
   mutate(rootdir = str_replace(rootdir, fixed(seq.dir), "$(SEQDIR)"),
          Stem = str_replace(file, fixed(".reads_of_insert.fastq.gz"), ""),
          Stem = str_replace(Stem, "_?rawlib\\.basecaller\\.bam", ""),
-         InFile = str_replace(file, fixed(".bam"), ".fastq.gz"),
-         InFile = str_replace(InFile, fixed(".fastq.gz"), glue("-{shard}.fastq.gz")),
+         InFile = str_replace(file, fixed(".bam"), ".fastq.gz"))
+
+datasets %>%
+  glue_data("data/fastq.counts : {InFile}") %>%
+  unique %>%
+  glue_collapse(sep = "\n\n") %>%
+  str_replace_all(fixed("|\n"), "\\\n") %>%
+  cat("\n", sep = "", file = target, append = TRUE)
+
+datasets %<>%
+  mutate(shard = list(splits)) %>%
+  unnest(shard) %>%
+  mutate(InFile = str_replace(InFile, fixed(".fastq.gz"), glue("-{shard}.fastq.gz")),
          Plate = str_match(Stem, glue("{Seq.Run}_(\\d+)$"))[,2],
          Plate = replace_na(Plate, "001"),
          Plate = glue("{Dataset}-{Plate}"),
@@ -126,7 +135,8 @@ datasets %>%
   unique() %>%
   group_by(demux.file) %>%
   summarize(shard.file = paste0(OutFile, collapse = " ")) %>%
-  glue_data("demultiplex : {demux.file}",
+  glue_data("data/fastq.counts : {demux.file}",
+            "demultiplex : {demux.file}",
             ".INTERMEDIATE : {shard.file}",
             "{demux.file} : {shard.file}",
             "\t$(UNSPLIT)",
@@ -146,7 +156,8 @@ datasets %>%
          trim.file = str_replace(trim.file,
                                 fixed(".fastq.gz"),
                                 ".trim.fastq.gz")) %>%
-  glue_data("trim : {trim.file}",
+  glue_data("data/fastq.counts : {trim.file} {region.file}",
+            "trim : {trim.file}",
             "{trim.file} : {region.file}",
             "{dada.file} : {trim.file}",
             .sep = "\n",

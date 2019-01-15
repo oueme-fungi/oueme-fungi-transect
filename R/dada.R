@@ -23,10 +23,15 @@ if (interactive()) {
   target <- paste0(file.path(data.dir, dataset), "_", seq.run, ".RDS")
   dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
+  con <- file("stdin")
+  open(con, blocking = TRUE)
+  prereqs <- readLines(con)
+  close(con)
+  prereqs <- str_split(prereqs, " ") %>% unlist
+  
   cat("prereqs: ", prereqs, "\n")
-  in.files <- list.files(path = prereqs,
-                         pattern = "\\.trim\\.fastq\\.gz$",
-                         full.names = TRUE)
+  in.files <- str_subset(prereqs,
+                         pattern = "\\.trim\\.fastq\\.gz$")
   cat("in.files: ", in.files, "\n")
 }
 
