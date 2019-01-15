@@ -33,7 +33,7 @@ pos <- tibble(seq = character(0),
               region = character(0),
               start = integer(0),
               end = integer(0))
-if (file.size(position.file > 0)) {
+if (file.size(position.file) > 0) {
   pos <- read_tsv(position.file, col_names = c("seq", "length", "SSU", "ITS1",
                                                "5_8S", "ITS2", "LSU", "comment")) %>%
     gather(key = "region", value = "pos", SSU:LSU) %>%

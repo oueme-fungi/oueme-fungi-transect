@@ -46,7 +46,7 @@ err.fun <- ifelse(datasets$Tech == "PacBio",
                   PacBioErrfun,
                   loessErrfun)
 if (!is.na(datasets$DadaOpt)) {
-  do.call(setDadaOpt, parse(text = datasets$DadaOpt))
+  do.call(setDadaOpt, eval(parse(text = datasets$DadaOpt)))
 }
 
 # from here, based on sample script at http://benjjneb.github.io/dada2/bigdata.html
