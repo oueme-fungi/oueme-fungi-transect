@@ -31,6 +31,12 @@ if (interactive()) {
   target <- "/home/brendan/Documents/Uppsala/Projects/oueme-fungi-transect/raw_data/short-pacbio/pb_483/trim/short-pacbio-002_H1.trim.fastq.gz"
   dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
+  con <- file("stdin")
+  open(con, blocking = TRUE)
+  prereqs <- readLines(con)
+  close(con)
+  prereqs <- str_split(prereqs, " ") %>% unlist
+  
   cat("prereqs: ", prereqs, "\n")
   in.file <- prereqs[grep(pattern = ".fastq.gz", 
                   prereqs)]

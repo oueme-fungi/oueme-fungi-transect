@@ -15,18 +15,23 @@ if (interactive()) {
   dataset <- "short-ion"
   seq.run <- "is_057"
   region = ""
-  in.file <- glue("{file.path(data.dir, dataset)}_{seq.run}{region}.asv.Rdata")
+  in.file <- glue("{file.path(data.dir, dataset)}_{seq.run}{region}.asv.RDS")
   target <- str_replace(in.file, fixed(".Rdata"), ".taxonomy.RDS")
   reference <- file.path(ref.dir, "sh_general_release_dynamic_s_01.12.2017.fasta.gz")
 } else {
+  con <- file("stdin")
+  open(con, blocking = TRUE)
+  prereqs <- readLines(con)
+  close(con)
+  prereqs <- str_split(prereqs, " ") %>% unlist
   in.file <- str_extract(prereqs, fixed(".asv.Rdata"))
   reference <- str_extract(prereqs, fixed(".fasta.gz"))
 }
 
 stopifnot(file.exists(in.file),
           file.exists(reference))
-
-asv <- load(in.file)
+asv <- readRDS(in.file)
+load(in.file)
 tax <- asv %>%
   map(getUniques) %>%
   map(names) %>%

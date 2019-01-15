@@ -20,6 +20,12 @@ if (interactive()) {
   seq.file <-  glue("{file.path(seq.dir, dataset, seq.run, 'demultiplex', dataset)}-{plate}_{well}.fastq.gz")
   stem <- str_replace(position.file, fixed(".positions.txt"), "")
 } else {
+  con <- file("stdin")
+  open(con, blocking = TRUE)
+  prereqs <- readLines(con)
+  close(con)
+  prereqs <- str_split(prereqs, " ") %>% unlist
+  
   position.file <- str_subset(prereqs, fixed(".positions.txt"))
   seq.file <- str_subset(prereqs, fixed(".fastq.gz"))
 }
