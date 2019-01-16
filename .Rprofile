@@ -10,7 +10,10 @@ source("packrat/init.R", echo = TRUE)
 #### -- End Packrat Autoloader -- ####
 local({
   s <- packrat::status()
-  if (is.null(s) || any(s$packrat.version != s$library.version)) {
+  if (is.null(s) ||
+      any(is.na(s$packrat.version)) ||
+      any(is.na(s$library.version)) ||
+      any(s$packrat.version != s$library.version)) {
     packrat::restore()
   }
 })
