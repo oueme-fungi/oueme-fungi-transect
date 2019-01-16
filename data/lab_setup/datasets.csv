@@ -1,4 +1,4 @@
 Dataset,Tech,MaxERate,MinLength,MaxLength,Seq.Run,Forward,Reverse,PlateKey,SampleKey.File,SampleKey.Sheet,DadaOpt,Regions
 short-pacbio,PacBio,0.01,50,2999,pb_483,gits7,its4,gITS7_platekey.csv,Brendan_soil.xlsx,Concentration samples,,
-long-pacbio,PacBio,0.01,200,2999,pb_500,its1,lr5,ITS1_LR5_platekey.csv,Brendan_soil2.xlsx,Concentration samples,,"list(""ITS1"",""ITS2"",""LSU"")"
+long-pacbio,PacBio,0.01,50,2999,pb_500,its1,lr5,ITS1_LR5_platekey.csv,Brendan_soil2.xlsx,Concentration samples,,"list(""ITS1"",""ITS2"",""LSU"")"
 short-ion,Ion,0.01,50,2999,is_057,gits7_ion,its4,gITS7_platekey.csv,Brendan_soil.xlsx,Concentration samples,"list(HOMOPOLYMER_GAP_PENALTY=-1, BAND_SIZE=32)",

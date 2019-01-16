@@ -13,7 +13,7 @@ library(Biostrings)
 library(ShortRead)
 library(ggplot2)
 
-if (interactive()) {
+#if (interactive()) {
   base.dir <- getwd() %>%
     str_extract(".*oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
@@ -36,7 +36,7 @@ if (interactive()) {
     select(-fastq) %>%
     unnest %>%
     mutate(erate = eexp/length)
-}
+#}
 ```
 
 ```{r}
@@ -91,7 +91,11 @@ counts %<>% mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
   unique() %>%
   spread(key = "type", value = "reads") %>%
   select(dataset, original, demux, region, ITSx, trim) %>%
-  filter(!is.na(dataset))
+  filter(!is.na(dataset)) %>%
+  group_by(dataset) %>%
+  mutate(original = na.omit(original),
+         demux = na.omit(demux)) %>%
+  filter(all(is.na(region)) | !is.na(region))
 
 demux.counts <- read_lines(file.path(data.dir, "demux.counts")) %>%
   str_match("([^:]+): (\\d+) sequences (.+)") %>%
@@ -118,6 +122,7 @@ demux.counts <- read_lines(file.path(data.dir, "demux.counts")) %>%
   select(dataset, original, any.tag:tag.order, demux) %>%
   left_join(select(counts, dataset, region, ITSx, trim))
 
+d
 short.pacbio <- new.env()
 load(file.path(data.dir, "short-pacbio_pb_483.asv.Rdata"), envir = short.pacbio)
 remove("derep", envir = short.pacbio)
@@ -149,5 +154,8 @@ dadacounts <- tribble( ~ dataset, ~region, ~assigned, ~asv,
                        "long-pacbio", "ITS2", sum(long.pacbio.ITS2$seq.tab), ncol(long.pacbio.ITS2$seq.tab),
                        "long-pacbio", "LSU", sum(long.pacbio.LSU$seq.tab), ncol(long.pacbio.LSU$seq.tab),
                        "short-ion", NA, sum(short.ion$seq.tab), ncol(short.ion$seq.tab))
+
+demux.counts %>% left_join(dadacounts) %>%
+  filter(!is.na(assigned))
 ```
 
