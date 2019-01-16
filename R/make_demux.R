@@ -71,7 +71,7 @@ datasets %<>%
          InFile = str_replace(file, fixed(".bam"), ".fastq.gz"))
 
 datasets %>%
-  glue_data("data/fastq.counts : {InFile}") %>%
+  glue_data("data/fastq.counts : {file.path(rootdir, InFile)}") %>%
   unique %>%
   glue_collapse(sep = "\n\n") %>%
   str_replace_all(fixed("|\n"), "\\\n") %>%
