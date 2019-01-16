@@ -46,10 +46,13 @@ datasets <- read_csv(dataset.file) %>%
   mutate(Regions = as.character(Regions) %>%
            paste0(".", .) %>%
            str_replace(fixed(".NULL"), ""),
-         dada.file = glue("$(DATADIR)/{Dataset}_{Seq.Run}{Regions}.asv.Rdata"))
+         dada.file = glue("$(DATADIR)/{Dataset}_{Seq.Run}{Regions}.dada.Rdata"),
+         derep.file = str_replace(dada.file, "\\.Rdata$", ".derep.rds"),
+         asv.file = str_replace(dada.file, "\\.Rdata$", ".asv.rds"))
 
 datasets %>%
-  with(paste0("dada : ", paste0(dada.file, collapse = ' \\\n       '))) %>%
+  with(paste0("dada : ",
+              paste(derep.file, asv.file, collapse = ' \\\n       '))) %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 
 datasets %<>%
@@ -137,6 +140,7 @@ datasets %>%
   summarize(shard.file = paste0(OutFile, collapse = " ")) %>%
   glue_data("data/fastq.counts : {demux.file}",
             "demultiplex : {demux.file}",
+            ".PRECIOUS : {demux.file}", #demultiplexing is slow
             ".INTERMEDIATE : {shard.file}",
             "{demux.file} : {shard.file}",
             "\t$(UNSPLIT)",
@@ -157,6 +161,7 @@ datasets %>%
                                 fixed(".fastq.gz"),
                                 ".trim.fastq.gz")) %>%
   glue_data("data/fastq.counts : {trim.file} {region.file}",
+            ".PRECIOUS: {region.file}", #ITSx is slow
             "trim : {trim.file}",
             "{trim.file} : {region.file}",
             "{dada.file} : {trim.file}",

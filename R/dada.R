@@ -20,7 +20,7 @@ if (interactive()) {
                         pattern = "\\.trim\\.fastq\\.gz$",
                         full.names = TRUE) 
   
-  target <- paste0(file.path(data.dir, dataset), "_", seq.run, ".RDS")
+  target <- paste0(file.path(data.dir, dataset), "_", seq.run, ".dada.Rdata")
   dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
   con <- file("stdin")

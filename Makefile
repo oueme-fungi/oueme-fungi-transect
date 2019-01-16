@@ -146,10 +146,7 @@ $(TAG_ROOT)/%.fasta: %.extract.R
 # Rule to find amplicon sequence variants (ASV).
 # source files needed to be added as additional prerequisites
 # (done in demux.make)
-# The prereq list gets too long to pass to R for this command, so we override
-# it with just the name of the directory.
-%.asv.Rdata : private PREREQLIST=$(sort $(dir $^))
-%.asv.Rdata : dada.R
+%.dada.Rdata : dada.R
 	$(R)
 
 # Rule to assign taxonomy to ASVs
@@ -174,10 +171,16 @@ $(TAG_ROOT)/%: $(TAG_ROOT)/%.nsq \
 
 .PRECIOUS: %.fasta %.nin %.nhr %.nsq
 
+# look through the log files for demultiplexing to find out how many sequences
+# were present at each stage
 data/demux.counts : demultiplex
-	for file in $$(find raw_data -name *demultiplex_all.Rout) ; do cat $$file | grep sequences | sed 's@^@'"$$file"': @'; done >$@
+	for file in $$(find raw_data -name *demultiplex_all.Rout) ; \
+	  do cat $$file | grep sequences | sed 's@^@'"$$file"': @'; done >$@
 
+# count sequences in fastq.gz files generated at different stages.
+# files to count are added as prerequisites in demux.make
 data/fastq.counts :
 	 for file in $^ ; do echo $$file, $$(zcat $$file | grep -c '^@'); done >$@
 
-
+%.dada.asv.rds %.dada.derep.rds : %.dada.Rdata split_rdata.R
+	$(R)
