@@ -18,8 +18,27 @@ seq_count <- function(data, description) {
     data %<>% ungroup
     format_string <- "{n} sequences {description}."
   }
-  data %>% summarize(n = n_distinct(qseqid)) %>%
-    glue_data(format_string) %>%
+  out.data <- summarize(data, n = n_distinct(qseqid))
+  if ("direction" %in% names(data)) {
+    format_string <- str_replace(format_string, "\\.$",
+                                 glue_data(data,
+                                           "{unique(direction)}: {{{unique(direction)}}}") %>%
+                                   glue_collapse(sep = ", ") %>%
+                                   {glue(" ({.}).")})
+    
+    dir.data <-
+      group_by(data, direction, add = TRUE) %>%
+      summarize(n = n_distinct(qseqid))  %>%
+      group_by_at(.vars = setdiff(groups(.), "direction")) %>%
+      spread(key = direction, value = n, fill = 0)
+    if (!is.null(groups(out.data))) {
+      out.data %<>% full_join(dir.data, by = groups(.))
+    } else {
+      out.data %<>% bind_cols(dir.data)
+    }
+  }
+  
+  glue_data(out.data, format_string) %>%
     paste(collapse = "\n") %>%
     cat("\n")
   return(data)
@@ -35,7 +54,7 @@ if (interactive()) {
   dataset <- "short-ion"
   seq.run <- "is_057"
   fullstem <- file.path(seq.dir, dataset, seq.run)
-  in.fastq <- file.path(fullstem, "rawdata", "no_bc-subset", "rawlib.basecaller.fastq.gz")
+  in.fastq <- file.path(fullstem, "rawdata", "nobc", "rawlib.basecaller-xaa.fastq.gz")
   demux.dir <- file.path(fullstem, "demultiplex")
   
   gits7.file <- file.path(lab.dir, "Hectors tag primer plates.xlsx")
@@ -102,7 +121,7 @@ for (f in platekey$out.file) {
   writeFastq(blankread, file = f)
 }
 
-fastq <- FastqStreamer(in.fastq)
+fastq <- FastqStreamer(in.fastq, n = 10000)
 
 blastlist <- list()
 blastlist$F <- blast(db = blastdb.fwd, type = "blastn")
@@ -131,7 +150,7 @@ while (length(fq <- yield(fastq))) {
 cat("Demultiplexing...\n")
 
 tagblast2 <- tagblast  %>%
-  # gITS7 and ITS1 are forward primers; LR5 is reverse
+  # gITS7 and ITS1 are forward primers; LR5 and ITS4 are reverse
   mutate(primer = str_extract(sseqid, "(gITS7|ITS1|LR5|ITS4)")) %>%
   tidyr::separate(sseqid, c("tag", "v"), sep = "_v") %>%
   # partition(qseqid, cluster = clust) %>%
