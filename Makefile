@@ -189,10 +189,10 @@ data/fastq.counts :
 clean :
 	for f in $$(find $(SEQDIR) -name demultiplex -type d); do rm -r $$f; done
 	for f in $$(find $(SEQDIR) -name trim -type d); do rm -r $$f; done
-	for f in $$(find $(SEQDIR) -name *-x??.fastq.gz); do rm -$$f; done
-	for f in $$(find . -name *.Rout); do rm -$$f; done
-	for f in $$(find $(DATADIR) -name *.dada.Rdata); do rm -$$f; done
-	for f in $$(find $(DATADIR) -name *.dada.asv.rds); do rm -$$f; done
-	for f in $$(find $(DATADIR) -name *.dada.derep.rds); do rm -$$f; done
+	for f in $$(find $(SEQDIR) -name *-x??.fastq.gz); do rm $$f; done
+	for f in $$(find . -name *.Rout); do rm $$f; done
+	for f in $$(find $(DATADIR) -name *.dada.Rdata); do rm $$f; done
+	for f in $$(find $(DATADIR) -name *.dada.asv.rds); do rm $$f; done
+	for f in $$(find $(DATADIR) -name *.dada.derep.rds); do rm $$f; done
 	rm -f $(DATADIR)/demux.counts
 	rm -f $(DATADIR)/fastq.counts
