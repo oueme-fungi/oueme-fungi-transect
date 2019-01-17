@@ -88,7 +88,7 @@ include demux.make
 	$(R)
 
 # How many cores do we have?
-# Note: this is used to decide how many pieces to split files into for
+# Note: this is used to decide how many pieces to split files into before
 # demultiplexing. It does not in itself determine how many cores will be used
 # in the pipeline.  That is determined by the -j flag to make! However, in
 # general, this will allow all cores to be usefully utilized.
@@ -184,3 +184,13 @@ data/fastq.counts :
 
 %.dada.asv.rds %.dada.derep.rds : %.dada.Rdata split_rdata.R
 	$(R)
+
+.PHONY: clean
+clean :
+	for f in $$(find $SEQDIR -n demultiplex -type d); rm -r $$f; done
+	for f in $$(find $SEQDIR -n trim -type d); rm -r $$f; done
+	for f in $$(find $SEQDIR -n *-x??.fastq.gz); rm -$$f; done
+	for f in $$(find . -n *.Rout); rm -$$f; done
+	for f in $$(find $DATADIR -n *.dada.Rdata); rm -$$f; done
+	for f in $$(find $DATADIR -n *.dada.asv.rds); rm -$$f; done
+	for f in $$(find $DATADIR -n *.dada.derep.rds); rm -$$f; done
