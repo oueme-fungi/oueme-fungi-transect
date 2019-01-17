@@ -187,10 +187,10 @@ data/fastq.counts :
 
 .PHONY: clean
 clean :
-	for f in $$(find $SEQDIR -n demultiplex -type d); rm -r $$f; done
-	for f in $$(find $SEQDIR -n trim -type d); rm -r $$f; done
-	for f in $$(find $SEQDIR -n *-x??.fastq.gz); rm -$$f; done
+	for f in $$(find $(SEQDIR) -n demultiplex -type d); rm -r $$f; done
+	for f in $$(find $(SEQDIR) -n trim -type d); rm -r $$f; done
+	for f in $$(find $(SEQDIR) -n *-x??.fastq.gz); rm -$$f; done
 	for f in $$(find . -n *.Rout); rm -$$f; done
-	for f in $$(find $DATADIR -n *.dada.Rdata); rm -$$f; done
-	for f in $$(find $DATADIR -n *.dada.asv.rds); rm -$$f; done
-	for f in $$(find $DATADIR -n *.dada.derep.rds); rm -$$f; done
+	for f in $$(find $(DATADIR) -n *.dada.Rdata); rm -$$f; done
+	for f in $$(find $(DATADIR) -n *.dada.asv.rds); rm -$$f; done
+	for f in $$(find $(DATADIR) -n *.dada.derep.rds); rm -$$f; done
