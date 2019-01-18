@@ -182,7 +182,7 @@ data/demux.counts : demultiplex
 data/fastq.counts :
 	 for file in $^ ; do echo $$file, $$(zcat $$file | grep -c '^@'); done >$@
 
-%.dada.asv.rds %.dada.derep.rds : %.dada.Rdata split_rdata.R
+%.dada.asv.rds %.dada.derep.rds : split_rdata.R %.dada.Rdata
 	$(R)
 
 .PHONY: clean
