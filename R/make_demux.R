@@ -40,12 +40,12 @@ cat("#############################",
 
 # find potential source files
 datasets <- read_csv(dataset.file) %>%
-  mutate(Regions = map(Regions, ~parse(text = .)) %>%
-           map(eval)) %>%
+  mutate(Regions = str_split(Regions, ",") %>%
+           map(trimws)) %>%
   unnest(Regions) %>%
   mutate(Regions = as.character(Regions) %>%
            paste0(".", .) %>%
-           str_replace(fixed(".NULL"), ""),
+           str_replace(fixed(".NA"), ""),
          dada.file = glue("$(DATADIR)/{Dataset}_{Seq.Run}{Regions}.dada.Rdata"),
          derep.file = str_replace(dada.file, "\\.Rdata$", ".derep.rds"),
          asv.file = str_replace(dada.file, "\\.Rdata$", ".asv.rds"))
