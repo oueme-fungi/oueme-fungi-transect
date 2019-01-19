@@ -12,13 +12,14 @@ if (interactive()) {
   seq.dir <- file.path(base.dir, "raw_data")
   
   # choose a dataset and run for testing.
-  dataset <- "short-pacbio"
-  seq.run <- "pb_483"
+  dataset <- "short-ion"
+  seq.run <- "is_057"
   fullstem <- file.path(seq.dir, dataset, seq.run)
   trim.dir <- file.path(fullstem, "trim")
   in.files <- list.files(path = trim.dir,
                         pattern = "\\.trim\\.fastq\\.gz$",
                         full.names = TRUE) 
+  in.files <- in.files[1]
   
   target <- paste0(file.path(data.dir, dataset), "_", seq.run, ".dada.Rdata")
   dataset.file <- file.path(lab.dir, "datasets.csv")
@@ -50,9 +51,7 @@ datasets %<>% filter(Dataset == dataset,
 err.fun <- ifelse(datasets$Tech == "PacBio",
                   PacBioErrfun,
                   loessErrfun)
-if (!is.na(datasets$DadaOpt)) {
-  do.call(setDadaOpt, eval(parse(text = datasets$DadaOpt)))
-}
+
 
 # from here, based on sample script at http://benjjneb.github.io/dada2/bigdata.html
 # File parsing
@@ -64,6 +63,16 @@ err <- learnErrors(in.files, nbases = 1e8, multithread=TRUE, randomize=TRUE,
                    errorEstimationFunction = err.fun,
                    verbose = TRUE)
 derep <- derepFastq(in.files)#[[sam]])
-asv <- dada(derep, err=err, multithread=TRUE, pool = TRUE)
+
+dada.opt <- list(derep = derep, err = err, multithread = TRUE, pool = TRUE)
+if (!is.na(datasets$DadaOpt)) {
+  datasets$DadaOpt %>%
+    str_split(",") %>%
+    unlist() %>%
+    trimws() %>%
+    str_split("=") %>%
+    walk(~ (dada.opt <<- replace(dada.opt, unlist(.)[1], eval(parse(text = unlist(.)[2])))))
+}
+asv <- do.call(dada, dada.opt)
 
 save(derep, asv, file = target)
