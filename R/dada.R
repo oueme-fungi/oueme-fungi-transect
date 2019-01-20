@@ -73,6 +73,47 @@ if (!is.na(datasets$DadaOpt)) {
     str_split("=") %>%
     walk(~ (dada.opt <<- replace(dada.opt, unlist(.)[1], eval(parse(text = unlist(.)[2])))))
 }
+
 asv <- do.call(dada, dada.opt)
 
-save(derep, asv, file = target)
+object.size(asv)
+
+map_dbl(asv, object.size)
+
+asv.big <- map_dbl(asv, object.size) %>% which.max
+
+asv.big <- asv[[asv.big]]
+
+str(asv.big)
+
+map_dbl(asv.big@.Data, object.size)
+
+object.size(derep)
+
+map_dbl(derep, object.size)
+
+derep.big <- map_dbl(derep, object.size) %>% which.max
+derep.big <- derep[[derep.big]]
+
+str(derep.big)
+
+map_dbl(derep.big, object.size)
+
+dadamap <-
+  map2(derep, asv,
+       function(derep, asv) {
+         m <- tibble(seq.idx = seq_along(derep$map),
+                     derep.idx = derep$map,
+                     derep.seq = names(derep$uniques)[derep.idx])
+         m %<>%
+           left_join(
+             tibble(
+               asv.idx = asv$map,
+               derep.idx = seq_along(asv.idx),
+               asv.seq = asv$sequence[asv.idx]))
+         m
+       })
+
+seqtable <- makeSequenceTable(asv)
+
+save(dadamap, seqtable, file = target)

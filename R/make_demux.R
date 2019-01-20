@@ -47,8 +47,8 @@ datasets <- read_csv(dataset.file) %>%
            paste0(".", .) %>%
            str_replace(fixed(".NA"), ""),
          dada.file = glue("$(DATADIR)/{Dataset}_{Seq.Run}{Regions}.dada.Rdata"),
-         derep.file = str_replace(dada.file, "\\.Rdata$", ".derep.rds"),
-         asv.file = str_replace(dada.file, "\\.Rdata$", ".asv.rds"))
+         dadamap.file = str_replace(dada.file, "\\.Rdata$", ".dadamap.rds"),
+         seqtable.file = str_replace(dada.file, "\\.Rdata$", ".seqtable.rds"))
 
 datasets %>%
   with(paste0("dada : ",

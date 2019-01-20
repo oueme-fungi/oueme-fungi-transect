@@ -182,7 +182,10 @@ data/demux.counts : demultiplex
 data/fastq.counts :
 	 for file in $^ ; do echo $$file, $$(zcat $$file | grep -c '^@'); done >$@
 
-%.dada.asv.rds %.dada.derep.rds : %.dada.Rdata split_rdata.R
+# dada.R produced a map from sequences to ASVs as well as an ASV matrix
+# for the community.  Because it's easiest if the make target has only one output,
+# it puts them into a single Rdata file.  This splits them into two .rds files.
+%.dada.dadamap.rds %.dada.seqtable.rds : %.dada.Rdata split_rdata.R
 	$(R)
 
 .PHONY: clean
