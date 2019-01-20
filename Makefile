@@ -182,20 +182,24 @@ data/demux.counts : demultiplex
 data/fastq.counts :
 	 for file in $^ ; do echo $$file, $$(zcat $$file | grep -c '^@'); done >$@
 
+<<<<<<< HEAD
 # dada.R produced a map from sequences to ASVs as well as an ASV matrix
 # for the community.  Because it's easiest if the make target has only one output,
 # it puts them into a single Rdata file.  This splits them into two .rds files.
 %.dada.dadamap.rds %.dada.seqtable.rds : %.dada.Rdata split_rdata.R
+=======
+%.dada.asv.rds %.dada.derep.rds : split_rdata.R %.dada.Rdata
+>>>>>>> ce14d33e4af0dca28da6758524506ddee7e74e03
 	$(R)
 
 .PHONY: clean
 clean :
 	for f in $$(find $(SEQDIR) -name demultiplex -type d); do rm -r $$f; done
 	for f in $$(find $(SEQDIR) -name trim -type d); do rm -r $$f; done
-	for f in $$(find $(SEQDIR) -name *-x??.fastq.gz); do rm -$$f; done
-	for f in $$(find . -name *.Rout); do rm -$$f; done
-	for f in $$(find $(DATADIR) -name *.dada.Rdata); do rm -$$f; done
-	for f in $$(find $(DATADIR) -name *.dada.asv.rds); do rm -$$f; done
-	for f in $$(find $(DATADIR) -name *.dada.derep.rds); do rm -$$f; done
+	for f in $$(find $(SEQDIR) -name *-x??.fastq.gz); do rm $$f; done
+	for f in $$(find . -name *.Rout); do rm $$f; done
+	for f in $$(find $(DATADIR) -name *.dada.Rdata); do rm $$f; done
+	for f in $$(find $(DATADIR) -name *.dada.asv.rds); do rm $$f; done
+	for f in $$(find $(DATADIR) -name *.dada.derep.rds); do rm $$f; done
 	rm -f $(DATADIR)/demux.counts
 	rm -f $(DATADIR)/fastq.counts
