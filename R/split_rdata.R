@@ -1,5 +1,6 @@
 library(magrittr)
 library(tidyverse)
+library(glue)
 
 if (interactive()) {
   base.dir <- getwd() %>%
@@ -29,7 +30,9 @@ for (f in in.files) {
   e <- new.env()
   load(f, envir = e)
   for (o in names(e)) {
-    saveRDS(get(o, e), file = str_replace(f, "\\.Rdata$", paste0(".", o, ".rds")))
+    newname <- str_replace(f, "\\.Rdata$", paste0(".", o, ".rds"))
+    cat(glue("Writing object '{o}' ({object.size(get(o,e))}) to file {newname}..."), "\n")
+    saveRDS(get(o, e), file = newname)
   }
   remove(e)
 }

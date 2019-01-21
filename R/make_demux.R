@@ -52,7 +52,7 @@ datasets <- read_csv(dataset.file) %>%
 
 datasets %>%
   with(paste0("dada : ",
-              paste(derep.file, asv.file, collapse = ' \\\n       '))) %>%
+              paste(dadamap.file, seqtable.file, collapse = ' \\\n       '))) %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 
 datasets %<>%

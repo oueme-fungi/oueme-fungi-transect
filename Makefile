@@ -180,7 +180,7 @@ data/demux.counts : demultiplex
 # count sequences in fastq.gz files generated at different stages.
 # files to count are added as prerequisites in demux.make
 data/fastq.counts :
-	 for file in $^ ; do echo $$file, $$(zcat $$file | grep -c '^@'); done >$@
+	$(file >$@) $(foreach f,$^,$(file >>$@,"$(f), $(shell zcat $(f) | grep -c '^@')"))
 
 # dada.R produced a map from sequences to ASVs as well as an ASV matrix
 # for the community.  Because it's easiest if the make target has only one output,
