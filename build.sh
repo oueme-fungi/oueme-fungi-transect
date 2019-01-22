@@ -14,12 +14,19 @@ rm demux.make
 
 module load R/3.5.0 gcc bioinfo-tools blast samtools ITSx gnuparallel
 
+# convert PacBio RSII files to .bam format
+# these are single-threaded options
+make -j$SLURM_JOB_CPUS_PER_NODE convert-pacbio
+
+# demultiplex Pacbio BAM files
+# this is multithreaded per-file, so run serial make (with parallel tasks)
+#make demux-pacbio
+
 # demultiplex and quality filter
 # For these targets, operations can be done in parallel on many files,
 # so run parallel make.
-make -j$(nproc) trim 
+make -j$SLURM_JOB_CPUS_PER_NODE trim 
 
 # denoise to find amplicon sequence variants.
-# For this target, many files are processed together, but the dada2 library
-# which is used is already multithreaded, so run a serial make.
-make data/demux.counts dada data/fastq.counts
+# the dada2 library is already multithreaded, so run a serial make.
+make data/demux.counts data/fastq.counts dada taxonomy

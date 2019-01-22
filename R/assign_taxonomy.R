@@ -15,8 +15,8 @@ if (interactive()) {
   dataset <- "short-ion"
   seq.run <- "is_057"
   region = ""
-  in.file <- glue("{file.path(data.dir, dataset)}_{seq.run}{region}.asv.RDS")
-  target <- str_replace(in.file, fixed(".Rdata"), ".taxonomy.RDS")
+  in.file <- glue("{file.path(data.dir, dataset)}_{seq.run}{region}.dada.seqtable.rds")
+  target <- str_replace(in.file, fixed(".seqtable.rds"), ".taxonomy.rds")
   reference <- file.path(ref.dir, "sh_general_release_dynamic_s_01.12.2017.fasta.gz")
 } else {
   con <- file("stdin")
@@ -24,20 +24,16 @@ if (interactive()) {
   prereqs <- readLines(con)
   close(con)
   prereqs <- str_split(prereqs, " ") %>% unlist
-  in.file <- str_extract(prereqs, fixed(".asv.Rdata"))
+  in.file <- str_extract(prereqs, fixed(".seqtable.rds"))
   reference <- str_extract(prereqs, fixed(".fasta.gz"))
 }
 
 stopifnot(file.exists(in.file),
           file.exists(reference))
-asv <- readRDS(in.file)
-load(in.file)
-tax <- asv %>%
-  map(getUniques) %>%
-  map(names) %>%
-  unlist %>%
-  unique %>%
-  assignTaxonomy(reference) %>%
+seq.table <- readRDS(in.file)
+tax <- seq.table %>%
+  colnames %>%
+  assignTaxonomy(reference, multithread = TRUE) %>%
   as_tibble(rownames = "seq") %>%
   mutate_at(vars(Kingdom:Species), str_replace, "^[kpcofgs]__", "") %>%
   mutate(Species = ifelse(is.na(Genus) | is.na(Species),
