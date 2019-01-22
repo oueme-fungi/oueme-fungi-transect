@@ -179,9 +179,16 @@ data/demux.counts : demultiplex
 
 # count sequences in fastq.gz files generated at different stages.
 # files to count are added as prerequisites in demux.make
+define filecho =
+@echo $(1) >>$@.temp
+
+endef
+
 data/fastq.counts :
-	$(file >$@.temp) $(foreach f,$^,$(file >>$@.temp,$(f)))
-	parallel echo "{}, $$(zcat {} | grep -c '^@')" <$@.temp >$@
+	rm -f $@.temp
+	touch $@.temp
+	$(foreach f,$^,$(call filecho,$f))
+	parallel 'echo {}, $$(zcat {} | grep -c "^@")' <$@.temp >$@
 	rm $@.temp
 
 # dada.R produced a map from sequences to ASVs as well as an ASV matrix
