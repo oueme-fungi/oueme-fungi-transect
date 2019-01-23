@@ -116,4 +116,7 @@ dadamap <-
 
 seqtable <- makeSequenceTable(asv)
 
-save(dadamap, seqtable, file = target)
+nochim <- removeBimeraDenovo(seqtable, method = "consensus",
+                                      multithread = TRUE)
+
+save(dadamap, seqtable, nochim, file = target)
