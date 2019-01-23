@@ -47,6 +47,7 @@ datasets <- read_csv(dataset.file) %>%
            paste0(".", .) %>%
            str_replace(fixed(".NA"), ""),
          dada.root = glue("$(DATADIR)/{Dataset}_{Seq.Run}{Regions}.dada"),
+         dada.file = paste0(dada.root, ".Rdata"),
          dadamap.file = paste0(dada.root, ".dadamap.rds"),
          seqtable.file = paste0(dada.root, ".seqtable.rds"),
          nochim.file = paste0(dada.root, ".nochim.rds"),
@@ -170,7 +171,7 @@ datasets %>%
 datasets %>%
   mutate(region.file = str_replace(OutFile, fixed(glue("-{shard}")),
                                    Regions)) %>%
-  select(region.file, dadamap.file, seqtable.file) %>%
+  select(region.file, dada.file) %>%
   unique %>%
   mutate(trim.file = str_replace(region.file,
                                 fixed("demultiplex"),
@@ -182,8 +183,7 @@ datasets %>%
             ".PRECIOUS: {region.file}", #ITSx is slow
             "trim : {trim.file}",
             "{trim.file} : {region.file}",
-            "{dadamap.file} : {trim.file}",
-            "{seqtable.file} : {trim.file}",
+            "{dada.file} : {trim.file}",
             .sep = "\n",
             .trim = FALSE) %>%
   glue_collapse(sep = "\n\n") %>%

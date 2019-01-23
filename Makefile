@@ -226,7 +226,7 @@ data/fastq.counts :
 # dada.R produced a map from sequences to ASVs as well as an ASV matrix
 # for the community.  Because it's easiest if the make target has only one output,
 # it puts them into a single Rdata file.  This splits them into two .rds files.
-%.dada.dadamap.rds %.dada.seqtable.rds : split_rdata.R %.dada.Rdata 
+%.dada.dadamap.rds %.dada.seqtable.rds %.dada.nochim.rds : split_rdata.R %.dada.Rdata 
 	$(R)
 
 .PHONY: clean
