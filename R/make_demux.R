@@ -49,7 +49,9 @@ datasets <- read_csv(dataset.file) %>%
          dada.root = glue("$(DATADIR)/{Dataset}_{Seq.Run}{Regions}.dada"),
          dadamap.file = paste0(dada.root, ".dadamap.rds"),
          seqtable.file = paste0(dada.root, ".seqtable.rds"),
-         taxonomy.file = paste0(dada.root, ".taxonomy.rds"))
+         taxonomy.file = paste0(dada.root, ".taxonomy.rds"),
+         reference.file = case_when(Regions == ".LSU" ~ "lsu_ref.fastq.gz",
+                                    TRUE ~ "its_ref.fastq.gz"))
 
 datasets %>%
   with(paste0("dada : ",
@@ -61,6 +63,11 @@ datasets %>%
 datasets %>%
   with(paste0("taxonomy : ",
               paste(taxonomy.file, collapse = ' \\\n           '))) %>%
+  cat("\n\n", sep = "", file = target, append = TRUE)
+
+datasets %>%
+  glue_data("{taxonomy.file} : {reference.file}") %>%
+  glue_collapse(sep = "\n") %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 
 datasets %<>%
