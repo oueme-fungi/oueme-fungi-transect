@@ -16,17 +16,17 @@ module load R/3.5.0 gcc bioinfo-tools blast samtools ITSx gnuparallel SMRT/5.0.1
 
 # convert PacBio RSII files to .bam format
 # these are single-threaded options
-#make -j$SLURM_JOB_CPUS_PER_NODE convert-pacbio
+#make -j$SLURM_JOB_CPUS_PER_NODE convert-pacbio &&
 
 # demultiplex Pacbio BAM files
 # this is multithreaded per-file, so run serial make (with parallel tasks)
-#make demux-pacbio
+#make demux-pacbio &&
 
 # demultiplex and quality filter
 # For these targets, operations can be done in parallel on many files,
 # so run parallel make.
-make -j$SLURM_JOB_CPUS_PER_NODE trim 
+make -j$SLURM_JOB_CPUS_PER_NODE trim &&
 
 # denoise to find amplicon sequence variants.
 # the dada2 library is already multithreaded, so run a serial make.
-make data/demux.counts data/fastq.counts dada taxonomy
+make data/demux.counts data/fastq.counts dada taxonomy &&
