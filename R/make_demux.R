@@ -52,8 +52,8 @@ datasets <- read_csv(dataset.file) %>%
          seqtable.file = paste0(dada.root, ".seqtable.rds"),
          nochim.file = paste0(dada.root, ".nochim.rds"),
          taxonomy.file = paste0(dada.root, ".taxonomy.rds"),
-         reference.file = case_when(Regions == ".LSU" ~ "lsu_ref.fastq.gz",
-                                    TRUE ~ "its_ref.fastq.gz"))
+         reference.file = case_when(Regions == ".LSU" ~ "lsu_ref.fasta.gz",
+                                    TRUE ~ "its_ref.fasta.gz"))
 
 datasets %>%
   with(paste0("dada : ",

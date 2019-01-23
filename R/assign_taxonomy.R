@@ -24,9 +24,14 @@ if (interactive()) {
   prereqs <- readLines(con)
   close(con)
   prereqs <- str_split(prereqs, " ") %>% unlist
-  in.file <- str_subset(prereqs, fixed(".seqtable.rds"))
+  in.file <- str_subset(prereqs, fixed(".nochim.rds"))
   reference <- str_subset(prereqs, fixed(".fasta.gz"))
 }
+
+
+cat(glue("prereqs: {prereqs}",
+         "in.file: {in.file}",
+         "reference: {reference}"))
 
 stopifnot(file.exists(in.file),
           file.exists(reference))

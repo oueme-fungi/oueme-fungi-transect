@@ -54,7 +54,7 @@ TAGBLAST = $(FASTAQ_A) | blastn \
 
 # define paths to look for fast[aq] files
 vpath %.fasta ${TAGROOT}
-vpath %_ref.fastq.gz $(REF_ROOT)
+vpath %_ref.fasta.gz $(REF_ROOT)
 vpath %.R $(BASEDIR)/R
 
 # Find all raw PacBio RSII files
