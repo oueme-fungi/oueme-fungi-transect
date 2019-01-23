@@ -29,4 +29,4 @@ make -j$SLURM_JOB_CPUS_PER_NODE trim &&
 
 # denoise to find amplicon sequence variants.
 # the dada2 library is already multithreaded, so run a serial make.
-make data/demux.counts data/fastq.counts dada taxonomy &&
+make data/demux.counts data/fastq.counts dada taxonomy
