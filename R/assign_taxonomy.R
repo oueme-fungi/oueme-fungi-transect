@@ -12,12 +12,12 @@ if (interactive()) {
   seq.dir <- file.path(base.dir, "raw_data")
   
   # choose a dataset and run for testing.
-  dataset <- "short-ion"
-  seq.run <- "is_057"
-  region = ""
+  dataset <- "long-pacbio"
+  seq.run <- "pb_500"
+  region = ".LSU"
   in.file <- glue("{file.path(data.dir, dataset)}_{seq.run}{region}.dada.seqtable.rds")
   target <- str_replace(in.file, fixed(".seqtable.rds"), ".taxonomy.rds")
-  reference <- file.path(ref.dir, "sh_general_release_dynamic_s_01.12.2017.fasta.gz")
+  reference <- file.path(ref.dir, "lsu_ref.fasta.gz")
 } else {
   con <- file("stdin")
   open(con, blocking = TRUE)
