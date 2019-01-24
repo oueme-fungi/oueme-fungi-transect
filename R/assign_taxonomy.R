@@ -29,13 +29,15 @@ if (interactive()) {
 }
 
 
-cat(glue("prereqs: {prereqs}",
-         "in.file: {in.file}",
-         "reference: {reference}"))
+cat("prereqs:", prereqs,
+  "\nin.file:", in.file,
+  "\nreference:", reference,
+  "\n")
 
 stopifnot(file.exists(in.file),
           file.exists(reference))
 seq.table <- readRDS(in.file)
+
 tax <- seq.table %>%
   colnames %>%
   assignTaxonomy(reference, multithread = TRUE) %>%
@@ -45,7 +47,7 @@ tax <- seq.table %>%
                           NA_character_,
                           paste(Genus, Species)))
 
-seqtab <- makeSequenceTable(asv) %>%
+tax <- seq.table %>%
   t %>%
   as_tibble(rownames = "seq") %>%
   left_join(tax, by = "seq") %>%
@@ -54,4 +56,4 @@ seqtab <- makeSequenceTable(asv) %>%
                           sep = ";") %>%
            str_replace_all(fixed(";NA"), ""))
 
-saveRDS(seqtab, file = target)
+saveRDS(tax, file = target)
