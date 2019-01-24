@@ -6,6 +6,7 @@ library(tidyverse)
 library(readxl)
 library(seqinr)
 library(glue)
+library(assertthat)
 library(Biostrings)
 library(ShortRead)
 library(rBLAST)
@@ -73,6 +74,18 @@ if (interactive()) {
   plate <- "short_ion_001"
   shard <- 'xaa'
 } else {
+  # Read parameters from environmental variables
+  target <- Sys.getenv("TARGETLIST")
+  blastdb.fwd <- Sys.getenv("BLASTDB_FWD")
+  blastdb.rev <- Sys.getenv("BLASTDB_REV")
+  plate <- Sys.getenv("PLATE")
+  shard <- Sys.getenv("SHARD")
+  
+  assert_that(all(is.string(target)))
+  demux.dir <- dirname(target)
+  
+  # Read prerequisites (potentially too long for the command line)
+  # from stdin
   con <- file("stdin")
   open(con, blocking = TRUE)
   prereqs <- readLines(con)
@@ -81,21 +94,23 @@ if (interactive()) {
   
   tag.files <- str_subset(prereqs, "tags.+\\.fasta")
   glue("tag file: {tag.files}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
+  assert_that(all(file.exists(tag.files)))
   in.fastq <- str_subset(prereqs, "\\.fastq\\.gz")
   glue("in fastq: {in.fastq}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
+  assert_that(file.exists(in.fastq))
   platekey.file <- str_subset(prereqs, "_platekey\\.csv")
   glue("platekey: {platekey.file}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
+  glue("forward blast db: {blastdb.fwd}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
+  glue("reverse blast db: {blastdb.rev}") %>% glue_collapse(sep = "\n") %>% cat("\n", ., "\n")
 }
 
-stopifnot(file.exists(tag.files),
-          file.exists(in.fastq),
-          file.exists(platekey.file),
-          file.exists(paste0(blastdb.fwd, c(".nin", ".nsq", ".nhr"))),
-          file.exists(paste0(blastdb.rev, c(".nin", ".nsq", ".nhr"))),
-          !exists("in.mid") || file.exists(in.mid))
+assert_that(file.exists(platekey.file),
+            all(file.exists(paste0(blastdb.fwd, c(".nin", ".nsq", ".nhr")))),
+            all(file.exists(paste0(blastdb.rev, c(".nin", ".nsq", ".nhr")))),
+            !exists("in.mid") || file.exists(in.mid))
 
 if (!dir.exists(demux.dir)) {
-  dir.create(demux.dir)
+  dir.create(demux.dir, recursive = TRUE)
 }
 
 blast_opts = c("-task blastn-short",

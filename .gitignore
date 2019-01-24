@@ -2,7 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
-*.xlsx#
+*#
 *.Rout
 *-tikzDictionary
 *.demux.*
@@ -12,3 +12,5 @@ demux.make
 slurm-*.out
 make.log
 packrat/lib*/
+.drake
+nohup.out

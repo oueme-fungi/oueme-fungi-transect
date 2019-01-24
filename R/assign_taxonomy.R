@@ -1,6 +1,7 @@
 library(magrittr)
 library(tidyverse)
 library(glue)
+library(assertthat)
 library(dada2)
 
 if (interactive()) {
@@ -8,17 +9,22 @@ if (interactive()) {
     str_extract(".*oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
   ref.dir <- file.path(base.dir, "reference")
-  lab.dir <- file.path(data.dir, "lab_setup")
-  seq.dir <- file.path(base.dir, "raw_data")
   
   # choose a dataset and run for testing.
   dataset <- "long-pacbio"
   seq.run <- "pb_500"
   region = ".LSU"
   in.file <- glue("{file.path(data.dir, dataset)}_{seq.run}{region}.dada.seqtable.rds")
-  target <- str_replace(in.file, fixed(".seqtable.rds"), ".taxonomy.rds")
+  target.rds <- str_replace(in.file, fixed(".seqtable.rds"), ".taxonomy.rds")
+  target.csv <- str_replace(in.file, fixed(".seqtable.rds"), ".taxonomy.csv")
   reference <- file.path(ref.dir, "lsu_ref.fasta.gz")
 } else {
+  # Get the necessary information from environmental variables (set by make)
+  # or from stdin.
+  targets <- Sys.getenv("TARGETLIST") %>% str_split(" ") %>% unlist
+  assert_that(length(targets) > 0)
+  target.rds <- str_subset(targets, ".*\\.rds")
+  target.csv <- str_subset(targets, ".*\\.csv")
   con <- file("stdin")
   open(con, blocking = TRUE)
   prereqs <- readLines(con)
@@ -28,14 +34,14 @@ if (interactive()) {
   reference <- str_subset(prereqs, fixed(".fasta.gz"))
 }
 
-
-cat("prereqs:", prereqs,
-  "\nin.file:", in.file,
-  "\nreference:", reference,
-  "\n")
-
-stopifnot(file.exists(in.file),
-          file.exists(reference))
+assert_that(file.exists(in.file),
+            is.readable(in.file),
+            file.exists(reference),
+            is.readable(reference),
+            is.dir(dirname(target.rds)),
+            is.dir(dirname(target.csv)),
+            is.writeable(dirname(target.rds)),
+            is.writeable(dirname(target.csv)))
 seq.table <- readRDS(in.file)
 
 tax <- seq.table %>%

@@ -24,6 +24,7 @@ if (interactive()) {
   target <- paste0(file.path(data.dir, dataset), "_", seq.run, ".dada.Rdata")
   dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
+  dataset.file <- Sys.getenv("DATASET")
   con <- file("stdin")
   open(con, blocking = TRUE)
   prereqs <- readLines(con)

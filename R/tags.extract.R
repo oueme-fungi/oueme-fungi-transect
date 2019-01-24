@@ -15,7 +15,11 @@ if (interactive()) {
   tags.dir <- file.path(lab.dir, "tags")
   which.tags = c("gits7", "its1", "lr5", "its5", "gits7-ion")
 } else {
-  which.tags = basename(sys.frame(1)$ofile) %>%
+  tags.dir = Sys.getenv("TAG_ROOT")
+  target <- Sys.getenv("TARGETLIST")
+  gits7.file <- Sys.getenv('GITS7_TAGFILE')
+  its1.lr5.file <- Sys.getenv('LR5_TAGFILE')
+  which.tags = basename(target) %>%
     str_extract("(gits7(_ion)?|its1|lr5|its4)")
 }
 

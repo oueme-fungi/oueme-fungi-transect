@@ -7,8 +7,6 @@ if (interactive()) {
   base.dir <- getwd() %>%
     str_extract(".*oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
-  ref.dir <- file.path(base.dir, "reference")
-  lab.dir <- file.path(data.dir, "lab_setup")
   seq.dir <- file.path(base.dir, "raw_data")
   
   # choose a dataset and run for testing.
@@ -18,7 +16,6 @@ if (interactive()) {
   well <- "F2"
   position.file <- glue("{file.path(seq.dir, dataset, seq.run, 'demultiplex', dataset)}-{plate}_{well}.positions.txt")
   seq.file <-  glue("{file.path(seq.dir, dataset, seq.run, 'demultiplex', dataset)}-{plate}_{well}.fastq.gz")
-  stem <- str_replace(position.file, fixed(".positions.txt"), "")
 } else {
   con <- file("stdin")
   open(con, blocking = TRUE)
@@ -33,6 +30,9 @@ if (interactive()) {
 
 stopifnot(file.exists(position.file),
           file.exists(seq.file))
+
+
+stem <- str_replace(position.file, fixed(".positions.txt"), "")
 
 pos <- tibble(seq = character(0),
               length = character(0),

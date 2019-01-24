@@ -1,5 +1,7 @@
-*.asv.RDS
 *.counts
+*.temp
 *.dada.Rdata
-*.asv.rds
-*.derep.rds
+*.dada.*.rds
+pb_vs_ion_ASVs.csv
+plate_mismatch.xlsx
+*FUNGuild*
