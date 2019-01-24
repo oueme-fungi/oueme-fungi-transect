@@ -183,7 +183,7 @@ endef
 
 # Rule to assign taxonomy to ASVs
 # The correct reference file needs to be added as a separate rule.
-%.dada.taxonomy.rds : assign_taxonomy.R %.dada.nochim.rds
+%.dada.taxonomy.rds %.dada.taxonomy.csv : assign_taxonomy.R %.dada.nochim.rds
 	$(R)
 
 .INTERMEDIATE: $(TAG_ROOT)/gits7 \

@@ -42,10 +42,14 @@ tax <- seq.table %>%
   colnames %>%
   assignTaxonomy(reference, multithread = TRUE) %>%
   as_tibble(rownames = "seq") %>%
-  mutate_at(vars(Kingdom:Species), str_replace, "^[kpcofgs]__", "") %>%
-  mutate(Species = ifelse(is.na(Genus) | is.na(Species),
-                          NA_character_,
-                          paste(Genus, Species)))
+  # remove taxon rank prefixed from Unite reference
+  mutate_at(vars(-seq), str_replace, "^[kpcofgs]__", "") %>%
+  mutate(
+    # add Species to RDP reference
+    Species = if ("Species" %in% names(.)) Species else NA_character_,
+    Species = ifelse(is.na(Genus) | is.na(Species),
+                     NA_character_,
+                     paste(Genus, Species)))
 
 tax <- seq.table %>%
   t %>%
@@ -57,3 +61,4 @@ tax <- seq.table %>%
            str_replace_all(fixed(";NA"), ""))
 
 saveRDS(tax, file = target)
+write_csv(tax, file = str_replace(target, "\\.rds", ".csv"))
