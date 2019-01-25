@@ -12,6 +12,7 @@ library(glue)
 library(Biostrings)
 library(ShortRead)
 library(ggplot2)
+library("scales")
 
 #if (interactive()) {
   base.dir <- getwd() %>%
@@ -40,7 +41,6 @@ library(ggplot2)
 ```
 
 ```{r}
-library("scales")
 reverselog_trans <- function(base = exp(1)) {
     trans <- function(x) -log(x, base)
     inv <- function(x) base^(-x)
@@ -95,67 +95,62 @@ counts %<>% mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
   group_by(dataset) %>%
   mutate(original = na.omit(original),
          demux = na.omit(demux)) %>%
-  filter(all(is.na(region)) | !is.na(region))
+  filter(all(is.na(region)) | !is.na(region)) %>%
+  ungroup()
 
 demux.counts <- read_lines(file.path(data.dir, "demux.counts")) %>%
-  str_match("([^:]+): (\\d+) sequences (.+)") %>%
-  magrittr::extract(,-1) %>%
-  set_colnames(c("file", "reads", "type")) %>%
+  str_match("([^:]+): (\\d+) sequences ([^(]+)( \\(([FR]): (\\d+), ([FR]): (\\d+)\\))?\\.") %>%
+  magrittr::extract(,c(2,3,4,6,7,8, 9)) %>%
+  set_colnames(c("file", "reads", "type", "d1", "n1", "d2", "n2")) %>%
   as_tibble() %>%
+  mutate_at(c("reads", "n1", "n2"), as.integer) %>%
+  mutate(fwd = case_when(!is.na(d1) & d1 == "F" ~ n1,
+                         !is.na(d2) & d2 == "F" ~ n2,
+                         TRUE ~ NA_integer_),
+         rev = case_when(!is.na(d1) & d1 == "R" ~ n1,
+                         !is.na(d2) & d2 == "R" ~ n2,
+                         TRUE ~ NA_integer_)) %>%
+  select(-(d1:n2)) %>%
   mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
                      map_chr(purrr::compose(dplyr::first, sort, unique)),
                    seq.run = map(file, str_extract, datasets$Seq.Run) %>%
                      map_chr(purrr::compose(dplyr::first, sort, unique))) %>%
   group_by(dataset, seq.run, type) %>%
-  summarize(reads = sum(as.integer(reads))) %>%
+  summarize_at(c("reads", "fwd", "rev"), sum) %>%
   ungroup() %>%
   mutate(type = recode(type,
-                       "with at least one tag match. " = "any.tag",
-                       "match at least 90% of tag length. " = "tag.cover",
-                       "with at most 3 tag mismatches. " = "tag.score",
-                       "with no more than one distinct tag in each direction. " = "identifiable",
-                       "with tags in both directions. " = "both.tags",
-                       "with tags appearing in correct order. " = "tag.order")) %>%
+                       "with at least one tag match" = "any.tag",
+                       "match at least 90% of tag length" = "tag.cover",
+                       "with at most 3 tag mismatches" = "tag.score",
+                       "with no more than one distinct tag in each direction" = "identifiable",
+                       "with tags in both directions" = "both.tags",
+                       "with tags appearing in correct order" = "tag.order")) %>%
+  gather(key = "dir", value = "reads", reads, fwd, rev) %>%
+  mutate_at("dir", str_replace, "^reads$", "") %>%
+  tidyr::unite("type", type, dir, sep = ".") %>%
   spread(key = "type", value = "reads") %>%
-  select(dataset, any.tag, tag.cover, tag.score, identifiable, both.tags, tag.order) %>%
-  left_join(select(counts, dataset, original, demux) %>% filter(complete.cases(.))) %>%
+  set_names(str_replace(names(.), "\\.$", "")) %>%
+  keep(~!all(is.na(.))) %>%
+  select(dataset, starts_with("any.tag"), starts_with("tag.cover"),
+         starts_with("tag.score"), starts_with("identifiable"), both.tags, tag.order) %>%
+  left_join(select(counts, dataset, original, demux) %>%
+              filter(complete.cases(.)) %>%
+              unique()) %>%
   select(dataset, original, any.tag:tag.order, demux) %>%
   left_join(select(counts, dataset, region, ITSx, trim))
 
-d
-short.pacbio <- new.env()
-load(file.path(data.dir, "short-pacbio_pb_483.asv.Rdata"), envir = short.pacbio)
-remove("derep", envir = short.pacbio)
-assign("seq.tab", dada2::makeSequenceTable(short.pacbio$asv), envir = short.pacbio)
-
-long.pacbio.ITS1 <- new.env()
-load(file.path(data.dir, "long-pacbio_pb_500.ITS1.asv.Rdata"), envir = long.pacbio.ITS1)
-remove("derep", envir = long.pacbio.ITS1)
-assign("seq.tab", dada2::makeSequenceTable(long.pacbio.ITS1$asv), envir = long.pacbio.ITS1)
-
-long.pacbio.ITS2 <- new.env()
-load(file.path(data.dir, "long-pacbio_pb_500.ITS2.asv.Rdata"), envir = long.pacbio.ITS2)
-remove("derep", envir = long.pacbio.ITS2)
-assign("seq.tab", dada2::makeSequenceTable(long.pacbio.ITS2$asv), envir = long.pacbio.ITS2)
-
-long.pacbio.LSU <- new.env()
-load(file.path(data.dir, "long-pacbio_pb_500.LSU.asv.Rdata"), envir = long.pacbio.LSU)
-remove("derep", envir = long.pacbio.LSU)
-assign("seq.tab", dada2::makeSequenceTable(long.pacbio.LSU$asv), envir = long.pacbio.LSU)
-
-short.ion <- new.env()
-load(file.path(data.dir, "short-ion_is_057.asv.Rdata"), envir = short.ion)
-remove("derep", envir = short.ion)
-assign("seq.tab", dada2::makeSequenceTable(short.ion$asv), envir = short.ion)
-
-dadacounts <- tribble( ~ dataset, ~region, ~assigned, ~asv,
-                       "short-pacbio", NA, sum(short.pacbio$seq.tab), ncol(short.pacbio$seq.tab),
-                       "long-pacbio", "ITS1", sum(long.pacbio.ITS1$seq.tab), ncol(long.pacbio.ITS1$seq.tab),
-                       "long-pacbio", "ITS2", sum(long.pacbio.ITS2$seq.tab), ncol(long.pacbio.ITS2$seq.tab),
-                       "long-pacbio", "LSU", sum(long.pacbio.LSU$seq.tab), ncol(long.pacbio.LSU$seq.tab),
-                       "short-ion", NA, sum(short.ion$seq.tab), ncol(short.ion$seq.tab))
-
-demux.counts %>% left_join(dadacounts) %>%
-  filter(!is.na(assigned))
+dada.counts <-
+  demux.counts %>%
+  left_join(select(datasets, dataset = Dataset, Seq.Run)) %>%
+  mutate(file = glue("{data.dir}/{dataset}_{Seq.Run}.dada.seqtable.rds"),
+         file = ifelse(is.na(region),
+                       file,
+                       str_replace(file, "\\.dada", glue(".{region}.dada"))),
+         seq.tab = map(file, readRDS),
+         assigned = map_int(seq.tab, sum),
+         n_ASV = map_int(seq.tab, ncol)) %>%
+  select(-data, -seq.tab, -file)
+         
+dada.counts
 ```
 

@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = FALSE, fig.width = 5, fig.height = 5)
 library(magrittr)
 library(tidyverse)
 library(readxl)
-library(rwantshue)
+packrat::extlib("rwantshue")
 colorscheme <- iwanthue(seed=12, force_init = TRUE)
 doctype <- knitr::opts_knit$get("rmarkdown.pandoc.to")
 
