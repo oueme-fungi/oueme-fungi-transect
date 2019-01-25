@@ -76,7 +76,7 @@ convert-pacbio : $(RAWPACBIOBAM)
 .PHONY: all demultiplex dada trim convert-pacbio taxonomy packrat
 
 packrat :
-	Rscript $(ROPT) -e 'packrat::restore()' --args $(RARGS)
+	Rscript $(ROPT) -e 'packrat::restore()' --args $(RARGS) &> packrat.Rout
 
 all: trim
 
