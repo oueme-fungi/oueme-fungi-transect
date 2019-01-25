@@ -73,7 +73,10 @@ convert-pacbio : $(RAWPACBIOBAM)
 	        --barcodes=$(filter %.fasta,$^) \
 	        --scoremode=asymmetric
 
-.PHONY: all demultiplex dada trim convert-pacbio taxonomy
+.PHONY: all demultiplex dada trim convert-pacbio taxonomy packrat
+
+packrat :
+	Rscript $(ROPT) -e 'packrat::restore()' --args $(RARGS)
 
 all: trim
 
