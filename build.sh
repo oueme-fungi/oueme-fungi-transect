@@ -8,6 +8,8 @@
 #SBATCH -n 20
 #SBATCH -t 24:00:00
 #SBATCH -J oueme-fungi-transect
+#SBATCH -C usage_mail
+#SBATCH --mail-type=ALL
 
 # always redo this makefile, in case something (number of cores!) changes.
 rm demux.make
