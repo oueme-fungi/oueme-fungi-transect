@@ -1,0 +1,75 @@
+---
+title: "A Tale of Two Transects"
+subtitle: "Also Two Sequencing Technologies, and Two Amplicons"
+author: 
+  - Brendan Furneaux^1^,
+    Roël Houdanon^2^,
+    Mohammad Bahram^1^,
+    Anna Rosling^3^,
+    Nourou S. Yorou^2^,
+    Martin Ryberg^1^
+  - ^1^Program in Systematic Biology,
+    Department of Organismal Biology,
+    Uppsala University,
+    Uppsala, Sweden
+  - ^2^Research Unit in Tropical Mycology and Plant-Fungi Interactions,
+    LEB,
+    University of Parakou,
+    Parakou, Benin
+  - ^3^Program in Evolutionary Biology,
+    Department of Ecology and Genetics,
+    Uppsala University,
+    Uppsala, Sweden
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+bibliography:
+  - "all.bib"
+  - "R.bib"
+csl: fungal-ecology.csl
+panflute-filters: figurefilter
+panflute-path: '../../python'
+output:
+  bookdown::pdf_document2:
+    fig_crop: no
+    keep_tex: yes
+    latex_engine: lualatex
+    includes:
+      in_header: preamble.tex
+  bookdown::word_document2: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+library("knitr")
+library("tikzDevice")
+knitr::opts_chunk$set(dev="tikz",
+                      # dev.args = list(pointsize=32),
+                      echo=FALSE,
+                      results='asis',
+                      fig.show='asis',
+                      external=TRUE)
+options(tikzDefaultEngine = "luatex",
+        tikzLualatexPackages = c(options("tikzXelatexPackages")$tikzXelatexPackages,
+                                "\\usepackage[version=4]{mhchem}\n",
+                                "\\usepackage{siunitx}\n",
+                                "\\DeclareSIUnit\\year{a}\n"))
+
+base.dir <- regmatches(getwd(), regexpr(".*oueme-fungi-transect", getwd()))
+if (opts_chunk$get("dev") == "tikz") {
+  # styles$Expression <- styles$LaTeX.Expression
+  # styles$Name <- styles$LaTeX.Name
+  # styles$Short.Name <- styles$LaTeX.Short.Name
+  # styles$Unit <- paste0("\\si{", styles$LaTeX.Unit, "}")
+}
+write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
+```
+# Introduction
+
+# Methods
+
+# Results
+
+# Discussion
+
+# Bibliography {-}
+
+<div id="refs"></div>
