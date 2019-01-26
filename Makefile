@@ -210,6 +210,7 @@ define filecho =
 
 endef
 
+# count the number of sequences in different fastq files
 data/fastq.counts :
 	rm -f $@.temp
 	touch $@.temp
