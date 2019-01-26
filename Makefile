@@ -162,7 +162,7 @@ define DEMUX=
 	rm -f $@.prestamp
 	touch $@.prestamp
 	$(R)
-	mv -f $@.prestamp $@"
+	mv -f $@.prestamp $@
 
 endef
 

@@ -32,7 +32,7 @@ if (interactive()) {
   target <- "/home/brendan/Documents/Uppsala/Projects/oueme-fungi-transect/raw_data/short-pacbio/pb_483/trim/short-pacbio-002_H1.trim.fastq.gz"
   dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
-  target <- Sys.getenv("TARGET_LIST")
+  target <- Sys.getenv("TARGETLIST")
   dataset.file <- Sys.getenv("DATASET")
   assert_that(is.string(target))
   
@@ -55,11 +55,8 @@ datasets <- read_csv(dataset.file)
 # figure out which dataset this file belongs to
 dataset <- str_extract(in.file, datasets$Dataset) %>% na.omit()
 cat("dataset: ", dataset, "\n")
-seq.run <- str_extract(in.file, datasets$Seq.Run) %>% na.omit()
-cat("seq.run: ", seq.run, "\n")
 # choose only the relevant row.
-datasets %<>% filter(Dataset == dataset,
-                     Seq.Run == seq.run)
+datasets %<>% filter(Dataset == dataset)
 
 stopifnot(nrow(datasets) == 1,
           file.exists(in.file))
