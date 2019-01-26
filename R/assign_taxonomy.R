@@ -64,7 +64,9 @@ tax <- seq.table %>%
   mutate(Taxonomy = paste(Kingdom, Phylum, Class, Order,
                           Family, Genus, Species,
                           sep = ";") %>%
-           str_replace_all(fixed(";NA"), ""))
+           str_replace_all(fixed(";NA"), "")) %>%
+  FUNGuildR::funguild_assign()
+
 
 saveRDS(tax, file = target)
 write_csv(tax, file = str_replace(target, "\\.rds", ".csv"))

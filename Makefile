@@ -200,8 +200,9 @@ $(TAG_ROOT)/%: $(TAG_ROOT)/%.nsq \
 # look through the log files for demultiplexing to find out how many sequences
 # were present at each stage
 data/demux.counts : demultiplex
-	for file in $$(find raw_data -name *demultiplex_all.Rout) ; \
-	  do cat $$file | grep sequences | sed 's@^@'"$$file"': @'; done >$@
+	find $(DEMUXDIR) -name *demultiplex_all.Rout |
+	parallel 'cat {} | grep sequences | sed "s@^@{}: @"' >$@
+
 
 # count sequences in fastq.gz files generated at different stages.
 # files to count are added as prerequisites in demux.make
@@ -210,6 +211,7 @@ define filecho =
 
 endef
 
+# count the number of sequences in different fastq files
 data/fastq.counts :
 	rm -f $@.temp
 	touch $@.temp
