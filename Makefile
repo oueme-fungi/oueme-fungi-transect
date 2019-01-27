@@ -3,27 +3,27 @@
 SHELL=/bin/bash
 
 # Set up directory and file names
-export
-BASEDIR := $(shell pwd)
+
+export BASEDIR := $(shell pwd)
 
 DATADIR := ${BASEDIR}/data
 SEQDIR := ${BASEDIR}/sequences
 DEMUXDIR := ${SEQDIR}/demux
 TRIMDIR := ${SEQDIR}/trim
-RAWDIR := ${BASEDIR}/raw_data
-LABDIR := $(DATADIR)/lab_setup
-PACBIODATA := ${DATADIR}/PacBio
+export RAWDIR := ${BASEDIR}/raw_data
+export LABDIR := $(DATADIR)/lab_setup
+#PACBIODATA := ${DATADIR}/PacBio
 REF_ROOT := ${BASEDIR}/reference
-TAG_ROOT := ${LABDIR}/tags
-TAGS := gits7 gits7_ion its1 lr5 its4
-TAG_FILES := $(addsuffix .fasta,$(addprefix $(TAG_ROOT),$(TAGS)))
-ALL_PREFIX := ${DATADIR}
-DATASET := $(LABDIR)/datasets.csv
-#PREREQLIST = $^
-TARGETLIST = $@
+export TAG_ROOT := ${LABDIR}/tags
+#TAGS := gits7 gits7_ion its1 lr5 its4
+#TAG_FILES := $(addsuffix .fasta,$(addprefix $(TAG_ROOT),$(TAGS)))
+#ALL_PREFIX := ${DATADIR}
+export DATASET := $(LABDIR)/datasets.csv
 
-GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
-LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
+export TARGETLIST = $@
+
+export GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
+export LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
 
 # Options for R
 ROPT := --no-save --no-environ --no-restore
@@ -113,7 +113,7 @@ include demux.make
 # in the pipeline.  That is determined by the -j flag to make! However, in
 # general, this will allow all cores to be usefully utilized.
 NCORES := $(shell nproc)
-SPLITS := $(shell echo x{a..z}{a..z} | cut -d' ' -f 1-$(NCORES))
+export SPLITS := $(shell echo x{a..z}{a..z} | cut -d' ' -f 1-$(NCORES))
 $(info "ncores: $(NCORES)")
 $(info "splits: $(SPLITS)")
 
