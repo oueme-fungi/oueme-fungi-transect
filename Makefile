@@ -207,17 +207,14 @@ data/demux.counts : demultiplex
 # count sequences in fastq.gz files generated at different stages.
 # files to count are added as prerequisites in demux.make
 define filecho =
-echo $(1) >>$@.temp
+@echo $(1) >>$@.temp
 
 endef
 
 # count the number of sequences in different fastq files
 data/fastq.counts :
-	@echo "first test"
 	rm -f $@.temp
-	@echo "second test"
 	touch $@.temp
-	@echo "third test"
 	$(foreach f,$^,$(call filecho,$f))
 	parallel 'echo {}, $$(zcat {} | grep -c "^@")' <$@.temp >$@
 	rm $@.temp
