@@ -124,10 +124,10 @@ datasets %>%
   mutate_at("InFile", str_replace, "\\.fastq\\.gz", "-x%.fastq.gz") %>%
   mutate(demux.flag = glue("$(DEMUXDIR)/.{Plate}-x%")) %>%
   glue_data(
-    "{demux.flag} : BLASTDB_FWD={blastdb.fwd}",
-    "{demux.flag} : BLASTDB_REV={blastdb.rev}",
-    "{demux.flag} : PLATE={Plate}",
-    "{demux.flag} : SHARD=x$*",
+    "{demux.flag} : export BLASTDB_FWD={blastdb.fwd}",
+    "{demux.flag} : export BLASTDB_REV={blastdb.rev}",
+    "{demux.flag} : export PLATE={Plate}",
+    "{demux.flag} : export SHARD=x$*",
     "{demux.flag} : demultiplex_all.R |",
     "  {rootdir}/{InFile} |",
     "  {blastdb.fwd} |",
