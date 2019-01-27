@@ -19,7 +19,7 @@ TAGS := gits7 gits7_ion its1 lr5 its4
 TAG_FILES := $(addsuffix .fasta,$(addprefix $(TAG_ROOT),$(TAGS)))
 ALL_PREFIX := ${DATADIR}
 DATASET := $(LABDIR)/datasets.csv
-PREREQLIST = $^
+#PREREQLIST = $^
 TARGETLIST = $@
 
 GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
@@ -200,21 +200,24 @@ $(TAG_ROOT)/%: $(TAG_ROOT)/%.nsq \
 # look through the log files for demultiplexing to find out how many sequences
 # were present at each stage
 data/demux.counts : demultiplex
-	find $(DEMUXDIR) -name *demultiplex_all.Rout |
-	parallel 'cat {} | grep sequences | sed "s@^@{}: @"' >$@
+	find $(DEMUXDIR) -name *demultiplex_all.Rout | \
+	xargs awk '/sequences/ {print FILENAME " : " $$0 }' >$@
 
 
 # count sequences in fastq.gz files generated at different stages.
 # files to count are added as prerequisites in demux.make
 define filecho =
-@echo $(1) >>$@.temp
+echo $(1) >>$@.temp
 
 endef
 
 # count the number of sequences in different fastq files
 data/fastq.counts :
+	@echo "first test"
 	rm -f $@.temp
+	@echo "second test"
 	touch $@.temp
+	@echo "third test"
 	$(foreach f,$^,$(call filecho,$f))
 	parallel 'echo {}, $$(zcat {} | grep -c "^@")' <$@.temp >$@
 	rm $@.temp
