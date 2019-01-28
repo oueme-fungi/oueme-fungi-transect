@@ -158,9 +158,9 @@ datasets %>%
 datasets %<>%
   left_join(select(PlateKey) %>%
               unique %>%
-              mutate(PlateKey = file.path(lab.dir, PlateKey),
-                     PlateKey = map(PlateKey, read_csv)) %>%
-              unnest(PlateKey),
+              mutate(KeyData = file.path(lab.dir, PlateKey),
+                     KeyData = map(KeyData, read_csv)) %>%
+              unnest(KeyData),
             by = "PlateKey") %>%
   mutate(OutFile = glue("{file.path('$(DEMUXDIR)', Plate)}_{well}-{shard}.fastq.gz"),
          OutFile.wild = str_replace(OutFile, fixed(shard), "x%"))
