@@ -9,7 +9,7 @@ library(assertthat)
 
 if (interactive()) {
   base.dir <- str_extract(getwd(), ".+oueme-fungi-transect")
-  seq.dir <- file.path(base.dir, "raw_data")
+  raw.dir <- file.path(base.dir, "raw_data")
   data.dir <- file.path(base.dir, "data")
   lab.dir <- file.path(data.dir, "lab_setup")
   dataset.file <- file.path(lab.dir, "datasets.csv")
@@ -32,7 +32,7 @@ if (interactive()) {
 cat(glue("Base directory: {base.dir}",
          "Lab setup directory: {lab.dir}",
          "Datasets file: {dataset.file}",
-         "Splits: {print(splits)}",
+         "Splits: {paste(splits, collapse = ' ')}",
          "Target file: {target}",
          .sep = "\n"), "\n\n")
 
@@ -75,19 +75,19 @@ datasets <- read_csv(dataset.file) %>%
                                     TRUE ~ "its_ref.fasta.gz"))
 
 datasets %>%
-  with(paste0("dada : ",
+  with(paste0("dada: ",
               paste(dadamap.file, seqtable.file, nochim.file,
-                    collapse = ' \\\n       ',
-                    sep = ' \\\n       '))) %>%
+                    collapse = ' \\\n      ',
+                    sep = ' \\\n     '))) %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 
 datasets %>%
-  with(paste0("taxonomy : ",
-              paste(taxonomy.file, collapse = ' \\\n           '))) %>%
+  with(paste0("taxonomy: ",
+              paste(taxonomy.file, collapse = ' \\\n          '))) %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 
 datasets %>%
-  glue_data("{taxonomy.file} : {reference.file}") %>%
+  glue_data("{taxonomy.file}: {reference.file}") %>%
   glue_collapse(sep = "\n") %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 
@@ -98,8 +98,7 @@ datasets %<>%
                      list.files,
                      recursive = TRUE) %>%
            # don't include any that have already been split
-           map(discard,
-               str_detect,
+           map(str_detect,
                pattern = "-(x[a-z][a-z])\\.fasta\\.gz"),
          rootdir = str_replace(rootdir, fixed(raw.dir), "$(RAWDIR)")) %>%
   unnest(file) %>%
@@ -113,9 +112,9 @@ datasets %<>%
          blastdb.rev = glue("$(TAG_ROOT)/{Reverse}"))
 
 datasets %>%
-  with(paste("data/fastq.counts :",
+  with(paste("data/fastq.counts:",
              paste(unique(file.path(rootdir, InFile)),
-                   collapse = " \\\n                    "))) %>%
+                   collapse = " \\\n                  "))) %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 
 #Instructions to demultiplex
@@ -124,17 +123,18 @@ datasets %>%
   mutate_at("InFile", str_replace, "\\.fastq\\.gz", "-x%.fastq.gz") %>%
   mutate(demux.flag = glue("$(DEMUXDIR)/.{Plate}-x%")) %>%
   glue_data(
-    "{demux.flag} : export BLASTDB_FWD={blastdb.fwd}",
-    "{demux.flag} : export BLASTDB_REV={blastdb.rev}",
-    "{demux.flag} : export PLATE={Plate}",
-    "{demux.flag} : export SHARD=x$*",
-    "{demux.flag} : demultiplex_all.R |",
+    "{demux.flag}: export BLASTDB_FWD={blastdb.fwd}",
+    "{demux.flag}: export BLASTDB_REV={blastdb.rev}",
+    "{demux.flag}: export PLATE={Plate}",
+    "{demux.flag}: export SHARD=x$*",
+    "{demux.flag}: demultiplex_all.R |",
     "  {rootdir}/{InFile} |",
     "  {blastdb.fwd} |",
     "  {blastdb.rev} |",
     "  $(TAG_ROOT)/{Forward}.fasta |",
     "  $(TAG_ROOT)/{Reverse}.fasta |",
-    "  $(LABDIR)/{PlateKey}",
+    "  $(LABDIR)/{PlateKey} |",
+    "  packrat",
     "\t$(DEMUX)",
             .sep = "\n") %>%
   unique %>%
@@ -148,7 +148,7 @@ datasets %<>%
   mutate(InFile = str_replace(InFile, fixed("-x%.fastq.gz"), glue("-{shard}.fastq.gz")))
 
 datasets %>%
-  with(paste(".INTERMEDIATE :",
+  with(paste(".INTERMEDIATE:",
              glue("$(DEMUXDIR)/.{Plate}-{shard}") %>%
                unique %>%
                glue_collapse(sep = " \\\n                "))) %>%
@@ -162,7 +162,7 @@ datasets %<>%
   mutate(OutFile = glue("{file.path('$(DEMUXDIR)', Plate)}_{well}-{shard}.fastq.gz"),
          OutFile.wild = str_replace(OutFile, fixed(shard), "x%"))
 
-datasets %>% glue_data("{OutFile.wild} : $(DEMUXDIR)/.{Plate}-x% ;",
+datasets %>% glue_data("{OutFile.wild}: $(DEMUXDIR)/.{Plate}-x% ;",
                        .sep = "\n",
                        .trim = FALSE) %>%
   unique %>%
@@ -176,11 +176,11 @@ datasets %>%
   unique() %>%
   group_by(demux.file) %>%
   summarize(shard.file = paste0(OutFile, collapse = " ")) %>%
-  glue_data("data/fastq.counts : {demux.file}",
-            "demultiplex : {demux.file}",
-            ".PRECIOUS : {demux.file}", #demultiplexing is slow
-            ".INTERMEDIATE : {shard.file}",
-            "{demux.file} : {shard.file}",
+  glue_data("data/fastq.counts: {demux.file}",
+            "demultiplex: {demux.file}",
+            ".PRECIOUS: {demux.file}", #demultiplexing is slow
+            ".INTERMEDIATE: {shard.file}",
+            "{demux.file}: {shard.file}",
             "\t$(UNSPLIT)",
             .sep = "\n",
             .trim = FALSE) %>%
@@ -198,11 +198,11 @@ datasets %>%
          trim.file = str_replace(trim.file,
                                 fixed(".fastq.gz"),
                                 ".trim.fastq.gz")) %>%
-  glue_data("data/fastq.counts : {trim.file} {region.file}",
+  glue_data("data/fastq.counts: {trim.file} {region.file}",
             ".PRECIOUS: {region.file}", #ITSx is slow
-            "trim : {trim.file}",
-            "{trim.file} : {region.file}",
-            "{dada.file} : {trim.file}",
+            "trim: {trim.file}",
+            # "{trim.file}: {region.file}",
+            "{dada.file}: {trim.file}",
             .sep = "\n",
             .trim = FALSE) %>%
   glue_collapse(sep = "\n\n") %>%
