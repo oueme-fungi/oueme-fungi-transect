@@ -22,7 +22,7 @@ $(info Using SLURM.)
 SHELL=srun
 SRUNFLAGS=
 .SHELLFLAGS= -c $(CORES_PER_TASK) $(SRUNFLAGS) --exclusive /bin/bash -c
-NCORES := $(SLURM_JOB_CPUS_PER_NODE) # assume we have the whole node.
+NCORES := $(SLURM_JOB_CPUS_PER_NODE)# assume we have the whole node.
 else
 $(info Not using SLURM.)
 SHELL=/bin/bash -c
@@ -44,25 +44,32 @@ $(info splits: $(SPLITS))
 ###################### Set up directory and file names ########################
 export BASEDIR := $(shell pwd)
 
-RDIR := ${BASEDIR}/R # R scripts
+RDIR := ${BASEDIR}/R# R scripts
 vpath %.R $(BASEDIR)/R
 
-export RAWDIR := ${BASEDIR}/raw_data # Data received from the sequencing center
+export RAWDIR := ${BASEDIR}/raw_data# Data received from the sequencing center
 
-SEQDIR := ${BASEDIR}/sequences # sequence data produced by this pipeline
-DEMUXDIR := ${SEQDIR}/demux
+SEQDIR := ${BASEDIR}/sequences# sequence data produced by this pipeline
+MOVIEDIR := ${SEQDIR}/rawmovie# PacBio movies in *.bam format
+DEMUXMOVIEDIR := ${SEQDIR}/demuxmovie#Demultiplexed PacBio movies
+CCSDIR := ${SEQDIR}/ccs#Circular consensus BAM files
+DEMUXDIR := ${SEQDIR}/demux#Demultiplexed .fastq.gz files
 TRIMDIR := ${SEQDIR}/trim
 vpath %.trim.fastq.gz $(TRIMDIR)
 
-DATADIR := ${BASEDIR}/data # non-sequence data
-export LABDIR := $(DATADIR)/lab_setup # data defining experimental setup
+DATADIR := ${BASEDIR}/data# non-sequence data
+export LABDIR := $(DATADIR)/lab_setup# data defining experimental setup
 export TAG_ROOT := ${LABDIR}/tags
 export DATASET := $(LABDIR)/datasets.csv
 export GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
 export LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
 
-REF_ROOT := ${BASEDIR}/reference # reference databases
+REF_ROOT := ${BASEDIR}/reference# reference databases
 vpath %_ref.fasta.gz $(REF_ROOT)
+
+########################## high-level targets ##########################
+.PHONY: all demultiplex dada trim convert-pacbio taxonomy clean
+all: taxonomy
 
 ############################## Running R scripts #############################
 # Options for R
@@ -84,44 +91,66 @@ R = cd $(<D) &&\
 
 # R package management is done by packrat.  Before we start any R scripts, we
 # should make sure the packrat library is current.
-.PHONY: packrat
-packrat :
+.packrat: packrat/packrat.lock
 	Rscript $(ROPT) -e 'packrat::restore()' --args $(RARGS) &> packrat.Rout
+	touch $@
 
 #######################  basecalling PacBio RSII files ########################
 
 # Find all raw PacBio RSII files
-RAWPACBIOFILES=$(shell find $(SEQDIR) -name *.bas.h5)
+RAWPACBIOFILES=$(shell find $(RAWDIR) -name *.bas.h5)
 # What directories are they in?
-RAWPACBIOPATH=$(dir $(RAWPACBIOFILES))
+RAWPACBIOPATH=$(sort $(dir $(RAWPACBIOFILES)))
+vpath %.h5 $(subst  ,:,$(RAWPACBIOPATH))
+RAWPACBIOMOVIENAMES=$(sort $(notdir $(RAWPACBIOFILES)))
+RAWPACBIOPLATENAMES=$(sort $(shell echo $(RAWPACBIOFILES) |\
+  grep -o -E 'pb_[0-9]{3}_[0-9]{3}'))
+$(info PacBio plate names:)
+$(info $(RAWPACBIOPLATENAMES))
 # names of .bam files that will be generated
-RAWPACBIOBAM=$(RAWPACBIOFILES:.bas.h5=.subreads.bam)
-vpath %.subreads.bam $(subst  ,:,$(RAWPACBIOPATH))
+RAWPACBIOBAM=$(addprefix $(MOVIEDIR)/,$(RAWPACBIOMOVIENAMES:.bas.h5=.subreads.bam))
+vpath %.subreads.bam $(MOVIEDIR)
+vpath %.scraps.bam $(MOVIEDIR)
 # Make a pacbio .bam from older .h5 files
-%.subreads.bam %.scraps.bam : %.bas.h5 %.1.bax.h5 %.2.bax.h5 %.3.bax.h5
-	bax2bam $(filter %.bax.h5,$^)
-convert-pacbio : $(RAWPACBIOBAM)
+$(MOVIEDIR)/%.subreads.bam $(MOVIEDIR)/%.scraps.bam : %.bas.h5 %.1.bax.h5 %.2.bax.h5 %.3.bax.h5
+	bax2bam $(filter %.bax.h5,$^) -o $(MOVIEDIR)/$*
+
 # Demultiplex bam files
-%.demux.subreads.bam %.demux.scraps.fastq.gz : %.subreads.bam %.scraps.bam
+vpath %.demux.subreads.bam $(DEMUXMOVIEDIR)
+vpath %.demux.scraps.bam $(DEMUXMOVIEDIR)
+$(DEMUXMOVIEDIR)/%.demux.subreads.bam $(DEMUXMOVIEDIR)/%.demux.scraps.bam: $(MOVIEDIR)/%.subreads.bam $(MOVIEDIR)/%.scraps.bam
 	bam2bam $(filter %.subreads.bam,$^) \
 	        $(filter %.scraps.bam,$^) \
 	        -j $(NCORES) \
 	        -o $*.demux \
 	        --barcodes=$(filter %.fasta,$^) \
 	        --scoremode=asymmetric
+# Function to find the movie names that match a certain plate
+matchplates=$(shell echo $(RAWPACBIOFILES) |\
+  tr " " "\n" |\
+  sed -n -r '/$(1)/ { s@.*/([^/]+)\.bas\.h5@$(DEMUXMOVIEDIR)/\1.demux.subreads.bam@ p}' |\
+  tr "\n" " ")
+# Recipe to make a CCS for all the reads from one plate,
+# using the demultiplexed BAM files for that plate
+vpath %.ccs.bam $(CCSDIR)
+define CCSRULE=
+$(CCSDIR)/$1.ccs.bam : $(call matchplates,$(1))
+	ccs $$@ $$+
+	
+endef
+# Make all the plates
+$(foreach plate,$(RAWPACBIOPLATENAMES),\
+  $(eval $(call CCSRULE,$(plate))))
 
-.PHONY: all demultiplex dada trim convert-pacbio taxonomy packrat
 
-
-
-all: trim
+convert-pacbio : $(addsuffix .ccs.bam,$(RAWPACBIOPLATENAMES))
 
 # Create a makefile to demultiplex the files.
 # This will read the plate definitions
 # and look in the data directory to see what raw files are present
 # and how they need to be demultiplexed, so that we don't need to specify
 # every file by hand here.
-demux.make: make_demux.R $(DATASET) packrat
+demux.make: make_demux.R $(DATASET) .packrat
 	$(R)
 
 include demux.make
@@ -145,7 +174,7 @@ include demux.make
 %.ITS1.fastq.gz %.ITS2.fastq.gz %.LSU.fastq.gz: extract_regions.R\
                                                 %.fastq.gz\
                                                 %.positions.txt\
-                                                packrat
+                                                .packrat
 	$(R)
 
 # Split a fastq.gz into one file per processor.
@@ -185,7 +214,7 @@ $(TAG_ROOT)/its4.fasta: $(GITS7_TAGFILE)
 $(TAG_ROOT)/gits7_ion.fasta: $(GITS7_TAGFILE)
 $(TAG_ROOT)/lr5.fasta: $(LR5_TAGFILE)
 $(TAG_ROOT)/its1.fasta: $(LR5_TAGFILE)
-$(TAG_ROOT)/%.fasta: tags.extract.R packrat
+$(TAG_ROOT)/%.fasta: tags.extract.R .packrat
 	$(R)
 
 # Recipe to demultiplex a fastq.gz file.
@@ -203,21 +232,22 @@ endef
 # The name of the source file is generated by make.demux.R and found in
 # demux.make.
 
-$(TRIMDIR)/%.trim.fastq.gz: quality_trim.R $(DEMUXDIR)/.packrat
+$(TRIMDIR)/%.trim.fastq.gz: quality_trim.R $(DEMUXDIR)/%.fastq.gz .packrat
 	mkdir -p $(@D)
 	$(R)
 
 # Rule to find amplicon sequence variants (ASV).
 # source files needed to be added as additional prerequisites
 # (done in demux.make)
+.INTERMEDIATE: %.dada.Rdata
 %.dada.Rdata: CORES_PER_TASK := NCORES
-%.dada.Rdata: dada.R packrat
+%.dada.Rdata: dada.R .packrat
 	$(R)
 
 # Rule to assign taxonomy to ASVs
 # The correct reference file needs to be added as a separate rule.
 %.dada.taxonomy.rds %.dada.taxonomy.csv: CORES_PER_TASK := NCORES
-%.dada.taxonomy.rds %.dada.taxonomy.csv: assign_taxonomy.R %.dada.nochim.rds packrat
+%.dada.taxonomy.rds %.dada.taxonomy.csv: assign_taxonomy.R %.dada.nochim.rds .packrat
 	$(R)
 
 .INTERMEDIATE: $(TAG_ROOT)/gits7 \
@@ -248,6 +278,7 @@ endef
 
 # count the number of sequences in different fastq files
 data/fastq.counts: CORES_PER_TASK := NCORES
+data/fastq.counts:
 	rm -f $@.temp
 	touch $@.temp
 	$(foreach f,$^,$(call filecho,$f))
@@ -257,7 +288,7 @@ data/fastq.counts: CORES_PER_TASK := NCORES
 # dada.R produced a map from sequences to ASVs as well as an ASV matrix
 # for the community.  Because it's easiest if the make target has only one output,
 # it puts them into a single Rdata file.  This splits them into two .rds files.
-%.dada.dadamap.rds %.dada.seqtable.rds %.dada.nochim.rds: split_rdata.R %.dada.Rdata packrat
+%.dada.dadamap.rds %.dada.seqtable.rds %.dada.nochim.rds: split_rdata.R %.dada.Rdata .packrat
 	$(R)
 
 .PHONY: clean
