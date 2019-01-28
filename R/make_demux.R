@@ -156,9 +156,12 @@ datasets %>%
 
 # List of groups which need to be extracted.
 datasets %<>%
-  mutate(PlateKey = file.path(lab.dir, PlateKey),
-         PlateKey = map(PlateKey, read_csv)) %>%
-  unnest(PlateKey) %>%
+  left_join(select(PlateKey) %>%
+              unique %>%
+              mutate(PlateKey = file.path(lab.dir, PlateKey),
+                     PlateKey = map(PlateKey, read_csv)) %>%
+              unnest(PlateKey),
+            by = "PlateKey") %>%
   mutate(OutFile = glue("{file.path('$(DEMUXDIR)', Plate)}_{well}-{shard}.fastq.gz"),
          OutFile.wild = str_replace(OutFile, fixed(shard), "x%"))
 
