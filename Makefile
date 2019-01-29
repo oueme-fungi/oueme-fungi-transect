@@ -98,20 +98,23 @@ R = cd $(<D) &&\
 #######################  basecalling PacBio RSII files ########################
 
 # Find all raw PacBio RSII files
-PB.h5=$(shell find $(RAWDIR) -name *.bas.h5)
+$(info RAWDIR=$(RAWDIR))
+PB_h5=$(shell find -L $(RAWDIR) -name *.bas.h5)
+$(info Found raw PacBio RSII files:)
+$(foreach f,$(PB_h5),$(info $(f)))
 
 # What directories are they in?
-PB.PATH=$(sort $(dir $(PB.h5)))
-vpath %.h5 $(subst  ,:,$(PB.PATH))
+PB_PATH=$(sort $(dir $(PB_h5)))
+vpath %.h5 $(subst  ,:,$(PB_PATH))
 
 # Get the names of the movie files
-PB.movies=$(sort $(notdir $(PB.h5)))
+PB_movies=$(sort $(notdir $(PB_h5)))
 
 # And the names of the plates (these will be in the paths)
-PB.plates=$(sort $(shell echo $(PB.h5) |\
+PB_plates=$(sort $(shell echo $(PB_h5) |\
   grep -o -E 'pb_[0-9]{3}_[0-9]{3}'))
 $(info PacBio plate names:)
-$(info $(PB.plates))
+$(info $(PB_plates))
 
 # Make a pacbio .bam from older .h5 files
 $(MOVIEDIR)/%.subreads.bam $(MOVIEDIR)/%.scraps.bam : %.bas.h5 %.1.bax.h5 %.2.bax.h5 %.3.bax.h5
@@ -136,7 +139,7 @@ $(DEMUXMOVIEDIR)/%.demux.scraps.bam: $(MOVIEDIR)/%.subreads.bam\
 # one file, named after the plate.
 
 # Function to find the movie names that match a certain plate
-matchplates=$(shell echo $(PB.h5) |\
+matchplates=$(shell echo $(PB_h5) |\
   tr " " "\n" |\
   sed -n -r '/$(1)/ { s@.*/([^/]+)\.bas\.h5@$(DEMUXMOVIEDIR)/\1.demux.subreads.bam@ p}' |\
   tr "\n" " ")
@@ -146,15 +149,15 @@ vpath %.ccs.bam $(CCSDIR)
 define CCSRULE=
 $(CCSDIR)/$1.ccs.bam: CORES_PER_TASK := $(NCORES)
 $(CCSDIR)/$1.ccs.bam: $(call matchplates,$(1))
-	mkdir -p $(@D)
+	mkdir -p $$(@D)
 	ccs $$@ $$+
 
 endef
 # Make all the plates
-$(foreach plate,$(PB.plates),\
+$(foreach plate,$(PB_plates),\
   $(eval $(call CCSRULE,$(plate))))
 
-convert-pacbio : $(addsuffix .ccs.bam,$(PB.plates))
+convert-pacbio: $(addsuffix .ccs.bam,$(PB_plates))
 
 # Create a makefile to demultiplex the files.
 # This will read the plate definitions
