@@ -79,9 +79,10 @@ while (length(fq <- yield(fqs)) > 0) {
   erate <- eexp / l
   # filter out files which have too many errors or are too short or too long,
   # according to the dataset definition file
-  fq <- fq[erate < datasets$MaxERate &
-             l >= datasets$MinLength &
-             l <= datasets$MaxLength]
+  fq <- fq[erate <= datasets$MaxERate &
+           eexp <= datasets$MaxEE &
+           l >= datasets$MinLength &
+           l <= datasets$MaxLength]
   # write to the new file
   writeFastq(object = fq, 
              file = target,
