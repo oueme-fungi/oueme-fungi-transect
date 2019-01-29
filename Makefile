@@ -20,7 +20,7 @@
 ifdef SLURM_JOB_ID
 $(info Using SLURM.)
 SHELL=srun
-SRUNFLAGS=
+SRUNFLAGS=-n 1
 .SHELLFLAGS= -c $(CORES_PER_TASK) $(SRUNFLAGS) --exclusive /bin/bash -c
 NCORES := $(SLURM_JOB_CPUS_PER_NODE)# assume we have the whole node.
 else
@@ -148,7 +148,7 @@ $(CCSDIR)/$1.ccs.bam: CORES_PER_TASK := $(NCORES)
 $(CCSDIR)/$1.ccs.bam: $(call matchplates,$(1))
 	mkdir -p $(@D)
 	ccs $$@ $$+
-	
+
 endef
 # Make all the plates
 $(foreach plate,$(PB.plates),\

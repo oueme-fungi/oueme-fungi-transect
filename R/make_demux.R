@@ -156,7 +156,7 @@ datasets %>%
 
 # List of groups which need to be extracted.
 datasets %<>%
-  left_join(select(PlateKey) %>%
+  left_join(select(., PlateKey) %>%
               unique %>%
               mutate(KeyData = file.path(lab.dir, PlateKey),
                      KeyData = map(KeyData, read_csv)) %>%

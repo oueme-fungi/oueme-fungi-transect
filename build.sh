@@ -17,11 +17,11 @@ rm demux.make
 module load R/3.5.0 gcc bioinfo-tools blast samtools ITSx gnuparallel SMRT/5.0.1
 
 # Make sure we are using the versions of packages that we are supposed to use
-make packrat &&
+# make packrat &&
 
 # convert PacBio RSII files to .bam format
 # these are single-threaded options
-#make -j$SLURM_JOB_CPUS_PER_NODE convert-pacbio &&
+make -j$SLURM_JOB_CPUS_PER_NODE convert-pacbio &&
 
 # demultiplex Pacbio BAM files
 # this is multithreaded per-file, so run serial make (with parallel tasks)

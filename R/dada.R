@@ -25,6 +25,7 @@ if (interactive()) {
   dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
   dataset.file <- Sys.getenv("DATASET")
+  target <- Sys.getenv("TARGETLIST")
   con <- file("stdin")
   open(con, blocking = TRUE)
   prereqs <- readLines(con)
@@ -44,11 +45,8 @@ datasets <- read_csv(dataset.file)
 # figure out which dataset this file belongs to
 dataset <- str_extract(in.files[1], datasets$Dataset) %>% na.omit()
 cat("dataset: ", dataset, "\n")
-seq.run <- str_extract(in.files[1], datasets$Seq.Run) %>% na.omit()
-cat("seq.run: ", seq.run, "\n")
 # choose only the relevant row.
-datasets %<>% filter(Dataset == dataset,
-                     Seq.Run == seq.run)
+datasets %<>% filter(Dataset == dataset)
 err.fun <- ifelse(datasets$Tech == "PacBio",
                   PacBioErrfun,
                   loessErrfun)

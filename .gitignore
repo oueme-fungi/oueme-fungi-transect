@@ -15,3 +15,7 @@ packrat/lib*/
 .drake
 nohup.out
 rackham-*.png
+raw_data
+sequences
+.packrat
+core.*
