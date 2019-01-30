@@ -190,6 +190,12 @@ Source: CRAN
 Version: 0.1-3
 Hash: c590d29e555926af053055e23ee79efb
 
+Package: base64url
+Source: CRAN
+Version: 1.4
+Hash: bb0bed97e10d3479d02264fa87bf061a
+Requires: backports
+
 Package: bindr
 Source: CRAN
 Version: 0.1.1
@@ -218,6 +224,12 @@ Version: 0.5.1
 Hash: f170bc989c523e039487511e87c1854f
 Requires: backports, dplyr, generics, purrr, reshape2, stringr, tibble,
     tidyr
+
+Package: caTools
+Source: CRAN
+Version: 1.17.1.1
+Hash: 1764f9cb70825aa7a1c461e7514ffb73
+Requires: bitops
 
 Package: callr
 Source: CRAN
@@ -321,6 +333,21 @@ Hash: c965954fb9a071cb0e5194528223aa72
 Requires: BH, R6, Rcpp, assertthat, bindrcpp, glue, magrittr,
     pkgconfig, plogr, rlang, tibble, tidyselect
 
+Package: drake
+Source: github
+Version: 6.2.1.9002
+Hash: daa5e090cc3f189247f45bf7b45ead71
+Requires: base64url, digest, igraph, rlang, storr
+GithubRepo: drake
+GithubUsername: ropensci
+GithubRef: master
+GithubSha1: 953917b6ea0cda29e17fa767ac24c0b49c3cd784
+RemoteHost: api.github.com
+RemoteRepo: drake
+RemoteUsername: ropensci
+RemoteRef: master
+RemoteSha: 953917b6ea0cda29e17fa767ac24c0b49c3cd784
+
 Package: evaluate
 Source: CRAN
 Version: 0.12
@@ -330,6 +357,11 @@ Package: fansi
 Source: CRAN
 Version: 0.4.0
 Hash: f147621f72b561485bfffcae78c4f5d5
+
+Package: filehash
+Source: CRAN
+Version: 2.4-1
+Hash: c538dba13727572ad546637289c903ea
 
 Package: forcats
 Source: CRAN
@@ -425,6 +457,12 @@ Package: hwriter
 Source: CRAN
 Version: 1.3.2
 Hash: 4c36a3e4a7471fdc3d5ee75b5188c37d
+
+Package: igraph
+Source: CRAN
+Version: 1.2.2
+Hash: 1e95612a0034372c6a387fbeff90992f
+Requires: magrittr, pkgconfig
 
 Package: infuser
 Source: CRAN
@@ -578,6 +616,11 @@ Version: 1.8.4
 Hash: ec185c885aab7ec91693d78c20cb5d1a
 Requires: Rcpp
 
+Package: png
+Source: CRAN
+Version: 0.1-7
+Hash: 421d7d6e0fb4bd885ecbd909b6456b8b
+
 Package: prettyunits
 Source: CRAN
 Version: 1.0.2
@@ -726,6 +769,12 @@ Source: CRAN
 Version: 0.4-3
 Hash: 350fc9078c96345a2246415fc9e67311
 
+Package: storr
+Source: CRAN
+Version: 1.2.1
+Hash: 76ffa40827f4102989daa97896baf696
+Requires: R6, digest
+
 Package: stringi
 Source: CRAN
 Version: 1.2.4
@@ -769,6 +818,12 @@ Requires: broom, cli, crayon, dbplyr, dplyr, forcats, ggplot2, haven,
     hms, httr, jsonlite, lubridate, magrittr, modelr, purrr, readr,
     readxl, reprex, rlang, rstudioapi, rvest, stringr, tibble, tidyr,
     xml2
+
+Package: tikzDevice
+Source: CRAN
+Version: 0.12
+Hash: 908c9f542ef35ccd3326f99460fea336
+Requires: filehash, png
 
 Package: tinytex
 Source: CRAN
