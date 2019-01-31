@@ -51,7 +51,6 @@ export RAWDIR := ${BASEDIR}/raw_data# Data received from the sequencing center
 
 SEQDIR := ${BASEDIR}/sequences# sequence data produced by this pipeline
 MOVIEDIR := ${SEQDIR}/rawmovie# PacBio movies in *.bam format
-DEMUXMOVIEDIR := ${SEQDIR}/demuxmovie#Demultiplexed PacBio movies
 CCSDIR := ${SEQDIR}/ccs#Circular consensus BAM files
 DEMUXDIR := ${SEQDIR}/demux#Demultiplexed .fastq.gz files
 TRIMDIR := ${SEQDIR}/trim
@@ -98,42 +97,80 @@ R = cd $(<D) &&\
 #######################  basecalling PacBio RSII files ########################
 
 # Find all raw PacBio RSII files
-$(info RAWDIR=$(RAWDIR))
 PB_h5=$(shell find -L $(RAWDIR) -name *.bas.h5)
-$(info Found raw PacBio RSII files:)
-$(foreach f,$(PB_h5),$(info $(f)))
+#$(info Found raw PacBio RSII files:)
+#$(foreach f,$(PB_h5),$(info $(f)))
 
-# What directories are they in?
+# Get the names of the sequencing runs from the parameter file
+SEQRUNS:=$(shell cat $(DATASET) | awk 'NR > 1 {print $$3}; BEGIN {FS = ","}')
+# Format as regex alternatives
+space:=$() $()
+SEQRUNS:=($(subst $(space),|,$(strip $(SEQRUNS))))
+
+# functions to find the name of the movie, plate,
+# and sequencing run from the path of the raw file
+PARSEMOVIE=$(patsubst %.bas.h5,%,$(notdir $(1)))
+PARSEPLATE=$(shell echo $1 | grep -o -E 'pb_[0-9]{3}_[0-9]{3}')
+PARSESEQRUN=$(shell echo $1 | sed -n -r '/$(SEQRUNS)/ s@.*$(SEQRUNS).*@\1@ p')
+
+# Directories containing raw files
 PB_PATH=$(sort $(dir $(PB_h5)))
-vpath %.h5 $(subst  ,:,$(PB_PATH))
+vpath %.h5 $(PB_PATH)
 
-# Get the names of the movie files
-PB_movies=$(sort $(notdir $(PB_h5)))
+# The names of the movie files
+PB_movies=$(sort $(call PARSEMOVIE,$(PB_h5)))
 
-# And the names of the plates (these will be in the paths)
-PB_plates=$(sort $(shell echo $(PB_h5) |\
-  grep -o -E 'pb_[0-9]{3}_[0-9]{3}'))
-$(info PacBio plate names:)
-$(info $(PB_plates))
+# The names of the plates
+PB_plates=$(sort $(call PARSEPLATE,$(PB_h5)))
+
+# The names of the sequence runs
+PB_SEQRUNS:=$(sort $(foreach f,$(PB_h5),$(call PARSESEQRUN,$(f))))
 
 # Make a pacbio .bam from older .h5 files
+.PHONY: convert-pacbio
+convert-pacbio: $(foreach f,$(PB_movies),\
+                 $(MOVIEDIR)/$(f).subreads.bam\
+                 $(MOVIEDIR)/$(f).scraps.bam)
 $(MOVIEDIR)/%.subreads.bam $(MOVIEDIR)/%.scraps.bam : %.bas.h5 %.1.bax.h5 %.2.bax.h5 %.3.bax.h5
 	mkdir -p $(@D)
 	bax2bam $(filter %.bax.h5,$^) -o $(MOVIEDIR)/$*
 
 # Demultiplex bam files
-$(DEMUXMOVIEDIR)/%.demux.subreads.bam\
-$(DEMUXMOVIEDIR)/%.demux.scraps.bam: CORES_PER_TASK := $(NCORES)
-$(DEMUXMOVIEDIR)/%.demux.subreads.bam\
-$(DEMUXMOVIEDIR)/%.demux.scraps.bam: $(MOVIEDIR)/%.subreads.bam\
-                                     $(MOVIEDIR)/%.scraps.bam
-	mkdir -p $(@D)
-	bam2bam $(filter %.subreads.bam,$^) \
-	        $(filter %.scraps.bam,$^) \
-	        -j $(NCORES) \
-	        -o $*.demux \
-	        --barcodes=$(filter %.fasta,$^) \
-	        --scoremode=asymmetric
+#.PHONY: demux-pacbio
+#demux-pacbio: $(foreach f,$(PB_movies),\
+#                $(DEMUXMOVIEDIR)/$(f).demux.subreads.bam\
+#                $(DEMUXMOVIEDIR)/$(f).demux.scraps.bam)
+#$(DEMUXMOVIEDIR)/%.demux.subreads.bam\
+#$(DEMUXMOVIEDIR)/%.demux.scraps.bam: CORES_PER_TASK := $(NCORES)
+#$(DEMUXMOVIEDIR)/%.demux.subreads.bam\
+#$(DEMUXMOVIEDIR)/%.demux.scraps.bam: $(MOVIEDIR)/%.subreads.bam\
+#                                     $(MOVIEDIR)/%.scraps.bam
+#	mkdir -p $(@D)
+#	bam2bam $(filter %.subreads.bam,$^) \
+#	        $(filter %.scraps.bam,$^) \
+#	        -j $(NCORES) \
+#	        -o $*.demux \
+#	        --barcodes=$(filter %.fasta,$^) \
+#	        --scoreMode=asymmetric
+
+# barcode calling in bam2bam needs all barcode sequences together
+# in one .fasta file.
+# look in the dataset definition file to find out which barcodes we will need
+# and concatenate the pairs together.
+#GETBARCODES=$(shell cat $(DATASET) |\
+# awk '/$(call PARSESEQRUN,$(1))/ {print $$4 "+" $$5}; BEGIN {FS = ","}')
+#PBBARCODES=$(DEMUXMOVIEDIR)/$(1).demux.subreads.bam\
+#           $(DEMUXMOVIEDIR)/$(1).demux.scraps.bam: $(2).fasta
+#$(foreach f,$(PB_h5:.bas.h5=),$(eval $(call PBBARCODES,$(call PARSEMOVIE,$(f)),\
+# $(call GETBARCODES,$f))))
+
+# Recipe to make fasta files containing both forward and reverse tags
+#define JOINBARCODES=
+#$(shell cat $(DATASET) | awk 'BEGIN {FS = ","}; /$(1)/ {print "$(TAG_ROOT)/" $$4 "+" $$5 ".fasta: #" $$4 ".fasta " $$5 ".fasta"}')
+#	cat $$+ >$$@
+#endef
+#$(foreach sr,$(PB_SEQRUNS),$(info $(call JOINBARCODES,$(sr))))
+#$(foreach sr,$(PB_SEQRUNS),$(eval $(call JOINBARCODES,$(sr))))
 
 # The circular consensus sequence files should have the whole plate in
 # one file, named after the plate.
@@ -141,23 +178,22 @@ $(DEMUXMOVIEDIR)/%.demux.scraps.bam: $(MOVIEDIR)/%.subreads.bam\
 # Function to find the movie names that match a certain plate
 matchplates=$(shell echo $(PB_h5) |\
   tr " " "\n" |\
-  sed -n -r '/$(1)/ { s@.*/([^/]+)\.bas\.h5@$(DEMUXMOVIEDIR)/\1.demux.subreads.bam@ p}' |\
+  sed -n -r '/$(1)/ { s@.*/([^/]+)\.bas\.h5@$(MOVIEDIR)/\1.subreads.bam@ p}' |\
   tr "\n" " ")
 # Recipe to make a CCS for all the reads from one plate,
 # using the demultiplexed BAM files for that plate
 vpath %.ccs.bam $(CCSDIR)
-define CCSRULE=
-$(CCSDIR)/$1.ccs.bam: CORES_PER_TASK := $(NCORES)
-$(CCSDIR)/$1.ccs.bam: $(call matchplates,$(1))
-	mkdir -p $$(@D)
-	ccs $$@ $$+
-
-endef
+#define CCSRULE=
+$(CCSDIR)/%.ccs.bam: CORES_PER_TASK := $(NCORES)
+$(CCSDIR)/%.ccs.bam: $(MOVIEDIR)/%.subreads.bam
+	mkdir -p $(@D)
+	ccs --polish $+ $@
+#endef
 # Make all the plates
-$(foreach plate,$(PB_plates),\
-  $(eval $(call CCSRULE,$(plate))))
+#$(foreach movie,$(PB_movies),\
+#  $(eval $(call CCSRULE,$(PB_movies))))
 
-convert-pacbio: $(addsuffix .ccs.bam,$(PB_plates))
+ccs: $(addprefix $(CCSDIR)/,$(addsuffix .ccs.bam,$(PB_movies)))
 
 # Create a makefile to demultiplex the files.
 # This will read the plate definitions
@@ -212,7 +248,7 @@ $(foreach INDEX,$(SPLITS),$(eval $(call SPLITRECIPE,$(INDEX))))
 UNSPLIT = zcat $^ | gzip -c >$@ && rm -f $^
 
 # Rule to make a blast database from a fasta file
-vpath %.fasta ${TAGROOT}
+vpath %.fasta ${TAG_ROOT}
 %.nhr %.nin %.nsq: %.fasta
 	makeblastdb -in $< -out $* -dbtype nucl
 
