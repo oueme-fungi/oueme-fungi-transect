@@ -68,11 +68,6 @@ GithubRepo: FUNGuildR
 GithubUsername: brendanf
 GithubRef: master
 GithubSha1: 1d1fc2cfde5ddb49d7f950bf2b2079f842de88f7
-RemoteHost: api.github.com
-RemoteRepo: FUNGuildR
-RemoteUsername: brendanf
-RemoteRef: master
-RemoteSha: 1d1fc2cfde5ddb49d7f950bf2b2079f842de88f7
 
 Package: GenomeInfoDb
 Source: Bioconductor
@@ -332,11 +327,6 @@ GithubRepo: drake
 GithubUsername: ropensci
 GithubRef: master
 GithubSha1: 953917b6ea0cda29e17fa767ac24c0b49c3cd784
-RemoteHost: api.github.com
-RemoteRepo: drake
-RemoteUsername: ropensci
-RemoteRef: master
-RemoteSha: 953917b6ea0cda29e17fa767ac24c0b49c3cd784
 
 Package: evaluate
 Source: CRAN
