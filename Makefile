@@ -52,6 +52,7 @@ export RAWDIR := ${BASEDIR}/raw_data# Data received from the sequencing center
 SEQDIR := ${BASEDIR}/sequences# sequence data produced by this pipeline
 MOVIEDIR := ${SEQDIR}/rawmovie# PacBio movies in *.bam format
 CCSDIR := ${SEQDIR}/ccs#Circular consensus BAM files
+FASTQDIR := ${SEQDIR}/rawfastq# undemultiplexed fastq.gz files
 DEMUXDIR := ${SEQDIR}/demux#Demultiplexed .fastq.gz files
 TRIMDIR := ${SEQDIR}/trim
 vpath %.trim.fastq.gz $(TRIMDIR)
@@ -178,7 +179,7 @@ $(MOVIEDIR)/%.subreads.bam $(MOVIEDIR)/%.scraps.bam : %.bas.h5 %.1.bax.h5 %.2.ba
 # Function to find the movie names that match a certain plate
 matchplates=$(shell echo $(PB_h5) |\
   tr " " "\n" |\
-  sed -n -r '/$(1)/ { s@.*/([^/]+)\.bas\.h5@$(MOVIEDIR)/\1.subreads.bam@ p}' |\
+  sed -n -r '/$(1)/ { s@.*/([^/]+)\.bas\.h5@$\\1@ p}' |\
   tr "\n" " ")
 # Recipe to make a CCS for all the reads from one plate,
 # using the demultiplexed BAM files for that plate
@@ -195,6 +196,15 @@ $(CCSDIR)/%.ccs.bam: $(MOVIEDIR)/%.subreads.bam
 
 ccs: $(addprefix $(CCSDIR)/,$(addsuffix .ccs.bam,$(PB_movies)))
 
+define BAM2FASTQ=
+$(FASTQDIR)/$(1).fastq.gz : $(foreach f,$(call matchplates,$(1)),$(CCSDIR)/$(f).ccs.bam)
+	mkdir -p $$(@D)
+	samtools cat $$+ | samtools fastq -0 $$@ -
+endef
+
+$(foreach p,$(PB_plates),$(eval $(call BAM2FASTQ,$(p))))
+pb-fastq: $(addprefix $(FASTQDIR)/,$(addsuffix .fastq.gz,$(PB_plates)))
+
 # Create a makefile to demultiplex the files.
 # This will read the plate definitions
 # and look in the data directory to see what raw files are present
@@ -202,6 +212,8 @@ ccs: $(addprefix $(CCSDIR)/,$(addsuffix .ccs.bam,$(PB_movies)))
 # every file by hand here.
 demux.make: make_demux.R $(DATASET) .packrat
 	$(R)
+
+
 
 include demux.make
 
