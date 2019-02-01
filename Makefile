@@ -53,9 +53,11 @@ SEQDIR := ${BASEDIR}/sequences# sequence data produced by this pipeline
 MOVIEDIR := ${SEQDIR}/rawmovie# PacBio movies in *.bam format
 CCSDIR := ${SEQDIR}/ccs#Circular consensus BAM files
 FASTQDIR := ${SEQDIR}/rawfastq# undemultiplexed fastq.gz files
-DEMUXDIR := ${SEQDIR}/demux#Demultiplexed .fastq.gz files
-TRIMDIR := ${SEQDIR}/trim
-vpath %.trim.fastq.gz $(TRIMDIR)
+export DEMUXDIR := ${SEQDIR}/demux#Demultiplexed but untrimmed .fastq.gz files
+TRIMDIR := ${SEQDIR}/trim#Trimmed and demultiplexed .fastq.gz files
+vpath %.tr.fastq.gz $(TRIMDIR)
+FILTERDIR := ${SEQDIR}/filter#Demultiplexed, trimmed, and quality filtered
+vpath %.fi.tr.fastq.gz $(FILTERDIR)
 
 DATADIR := ${BASEDIR}/data# non-sequence data
 export LABDIR := $(DATADIR)/lab_setup# data defining experimental setup
@@ -196,21 +198,27 @@ $(CCSDIR)/%.ccs.bam: $(MOVIEDIR)/%.subreads.bam
 
 ccs: $(addprefix $(CCSDIR)/,$(addsuffix .ccs.bam,$(PB_movies)))
 
-define BAM2FASTQ=
+define CCS2FASTQ=
 $(FASTQDIR)/$(1).fastq.gz : $(foreach f,$(call matchplates,$(1)),$(CCSDIR)/$(f).ccs.bam)
 	mkdir -p $$(@D)
 	samtools cat $$+ | samtools fastq -0 $$@ -
 endef
 
-$(foreach p,$(PB_plates),$(eval $(call BAM2FASTQ,$(p))))
+$(foreach p,$(PB_plates),$(eval $(call CCS2FASTQ,$(p))))
 pb-fastq: $(addprefix $(FASTQDIR)/,$(addsuffix .fastq.gz,$(PB_plates)))
+
+################### Moving and converting IonTorrent files #####################
+# The IonTorrent files are already demultiplexed, in BAM format.
+# They only need to be renamed and converted to fastq.gz
+
+
 
 # Create a makefile to demultiplex the files.
 # This will read the plate definitions
 # and look in the data directory to see what raw files are present
 # and how they need to be demultiplexed, so that we don't need to specify
 # every file by hand here.
-demux.make: make_demux.R $(DATASET) .packrat
+demux.make: make_demux.R $(DATASET) .packrat pb-fastq
 	$(R)
 
 
@@ -219,13 +227,56 @@ include demux.make
 
 ########################## Bioinformatics recipes ##############################
 
-# make a .fastq.gz from a .bam
-%.fastq.gz: %.bam
-	samtools fastq $< -0 $@
+# make a .fastq.gz from (zero) one or more .bam files
+define ONEBAM2FASTQ=
+	samtools fastq $1 -0 - >>$$@
+endef
+define BAM2FASTQ=
+	echo "" | samtools fastq - -0 $$@
+	$$(foreach infile,$$^,$(call ONEBAM2FASTQ,$(infile)))
+endef
 
 # make a .fasta from a .fastq.gz
 %.fasta: %.fastq.gz
 	zcat $< | paste - - - - | cut -f 1,2 | tr "\t" "\n" | sed "s/^@/>/" >$@
+
+# trim primers from an already demultiplexed, forward sequence
+define TRIMION=
+$$(TRIMDIR)/$(1)%.fastq.gz : $$(DEMUXDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
+	mkdir -p $$(TRIMDIR)
+	cutadapt --trimmed-only \
+	         -g file:$$(TAG_ROOT)/$(1).fasta\
+	         -j $$(CORES_PER_TASK)\
+	         -o $$@\
+	         $$(DEMUXDIR)/$(1)%.fastq.gz\
+	         > $$@.cutadapt.out
+endef
+
+# find true direction, trim primers, and demultiplex at the same time
+# on the first pass, trimmed output is sent to the f.demux.fastq.gz files,
+# and reads where no match if found are sent on stdout;
+# these are then reverse complemented and sent through cutadapt again,
+# this time with the trimmed output sent to r.demux.fastq.gz.
+define TRIMPB=
+$$(TRIMDIR)/.$(1)%.demux: $$(FASTQDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
+	mkdir -p $$(TRIMDIR) &&\
+	rm $$@ &&\
+	touch $$@.tmp &&\
+	cutadapt --report=minimal\
+	         -g file:$$(TAG_ROOT)/$(1).fasta\
+	         --untrimmed-output -\
+	         -o "$$(TRIMDIR)/$(1)$$*-{name}f.demux.fastq.gz\
+	         $$(FASTQDIR)/$(1)%.fastq.gz\
+	         2> $$@.cutadapt.out |\
+	fastx_reverse_complement |\
+	cutadapt --report=minimal\
+	         -g file:$$(TAG_ROOT)/$(1).fasta\
+	         --trimmed-only\
+	         -o "$$(TRIMDIR)/$(1)$$*-{name}r.demux.fastq.gz"/
+	         >> $$@.cutadapt.out &&\
+	mv $$@.tmp $$@
+endef
+$(foreach plate,$(PB_plates),$(info $(call TRIMPB,$(plate))))
 
 # use ITSx to find ITS and LSU sequences
 %.positions.txt: %.fasta

@@ -10,6 +10,8 @@ library(assertthat)
 if (interactive()) {
   base.dir <- str_extract(getwd(), ".+oueme-fungi-transect")
   raw.dir <- file.path(base.dir, "raw_data")
+  seq.dir <- here("sequences")
+  demux.dir <- file.path(seq.dir, "demux")
   data.dir <- file.path(base.dir, "data")
   lab.dir <- file.path(data.dir, "lab_setup")
   dataset.file <- file.path(lab.dir, "datasets.csv")
@@ -21,6 +23,7 @@ if (interactive()) {
   target <- Sys.getenv("TARGETLIST")
   base.dir <- Sys.getenv("BASEDIR")
   raw.dir <- Sys.getenv("RAWDIR")
+  demux.dir <- Sys.getenv("DEMUXDIR")
   lab.dir <- Sys.getenv("LABDIR")
   dataset.file <- Sys.getenv("DATASET")
   splits <- Sys.getenv("SPLITS") %>%
@@ -57,20 +60,47 @@ cat("#############################",
     sep = "\n",
     file = target)
 
+# Data comes from two sources:
+# Pacbio RSII raw files (*.ba[sx].h5)
+# IonTorrent demultiplexed files (IonXpress_XXX_rawlib.basecaller.bam)
+# Pacbio files need:
+#   -convert to bam format (in Makefile)
+#   -circular consensus calling (in Makefile)
+#   -combine all movies from each sequencing run into one file (in Makefile)
+#   -convert to fastq.gz
+#   -demultiplex and trim adapters
+# IonTorrent files need:
+#   -trim adapters
+# After these steps are done, all files can be treated the same:
+#   - preliminary pooled dereplication
+#   - ITSx to extract regions of interest from the preliminary derep
+#   - Apply the ITSx results to the fastq files
+#   - quality filter
+#   - second dereplication
+#   - denoising (dada2)
+#   - chimera checking (within region)
+#   - taxonomic assignment
+
+
+
 # find potential source files
 datasets <- read_csv(dataset.file) %>%
   mutate(Regions = str_split(Regions, ",") %>%
            map(trimws)) %>%
   unnest(Regions) %>%
-  mutate(Regions = as.character(Regions) %>%
+  mutate(Plate = map(Runs, seq, from = 1)) %>%
+  unnest(Plate) %>%
+  mutate(Plate = formatC(Plate, width = 3, flag = "0"),
+         Seq.Plate = glue("{Seq.Run}_{Plate}"),
+         Regions = as.character(Regions) %>%
            paste0(".", .) %>%
            str_replace(fixed(".NA"), ""),
-         dada.root = glue("$(DATADIR)/{Dataset}{Regions}.dada"),
-         dada.file = paste0(dada.root, ".Rdata"),
-         dadamap.file = paste0(dada.root, ".dadamap.rds"),
-         seqtable.file = paste0(dada.root, ".seqtable.rds"),
-         nochim.file = paste0(dada.root, ".nochim.rds"),
-         taxonomy.file = paste0(dada.root, ".taxonomy.rds"),
+         dada.root = glue("$(DATADIR)/{Seq.Plate}{Regions}.dada"),
+         dada.file = glue("{dada.root}.Rdata"),
+         dadamap.file = glue("{dada.root}.dadamap.rds"),
+         seqtable.file = glue("{dada.root}.seqtable.rds"),
+         nochim.file = glue("{dada.root}.nochim.rds"),
+         taxonomy.file = glue("{dada.root}.taxonomy.rds"),
          reference.file = case_when(Regions == ".LSU" ~ "lsu_ref.fasta.gz",
                                     TRUE ~ "its_ref.fasta.gz"))
 
@@ -78,7 +108,7 @@ datasets %>%
   with(paste0("dada: ",
               paste(dadamap.file, seqtable.file, nochim.file,
                     collapse = ' \\\n      ',
-                    sep = ' \\\n     '))) %>%
+                    sep = ' \\\n      '))) %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 
 datasets %>%
@@ -88,6 +118,32 @@ datasets %>%
 
 datasets %>%
   glue_data("{taxonomy.file}: {reference.file}") %>%
+  glue_collapse(sep = "\n") %>%
+  cat("\n\n", sep = "", file = target, append = TRUE)
+
+ion.datasets <- datasets %>%
+  filter(Tech == "Ion") %>%
+  mutate(PlateKey = map(file.path(lab.dir, PlateKey),
+                        read_csv)) %>%
+  unnest(PlateKey) %>%
+  mutate(
+    tag.fwd = str_extract(tag.fwd, "\\d+$") %>%
+      as.integer %>%
+      formatC(width = 3, flag = "0"),
+    rawfile = glue("IonXpress_{tag.fwd}_rawlib.basecaller.bam") %>%
+      map(list.files, path = raw.dir, recursive = TRUE) %>%
+      invoke_map_chr(.f = paste, collapse = " "),
+    demuxfile = glue("$(DEMUXDIR)/{Seq.Plate}_{well}.demux.fastq.qz")) %>%
+  filter(str_length(rawfile) > 0)
+
+ion.datasets %>%
+  with(paste0("ion-raw: ",
+              paste(demuxfile, collapse = ' \\\n         '))) %>%
+  cat("\n\n", sep = "", file = target, append = TRUE)
+
+ion.datasets %>%
+  glue_data("{demuxfile}: $(RAWDIR)/{rawfile}",
+            "\t$(BAM2FASTQ)", .sep = "\n", .trim = FALSE) %>%
   glue_collapse(sep = "\n") %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 

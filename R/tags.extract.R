@@ -3,101 +3,87 @@ library(plyr)
 library(tidyverse)
 library(readxl)
 library(seqinr)
+library(here)
+library(assertthat)
 
 # for scripted use, these are specified in the makefile
 if (interactive()) {
-  base.dir <- getwd() %>%
-    str_extract(".*oueme-fungi-transect")
-  data.dir <- file.path(base.dir, "data")
+  data.dir <- here("data")
   lab.dir <- file.path(data.dir, "lab_setup")
   gits7.file <- file.path(lab.dir, "Hectors_tag_primer_plates.xlsx")
   its1.lr5.file <- file.path(lab.dir, "Brendan_soil2.xlsx")
   tags.dir <- file.path(lab.dir, "tags")
-  which.tags = c("gits7", "its1", "lr5", "its5", "gits7-ion")
+  dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
   tags.dir = Sys.getenv("TAG_ROOT")
-  target <- Sys.getenv("TARGETLIST")
   gits7.file <- Sys.getenv('GITS7_TAGFILE')
   its1.lr5.file <- Sys.getenv('LR5_TAGFILE')
-  which.tags = basename(target) %>%
-    str_extract("(gits7(_ion)?|its1|lr5|its4)")
+  dataset.file <- Sys.getenv("DATASET")
 }
 
-# given a DNA sequence including IUPAC ambiguous bases, give all possible realizations
-all_ambiguous_bases <- function(s) {
-  if (str_length(s) == 0) return(s)
-  base <-
-    revalue(substring(s, 1, 1),
-            c(R = "GA",
-              Y = "TC",
-              S = "GC",
-              W = "AT",
-              K = "GT",
-              M = "AC",
-              D = "GTA",
-              H = "TAC",
-              B = "GTC",
-              V = "GAC",
-              N = "GATC"),
-            FALSE)
-  base <- strsplit(base, "") %>% unlist
-  if (str_length(s) == 1) return(base)
-  s <- substring(s, 2)
-  s <- expand.grid(base, all_ambiguous_bases(s), stringsAsFactors = FALSE)
-  do.call(paste0, s)
-}
-
+assert_that(file.exists(gits7.file),
+            file.exists(its1.lr5.file),
+            file.exists(dataset.file))
 
 tags = list()
 
 # read the gITS7 tags
-if ("gits7" %in% which.tags) {
-  tags$gits7 <- read_xlsx(gits7.file, skip = 1) %>%
-    select(name = oligoname, object = sequence) %>%
-    filter(str_detect(name, "gITS7mod"))
-}
-# read the (non-tagged) primers
-if ("its4" %in% which.tags) {
-  tags$its4 <- read_xlsx(gits7.file, skip = 1) %>%
-    select(name = oligoname, object = sequence) %>%
-    filter(str_detect(name, "ITS4"), !str_detect(name, "-IT"))
-}
-# read the ITS1 tags
-if ("its1" %in% which.tags) {
-  tags$its1 <- read_xlsx(its1.lr5.file, sheet = "Taggar ITS1 and LR5", range = "B2:E14") %>%
-    dplyr::rename(primer = `Forward primer`) %>%
-    mutate(object = paste0(pad, barcode, primer)) %>%
-    select(object, name = oligoname)
-}
-# read the LR5 tags
-if ("lr5" %in% which.tags) {
-  tags$lr5 <- read_xlsx(its1.lr5.file, sheet = "Taggar ITS1 and LR5", range = "J2:M10") %>%
-    dplyr::rename(primer = `Reverse primer`) %>%
-    mutate(object = paste0(pad, barcode, primer)) %>%
-    select(object, name = oligoname)
-}
+tags$gits7_tag <- read_xlsx(gits7.file, skip = 1) %>%
+  select(name = oligoname, object = sequence) %>%
+  filter(str_detect(name, "gITS7mod"))
+
 # read the gITS7 tags, and remove sequencing adapter
-if ("gits7_ion" %in% which.tags) {
-  tags$gits7_ion <- read_xlsx(gits7.file, skip = 1)
-  
-  ionA <- tags$gits7_ion %>% filter(oligoname == "Ion-A") %$% sequence
-  tags$gits7_ion %<>%
-    mutate_at("sequence", str_replace, ionA, "") %>%
-    select(name = oligoname, object = sequence) %>%
-    filter(str_detect(name, "gITS7mod"))
-}
+ionA <- read_xlsx(gits7.file, skip = 1) %>% filter(oligoname == "Ion-A") %$% sequence
+tags$gits7_iontag <- tags$gits7_tag %>%
+  mutate_at("object", str_replace, ionA, "")
 
-# make the ambiguous bases explicit
-tags <- map(tags,
-            . %>% mutate_at("object", map, all_ambiguous_bases) %>%
-              unnest(object) %>%
-              group_by(name) %>%
-              mutate(v = seq_along(object)) %>%
-              ungroup %>%
-              tidyr::unite( "name", name, v, sep = "_v"))
+tags$gits7 <- read_xlsx(gits7.file, skip = 1) %>%
+  select(name = oligoname, object = sequence) %>%
+  filter(!str_detect(name, "gITS7mod"),
+         str_detect(name, "gITS7"))
 
-# parse them and write output file(s)
-if (!dir.exists(tags.dir)) dir.create(tags.dir)
-tags %>%
-  map(pmap, as.SeqFastadna) %>%
-  imap(~ write.fasta(.x, file.out = file.path(tags.dir, paste0(.y, ".fasta")), names = getName(.x)))
+# read the (non-tagged) ITS4 primers
+tags$its4 <- read_xlsx(gits7.file, skip = 1) %>%
+  select(name = oligoname, object = sequence) %>%
+  filter(str_detect(name, "ITS4"), !str_detect(name, "-IT"))
+
+# read the ITS1 tags
+tags$its1_tag <- read_xlsx(its1.lr5.file, sheet = "Taggar ITS1 and LR5", range = "B2:E14") %>%
+  dplyr::rename(primer = `Forward primer`) %>%
+  mutate(object = paste0(pad, barcode, primer)) %>%
+  select(object, name = oligoname)
+
+# read the LR5 tags
+tags$lr5_tag <- read_xlsx(its1.lr5.file, sheet = "Taggar ITS1 and LR5", range = "J2:M10") %>%
+  dplyr::rename(primer = `Reverse primer`) %>%
+  mutate(object = paste0(pad, barcode, primer)) %>%
+  select(object, name = oligoname)
+
+# function to take the reverse complement of DNA sequence(s), represented as a string.
+revcomp <- function(s)
+  map_chr(s, ~ c2s(rev(comp(s2c(.), ambiguous = TRUE, forceToLower = FALSE))))
+# read the dataset definitions
+dataset <- read_csv(dataset.file) %>%
+  mutate(
+    tagfile.name = file.path(tags.dir, paste0(Dataset, ".fasta")),
+    PlateKey = map(file.path(lab.dir, PlateKey), read_csv),
+    Forward = tags[Forward],
+    Reverse = tags[Reverse],
+    out.fasta = pmap(
+      list(PlateKey, Forward, Reverse),
+      function(PlateKey, Forward, Reverse)
+        crossing(select(Forward, tag.fwd = name, seq.fwd = object),
+                 select(Reverse, tag.rev = name, seq.rev = object)) %>%
+        mutate_at("seq.rev", revcomp) %>%
+        left_join(select(PlateKey, starts_with("tag"), well)) %>%
+        transmute(name = replace_na(well, ""),
+                  object = paste0(seq.fwd, "...", seq.rev))
+    ))
+# Write the outputs
+dataset %>%
+  pwalk(function(tagfile.name, out.fasta, ...) {
+    write.fasta(sequences = as.list(out.fasta$object),
+                names = out.fasta$name,
+                file.out = tagfile.name,
+                as.string = TRUE)
+  })
