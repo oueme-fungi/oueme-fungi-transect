@@ -229,7 +229,7 @@ include demux.make
 
 # make a .fastq.gz from (zero) one or more .bam files
 define ONEBAM2FASTQ=
-	samtools fastq $1 -0 - >>$@
+	samtools fastq $1 | gzip >>$@
 endef
 define BAM2FASTQ=
 	mkdir -p $(@D)
@@ -249,7 +249,7 @@ $$(TRIMDIR)/$(1)%.trim.fastq.gz : $$(DEMUXDIR)/$(1)%.demux.fastq.gz $$(TAG_ROOT)
 	         -g file:$$(TAG_ROOT)/$(1).fasta\
 	         -j $$(CORES_PER_TASK)\
 	         -o $$@\
-	         $$(DEMUXDIR)/$(1)%.fastq.gz\
+	         $$(DEMUXDIR)/$(1)$$*.demux.fastq.gz\
 	         > $$@.cutadapt.out
 endef
 

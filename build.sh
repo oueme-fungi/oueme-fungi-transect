@@ -22,7 +22,7 @@ module load R/3.5.0 gcc bioinfo-tools blast/2.7.1+ samtools/1.9 ITSx/1.1-beta \
 
 # convert PacBio RSII files to .bam format
 # these are single-threaded options
-make -j$SLURM_JOB_CPUS_PER_NODE convert-pacbio ccs ion-raw pb-demux # &&
+make -j$SLURM_JOB_CPUS_PER_NODE convert-pacbio ccs ion-raw pb-demux ion-trim # &&
 
 # demultiplex Pacbio BAM files
 # this is multithreaded per-file, so run serial make (with parallel tasks)

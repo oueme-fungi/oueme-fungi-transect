@@ -79,7 +79,7 @@ dataset <- read_csv(dataset.file) %>%
                  select(Reverse, tag.rev = name, seq.rev = object)) %>%
         mutate_at("seq.rev", revcomp) %>%
         left_join(select(PlateKey, starts_with("tag"), well)) %>%
-        transmute(name = replace_na(well, ""),
+        transmute(name = replace_na(well, "unnamed"),
                   object = paste0(seq.fwd, "...", seq.rev))
     ))
 # Write the outputs
