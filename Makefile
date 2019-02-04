@@ -246,6 +246,7 @@ define TRIMION=
 $$(TRIMDIR)/$(1)%.trim.fastq.gz : $$(DEMUXDIR)/$(1)%.demux.fastq.gz $$(TAG_ROOT)/$(1).fasta
 	mkdir -p $$(TRIMDIR)
 	cutadapt --trimmed-only \
+	         -m 1\
 	         -g file:$$(TAG_ROOT)/$(1).fasta\
 	         -j $$(CORES_PER_TASK)\
 	         -o $$@\
@@ -268,14 +269,16 @@ $$(TRIMDIR)/.$(1)%.demux: $$(FASTQDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
 	touch $$@.tmp
 	cutadapt --quiet\
                  -g file:$$(TAG_ROOT)/$(1).fasta\
+           -m 1\
 	         --untrimmed-output=-\
-	         -o "$$(TRIMDIR)/$(1)$$*-{name}f.demux.fastq.gz"\
+	         -o "$$(TRIMDIR)/$(1)$$*-{name}f.trim.fastq.gz"\
 	         $$(FASTQDIR)/$(1)$$*.fastq.gz |\
 	fastx_reverse_complement |\
 	cutadapt --quiet\
                  -g file:$$(TAG_ROOT)/$(1).fasta\
+           -m 1\
 	         --trimmed-only\
-	         -o "$$(TRIMDIR)/$(1)$$*-{name}r.demux.fastq.gz"\
+	         -o "$$(TRIMDIR)/$(1)$$*-{name}r.trim.fastq.gz"\
                  -
 	         >> $$@.cutadapt.out
 	mv $$@.tmp $$@
