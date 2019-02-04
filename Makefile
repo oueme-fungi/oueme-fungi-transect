@@ -243,7 +243,7 @@ endef
 
 # trim primers from an already demultiplexed, forward sequence
 define TRIMION=
-$$(TRIMDIR)/$(1)%.fastq.gz : $$(DEMUXDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
+$$(TRIMDIR)/$(1)%.trim.fastq.gz : $$(DEMUXDIR)/$(1)%.demux.fastq.gz $$(TAG_ROOT)/$(1).fasta
 	mkdir -p $$(TRIMDIR)
 	cutadapt --trimmed-only \
 	         -g file:$$(TAG_ROOT)/$(1).fasta\
@@ -254,6 +254,7 @@ $$(TRIMDIR)/$(1)%.fastq.gz : $$(DEMUXDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
 endef
 
 $(foreach seqrun,$(ION_SEQRUNS),$(info $(call TRIMION,$(seqrun))))
+$(foreach seqrun,$(ION_SEQRUNS),$(eval $(call TRIMION,$(seqrun))))
 
 # find true direction, trim primers, and demultiplex at the same time
 # on the first pass, trimmed output is sent to the f.demux.fastq.gz files,

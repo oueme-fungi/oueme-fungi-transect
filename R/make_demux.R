@@ -1,11 +1,9 @@
 # Generate a makefile to 
-
-#source("install_packages.R", echo = TRUE)
-
 library(magrittr)
 library(tidyverse)
 library(glue)
 library(assertthat)
+library(here)
 
 if (interactive()) {
   base.dir <- str_extract(getwd(), ".+oueme-fungi-transect")
@@ -133,7 +131,8 @@ ion.datasets <- datasets %>%
     rawfile = glue("IonXpress_{tag.fwd}_rawlib.basecaller.bam") %>%
       map(list.files, path = raw.dir, recursive = TRUE) %>%
       invoke_map_chr(.f = paste, collapse = " "),
-    demuxfile = glue("$(DEMUXDIR)/{Seq.Plate}_{well}.demux.fastq.qz")) %>%
+    demuxfile = glue("$(DEMUXDIR)/{Seq.Plate}_{well}.demux.fastq.gz"),
+    trimfile = glue("$(TRIMDIR)/{Seq.Plate}_{well}.trim.fastq.gz")) %>%
   filter(str_length(rawfile) > 0)
 
 ion.datasets %>%
@@ -146,6 +145,16 @@ ion.datasets %>%
             "\t$(BAM2FASTQ)", .sep = "\n", .trim = FALSE) %>%
   glue_collapse(sep = "\n") %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
+
+ion.datasets %>%
+  with(paste0("ion-trim: ",
+              paste(trimfile, collapse = ' \\\n          '))) %>%
+  cat('\n\n', sep = "", file = target, append = TRUE)
+
+ion.datasets %$%
+  unique(Seq.Run) %>%
+  glue("ION_SEQRUNS:={paste0(sr, collapse = ' ')}", sr = .) %>%
+  cat('\n\n', sep = "", file = target, append = TRUE)
 
 datasets %<>%
   mutate(rootdir = file.path(raw.dir, Dataset, Seq.Run),
