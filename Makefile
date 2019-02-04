@@ -218,7 +218,7 @@ pb-fastq: $(addprefix $(FASTQDIR)/,$(addsuffix .fastq.gz,$(PB_plates)))
 # and look in the data directory to see what raw files are present
 # and how they need to be demultiplexed, so that we don't need to specify
 # every file by hand here.
-demux.make: make_demux.R $(DATASET) .packrat pb-fastq
+demux.make: make_demux.R $(DATASET) .packrat
 	$(R)
 
 
@@ -229,11 +229,12 @@ include demux.make
 
 # make a .fastq.gz from (zero) one or more .bam files
 define ONEBAM2FASTQ=
-	samtools fastq $1 -0 - >>$$@
+	samtools fastq $1 -0 - >>$@
 endef
 define BAM2FASTQ=
-	echo "" | samtools fastq - -0 $$@
-	$$(foreach infile,$$^,$(call ONEBAM2FASTQ,$(infile)))
+	mkdir -p $(@D)
+	echo "" | samtools fastq - -0 $@
+	$(foreach infile,$^,$(call ONEBAM2FASTQ,$(infile)))
 endef
 
 # make a .fasta from a .fastq.gz
@@ -259,24 +260,29 @@ endef
 # this time with the trimmed output sent to r.demux.fastq.gz.
 define TRIMPB=
 $$(TRIMDIR)/.$(1)%.demux: $$(FASTQDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
-	mkdir -p $$(TRIMDIR) &&\
-	rm $$@ &&\
-	touch $$@.tmp &&\
-	cutadapt --report=minimal\
-	         -g file:$$(TAG_ROOT)/$(1).fasta\
-	         --untrimmed-output -\
-	         -o "$$(TRIMDIR)/$(1)$$*-{name}f.demux.fastq.gz\
-	         $$(FASTQDIR)/$(1)%.fastq.gz\
-	         2> $$@.cutadapt.out |\
+	mkdir -p $$(TRIMDIR)
+	rm -f $$@
+	touch $$@.tmp
+	cutadapt --quiet\
+                 -g file:$$(TAG_ROOT)/$(1).fasta\
+	         --untrimmed-output=-\
+	         -o "$$(TRIMDIR)/$(1)$$*-{name}f.demux.fastq.gz"\
+	         $$(FASTQDIR)/$(1)$$*.fastq.gz |\
 	fastx_reverse_complement |\
-	cutadapt --report=minimal\
-	         -g file:$$(TAG_ROOT)/$(1).fasta\
+	cutadapt --quiet\
+                 -g file:$$(TAG_ROOT)/$(1).fasta\
 	         --trimmed-only\
-	         -o "$$(TRIMDIR)/$(1)$$*-{name}r.demux.fastq.gz"/
-	         >> $$@.cutadapt.out &&\
+	         -o "$$(TRIMDIR)/$(1)$$*-{name}r.demux.fastq.gz"\
+                 -
+	         >> $$@.cutadapt.out
 	mv $$@.tmp $$@
 endef
-$(foreach plate,$(PB_plates),$(info $(call TRIMPB,$(plate))))
+$(foreach plate,$(PB_SEQRUNS),$(eval $(call TRIMPB,$(plate))))
+
+$(foreach plate,$(PB_SEQRUNS),$(info $(call TRIMPB,$(plate))))
+$(foreach plate,$(PB_plates),$(eval pb-demux: $$(TRIMDIR)/.$(plate).demux))
+
+$(foreach plate,$(PB_plates),$(info pb-demux: $$(TRIMDIR)/.$(plate).demux))
 
 # use ITSx to find ITS and LSU sequences
 %.positions.txt: %.fasta

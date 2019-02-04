@@ -15,7 +15,8 @@ if (interactive()) {
   tags.dir <- file.path(lab.dir, "tags")
   dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
-  tags.dir = Sys.getenv("TAG_ROOT")
+  lab.dir <- Sys.getenv("LABDIR")
+  tags.dir <- Sys.getenv("TAG_ROOT")
   gits7.file <- Sys.getenv('GITS7_TAGFILE')
   its1.lr5.file <- Sys.getenv('LR5_TAGFILE')
   dataset.file <- Sys.getenv("DATASET")
@@ -65,7 +66,7 @@ revcomp <- function(s)
 # read the dataset definitions
 dataset <- read_csv(dataset.file) %>%
   mutate(
-    tagfile.name = file.path(tags.dir, paste0(Dataset, ".fasta")),
+    tagfile.name = file.path(tags.dir, paste0(Seq.Run, ".fasta")),
     PlateKey = map(file.path(lab.dir, PlateKey), read_csv),
     Forward = tags[Forward],
     Reverse = tags[Reverse],
