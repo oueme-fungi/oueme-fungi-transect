@@ -218,7 +218,7 @@ pb-fastq: $(addprefix $(FASTQDIR)/,$(addsuffix .fastq.gz,$(PB_plates)))
 # and look in the data directory to see what raw files are present
 # and how they need to be demultiplexed, so that we don't need to specify
 # every file by hand here.
-demux.make: make_demux.R $(DATASET) .packrat pb-fastq
+demux.make: make_demux.R $(DATASET) .packrat
 	$(R)
 
 
@@ -252,6 +252,8 @@ $$(TRIMDIR)/$(1)%.fastq.gz : $$(DEMUXDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
 	         > $$@.cutadapt.out
 endef
 
+$(foreach seqrun,$(ION_SEQRUNS),$(info $(call TRIMION,$(seqrun))))
+
 # find true direction, trim primers, and demultiplex at the same time
 # on the first pass, trimmed output is sent to the f.demux.fastq.gz files,
 # and reads where no match if found are sent on stdout;
@@ -276,7 +278,7 @@ $$(TRIMDIR)/.$(1)%.demux: $$(FASTQDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
 	         >> $$@.cutadapt.out &&\
 	mv $$@.tmp $$@
 endef
-$(foreach plate,$(PB_plates),$(info $(call TRIMPB,$(plate))))
+$(foreach seqrun,$(PB_SEQRUNS),$(info $(call TRIMPB,$(seqrun))))
 
 # use ITSx to find ITS and LSU sequences
 %.positions.txt: %.fasta

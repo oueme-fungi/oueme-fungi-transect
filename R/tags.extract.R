@@ -1,5 +1,5 @@
 library(magrittr)
-library(plyr)
+#library(plyr)
 library(tidyverse)
 library(readxl)
 library(seqinr)
@@ -37,6 +37,7 @@ ionA <- read_xlsx(gits7.file, skip = 1) %>% filter(oligoname == "Ion-A") %$% seq
 tags$gits7_iontag <- tags$gits7_tag %>%
   mutate_at("object", str_replace, ionA, "")
 
+# read the (non-tagged) gITS7 primer
 tags$gits7 <- read_xlsx(gits7.file, skip = 1) %>%
   select(name = oligoname, object = sequence) %>%
   filter(!str_detect(name, "gITS7mod"),
@@ -62,6 +63,7 @@ tags$lr5_tag <- read_xlsx(its1.lr5.file, sheet = "Taggar ITS1 and LR5", range = 
 # function to take the reverse complement of DNA sequence(s), represented as a string.
 revcomp <- function(s)
   map_chr(s, ~ c2s(rev(comp(s2c(.), ambiguous = TRUE, forceToLower = FALSE))))
+
 # read the dataset definitions
 dataset <- read_csv(dataset.file) %>%
   mutate(
