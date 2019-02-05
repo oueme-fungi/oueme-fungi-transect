@@ -132,8 +132,7 @@ ion.datasets <- datasets %>%
       map(list.files, path = raw.dir, recursive = TRUE) %>%
       invoke_map_chr(.f = paste, collapse = " "),
     demuxfile = glue("$(DEMUXDIR)/{Seq.Plate}_{well}.demux.fastq.gz"),
-    trimfile = glue("$(TRIMDIR)/{Seq.Plate}_{well}.trim.fastq.gz")) %>%
-  filter(str_length(rawfile) > 0)
+    trimfile = glue("$(TRIMDIR)/{Seq.Plate}_{well}.trim.fastq.gz"))
 
 ion.datasets %>%
   with(paste0("ion-raw: ",
