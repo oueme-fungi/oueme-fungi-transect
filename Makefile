@@ -234,7 +234,7 @@ endef
 define BAM2FASTQ=
 	mkdir -p $(@D)
 	echo "" | samtools fastq - -0 $@
-	$(foreach infile,$^,$(call ONEBAM2FASTQ,$(infile)))
+	$(if $(infile),$(foreach infile,$^,$(call ONEBAM2FASTQ,$(infile))))
 endef
 
 # make a .fasta from a .fastq.gz
@@ -267,6 +267,11 @@ $$(TRIMDIR)/.$(1)%.demux: $$(FASTQDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
 	mkdir -p $$(TRIMDIR)
 	rm -f $$@
 	touch $$@.tmp
+	for well in $$$$(cat $$(TAG_ROOT)/$(1).fasta | sed -n '/^>/s/^>// p' | uniq);\
+	  do\
+	    echo "" | gzip >$$(TRIMDIR)/$(1)$$*-"$$$$well"f.trim.fastq.gz;/
+	    echo "" | gzip >$$(TRIMDIR)/$(1)$$*-"$$$$well"r.trim.fastq.gz;/
+	  done
 	cutadapt --quiet\
                  -g file:$$(TAG_ROOT)/$(1).fasta\
            -m 1\
@@ -284,11 +289,8 @@ $$(TRIMDIR)/.$(1)%.demux: $$(FASTQDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
 	mv $$@.tmp $$@
 endef
 $(foreach plate,$(PB_SEQRUNS),$(eval $(call TRIMPB,$(plate))))
-
-$(foreach plate,$(PB_SEQRUNS),$(info $(call TRIMPB,$(plate))))
-$(foreach plate,$(PB_plates),$(eval pb-demux: $$(TRIMDIR)/.$(plate).demux))
-
-$(foreach plate,$(PB_plates),$(info pb-demux: $$(TRIMDIR)/.$(plate).demux))
+.INTERMEDIATE: $(foreach plate,$(PB_plates),$(TRIMDIR)/.$(plate).demux)
+$(foreach plate,$(PB_plates),$(eval $$(TRIMDIR)/$(plate)-%.trim.fastq.gz: $$(TRIMDIR)/.$(plate).demux;))
 
 # use ITSx to find ITS and LSU sequences
 %.positions.txt: %.fasta
