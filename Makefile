@@ -289,11 +289,8 @@ $$(TRIMDIR)/.$(1)%.demux: $$(FASTQDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
 	mv $$@.tmp $$@
 endef
 $(foreach plate,$(PB_SEQRUNS),$(eval $(call TRIMPB,$(plate))))
-
-$(foreach plate,$(PB_SEQRUNS),$(info $(call TRIMPB,$(plate))))
-$(foreach plate,$(PB_plates),$(eval pb-demux: $$(TRIMDIR)/.$(plate).demux))
-
-$(foreach plate,$(PB_plates),$(info pb-demux: $$(TRIMDIR)/.$(plate).demux))
+.INTERMEDIATE: $(foreach plate,$(PB_plates),$(TRIMDIR)/.$(plate).demux)
+$(foreach plate,$(PB_plates),$(eval $$(TRIMDIR)/$(plate)-%.trim.fastq.gz: $$(TRIMDIR)/.$(plate).demux;))
 
 # use ITSx to find ITS and LSU sequences
 %.positions.txt: %.fasta

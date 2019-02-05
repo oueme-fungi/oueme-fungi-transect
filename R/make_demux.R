@@ -146,14 +146,29 @@ ion.datasets %>%
   cat("\n\n", sep = "", file = target, append = TRUE)
 
 ion.datasets %>%
-  with(paste0("ion-trim: ",
-              paste(trimfile, collapse = ' \\\n          '))) %>%
+  with(paste0("ion-trim drake: ",
+              paste(trimfile, collapse = ' \\\n                '))) %>%
   cat('\n\n', sep = "", file = target, append = TRUE)
 
 ion.datasets %$%
   unique(Seq.Run) %>%
   glue("ION_SEQRUNS:={paste0(sr, collapse = ' ')}", sr = .) %>%
   cat('\n\n', sep = "", file = target, append = TRUE)
+
+pb.datasets <- datasets %>%
+  filter(Tech == "PacBio") %>%
+  mutate(PlateKey = map(file.path(lab.dir, PlateKey),
+                        read_csv)) %>%
+  unnest(PlateKey) %>%
+  mutate(direction = list(c("f", "r"))) %>%
+  unnest(direction) %>%
+  mutate(trimfile = glue("$(TRIMDIR)/{Seq.Plate}-{well}{direction}.trim.fastq.gz"))
+
+cat("pb-demux drake: ", file = target, append = TRUE)
+pb.datasets %$%
+  unique(trimfile) %>%
+  cat(sep = "\\\n                ", file = target, append = TRUE)
+
 
 datasets %<>%
   mutate(rootdir = file.path(raw.dir, Dataset, Seq.Run),
