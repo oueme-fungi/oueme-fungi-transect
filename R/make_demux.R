@@ -131,8 +131,8 @@ ion.datasets <- datasets %>%
     rawfile = glue("IonXpress_{tag.fwd}_rawlib.basecaller.bam") %>%
       map(list.files, path = raw.dir, recursive = TRUE) %>%
       invoke_map_chr(.f = paste, collapse = " "),
-    demuxfile = glue("$(DEMUXDIR)/{Seq.Plate}_{well}.demux.fastq.gz"),
-    trimfile = glue("$(TRIMDIR)/{Seq.Plate}_{well}.trim.fastq.gz"))
+    demuxfile = glue("$(DEMUXDIR)/{Seq.Plate}-{well}.demux.fastq.gz"),
+    trimfile = glue("$(TRIMDIR)/{Seq.Plate}-{well}.trim.fastq.gz"))
 
 ion.datasets %>%
   with(paste0("ion-raw: ",
