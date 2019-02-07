@@ -121,6 +121,8 @@ datasets %>%
 
 ion.datasets <- datasets %>%
   filter(Tech == "Ion") %>%
+  select(Seq.Run, PlateKey,Seq.Plate) %>%
+  unique() %>%
   mutate(PlateKey = map(file.path(lab.dir, PlateKey),
                         read_csv)) %>%
   unnest(PlateKey) %>%
