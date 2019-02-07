@@ -20,3 +20,4 @@ sequences
 .packrat
 core.*
 ccs_report.txt
+*.temp

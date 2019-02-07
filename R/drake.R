@@ -33,7 +33,7 @@ if (interactive()) {
 } else {
   r.dir <- Sys.getenv("RDIR")
   dataset.file <- Sys.getenv("DATASET")
-  region.file <- Sys.getenv("REGIONS")
+  regions.file <- Sys.getenv("REGIONS")
   target <- Sys.getenv("TARGETLIST")
   ncpu <- Sys.getenv("NCORES")
   trim.dir <- Sys.getenv("TRIMDIR")
@@ -242,14 +242,42 @@ dconfig <- drake_config(plan)
 predict_runtime(dconfig, jobs = ncpu)
 if (interactive()) vis_drake_graph(dconfig)
 future::plan("multiprocess")
-# times = list()
-# for (ncpu in c(1, 2, 4)) {
-#   drake::clean()
-#   tictoc::tic()
-  make(plan,
-       parallelism = "loop",
-       jobs = 1, jobs_preprocess = ncpu,
-       caching = "worker")
+
+# make embarassing targets at the beginning
+make(plan,
+     parallelism = "future",
+     jobs = ncpu, jobs_preprocess = ncpu,
+     caching = "worker",
+     targets = str_subset(plan$target, "^join_derep_")
+)
+# itsx is internally parallel
+make(plan,
+     parallelism = "loop",
+     jobs = 1, jobs_preprocess = ncpu,
+     caching = "worker",
+     targets = str_subset(plan$target, "^itsxtrim_")
+)
+# embarrasing targets after itsx
+make(plan,
+     parallelism = "future",
+     jobs = ncpu, jobs_preprocess = ncpu,
+     caching = "worker",
+     targets = str_subset(plan$target, "^derep2_")
+)
+# itsx is internally parallel
+make(plan,
+     parallelism = "loop",
+     jobs = 1, jobs_preprocess = ncpu,
+     caching = "worker",
+     targets = str_subset(plan$target, "^dada_")
+)
+# finish up parallel
+make(plan,
+     parallelism = "future",
+     jobs = ncpu, jobs_preprocess = ncpu,
+     caching = "worker",
+     targets = str_subset(plan$target, "^derep2_")
+)
 #   times[[ncpu]] <- tictoc::toc()
 # }
 if (interactive()) vis_drake_graph(dconfig)
