@@ -44,7 +44,7 @@ $(info splits: $(SPLITS))
 ###################### Set up directory and file names ########################
 export BASEDIR := $(shell pwd)
 
-RDIR := ${BASEDIR}/R# R scripts
+export RDIR := ${BASEDIR}/R# R scripts
 vpath %.R $(BASEDIR)/R
 
 export RAWDIR := ${BASEDIR}/raw_data# Data received from the sequencing center
@@ -54,10 +54,10 @@ MOVIEDIR := ${SEQDIR}/rawmovie# PacBio movies in *.bam format
 CCSDIR := ${SEQDIR}/ccs#Circular consensus BAM files
 FASTQDIR := ${SEQDIR}/rawfastq# undemultiplexed fastq.gz files
 export DEMUXDIR := ${SEQDIR}/demux#Demultiplexed but untrimmed .fastq.gz files
-TRIMDIR := ${SEQDIR}/trim#Trimmed and demultiplexed .fastq.gz files
+export TRIMDIR := ${SEQDIR}/trim#Trimmed and demultiplexed .fastq.gz files
 vpath %.tr.fastq.gz $(TRIMDIR)
-REGIONDIR := ${SEQDIR}/regions#Regions have been extracted from each file
-FILTERDIR := ${SEQDIR}/filter#Demultiplexed, trimmed, and quality filtered
+export REGIONDIR := ${SEQDIR}/regions#Regions have been extracted from each file
+export FILTERDIR := ${SEQDIR}/filter#Demultiplexed, trimmed, and quality filtered
 vpath %.fi.tr.fastq.gz $(FILTERDIR)
 
 DATADIR := ${BASEDIR}/data# non-sequence data
@@ -91,9 +91,15 @@ RMD = cd $(<D) &&\
       render('$(<F)', output_format = 'pdf_document', output_dir = '../output')"
 # command to run an R script
 # The list of prerequisites is passed on stdin.  Not all scripts use this.
-R = cd $(<D) &&\
-    echo $^ |\
-    Rscript $(ROPT) $(<F) $(RARGS) &>"$(patsubst %.R,%.Rout,$@.$(<F))"
+define R =
+	rm -f $@.temp
+	touch $@.temp
+	$(foreach f,$^,$(call filecho,$f))
+	cd $(<D) &&\
+	cat $@.temp |\
+	Rscript $(ROPT) $(<F) $(RARGS) &>"$(patsubst %.R,%.Rout,$@.$(<F))"
+	rm $@.temp
+endef
 
 # R package management is done by packrat.  Before we start any R scripts, we
 # should make sure the packrat library is current.
