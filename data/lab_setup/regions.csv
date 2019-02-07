@@ -1,0 +1,5 @@
+Region,MaxEE,MinLength,MaxLength
+ITS1,3,50,500
+ITS2,3,50,500
+LSU,3,500,2999
+full,3,50,2999

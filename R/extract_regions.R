@@ -1,62 +1,42 @@
-library(magrittr)
-library(tidyverse)
-library(glue)
-library(ShortRead)
 
-if (interactive()) {
-  base.dir <- getwd() %>%
-    str_extract(".*oueme-fungi-transect")
-  data.dir <- file.path(base.dir, "data")
-  seq.dir <- file.path(base.dir, "raw_data")
+extract_region <- function(infile, outfile, region, positions) {
+  assert_that(is.string(infile),
+             file.exists(infile),
+             is.string(outfile),
+             is.string(region))
   
-  # choose a dataset and run for testing.
-  dataset <- "long-pacbio"
-  seq.run <- "pb_500"
-  plate <- "001"
-  well <- "F2"
-  position.file <- glue("{file.path(seq.dir, dataset, seq.run, 'demultiplex', dataset)}-{plate}_{well}.positions.txt")
-  seq.file <-  glue("{file.path(seq.dir, dataset, seq.run, 'demultiplex', dataset)}-{plate}_{well}.fastq.gz")
-} else {
-  con <- file("stdin")
-  open(con, blocking = TRUE)
-  prereqs <- readLines(con)
-  close(con)
-  prereqs <- str_split(prereqs, " ") %>% unlist
+  #create the output directory if needed
+  dir.create(dirname(outfile), recursive = TRUE, showWarnings = FALSE)
+  assert_that(dir.exists(dirname(outfile)))
   
-  position.file <- str_subset(prereqs, fixed(".positions.txt"))
-  seq.file <- str_subset(prereqs, fixed(".fastq.gz"))
-}
-
-
-stopifnot(file.exists(position.file),
-          file.exists(seq.file))
-
-
-stem <- str_replace(position.file, fixed(".positions.txt"), "")
-
-pos <- tibble(seq = character(0),
-              length = character(0),
-              region = character(0),
-              start = integer(0),
-              end = integer(0))
-if (file.size(position.file) > 0) {
-  pos <- read_tsv(position.file, col_names = c("seq", "length", "SSU", "ITS1",
-                                               "5_8S", "ITS2", "LSU", "comment")) %>%
-    gather(key = "region", value = "pos", SSU:LSU) %>%
-    mutate_at("pos", str_extract, pattern = "\\d+-\\d+") %>%
-    tidyr::extract(pos, into = c("start", "end"), regex = "(\\d+)-(\\d+)") %>%
-    mutate_at(vars(start:end), as.integer)
-}
-
-for (r in c("ITS1", "ITS2", "LSU")) {
-  out.file <- glue("{stem}.{r}.fastq.gz")
-  if (file.exists(out.file)) file.remove(out.file)
-  writeFastq(ShortReadQ(), out.file)
-  p <- filter(pos, region == r,
+  # if the region is "full", then we don't need to cut anything.
+  if (identical(region, "full")) {
+    file.copy(infile, outfile, overwrite = TRUE)
+    return()
+  }
+  
+  # make sure the file exists even if we don't have anything to write.
+  if (file.exists(outfile)) file.remove(outfile)
+  ShortRead::writeFastq(ShortRead::ShortReadQ(), outfile)
+  
+  p <- dplyr::filter(positions, region == !!region,
               !is.na(start),
               !is.na(end))
-  fastq <- readFastq(seq.file)
-  fastq <- fastq[match(p$seq, fastq@id)] %>%
-    narrow(start = p$start, end = p$end)
-  writeFastq(fastq, out.file, mode = "a")
+  fastq <- ShortRead::readFastq(infile)
+  fastq <- fastq[p$idx] %>%
+    ShortRead::narrow(start = p$start, end = p$end)
+  ShortRead::writeFastq(fastq, outfile, mode = "a")
+}
+
+q_stats <- function(file) {
+  fq <- ShortRead::readFastq(file)
+  q <- as(fq@quality, "matrix")
+  minq <- matrixStats::rowMins(q, na.rm = TRUE)
+  q <- 10^(-q/10)
+  tibble(file = basename(file),
+         length = ShortRead::width(fq),
+         minq = minq,
+         eexp = rowSums(q, na.rm = TRUE),
+         erate = eexp/length,
+         p.noerr = exp(rowSums(log1p(-q), na.rm = TRUE)))
 }

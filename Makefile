@@ -56,6 +56,7 @@ FASTQDIR := ${SEQDIR}/rawfastq# undemultiplexed fastq.gz files
 export DEMUXDIR := ${SEQDIR}/demux#Demultiplexed but untrimmed .fastq.gz files
 TRIMDIR := ${SEQDIR}/trim#Trimmed and demultiplexed .fastq.gz files
 vpath %.tr.fastq.gz $(TRIMDIR)
+REGIONDIR := ${SEQDIR}/regions#Regions have been extracted from each file
 FILTERDIR := ${SEQDIR}/filter#Demultiplexed, trimmed, and quality filtered
 vpath %.fi.tr.fastq.gz $(FILTERDIR)
 
@@ -63,8 +64,11 @@ DATADIR := ${BASEDIR}/data# non-sequence data
 export LABDIR := $(DATADIR)/lab_setup# data defining experimental setup
 export TAG_ROOT := ${LABDIR}/tags
 export DATASET := $(LABDIR)/datasets.csv
+export REGIONS := $(LABDIR)/regions.csv
 export GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
 export LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
+
+OUTDIR := ${BASEDIR}/output# reports, plots, etc.
 
 REF_ROOT := ${BASEDIR}/reference# reference databases
 vpath %_ref.fasta.gz $(REF_ROOT)

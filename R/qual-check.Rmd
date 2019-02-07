@@ -1,0 +1,275 @@
+---
+title: "Read quality check"
+output: beamer_presentation
+---
+
+```{r setup, include = FALSE}
+library(magrittr)
+library(tidyverse)
+library(glue)
+library(Biostrings)
+library(ShortRead)
+library(ggplot2)
+library("scales")
+library(drake)
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r include=FALSE}
+datasets <- readd(datasets)
+# xdata <- readd(itsxtrim_.its1.lr5.)
+# pos <- readd(positions_pb500002A1f)
+reads <- readd(qstats_join) %>%
+      tidyr::extract(col = "file",
+                     into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),
+                     regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.trim\\.fastq\\.gz") %>%
+  left_join(datasets)
+```
+
+
+
+```{r}
+reverselog_trans <- function(base = exp(1)) {
+    trans <- function(x) -log(x, base)
+    inv <- function(x) base^(-x)
+    trans_new(paste0("reverselog-", format(base)), trans, inv, 
+              log_breaks(base = base), 
+              domain = c(1e-100, Inf))
+}
+```
+
+## Minimum quality score
+```{r}
+ggplot(reads, aes(x = minq,
+                  linetype = Region,
+                  group = paste(Dataset, Region),
+                  color = Dataset)) +
+  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
+  scale_x_continuous(name = "Minimum quality score",
+                     # trans = reverselog_trans(10),
+                     # limits = c(NA, 1e-5),
+                     oob = squish) +
+  scale_y_continuous(name = "Fraction passing")
+```
+
+## Expected error rate
+```{r}
+
+ggplot(reads, aes(x = erate,
+                  linetype = Region,
+                  group = paste(Dataset, Region),
+                  color = Dataset)) +
+  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
+  scale_x_continuous(name = "Expected number of errors per base",
+                     trans = reverselog_trans(10),
+                     limits = c(NA, 1e-5),
+                     oob = squish) +
+  scale_y_continuous(name = "Fraction passing")
+```
+
+## Expected number of errors
+```{r}
+ggplot(reads, aes(x = eexp,
+                  linetype = Region,
+                  group = paste(Dataset, Region),
+                  color = Dataset)) +
+  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
+  scale_x_continuous(name = "Expected number of errors",
+                     trans = reverselog_trans(10),
+                     limits = c(NA, 0.1),
+                     oob = squish) +
+  scale_y_continuous(name = "Fraction passing")
+```
+
+## Error-free probability
+
+```{r}
+ggplot(reads, aes(x = p.noerr,
+                  linetype = Region,
+                  group = paste(Dataset, Region),
+                  color = Dataset)) +
+  geom_step(aes(y = 1 - ..y..), stat = "ecdf") +
+  scale_x_continuous(name = "Expectation of being error-free",
+                     # trans = log_trans(10),
+                     limits = c(0, 1),
+                     oob = squish) +
+  scale_y_continuous(name = "Fraction passing")
+```
+
+## Read length
+
+```{r}
+ggplot(reads, aes(x = length,
+                  linetype = Region,
+                  group = paste(Dataset, Region),
+                  color = Dataset)) +
+  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
+  scale_x_log10(name = "Length (bp)") +
+  scale_y_continuous(name = "Fraction Greater than length")
+  
+```
+
+## Expected error-free reads
+```{r}
+reads %>%
+  group_by(Dataset, Plate, Region) %>%
+  summarize(`Expected Error-Free` = sum(p.noerr),
+            Total = n()) %>%
+  knitr::kable()
+```
+
+```{r eval = FALSE}
+library(dada2)
+dada2::plotQualityProfile(unique(filter(reads, Tech == "PacBio")$files))
+```
+
+
+```{r eval = FALSE}
+counts <- read_csv(file.path(data.dir, "fastq.counts"), col_names = c("file", "reads"))
+counts %<>% mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
+                     map_chr(purrr::compose(dplyr::first, sort, unique)),
+                   seq.run = map(file, str_extract, datasets$Seq.Run) %>%
+                     map_chr(purrr::compose(dplyr::first, sort, unique)),
+                   well = str_extract(file, "[A-H]\\d\\d?"),
+                   shard = str_extract(file, "\\bx[a-z][a-z]\\b"),
+                   is.shard = !is.na(shard),
+                   region = str_extract(file, "(ITS[12]|LSU)"),
+                   is.trim = str_detect(file, "trim"),
+                   is.demux = is.na(region) & !is.trim & !is.na(well),
+                   type = ifelse(is.trim, "trim",
+                                 ifelse(!is.na(region), "ITSx",
+                                        ifelse(is.demux, "demux",
+                                               "original"))),
+                   plate = str_extract(file, "00\\d") %>% replace_na("001")) %>%
+  group_by(dataset, type, plate, region, is.shard) %>%
+  summarize(reads = sum(reads)) %>%
+  ungroup() %>%
+  select(-is.shard) %>%
+  unique() %>%
+  spread(key = "type", value = "reads") %>%
+  select(dataset, plate, original, demux, region, ITSx, trim) %>%
+  filter(!is.na(dataset)) %>%
+  group_by(dataset) %>%
+  mutate(original = na.omit(original),
+         demux = na.omit(demux)) %>%
+  filter(all(is.na(region)) | !is.na(region)) %>%
+  ungroup()
+
+demux.counts <- read_lines(file.path(data.dir, "demux.counts")) %>%
+  str_match("([^:]+): (\\d+) sequences ([^(]+)( \\(([FR]): (\\d+), ([FR]): (\\d+)\\))?\\.") %>%
+  magrittr::extract(,c(2,3,4,6,7,8, 9)) %>%
+  set_colnames(c("file", "reads", "type", "d1", "n1", "d2", "n2")) %>%
+  as_tibble() %>%
+  mutate_at(c("reads", "n1", "n2"), as.integer) %>%
+  mutate(fwd = case_when(!is.na(d1) & d1 == "F" ~ n1,
+                         !is.na(d2) & d2 == "F" ~ n2,
+                         TRUE ~ NA_integer_),
+         rev = case_when(!is.na(d1) & d1 == "R" ~ n1,
+                         !is.na(d2) & d2 == "R" ~ n2,
+                         TRUE ~ NA_integer_)) %>%
+  select(-(d1:n2)) %>%
+  mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
+           map_chr(purrr::compose(dplyr::first, sort, unique)),
+         seq.run = map(file, str_extract, datasets$Seq.Run) %>%
+           map_chr(purrr::compose(dplyr::first, sort, unique)),
+         seq.plate = map(file, str_extract, paste0(datasets$Dataset, "-[0-9]{3}")) %>%
+           map_chr(purrr::compose(dplyr::first, sort, unique))) %>%
+  group_by(dataset, seq.run, seq.plate,type) %>%
+  summarize_at(c("reads", "fwd", "rev"), sum) %>%
+  ungroup() %>%
+  mutate(type = recode(type,
+                       "with at least one tag match" = "any.tag",
+                       "match at least 90% of tag length" = "tag.cover",
+                       "with at most 3 tag mismatches" = "tag.score",
+                       "with no more than one distinct tag in each direction" = "identifiable",
+                       "with tags in both directions" = "both.tags",
+                       "with tags appearing in correct order" = "tag.order")) %>%
+  gather(key = "dir", value = "reads", reads, fwd, rev) %>%
+  mutate_at("dir", str_replace, "^reads$", "") %>%
+  tidyr::unite("type", type, dir, sep = ".") %>%
+  spread(key = "type", value = "reads") %>%
+  set_names(str_replace(names(.), "\\.$", "")) %>%
+  keep(~!all(is.na(.))) %>%
+  select(dataset, starts_with("any.tag"), starts_with("tag.cover"),
+         starts_with("tag.score"), starts_with("identifiable"), both.tags, tag.order) %>%
+  left_join(select(counts, dataset, original, demux) %>%
+              filter(complete.cases(.)) %>%
+              unique()) %>%
+  select(dataset, original, any.tag:tag.order, demux) %>%
+  left_join(select(counts, dataset, region, ITSx, trim))
+
+dada.counts <-
+  demux.counts %>%
+  left_join(select(datasets, dataset = Dataset, Seq.Run)) %>%
+  mutate(file = glue("{data.dir}/{dataset}_{Seq.Run}.dada.seqtable.rds"),
+         file = ifelse(is.na(region),
+                       file,
+                       str_replace(file, "\\.dada", glue(".{region}.dada"))),
+         seq.tab = map(file, readRDS),
+         assigned = map_int(seq.tab, sum),
+         n_ASV = map_int(seq.tab, ncol),
+         file = str_replace(file, "\\.dada\\.seqtable\\.rds",
+                            ".dada.nochim.rds"),
+         nochim = map(file, readRDS),
+         nochim.reads = map_int(nochim, sum),
+         nochim.ASV = map_int(nochim, ncol)) %>%
+  select(-seq.tab, -file, -nochim)
+         
+dada.counts
+```
+```{r eval = FALSE}
+s.pb.seqs <- readRDS(glue("{data.dir}/short-pacbio_pb_483.dada.nochim.rds")) %>%
+  colSums %>%
+  tibble(seq = names(.),
+         pb.reads = .)
+s.ion.seqs <- readRDS(glue("{data.dir}/short-ion_is_057.dada.nochim.rds")) %>%
+  colSums %>%
+  tibble(seq = names(.),
+         ion.reads = .)
+
+(crosstab <- full_join(s.pb.seqs, s.ion.seqs, by = "seq") %>%
+  mutate(len = str_length(seq)) %>%
+  replace_na(list(pb.reads = 0, ion.reads = 0))) %>%
+  ggplot(aes(x = ion.reads, y = pb.reads, color = len)) +
+  geom_point() +
+  scale_y_log10() +
+  scale_x_log10()
+```
+
+IonTorrent reads which match a PacBio ASV: ` filter(crosstab, pb.reads > 0) %$% sum(ion.reads)`
+IonTorrent reads which do NOT match PacBio: ` filter(crosstab, pb.reads == 0) %$% sum(ion.reads)`
+PacBio reads which match an IonTorrent ASV: ` filter(crosstab, ion.reads > 0) %$% sum(pb.reads)`
+PacBio reads which do NOT match IonTorrent: ` filter(crosstab, ion.reads == 0) %$% sum(pb.reads)`
+
+```{r eval = FALSE}
+crosstab %>% arrange(pb.reads, ion.reads) %>%
+  write.csv(file.path(data.dir, "pb_vs_ion_ASVs.csv"))
+```
+
+```{r eval = FALSE}
+demux.counts %>%
+  select(dataset, region) %>%
+  left_join(select(datasets, dataset = Dataset, Seq.Run)) %>%
+  mutate(file = glue("{data.dir}/{dataset}_{Seq.Run}.dada.taxonomy.rds"),
+         file = ifelse(is.na(region),
+                       file,
+                       str_replace(file, "\\.dada", glue(".{region}.dada")))) %>%
+  filter(file.exists(file)) %>%
+  mutate(tax = map(file, readRDS)) %>%
+  unnest %>%
+  filter(str_detect(Taxonomy, "Inocybe")) %>%
+  mutate(nreads = rowSums(select_if(., is.integer), na.rm = TRUE)) %>%
+  arrange(desc(nreads)) %>%
+  select(dataset, region, nreads, Taxonomy, seq) %>%
+  mutate(name = paste(dataset, region, substr(map_chr(seq, digest::digest, algo = "sha1"), 1, 8), sep = "_")) %$%
+  set_names(seq, name) %>%
+  DNAStringSet(use.names = TRUE) %>%
+  writeFasta(file.path(data.dir, "inocybe.fasta"))
+
+`short-ion_is_057.dada.nochim` %>%
+  colnames() %>%
+  set_names(paste0("seq", seq_along(.))) %>%
+  DNAStringSet(use.names = TRUE) %>%
+  writeFasta(file.path(data.dir, "short-ion.fasta"))
+```
+

@@ -1,9 +1,45 @@
-# source("install_packages.R", echo = TRUE)
-
 library(magrittr)
 library(tidyverse)
 library(assertthat)
 library(ShortRead)
+
+# Works basically like a stripped-down version of dada2::filterAndTrim,
+# but also has the option to filter on error rate.
+quality_filter <- function(in.file, out.file,
+                           MaxERate = Inf,
+                           MaxEE = Inf,
+                           MinLength = 0,
+                           MaxLength = Inf) {
+  
+  # initialize the output file with an empty fastq.
+  blankread <- ShortReadQ()
+  if (!dir.exists(dirname(out.file))) {
+    dir.create(dirname(out.file), recursive = TRUE)}
+  if (file.exists(out.file)) file.remove(out.file)
+  writeFastq(blankread, out.file)
+  
+  # stream the input file to keep memory usage manageable
+  fqs <- FastqStreamer(source)
+  while (length(fq <- yield(fqs)) > 0) {
+    #calculate number of expected errors for each read
+    eexp <- 10^(-1 * as(fq@quality, "matrix")/10) %>%
+      rowSums(na.rm = TRUE)
+    # get length of each read
+    l <- width(fq)
+    # calculate error rate
+    erate <- eexp / l
+    # filter out files which have too many errors or are too short or too long,
+    # according to the dataset definition file
+    fq <- fq[erate <= MaxERate &
+               eexp <= MaxEE &
+               l >= MinLength &
+               l <= MaxLength]
+    # write to the new file
+    writeFastq(object = fq, 
+               file = out.file,
+               mode = "a")
+  }
+}
 
 # for scripted use, these are specified in the makefile
 if (interactive()) {
@@ -24,17 +60,17 @@ if (interactive()) {
   in.file <- in.file[!grepl(pattern = ".trim.", in.file, fixed = TRUE)]
   in.file <- in.file[1]
   
-  target <- sub(pattern = ".fastq.gz", replacement = ".trim.fastq.gz",
+  out.file <- sub(pattern = ".fastq.gz", replacement = ".trim.fastq.gz",
                   x = in.file, fixed = TRUE)
-  target <- sub(pattern = "demultiplex", replacement = "trim", x = target,
+  out.file <- sub(pattern = "demultiplex", replacement = "trim", x = out.file,
                   fixed = TRUE)
   in.file <- "/home/brendan/Documents/Uppsala/Projects/oueme-fungi-transect/raw_data/short-pacbio/pb_483/demultiplex/short-pacbio-002_H1.fastq.gz"
-  target <- "/home/brendan/Documents/Uppsala/Projects/oueme-fungi-transect/raw_data/short-pacbio/pb_483/trim/short-pacbio-002_H1.trim.fastq.gz"
+  out.file <- "/home/brendan/Documents/Uppsala/Projects/oueme-fungi-transect/raw_data/short-pacbio/pb_483/trim/short-pacbio-002_H1.trim.fastq.gz"
   dataset.file <- file.path(lab.dir, "datasets.csv")
 } else {
-  target <- Sys.getenv("TARGETLIST")
+  out.file <- Sys.getenv("TARGETLIST")
   dataset.file <- Sys.getenv("DATASET")
-  assert_that(is.string(target))
+  assert_that(is.string(out.file))
   
   # read the prereqs from stdin
   con <- file("stdin")
@@ -61,30 +97,8 @@ datasets %<>% filter(Dataset == dataset)
 stopifnot(nrow(datasets) == 1,
           file.exists(in.file))
 
-# initialize the target file with an empty fastq.
-blankread <- ShortReadQ()
-if (!dir.exists(dirname(target))) dir.create(dirname(target), recursive = TRUE)
-if (file.exists(target)) file.remove(target)
-writeFastq(blankread, target)
-
-# stream the input file to keep memory usage manageable
-fqs <- FastqStreamer(in.file)
-while (length(fq <- yield(fqs)) > 0) {
-  #calculate number of expected errors for each read
-  eexp <- 10^(-1 * as(fq@quality, "matrix")/10) %>%
-    rowSums(na.rm = TRUE)
-  # get length of each read
-  l <- width(fq)
-  # calculate error rate
-  erate <- eexp / l
-  # filter out files which have too many errors or are too short or too long,
-  # according to the dataset definition file
-  fq <- fq[erate <= datasets$MaxERate &
-           eexp <= datasets$MaxEE &
-           l >= datasets$MinLength &
-           l <= datasets$MaxLength]
-  # write to the new file
-  writeFastq(object = fq, 
-             file = target,
-             mode = "a")
-}
+quality_filter(in.file = in.file, out.file = out.file,
+               MaxERate = dataset$MaxERate,
+               MaxEE = dataset$MaxEE,
+               MaxLength = dataset$MaxLength,
+               MinLength = dataset$MinLength)

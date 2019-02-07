@@ -246,8 +246,8 @@ Requires: assertthat, crayon
 
 Package: clipr
 Source: CRAN
-Version: 0.4.1
-Hash: caf20ae357bfa2ed50e0e7db267f69ce
+Version: 0.5.0
+Hash: 9d588163f9234a17c6ad03d148db999d
 
 Package: clisymbols
 Source: CRAN
@@ -321,12 +321,17 @@ Requires: BH, R6, Rcpp, assertthat, bindrcpp, glue, magrittr,
 Package: drake
 Source: github
 Version: 6.2.1.9002
-Hash: daa5e090cc3f189247f45bf7b45ead71
+Hash: 64b1d42e6277bcf75520356a1fc8a0f0
 Requires: base64url, digest, igraph, rlang, storr
 GithubRepo: drake
 GithubUsername: ropensci
 GithubRef: master
-GithubSha1: 953917b6ea0cda29e17fa767ac24c0b49c3cd784
+GithubSha1: 5a9a59ca6c35a0ac463eadff5403544e8f1afed5
+RemoteHost: api.github.com
+RemoteRepo: drake
+RemoteUsername: ropensci
+RemoteRef: master
+RemoteSha: 5a9a59ca6c35a0ac463eadff5403544e8f1afed5
 
 Package: evaluate
 Source: CRAN
@@ -638,9 +643,9 @@ Hash: 1d4cae95887ffe5b1a22bea5994476cd
 
 Package: purrr
 Source: CRAN
-Version: 0.2.5
-Hash: 8b0c16db10c7e20b70cd37779a673a8b
-Requires: magrittr, rlang, tibble
+Version: 0.3.0
+Hash: 39be04d964bc2b860f09147ce4b8e2ef
+Requires: magrittr, rlang
 
 Package: rBLAST
 Source: github
@@ -651,6 +656,21 @@ GithubRepo: rBLAST
 GithubUsername: mhahsler
 GithubRef: master
 GithubSha1: c5d62409d1a687d9fc8cc8a9bb89c708fb5797c8
+
+Package: rITSx
+Source: github
+Version: 0.0.0.9000
+Hash: 436b29a68c4a71e38c7561fa3c0702c0
+Requires: assertthat, dplyr, glue, magrittr, readr, rlang, tidyr
+GithubRepo: rITSx
+GithubUsername: brendanf
+GithubRef: master
+GithubSha1: 29c67b7929e1f0d9779310acc1fbc053fd426900
+RemoteHost: api.github.com
+RemoteRepo: rITSx
+RemoteUsername: brendanf
+RemoteRef: master
+RemoteSha: 29c67b7929e1f0d9779310acc1fbc053fd426900
 
 Package: rcmdcheck
 Source: CRAN
@@ -675,6 +695,12 @@ Package: rematch
 Source: CRAN
 Version: 1.0.1
 Hash: ad4faf59e7611117ff165817074c50c7
+
+Package: rematch2
+Source: CRAN
+Version: 2.0.1
+Hash: b7f86a340a404c69cfb770dfd2081dd9
+Requires: tibble
 
 Package: remotes
 Source: CRAN
@@ -773,6 +799,13 @@ Version: 1.3.1
 Hash: 9f417a1d899ed1f080942ab36998e8b5
 Requires: glue, magrittr, stringi
 
+Package: styler
+Source: CRAN
+Version: 1.1.0
+Hash: 0828b22addbbcd56df571ba3ff114e7a
+Requires: backports, cli, magrittr, purrr, rematch2, rlang, rprojroot,
+    tibble, withr, xfun
+
 Package: sys
 Source: CRAN
 Version: 2.1
@@ -780,8 +813,8 @@ Hash: 5ce312d2f816b21f602cb81fe4659a0b
 
 Package: tibble
 Source: CRAN
-Version: 2.0.0
-Hash: dd9c9442795b8b46425bf7ad5514bb0c
+Version: 2.0.1
+Hash: d2a00b9a314cfad8f6b51e2c97aaff5c
 Requires: cli, crayon, fansi, pillar, pkgconfig, rlang
 
 Package: tidyr
