@@ -14,6 +14,7 @@ knitr::opts_chunk$set(echo = FALSE, fig.width = 5, fig.height = 5)
 library(magrittr)
 library(tidyverse)
 library(readxl)
+library(here)
 packrat::extlib("rwantshue")
 colorscheme <- iwanthue(seed=12, force_init = TRUE)
 doctype <- knitr::opts_knit$get("rmarkdown.pandoc.to")
@@ -28,8 +29,7 @@ if (! is.null(doctype) && doctype == "beamer") {
 Doctype is `r doctype`.
 
 ```{r include = FALSE}
-base.dir <- str_extract(getwd(), ".+oueme-fungi-transect")
-data.dir <- file.path(base.dir, "data")
+data.dir <- here("data")
 soils.dir <- file.path(data.dir, "soils")
 soils.file <- file.path(soils.dir, "transectsoil_corrected.csv")
 
@@ -74,8 +74,8 @@ well_key <- wrong_tags %>%
   left_join(select(true_tags, Tag, True_Well = Well))
 
 plate <- read_xlsx(plate.file, "Concentration samples", skip = 1, col_names = TRUE) %>%
-  rename(Comment = X__1, Well = row) %>%
-  select (-X__2) %>%
+  dplyr::rename(Comment = "..9", Well = row) %>%
+  select (-"..12") %>%
   # Sample number consists of site, location along transect, and possible qualifier
   tidyr::extract("Sample", c("Site", "X", "Qual"), "(V1P[13]|T[12])[ -][ST](\\d+)(\\D*)$") %>%
   mutate_at("X", as.integer) %>%
