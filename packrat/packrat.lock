@@ -327,11 +327,6 @@ GithubRepo: drake
 GithubUsername: ropensci
 GithubRef: master
 GithubSha1: 5a9a59ca6c35a0ac463eadff5403544e8f1afed5
-RemoteHost: api.github.com
-RemoteRepo: drake
-RemoteUsername: ropensci
-RemoteRef: master
-RemoteSha: 5a9a59ca6c35a0ac463eadff5403544e8f1afed5
 
 Package: evaluate
 Source: CRAN
@@ -666,11 +661,6 @@ GithubRepo: rITSx
 GithubUsername: brendanf
 GithubRef: master
 GithubSha1: 29c67b7929e1f0d9779310acc1fbc053fd426900
-RemoteHost: api.github.com
-RemoteRepo: rITSx
-RemoteUsername: brendanf
-RemoteRef: master
-RemoteSha: 29c67b7929e1f0d9779310acc1fbc053fd426900
 
 Package: rcmdcheck
 Source: CRAN

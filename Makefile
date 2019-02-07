@@ -408,7 +408,7 @@ define filecho =
 endef
 
 # count the number of sequences in different fastq files
-data/fastq.counts: CORES_PER_TASK := NCORES
+data/fastq.counts: CORES_PER_TASK := $(NCORES)
 data/fastq.counts:
 	rm -f $@.temp
 	touch $@.temp
@@ -420,6 +420,10 @@ data/fastq.counts:
 # for the community.  Because it's easiest if the make target has only one output,
 # it puts them into a single Rdata file.  This splits them into two .rds files.
 %.dada.dadamap.rds %.dada.seqtable.rds %.dada.nochim.rds: split_rdata.R %.dada.Rdata .packrat
+	$(R)
+
+drake: CORES_PER_TASK := $(NCORES)
+drake: drake.R .packrat
 	$(R)
 
 .PHONY: clean
