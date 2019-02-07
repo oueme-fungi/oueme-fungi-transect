@@ -268,9 +268,9 @@ $$(TRIMDIR)/.$(1)%.demux: $$(FASTQDIR)/$(1)%.fastq.gz $$(TAG_ROOT)/$(1).fasta
 	rm -f $$@
 	touch $$@.tmp
 	for well in $$$$(cat $$(TAG_ROOT)/$(1).fasta | sed -n '/^>/s/^>// p' | uniq);\
-	  do\
-	    echo "" | gzip >$$(TRIMDIR)/$(1)$$*-"$$$$well"f.trim.fastq.gz;/
-	    echo "" | gzip >$$(TRIMDIR)/$(1)$$*-"$$$$well"r.trim.fastq.gz;/
+	  do \
+	    echo "" | gzip >$$(TRIMDIR)/$(1)$$*-"$$$$well"f.trim.fastq.gz;\
+	    echo "" | gzip >$$(TRIMDIR)/$(1)$$*-"$$$$well"r.trim.fastq.gz;\
 	  done
 	cutadapt --quiet\
                  -g file:$$(TAG_ROOT)/$(1).fasta\
