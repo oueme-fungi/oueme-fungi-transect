@@ -85,6 +85,7 @@ meta1 <- datasets %>%
          itsxtrim_ = make.names(glue("itsxtrim_.{PrimerPair}."))) %>%
   filter(file.exists(file.path(trim.dir, TrimFile))) %>%
   verify(TrimFile %in% basename(in.files))
+saveRDS(meta1, "meta1.rds")
 
 meta2 <- meta1 %>%
   mutate_at("Regions", str_split, ",") %>%
@@ -94,6 +95,7 @@ meta2 <- meta1 %>%
          pid_ = glue("{Seq.Run}_{Plate}_{Region}"), 
          regionfile_ = glue("{Seq.Run}_{Plate}-{Well}{Direction}-{Region}.trim.fastq.gz"),
          filterfile_ = glue("{Seq.Run}_{Plate}-{Well}{Direction}-{Region}.qfilt.fastq.gz"))
+saveRDS(meta2, "meta2.rds")
 
 if (interactive()) {
   #use a subset
@@ -114,11 +116,8 @@ meta3 <- meta2 %>%
   left_join(datasets %>% select(-Regions)) %>%
   left_join(regions) %>%
   mutate(pid_ = glue("{Seq.Run}_{Plate}_{Region}"))
+saveRDS(meta3, "meta3.rds")
 
-# walk(list.files(seq.dir,
-#                "is.+_[A-H]1?[0-9].(trim|demux).fastq.gz$",
-#                recursive = TRUE, full.names = TRUE),
-#      ~ file.rename(., str_replace(., "_([A-H]1?[0-9].(trim|demux))", "-\\1")))
 plan <- drake_plan(
   datasets = read_csv(file_in(!!dataset.file)),
   derep1 = target(
@@ -238,6 +237,10 @@ plan <- drake_plan(
       output_file = file_out(!!file.path(out.dir, "qual-check.pdf")))},
   trace = TRUE
 )
+
+saveRDS(plan, "plan.rds")
+
+
 dconfig <- drake_config(plan)
 predict_runtime(dconfig, jobs = ncpu)
 if (interactive()) vis_drake_graph(dconfig)

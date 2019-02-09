@@ -39,7 +39,6 @@ CORES_PER_TASK := 1
 # in SPLITS (which mimic the default labelling scheme of the "split"" utility)
 export SPLITS := $(shell echo x{a..z}{a..z} | cut -d' ' -f 1-$(NCORES))
 $(info ncores: $(NCORES))
-$(info splits: $(SPLITS))
 
 ###################### Set up directory and file names ########################
 export BASEDIR := .
@@ -110,8 +109,6 @@ endef
 
 # Find all raw PacBio RSII files
 PB_h5=$(shell find -L $(RAWDIR) -name *.bas.h5)
-#$(info Found raw PacBio RSII files:)
-#$(foreach f,$(PB_h5),$(info $(f)))
 
 # Get the names of the sequencing runs from the parameter file
 SEQRUNS:=$(shell cat $(DATASET) | awk 'NR > 1 {print $$3}; BEGIN {FS = ","}')
@@ -147,46 +144,6 @@ $(MOVIEDIR)/%.subreads.bam $(MOVIEDIR)/%.scraps.bam : %.bas.h5 %.1.bax.h5 %.2.ba
 	mkdir -p $(@D)
 	bax2bam $(filter %.bax.h5,$^) -o $(MOVIEDIR)/$*
 
-# Demultiplex bam files
-#.PHONY: demux-pacbio
-#demux-pacbio: $(foreach f,$(PB_movies),\
-#                $(DEMUXMOVIEDIR)/$(f).demux.subreads.bam\
-#                $(DEMUXMOVIEDIR)/$(f).demux.scraps.bam)
-#$(DEMUXMOVIEDIR)/%.demux.subreads.bam\
-#$(DEMUXMOVIEDIR)/%.demux.scraps.bam: CORES_PER_TASK := $(NCORES)
-#$(DEMUXMOVIEDIR)/%.demux.subreads.bam\
-#$(DEMUXMOVIEDIR)/%.demux.scraps.bam: $(MOVIEDIR)/%.subreads.bam\
-#                                     $(MOVIEDIR)/%.scraps.bam
-#	mkdir -p $(@D)
-#	bam2bam $(filter %.subreads.bam,$^) \
-#	        $(filter %.scraps.bam,$^) \
-#	        -j $(NCORES) \
-#	        -o $*.demux \
-#	        --barcodes=$(filter %.fasta,$^) \
-#	        --scoreMode=asymmetric
-
-# barcode calling in bam2bam needs all barcode sequences together
-# in one .fasta file.
-# look in the dataset definition file to find out which barcodes we will need
-# and concatenate the pairs together.
-#GETBARCODES=$(shell cat $(DATASET) |\
-# awk '/$(call PARSESEQRUN,$(1))/ {print $$4 "+" $$5}; BEGIN {FS = ","}')
-#PBBARCODES=$(DEMUXMOVIEDIR)/$(1).demux.subreads.bam\
-#           $(DEMUXMOVIEDIR)/$(1).demux.scraps.bam: $(2).fasta
-#$(foreach f,$(PB_h5:.bas.h5=),$(eval $(call PBBARCODES,$(call PARSEMOVIE,$(f)),\
-# $(call GETBARCODES,$f))))
-
-# Recipe to make fasta files containing both forward and reverse tags
-#define JOINBARCODES=
-#$(shell cat $(DATASET) | awk 'BEGIN {FS = ","}; /$(1)/ {print "$(TAG_ROOT)/" $$4 "+" $$5 ".fasta: #" $$4 ".fasta " $$5 ".fasta"}')
-#	cat $$+ >$$@
-#endef
-#$(foreach sr,$(PB_SEQRUNS),$(info $(call JOINBARCODES,$(sr))))
-#$(foreach sr,$(PB_SEQRUNS),$(eval $(call JOINBARCODES,$(sr))))
-
-# The circular consensus sequence files should have the whole plate in
-# one file, named after the plate.
-
 # Function to find the movie names that match a certain plate
 matchplates=$(shell echo $(PB_h5) |\
   tr " " "\n" |\
@@ -195,15 +152,11 @@ matchplates=$(shell echo $(PB_h5) |\
 # Recipe to make a CCS for all the reads from one plate,
 # using the demultiplexed BAM files for that plate
 vpath %.ccs.bam $(CCSDIR)
-#define CCSRULE=
 $(CCSDIR)/%.ccs.bam: CORES_PER_TASK := $(NCORES)
 $(CCSDIR)/%.ccs.bam: $(MOVIEDIR)/%.subreads.bam
 	mkdir -p $(@D)
 	ccs --polish $+ $@
-#endef
 # Make all the plates
-#$(foreach movie,$(PB_movies),\
-#  $(eval $(call CCSRULE,$(PB_movies))))
 
 ccs: $(addprefix $(CCSDIR)/,$(addsuffix .ccs.bam,$(PB_movies)))
 
@@ -263,7 +216,6 @@ $$(TRIMDIR)/$(1)%.trim.fastq.gz : $$(DEMUXDIR)/$(1)%.demux.fastq.gz $$(TAG_ROOT)
 	         > $$@.cutadapt.out
 endef
 
-$(foreach seqrun,$(ION_SEQRUNS),$(info $(call TRIMION,$(seqrun))))
 $(foreach seqrun,$(ION_SEQRUNS),$(eval $(call TRIMION,$(seqrun))))
 
 # find true direction, trim primers, and demultiplex at the same time
