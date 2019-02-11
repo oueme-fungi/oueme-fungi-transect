@@ -19,28 +19,44 @@ library("scales")
     str_extract(".*oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
   lab.dir <- file.path(data.dir, "lab_setup")
-  seq.dir <- file.path(base.dir, "raw_data")
+  seq.dir <- file.path(base.dir, "sequences")
+  rawfastq.dir <- file.path(seq.dir, "rawfastq")
+  demux.dir <- file.path(seq.dir, "demux")
+  trim.dir <- file.path(seq.dir, "trim")
   dataset.file <- file.path(lab.dir, "datasets.csv")
   datasets <- read_csv(dataset.file)
   
   
 #}
 ```
+
 ```{r}
+
 reads <- datasets %>%
-    mutate(demux.dir = file.path(seq.dir, Dataset, Seq.Run, "demultiplex"),
-           files = map(demux.dir, list.files, pattern = "*.fastq.gz",
-                       full.names = TRUE)) %>%
-    unnest() %>%
-    mutate(filesize = file.size(files)) %>%
-    filter(filesize > 0) %>%
-    mutate(fastq = map(files, readFastq),
-           eexp = map(fastq, ~ 10^(-1 * as(.@quality, "matrix")/10) %>%
-                        rowSums(na.rm = TRUE)),
-           length = map(fastq, width)) %>%
-    select(-fastq) %>%
-    unnest %>%
-    mutate(erate = eexp/length)
+  mutate(trim.files = map(paste0(Seq.Run, ".*\\.fastq\\.gz"), list.files, path = trim.dir,
+                          full.names = TRUE),
+         old.demux.files = map(paste0(Dataset, ".*\\.fastq\\.gz"), list.files,
+                               path = demux.dir, full.names = TRUE),
+         files = pmap(list(trim.files, old.demux.files), c)) %>%
+  select(-trim.files, -old.demux.files) %>%
+  unnest() %>%
+  filter(!str_detect(files, "-x[a-z]{2}\\.fastq\\.gz")) %>%
+  mutate(filesize = file.size(files),
+         Base.Calling = ifelse(str_detect(basename(files), Seq.Run),
+                               "arrow", "default")) %>%
+  filter(filesize > 0,
+         Base.Calling == "default" | Tech == "PacBio") %>%
+  mutate(fastq = map(files, readFastq),
+         # fastq = map(fastq, ~magrittr::extract(., width(.) > 0)),
+         eexp = map(fastq, ~ 10^(-1 * as(.@quality, "matrix")/10) %>%
+                      rowSums(na.rm = TRUE)),
+         p.noerr = map(fastq, ~log1p(- 10^(-1 * as(.@quality, "matrix")/10)) %>%
+                         rowSums(na.rm = TRUE) %>%
+                         exp),
+         length = map(fastq, width)) %>%
+  select(-fastq) %>%
+  unnest %>%
+  mutate(erate = eexp/length)
 ```
 
 ```{r}
@@ -52,24 +68,61 @@ reverselog_trans <- function(base = exp(1)) {
               domain = c(1e-100, Inf))
 }
 
-ggplot(reads, aes(x = erate, group = Dataset, color = Dataset)) +
+ggplot(reads, aes(x = erate,
+                  # group = paste(Base.Calling, Dataset),
+                  color = Dataset,
+                  linetype = Base.Calling)) +
   geom_step(aes(y = 1- ..y..), stat = "ecdf") +
   scale_x_continuous(name = "Expected number of errors per base",
-                     trans = reverselog_trans(10)) +
+                     trans = reverselog_trans(10),
+                     limits = c(NA, 1e-5),
+                     oob = squish) +
   scale_y_continuous(name = "Fraction passing")
 
-ggplot(reads, aes(x = eexp, group = Dataset, color = Dataset)) +
+ggplot(reads, aes(x = eexp,
+                  group = paste(Base.Calling, Dataset),
+                  color = Dataset,
+                  linetype = Base.Calling)) +
   geom_step(aes(y = 1- ..y..), stat = "ecdf") +
   scale_x_continuous(name = "Expected number of errors",
-                     trans = reverselog_trans(10)) +
+                     trans = reverselog_trans(10),
+                     limits = c(NA, 0.1),
+                     oob = squish) +
   scale_y_continuous(name = "Fraction passing")
 
-ggplot(reads, aes(x = length, group = Dataset, color = Dataset)) +
+ggplot(reads, aes(x = p.noerr,
+                  group = paste(Base.Calling, Dataset),
+                  color = Dataset,
+                  linetype = Base.Calling)) +
+  geom_step(aes(y = 1 - ..y..), stat = "ecdf") +
+  scale_x_continuous(name = "Expectation of being error-free",
+                     # trans = log_trans(10),
+                     limits = c(0, 1),
+                     oob = squish) +
+  scale_y_continuous(name = "Fraction passing")
+
+ggplot(reads, aes(x = length,
+                  group = paste(Base.Calling, Dataset),
+                  color = Dataset,
+                  linetype = Base.Calling)) +
   geom_step(aes(y = 1- ..y..), stat = "ecdf") +
   scale_x_log10(name = "Length (bp)") +
   scale_y_continuous(name = "Fraction Greater than length")
   
+
+reads %>%
+  group_by(Base.Calling, Dataset) %>%
+  summarize(`Expected Error-Free` = sum(p.noerr),
+            Total = n()) %>%
+  knitr::kable()
 ```
+
+```{r}
+library(dada2)
+dada2::plotQualityProfile(unique(filter(reads, Tech == "PacBio")$files))
+```
+
+
 ```{r}
 counts <- read_csv(file.path(data.dir, "fastq.counts"), col_names = c("file", "reads"))
 counts %<>% mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
@@ -86,14 +139,14 @@ counts %<>% mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
                                  ifelse(!is.na(region), "ITSx",
                                         ifelse(is.demux, "demux",
                                                "original"))),
-                   plate = str_extract(file, "00\\d")) %>%
-  group_by(dataset, type, region, is.shard) %>%
+                   plate = str_extract(file, "00\\d") %>% replace_na("001")) %>%
+  group_by(dataset, type, plate, region, is.shard) %>%
   summarize(reads = sum(reads)) %>%
   ungroup() %>%
   select(-is.shard) %>%
   unique() %>%
   spread(key = "type", value = "reads") %>%
-  select(dataset, original, demux, region, ITSx, trim) %>%
+  select(dataset, plate, original, demux, region, ITSx, trim) %>%
   filter(!is.na(dataset)) %>%
   group_by(dataset) %>%
   mutate(original = na.omit(original),
@@ -115,10 +168,12 @@ demux.counts <- read_lines(file.path(data.dir, "demux.counts")) %>%
                          TRUE ~ NA_integer_)) %>%
   select(-(d1:n2)) %>%
   mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
-                     map_chr(purrr::compose(dplyr::first, sort, unique)),
-                   seq.run = map(file, str_extract, datasets$Seq.Run) %>%
-                     map_chr(purrr::compose(dplyr::first, sort, unique))) %>%
-  group_by(dataset, seq.run, type) %>%
+           map_chr(purrr::compose(dplyr::first, sort, unique)),
+         seq.run = map(file, str_extract, datasets$Seq.Run) %>%
+           map_chr(purrr::compose(dplyr::first, sort, unique)),
+         seq.plate = map(file, str_extract, paste0(datasets$Dataset, "-[0-9]{3}")) %>%
+           map_chr(purrr::compose(dplyr::first, sort, unique))) %>%
+  group_by(dataset, seq.run, seq.plate,type) %>%
   summarize_at(c("reads", "fwd", "rev"), sum) %>%
   ungroup() %>%
   mutate(type = recode(type,

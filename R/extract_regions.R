@@ -10,9 +10,10 @@ extract_region <- function(infile, outfile, region, positions) {
   assert_that(dir.exists(dirname(outfile)))
   
   # if the region is "full", then we don't need to cut anything.
-  if (identical(region, "full")) {
-    file.copy(infile, outfile, overwrite = TRUE)
-    return()
+  if (region %in% c("full", "long", "short")) {
+    return(file.copy(from = infile, 
+              to = outfile,
+              overwrite = TRUE))
   }
   
   # make sure the file exists even if we don't have anything to write.

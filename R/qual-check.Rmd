@@ -125,34 +125,20 @@ dada2::plotQualityProfile(unique(filter(reads, Tech == "PacBio")$files))
 
 
 ```{r eval = FALSE}
-counts <- read_csv(file.path(data.dir, "fastq.counts"), col_names = c("file", "reads"))
-counts %<>% mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
-                     map_chr(purrr::compose(dplyr::first, sort, unique)),
-                   seq.run = map(file, str_extract, datasets$Seq.Run) %>%
-                     map_chr(purrr::compose(dplyr::first, sort, unique)),
-                   well = str_extract(file, "[A-H]\\d\\d?"),
-                   shard = str_extract(file, "\\bx[a-z][a-z]\\b"),
-                   is.shard = !is.na(shard),
-                   region = str_extract(file, "(ITS[12]|LSU)"),
-                   is.trim = str_detect(file, "trim"),
-                   is.demux = is.na(region) & !is.trim & !is.na(well),
-                   type = ifelse(is.trim, "trim",
-                                 ifelse(!is.na(region), "ITSx",
-                                        ifelse(is.demux, "demux",
-                                               "original"))),
-                   plate = str_extract(file, "00\\d") %>% replace_na("001")) %>%
-  group_by(dataset, type, plate, region, is.shard) %>%
+counts <- readd(seq_counts) %>% 
+  tidyr::extract(col = "file",
+                     into = c("Seq.Run", "Plate", "Well","Region","Type"),
+                     regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)[fr]?-?([:alnum:]*)\\.([:alnum:]+).+") %>%
+  mutate(Type = ifelse(Type == "trim" & str_length(Region) > 0,
+                       "itsx",
+                       Type)) %>%
+  group_by(Seq.Run, Region, Type) %>%
   summarize(reads = sum(reads)) %>%
-  ungroup() %>%
-  select(-is.shard) %>%
-  unique() %>%
-  spread(key = "type", value = "reads") %>%
-  select(dataset, plate, original, demux, region, ITSx, trim) %>%
-  filter(!is.na(dataset)) %>%
-  group_by(dataset) %>%
-  mutate(original = na.omit(original),
-         demux = na.omit(demux)) %>%
-  filter(all(is.na(region)) | !is.na(region)) %>%
+  spread(key = "Type", value = "reads") %>%
+  select(Seq.Run, trim, Region, itsx, qfilt) %>%
+  group_by(Seq.Run) %>%
+  mutate(trim = na.omit(trim)) %>%
+  filter(all(is.na(itsx)) | !is.na(itsx)) %>%
   ungroup()
 
 demux.counts <- read_lines(file.path(data.dir, "demux.counts")) %>%

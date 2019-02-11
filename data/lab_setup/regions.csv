@@ -1,5 +1,6 @@
-Region,MaxEE,MinLength,MaxLength
-ITS1,3,50,500
-ITS2,3,50,500
-LSU,3,500,2999
-full,3,50,2999
+Region,MaxEE,MinLength,MaxLength,Reference
+ITS1,3,50,500,unite
+ITS2,3,50,500,unite
+LSU,3,500,2999,"silva, rdp"
+short,3,50,2999,unite
+long,3,500,2999,"unite, silva, rdp"
