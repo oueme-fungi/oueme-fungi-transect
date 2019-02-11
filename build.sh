@@ -11,6 +11,11 @@
 #SBATCH -C usage_mail
 #SBATCH --mail-type=ALL
 
+startdir=$(pwd)
+echo "Copying project directory to node scratch drive..."
+time rsync -a $startdir/ $SNIC_TMP/
+cd $SNIC_TMP
+
 # always redo this makefile, in case something (number of cores!) changes.
 rm demux.make
 
@@ -26,16 +31,10 @@ make -j$SLURM_JOB_CPUS_PER_NODE convert-pacbio ccs ion-raw pb-demux ion-trim &&
 
 # finish the analysis in drake.
 make drake
+out=$?
 
-# demultiplex Pacbio BAM files
-# this is multithreaded per-file, so run serial make (with parallel tasks)
-#make demux-pacbio &&
+echo "Copying changes back to project directory..."
+time rsync -av $SNIC_TMP/ $startdir/
+cd $startdir
 
-# demultiplex and quality filter
-# For these targets, operations can be done in parallel on many files,
-# so run parallel make.
-#make -j$SLURM_JOB_CPUS_PER_NODE trim &&
-
-# denoise to find amplicon sequence variants.
-# the dada2 library is already multithreaded, so run a serial make.
-#make data/demux.counts data/fastq.counts dada taxonomy
+exit $out

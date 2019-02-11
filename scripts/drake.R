@@ -36,7 +36,7 @@ if (interactive()) {
   dataset.file <- Sys.getenv("DATASET")
   regions.file <- Sys.getenv("REGIONS")
   target <- Sys.getenv("TARGETLIST")
-  ncpu <- Sys.getenv("NCORES")
+  ncpu <- as.integer(Sys.getenv("NCORES"))
   trim.dir <- Sys.getenv("TRIMDIR")
   region.dir <- Sys.getenv("REGIONDIR")
   filter.dir <- Sys.getenv("FILTERDIR")
@@ -87,6 +87,7 @@ meta1 <- datasets %>%
   filter(file.exists(file.path(trim.dir, Trim.File))) %>%
   verify(Trim.File %in% basename(in.files)) %>%
   mutate_at(c("join_derep", "itsxtrim", "FID"), syms)
+saveRDS(meta1, "meta1.rds")
 
 meta2 <- meta1 %>%
   mutate_at("Regions", str_split, ",") %>%
@@ -97,6 +98,7 @@ meta2 <- meta1 %>%
          Region.File = glue("{Seq.Run}_{Plate}-{Well}{Direction}-{Region}.trim.fastq.gz"),
          Filter.File = glue("{Seq.Run}_{Plate}-{Well}{Direction}-{Region}.qfilt.fastq.gz")) %>%
   mutate_at(c("positions", "RID", "PID"), syms)
+saveRDS(meta2, "meta2.rds")
 
 if (interactive()) {
   #use a subset
@@ -119,6 +121,7 @@ meta3 <- meta2 %>%
   left_join(regions) %>%
   mutate(PID = glue("{Seq.Run}_{Plate}_{Region}")) %>%
   mutate_at(c("PID", "Region"), syms)
+saveRDS(meta3, "meta3.rds")
 
 meta4 <- regions %>%
   mutate(Reference = strsplit(Reference, " *, *") %>%
@@ -128,11 +131,8 @@ meta4 <- regions %>%
          big_seq_table = glue("big_seq_table_{Region}"),
          Reference.File = Reference) %>%
   mutate_at(c("TID", "big_seq_table", "Region"), syms)
+saveRDS(meta4, "meta4.rds")
 
-# walk(list.files(seq.dir,
-#                "is.+_[A-H]1?[0-9].(trim|demux).fastq.gz$",
-#                recursive = TRUE, full.names = TRUE),
-#      ~ file.rename(., str_replace(., "_([A-H]1?[0-9].(trim|demux))", "-\\1")))
 plan <- drake_plan(
   
   datasets = read_csv(file_in(!!dataset.file)),
@@ -267,11 +267,17 @@ plan <- drake_plan(
       output_file = file_out(!!file.path(out.dir, "qual-check.pdf")))},
   trace = TRUE
 )
-dconfig <- drake_config(plan)
-predict_runtime(dconfig, jobs = ncpu)
-if (interactive()) vis_drake_graph(dconfig)
-future::plan("multiprocess")
 
+saveRDS(plan, "plan.rds")
+
+drake_plan_source(plan)
+#predict_runtime(dconfig, jobs = ncpu)
+if (interactive()) {
+  dconfig <- drake_config(plan)
+  vis_drake_graph(dconfig)
+}
+future::plan("multiprocess")
+cat("\n First drake::make... (future)\n")
 # make embarassing targets at the beginning
 make(plan,
      parallelism = "future",
@@ -279,6 +285,7 @@ make(plan,
      caching = "worker",
      targets = str_subset(plan$target, "^join_derep_")
 )
+cat("\n Second drake::make... (loop)\n")
 # itsx is internally parallel
 make(plan,
      parallelism = "loop",
@@ -287,13 +294,16 @@ make(plan,
      targets = str_subset(plan$target, "^itsxtrim_")
 )
 # embarrasing targets after itsx
+cat("\n Third drake::make... (future)\n")
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
      caching = "worker",
      targets = c(str_subset(plan$target, "^derep2_"), "qstats_knit", "seq_counts")
 )
+
 # dada is internally parallel
+cat("\n Fourth drake::make... (loop)\n")
 make(plan,
      parallelism = "loop",
      jobs = 1, jobs_preprocess = ncpu,
@@ -301,6 +311,7 @@ make(plan,
      targets = str_subset(plan$target, "^taxon_")
 )
 # finish up parallel
+cat("\n Fifth drake::make... (future)\n")
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,

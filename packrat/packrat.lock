@@ -170,6 +170,12 @@ Version: 1.1
 Hash: 6f6c430e3cd0dd7d48f447700f4d7e7f
 Requires: sys
 
+Package: assertr
+Source: CRAN
+Version: 2.6
+Hash: 5830b5a74ce13506a1e9700c83932d39
+Requires: dplyr, rlang
+
 Package: assertthat
 Source: CRAN
 Version: 0.2.0
@@ -320,13 +326,18 @@ Requires: BH, R6, Rcpp, assertthat, bindrcpp, glue, magrittr,
 
 Package: drake
 Source: github
-Version: 6.2.1.9002
-Hash: 64b1d42e6277bcf75520356a1fc8a0f0
+Version: 6.2.1.9003
+Hash: 84ab4a315b133787ad6984cb4288ff42
 Requires: base64url, digest, igraph, rlang, storr
 GithubRepo: drake
 GithubUsername: ropensci
 GithubRef: master
-GithubSha1: 5a9a59ca6c35a0ac463eadff5403544e8f1afed5
+GithubSha1: 8ec8583c48630287a1948625202f59e86fab4986
+RemoteHost: api.github.com
+RemoteRepo: drake
+RemoteUsername: ropensci
+RemoteRef: master
+RemoteSha: 8ec8583c48630287a1948625202f59e86fab4986
 
 Package: evaluate
 Source: CRAN
@@ -371,6 +382,12 @@ Source: CRAN
 Version: 1.0.1
 Hash: c5a7e0ce07509a8561881c8860270d71
 
+Package: future
+Source: CRAN
+Version: 1.11.1.1
+Hash: a677ff6e24da147fab3db3d6733b8b39
+Requires: digest, globals, listenv
+
 Package: generics
 Source: CRAN
 Version: 0.0.2
@@ -393,6 +410,11 @@ Package: git2r
 Source: CRAN
 Version: 0.24.0
 Hash: c0f2721353aeed78bbc579bfeda4be40
+
+Package: globals
+Source: CRAN
+Version: 0.12.4
+Hash: 813a6280042ee82fa529833489333322
 
 Package: glue
 Source: CRAN
@@ -498,6 +520,11 @@ Package: lazyeval
 Source: CRAN
 Version: 0.2.1
 Hash: 88926ad9c43581fd0822a37c8ed09f05
+
+Package: listenv
+Source: CRAN
+Version: 0.7.0
+Hash: f5e0d09f4e42d749ae0f893cff1817b6
 
 Package: lubridate
 Source: CRAN
