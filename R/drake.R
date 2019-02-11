@@ -35,7 +35,7 @@ if (interactive()) {
   dataset.file <- Sys.getenv("DATASET")
   regions.file <- Sys.getenv("REGIONS")
   target <- Sys.getenv("TARGETLIST")
-  ncpu <- Sys.getenv("NCORES")
+  ncpu <- as.integer(Sys.getenv("NCORES"))
   trim.dir <- Sys.getenv("TRIMDIR")
   region.dir <- Sys.getenv("REGIONDIR")
   filter.dir <- Sys.getenv("FILTERDIR")
