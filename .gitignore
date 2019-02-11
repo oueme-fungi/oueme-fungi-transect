@@ -21,3 +21,5 @@ sequences
 core.*
 ccs_report.txt
 *.temp
+meta?.rds
+plan.rds
