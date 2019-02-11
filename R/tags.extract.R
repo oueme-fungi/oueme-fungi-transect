@@ -9,7 +9,7 @@ library(assertthat)
 # for scripted use, these are specified in the makefile
 if (interactive()) {
   data.dir <- here("data")
-  lab.dir <- file.path(data.dir, "lab_setup")
+  lab.dir <- here("config")
   gits7.file <- file.path(lab.dir, "Hectors_tag_primer_plates.xlsx")
   its1.lr5.file <- file.path(lab.dir, "Brendan_soil2.xlsx")
   tags.dir <- file.path(lab.dir, "tags")

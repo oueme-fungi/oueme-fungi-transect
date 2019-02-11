@@ -6,7 +6,7 @@ library(tidyxl)
 if (interactive()) {
   base.dir <- str_extract(getwd(), ".+oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
-  lab.dir <- file.path(data.dir, "lab_setup")
+  lab.dir <- here("config")
   plate.file <- file.path(lab.dir, "Brendan_soil2.xlsx")
   out.file <- file.path(lab.dir, "short.platekey.csv")
 }

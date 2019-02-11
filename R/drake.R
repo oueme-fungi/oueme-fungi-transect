@@ -16,9 +16,9 @@ library(rITSx)
 
 if (interactive()) {
   base.dir <- here()
-  r.dir <- here("R")
+  r.dir <- here("scripts")
   data.dir <- here("data")
-  lab.dir <- here("data", "lab_setup")
+  lab.dir <- here("config")
   seq.dir <- here("sequences")
   trim.dir <- file.path(seq.dir, "trim")
   region.dir <- file.path(seq.dir, "regions")

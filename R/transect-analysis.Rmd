@@ -104,101 +104,6 @@ plate %>% group_by(Year, Site) %>%
 
 
 
-```{r}
-# Load the IonTorrent OTU table
-ion.otu <- read_tsv(iontorrent.otu.file) %>%
-  mutate(n_reads = rowSums(select_if(., is_numeric))) %>%
-  left_join(read_tsv(iontorrent.classification.file)) %>%
-  select(-matches("[A-H]\\d+"), -contains("ITS")) %>%
-  left_join(read_tsv(iontorrent.funguild.file) %>% rename(OTU = Group)) %>%
-  select(-matches("[A-H]\\d+"), -contains("ITS")) %>%
-  rename(Kingdom = Domain) %>%
-  dplyr::mutate_at(dplyr::vars(Phylum:Species), dplyr::na_if, "?") %>%
-  dplyr::mutate_at(dplyr::vars(Phylum:Species), dplyr::na_if, "unidentified") %>%
-  
-  # make "unident." as informative as possible
-  dplyr::mutate_at("Kingdom", replace_na, "unident.") %>%
-  dplyr::mutate(Phylum = ifelse(is.na(Phylum),
-                                ifelse(is.na(Kingdom),
-                                       NA_character_,
-                                       paste0("unident. ", Kingdom)),
-                                Phylum),
-                Class = ifelse(is.na(Class),
-                                ifelse(is.na(Phylum),
-                                       NA_character_,
-                                       paste0("unident. ", Phylum)),
-                                Class),
-                Order = ifelse(is.na(Order),
-                                ifelse(is.na(Class),
-                                       NA_character_,
-                                       paste0("unident. ", Class)),
-                                Order),
-                Family = ifelse(is.na(Family),
-                                ifelse(is.na(Order),
-                                       NA_character_,
-                                       paste0("unident. ", Order)),
-                                Family),
-                Genus = ifelse(is.na(Genus),
-                                ifelse(is.na(Family),
-                                       NA_character_,
-                                       paste0("unident. ", Family)),
-                                Genus),
-                Species = ifelse(is.na(Species),
-                                ifelse(is.na(Genus),
-                                       NA_character_,
-                                       paste0(Genus, " sp.")),
-                                Species)) %>%
-  mutate_at(dplyr::vars(Kingdom:Species),
-            str_replace,
-            "(unident\\. )*unident(ified|\\.)",
-            "ZZZZunident.") %>%
-  
-  # Sort taxonomically. Put the "unident." at the end
-  arrange(Kingdom, Phylum, Class, Order, Family, Genus, Species) %>%
-  mutate_at(dplyr::vars(Kingdom:Species),
-            str_replace,
-            "ZZZZ",
-            "") %>%
-  
-  # Add the representative sequence for each OTU and calculate the length
-  left_join(
-    seqinr::read.fasta(file = iontorrent.repseq.file, as.string = TRUE) %>%
-    { tibble(OTU = names(.),
-             RepSeq = unlist(.),
-             SeqLen = str_length(RepSeq)) }) %>%
-  
-  # Remove the positive control
-  filter(is.na(Species) | Species != "Agaricus bisporus") %>%
-  
-  # Keep the data in this order.
-  mutate_at(dplyr::vars(Kingdom:Species),
-            ~ factor(.) %>% fct_inorder)
-  
-
-ion.platemap <- read_tsv(iontorrent.otu.file) %>%
-  column_to_rownames("OTU") %>%
-  as.matrix %>%
-  colSums %>%
-  tibble(Well = names(.), n_reads = .) %>%
-  mutate_at("Well", plyr::mapvalues, well_key$Well, well_key$True_Well, FALSE) %>%
-  full_join(plate %>%
-              select(Plate, Well, sample_type) %>%
-              full_join(
-                expand.grid(Plate = 1:2,
-                            Row = LETTERS[1:8],
-                            Column = 1:12) %>%
-                  tidyr::unite(Well, Row, Column, sep = ""))) %>%
-  mutate(Plate = "IonTorrent") %>%
-  mutate_at("sample_type", fct_explicit_na, "None") %>%
-  group_by_if(~ !is.factor(.)) %>%
-  summarize(sample_type = paste(as.character(sort(unique(sample_type))), collapse = "/")) %>%
-  ungroup %>%
-  mutate(f_reads = n_reads / max(n_reads)) %>%
-  tidyr::extract("Well", c("Row", "Column"), "([A-H])(\\d+)") %>%
-  mutate_at("Row", factor, levels = LETTERS) %>%
-  mutate_at(c("Column", "Row"), as.integer)
-```
-
 # Demultiplexing
 
 \tiny
@@ -386,7 +291,9 @@ pacbio.group.files %>%
 
 pb.otu <- read_excel(pacbio.otu.file)
 
-pb.otumatrix <- pb.otu %>%
+pb.otumatrix <- readRDS(file.path(data.dir, "short-pacbio_pb_483.dada.seqtable.rds"))
+  
+  pb.otu %>%
   column_to_rownames("Group") %>%
   select(A7_483_1:H7_483_1) %>%
   as.matrix %>%

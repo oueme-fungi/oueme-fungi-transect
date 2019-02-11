@@ -50,7 +50,7 @@ if (interactive()) {
   base.dir <- getwd() %>%
     str_extract(".*oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
-  lab.dir <- file.path(data.dir, "lab_setup")
+  lab.dir <- here("config")
   seq.dir <- file.path(base.dir, "raw_data")
   dataset <- "short-ion"
   seq.run <- "is_057"

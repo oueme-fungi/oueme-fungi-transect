@@ -44,7 +44,7 @@ $(info splits: $(SPLITS))
 ###################### Set up directory and file names ########################
 export BASEDIR := .
 
-export RDIR := ${BASEDIR}/R# R scripts
+export RDIR := ${BASEDIR}/scripts# R scripts
 vpath %.R $(RDIR)
 
 export RAWDIR := ${BASEDIR}/raw_data# Data received from the sequencing center
@@ -61,7 +61,7 @@ export FILTERDIR := ${SEQDIR}/filter#Demultiplexed, trimmed, and quality filtere
 vpath %.fi.tr.fastq.gz $(FILTERDIR)
 
 DATADIR := ${BASEDIR}/data# non-sequence data
-export LABDIR := $(DATADIR)/lab_setup# data defining experimental setup
+export LABDIR := $(BASEDIR)/config# data defining experimental setup
 export TAG_ROOT := ${LABDIR}/tags
 export DATASET := $(LABDIR)/datasets.csv
 export REGIONS := $(LABDIR)/regions.csv

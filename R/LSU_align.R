@@ -1,12 +1,13 @@
 library(magrittr)
 library(tidyverse)
 library(Biostrings)
+library(here)
 
 if (interactive()) {
   base.dir <- getwd() %>%
     str_extract(".*oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
-  lab.dir <- file.path(data.dir, "lab_setup")
+  lab.dir <- here("config")
   ref.dir <- file.path(base.dir, "reference")
   lsuref <- file.path(ref.dir, "SILVA_132_LSURef_Fungi.fasta")
   lsuout <- file.path(ref.dir, "SILVA_132_LSURef_Fungi.align.fasta")

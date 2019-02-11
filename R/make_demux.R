@@ -11,7 +11,7 @@ if (interactive()) {
   seq.dir <- here("sequences")
   demux.dir <- file.path(seq.dir, "demux")
   data.dir <- file.path(base.dir, "data")
-  lab.dir <- file.path(data.dir, "lab_setup")
+  lab.dir <- here("config")
   dataset.file <- file.path(lab.dir, "datasets.csv")
   target <- file.path(base.dir, "demux.make")
   splits <- expand.grid(letters, letters) %>%
