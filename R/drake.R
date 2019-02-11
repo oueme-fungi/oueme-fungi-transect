@@ -240,12 +240,14 @@ plan <- drake_plan(
 
 saveRDS(plan, "plan.rds")
 
-
-dconfig <- drake_config(plan)
-predict_runtime(dconfig, jobs = ncpu)
-if (interactive()) vis_drake_graph(dconfig)
+drake_plan_source(plan)
+#predict_runtime(dconfig, jobs = ncpu)
+if (interactive()) {
+  dconfig <- drake_config(plan)
+  vis_drake_graph(dconfig)
+}
 future::plan("multiprocess")
-
+cat("\n First drake::make... (future)\n")
 # make embarassing targets at the beginning
 make(plan,
      parallelism = "future",
@@ -253,6 +255,7 @@ make(plan,
      caching = "worker",
      targets = str_subset(plan$target, "^join_derep_")
 )
+cat("\n Second drake::make... (loop)\n")
 # itsx is internally parallel
 make(plan,
      parallelism = "loop",
@@ -261,6 +264,7 @@ make(plan,
      targets = str_subset(plan$target, "^itsxtrim_")
 )
 # embarrasing targets after itsx
+cat("\n Third drake::make... (future)\n")
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
@@ -268,6 +272,7 @@ make(plan,
      targets = str_subset(plan$target, "^derep2_")
 )
 # itsx is internally parallel
+cat("\n Fourth drake::make... (loop)\n")
 make(plan,
      parallelism = "loop",
      jobs = 1, jobs_preprocess = ncpu,
@@ -275,6 +280,7 @@ make(plan,
      targets = str_subset(plan$target, "^dada_")
 )
 # finish up parallel
+cat("\n Fifth drake::make... (future)\n")
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
