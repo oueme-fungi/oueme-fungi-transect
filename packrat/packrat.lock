@@ -176,19 +176,10 @@ Hash: 6f6c430e3cd0dd7d48f447700f4d7e7f
 Requires: sys
 
 Package: assertr
-Source: github
+Source: CRAN
 Version: 2.6
-Hash: 999dc958146735f36a1dcde41811a08c
+Hash: 5830b5a74ce13506a1e9700c83932d39
 Requires: dplyr, rlang
-GithubRepo: assertr
-GithubUsername: ropensci
-GithubRef: master
-GithubSha1: e7b6587ab58bfaece0f9588587828975b6b8d63c
-RemoteHost: api.github.com
-RemoteRepo: assertr
-RemoteUsername: ropensci
-RemoteRef: master
-RemoteSha: e7b6587ab58bfaece0f9588587828975b6b8d63c
 
 Package: assertthat
 Source: CRAN
@@ -762,12 +753,17 @@ GithubSha1: c5d62409d1a687d9fc8cc8a9bb89c708fb5797c8
 Package: rITSx
 Source: github
 Version: 0.0.0.9000
-Hash: 436b29a68c4a71e38c7561fa3c0702c0
+Hash: 585f2441e591c286f939099e5a2cfe76
 Requires: assertthat, dplyr, glue, magrittr, readr, rlang, tidyr
 GithubRepo: rITSx
 GithubUsername: brendanf
 GithubRef: master
-GithubSha1: 29c67b7929e1f0d9779310acc1fbc053fd426900
+GithubSha1: 421402be322f449191c9a2831c54fa0338b14251
+RemoteHost: api.github.com
+RemoteRepo: rITSx
+RemoteUsername: brendanf
+RemoteRef: master
+RemoteSha: 421402be322f449191c9a2831c54fa0338b14251
 
 Package: rappdirs
 Source: CRAN
