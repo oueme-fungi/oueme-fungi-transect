@@ -61,13 +61,18 @@ Requires: BiocGenerics, BiocParallel, IRanges, S4Vectors, matrixStats
 Package: FUNGuildR
 Source: github
 Version: 0.1.0
-Hash: 1642e580254250a209aac1ce2612aceb
+Hash: 4d2ab75de10144938ac919498d67700d
 Requires: assertthat, dplyr, httr, jsonlite, magrittr, purrr, stringr,
     tibble, tidyr
 GithubRepo: FUNGuildR
 GithubUsername: brendanf
 GithubRef: master
-GithubSha1: 1d1fc2cfde5ddb49d7f950bf2b2079f842de88f7
+GithubSha1: c2105676f57a347a272c29a8f3615c7ba24ffc52
+RemoteHost: api.github.com
+RemoteRepo: FUNGuildR
+RemoteUsername: brendanf
+RemoteRef: master
+RemoteSha: c2105676f57a347a272c29a8f3615c7ba24ffc52
 
 Package: GenomeInfoDb
 Source: Bioconductor
@@ -171,10 +176,19 @@ Hash: 6f6c430e3cd0dd7d48f447700f4d7e7f
 Requires: sys
 
 Package: assertr
-Source: CRAN
+Source: github
 Version: 2.6
-Hash: 5830b5a74ce13506a1e9700c83932d39
+Hash: 999dc958146735f36a1dcde41811a08c
 Requires: dplyr, rlang
+GithubRepo: assertr
+GithubUsername: ropensci
+GithubRef: master
+GithubSha1: e7b6587ab58bfaece0f9588587828975b6b8d63c
+RemoteHost: api.github.com
+RemoteRepo: assertr
+RemoteUsername: ropensci
+RemoteRef: master
+RemoteSha: e7b6587ab58bfaece0f9588587828975b6b8d63c
 
 Package: assertthat
 Source: CRAN
@@ -197,6 +211,13 @@ Version: 1.4
 Hash: bb0bed97e10d3479d02264fa87bf061a
 Requires: backports
 
+Package: batchtools
+Source: CRAN
+Version: 0.9.11
+Hash: c121bc502ec2c1bff6f6159b8e2a3da1
+Requires: R6, backports, base64url, brew, checkmate, data.table,
+    digest, fs, progress, rappdirs, stringi, withr
+
 Package: bindr
 Source: CRAN
 Version: 0.1.1
@@ -218,6 +239,11 @@ Source: CRAN
 Version: 0.9
 Hash: b7163e42ca0899d507052afb14840e96
 Requires: htmltools, knitr, rmarkdown, tinytex, xfun, yaml
+
+Package: brew
+Source: CRAN
+Version: 1.0-6
+Hash: 931f9972deae0f205e1c78a51f33149b
 
 Package: broom
 Source: CRAN
@@ -243,6 +269,12 @@ Source: CRAN
 Version: 1.1.0
 Hash: be9d203e7849f73818b36f93e9273c2c
 Requires: rematch, tibble
+
+Package: checkmate
+Source: CRAN
+Version: 1.9.1
+Hash: 186aeac71d17a663047ece5d7ab3154f
+Requires: backports
 
 Package: cli
 Source: CRAN
@@ -388,6 +420,12 @@ Version: 1.11.1.1
 Hash: a677ff6e24da147fab3db3d6733b8b39
 Requires: digest, globals, listenv
 
+Package: future.batchtools
+Source: CRAN
+Version: 0.7.2
+Hash: 5a5150839b0eebce325da67fa210c3c3
+Requires: batchtools, future
+
 Package: generics
 Source: CRAN
 Version: 0.0.2
@@ -461,6 +499,12 @@ Version: 1.3
 Hash: 17a2248b5e40383a1cb1a4e4cb5f9c7a
 Requires: htmltools, jsonlite, yaml
 
+Package: httpuv
+Source: CRAN
+Version: 1.4.5.1
+Hash: c1952824aa156a78fb421ea09b67473d
+Requires: BH, Rcpp, later, promises
+
 Package: httr
 Source: CRAN
 Version: 1.4.0
@@ -510,6 +554,12 @@ Version: 1.2.3
 Hash: 591b7c11ad3de8d21712119d8efd7607
 Requires: formatR
 
+Package: later
+Source: CRAN
+Version: 0.7.5
+Hash: cb28cae55bfd79567db23db127f09d3c
+Requires: BH, Rcpp, rlang
+
 Package: latticeExtra
 Source: CRAN
 Version: 0.6-28
@@ -520,6 +570,13 @@ Package: lazyeval
 Source: CRAN
 Version: 0.2.1
 Hash: 88926ad9c43581fd0822a37c8ed09f05
+
+Package: lintr
+Source: CRAN
+Version: 1.0.3
+Hash: b4cdc1465f56dc16b1314c430e9ffce4
+Requires: crayon, digest, httr, igraph, jsonlite, knitr, rex,
+    rstudioapi, stringdist, testthat
 
 Package: listenv
 Source: CRAN
@@ -559,6 +616,12 @@ Source: CRAN
 Version: 0.6
 Hash: 2ed8f98b8284ad733f3907fc6e2f1334
 
+Package: miniUI
+Source: CRAN
+Version: 0.1.1.1
+Hash: c7e3ea486421c2fa5b03bb7fcd0415f6
+Requires: htmltools, shiny
+
 Package: modelr
 Source: CRAN
 Version: 0.1.2
@@ -586,6 +649,12 @@ Source: CRAN
 Version: 0.4.1
 Hash: dc6cb7b0a954231466cb5454b2b2232b
 Requires: progress, stringr
+
+Package: networkD3
+Source: CRAN
+Version: 0.4
+Hash: dc9199f182e0e903c9ad7d5008312c96
+Requires: htmlwidgets, igraph, magrittr
 
 Package: openssl
 Source: CRAN
@@ -640,6 +709,11 @@ Source: CRAN
 Version: 0.1-7
 Hash: 421d7d6e0fb4bd885ecbd909b6456b8b
 
+Package: praise
+Source: CRAN
+Version: 1.0.0
+Hash: 77da8f1df873a4b91e5c4a68fe2fb1b6
+
 Package: prettyunits
 Source: CRAN
 Version: 1.0.2
@@ -657,6 +731,12 @@ Source: CRAN
 Version: 1.2.0
 Hash: 0ff5f631b66daf57857f28062f3e6f30
 Requires: R6, crayon, hms, prettyunits
+
+Package: promises
+Source: CRAN
+Version: 1.0.1
+Hash: 9ecc9727826384f2b4e0c8cf11adfc58
+Requires: R6, Rcpp, later, magrittr, rlang
 
 Package: ps
 Source: CRAN
@@ -688,6 +768,11 @@ GithubRepo: rITSx
 GithubUsername: brendanf
 GithubRef: master
 GithubSha1: 29c67b7929e1f0d9779310acc1fbc053fd426900
+
+Package: rappdirs
+Source: CRAN
+Version: 0.3.1
+Hash: 7340cfebc77ad7b107a549a8635e64dd
 
 Package: rcmdcheck
 Source: CRAN
@@ -735,6 +820,18 @@ Source: CRAN
 Version: 1.4.3
 Hash: c950c8ac85b81209635acb3ce21b4cce
 Requires: Rcpp, plyr, stringr
+
+Package: reticulate
+Source: CRAN
+Version: 1.10
+Hash: d8ce0696c36e093e1db60de28b717881
+Requires: Rcpp, jsonlite
+
+Package: rex
+Source: CRAN
+Version: 1.1.2
+Hash: 57541aaae58f1a284a398f5c62c95097
+Requires: lazyeval, magrittr
 
 Package: rlang
 Source: CRAN
@@ -794,16 +891,33 @@ Version: 1.1.1
 Hash: 9e50c8458e611f166ba702277cbb5096
 Requires: cli, withr
 
+Package: shiny
+Source: CRAN
+Version: 1.2.0
+Hash: 6853126283ff0572d9f370a1520ac831
+Requires: R6, crayon, digest, htmltools, httpuv, jsonlite, later, mime,
+    promises, rlang, sourcetools, xtable
+
 Package: snow
 Source: CRAN
 Version: 0.4-3
 Hash: 350fc9078c96345a2246415fc9e67311
+
+Package: sourcetools
+Source: CRAN
+Version: 0.1.7
+Hash: d093478ac90064e670cd4bf1a99b47b6
 
 Package: storr
 Source: CRAN
 Version: 1.2.1
 Hash: 76ffa40827f4102989daa97896baf696
 Requires: R6, digest
+
+Package: stringdist
+Source: CRAN
+Version: 0.9.5.1
+Hash: dbcc044753e1745d707f20b4b6fa1634
 
 Package: stringi
 Source: CRAN
@@ -828,11 +942,22 @@ Source: CRAN
 Version: 2.1
 Hash: 5ce312d2f816b21f602cb81fe4659a0b
 
+Package: testthat
+Source: CRAN
+Version: 2.0.1
+Hash: 777eb6e94f5a62bf6320fecf0175bbbb
+Requires: R6, cli, crayon, digest, magrittr, praise, rlang, withr
+
 Package: tibble
 Source: CRAN
 Version: 2.0.1
 Hash: d2a00b9a314cfad8f6b51e2c97aaff5c
 Requires: cli, crayon, fansi, pillar, pkgconfig, rlang
+
+Package: tictoc
+Source: CRAN
+Version: 1.0
+Hash: 0379257b730eed5b9089765c2921a098
 
 Package: tidyr
 Source: CRAN
@@ -917,6 +1042,11 @@ Source: CRAN
 Version: 1.0.0
 Hash: 22c2708f177f9fd9f8a52012bac61d6a
 Requires: processx
+
+Package: xtable
+Source: CRAN
+Version: 1.8-3
+Hash: 91199102994584c5f0e8cbba5582ecc4
 
 Package: yaml
 Source: CRAN
