@@ -32,7 +32,11 @@ NCORES := $(shell expr $$(nproc) - 1)
 endif
 # This is a default value that we will override when we do a build step that is
 # inherently multithreaded.
-CORES_PER_TASK := 1
+export CORES_PER_TASK := 1
+
+test: CORES_PER_TASK := 2
+test:
+	echo $$CORES_PER_TASK
 
 # For "embarrasingly" parallel computations, we need to split the input files
 # into one piece per core.  These will be labeled by the three-character strings

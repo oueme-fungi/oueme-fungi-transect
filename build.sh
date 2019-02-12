@@ -5,16 +5,16 @@
 
 #SBATCH -A snic2018-8-131
 #SBATCH -p node
-#SBATCH -n 20
+#SBATCH -N 1
 #SBATCH -t 24:00:00
 #SBATCH -J oueme-fungi-transect
 #SBATCH -C usage_mail
 #SBATCH --mail-type=ALL
 
-startdir=$(pwd)
-echo "Copying project directory to node scratch drive..."
-time rsync -a $startdir/ $SNIC_TMP/
-cd $SNIC_TMP
+# startdir=$(pwd)
+# echo "Copying project directory to node scratch drive..."
+# time rsync -a $startdir/ $SNIC_TMP/
+# cd $SNIC_TMP
 
 # always redo this makefile, in case something (number of cores!) changes.
 rm demux.make
@@ -33,8 +33,8 @@ make -j$SLURM_JOB_CPUS_PER_NODE convert-pacbio ccs ion-raw pb-demux ion-trim &&
 make drake
 out=$?
 
-echo "Copying changes back to project directory..."
-time rsync -av $SNIC_TMP/ $startdir/
-cd $startdir
+# echo "Copying changes back to project directory..."
+# time rsync -av $SNIC_TMP/ $startdir/
+# cd $startdir
 
 exit $out
