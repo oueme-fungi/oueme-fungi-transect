@@ -39,6 +39,8 @@ if (!"walltime" %in% names(resources)) {
 }
 -%>
 
+# Change the project name to your own!
+#SBATCH --account snic2018-8-131
 #SBATCH --job-name=<%= job.name %>
 #SBATCH --output=<%= log.file %>
 #SBATCH --error=<%= log.file %>
