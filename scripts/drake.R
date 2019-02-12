@@ -179,7 +179,7 @@ plan <- drake_plan(
          read_function = Biostrings::readDNAStringSet,
          fasta = FALSE, summary = FALSE, graphical = FALSE,
          save_regions = "none", not_found = FALSE,
-         complement = FALSE, cpu = 1)$positions,
+         complement = FALSE, cpu = 1)[["positions"]],
     transform = cross(split_fasta, shard = !!(1:bigsplit), .id = FALSE)),
   
   itsxtrim = target(
@@ -322,9 +322,10 @@ make(plan,
 # using all the cores.  Instead, we divide the work into a large number of 
 # shards and submit them all as seperate jobs on SLURM.
 # failing that, do all the shards locally on the cores we have.
-if (is.slurm) {
+if (is_slurm) {
   cat("\n Making itsx_shard (SLURM)...\n")
-  future::plan(batchtools_slurm, template = "slurm_itsx.tmpl")
+  future::plan(batchtools_slurm, template = "slurm_itsx.tmpl",
+               workers = sum(startsWith(plan$target, "itsx_shard")))
   make(plan,
        parallelism = "future",
        jobs = sum(startsWith(plan$target, "itsx_shard")),

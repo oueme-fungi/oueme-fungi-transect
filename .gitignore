@@ -23,3 +23,7 @@ ccs_report.txt
 *.temp
 meta?.rds
 plan.rds
+ITSx_temp*
+Rtmp*
+.future
+
