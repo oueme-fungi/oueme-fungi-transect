@@ -4,6 +4,7 @@ library(tidyr)
 library(dada2)
 library(here)
 library(drake)
+library(future)
 library(assertthat)
 library(assertr)
 library(rlang)
@@ -36,7 +37,7 @@ if (interactive()) {
   dataset.file <- Sys.getenv("DATASET")
   regions.file <- Sys.getenv("REGIONS")
   target <- Sys.getenv("TARGETLIST")
-  ncpu <- as.integer(Sys.getenv("NCORES"))
+  ncpu <- as.integer(Sys.getenv("CORES_PER_TASK"))
   trim.dir <- Sys.getenv("TRIMDIR")
   region.dir <- Sys.getenv("REGIONDIR")
   filter.dir <- Sys.getenv("FILTERDIR")
@@ -49,12 +50,14 @@ if (interactive()) {
   prereqs <- readLines(con)
   close(con)
   prereqs <- str_split(prereqs, " ") %>% unlist
-  cat("prereqs: ", prereqs, "\n")
+#  cat("prereqs: ", prereqs, "\n")
   
   in.files <- str_subset(prereqs,
                          pattern = "\\.trim\\.fastq\\.gz$")
-  cat("in.files: ", in.files, "\n")
+#  cat("in.files: ", in.files, "\n")
 }
+
+cat("ncpu = ", ncpu, "\n")
 
 source(file.path(r.dir, "combine_derep.R"))
 source(file.path(r.dir, "extract_regions.R"))
@@ -85,6 +88,7 @@ meta1 <- datasets %>%
          join_derep = make.names(glue("join_derep_.{Primer.pair}.")),
          itsxtrim = make.names(glue("itsxtrim_.{Primer.pair}."))) %>%
   filter(file.exists(file.path(trim.dir, Trim.File))) %>%
+  filter(file.size(file.path(trim.dir, Trim.File)) > 40) %>%
   verify(Trim.File %in% basename(in.files)) %>%
   mutate_at(c("join_derep", "itsxtrim", "FID"), syms)
 saveRDS(meta1, "meta1.rds")
@@ -270,7 +274,7 @@ plan <- drake_plan(
 
 saveRDS(plan, "plan.rds")
 
-drake_plan_source(plan)
+#drake_plan_source(plan)
 #predict_runtime(dconfig, jobs = ncpu)
 if (interactive()) {
   dconfig <- drake_config(plan)
@@ -282,6 +286,7 @@ cat("\n First drake::make... (future)\n")
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
+     retries = 2,
      caching = "worker",
      targets = str_subset(plan$target, "^join_derep_")
 )
@@ -298,6 +303,7 @@ cat("\n Third drake::make... (future)\n")
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
+     retries = 2,
      caching = "worker",
      targets = c(str_subset(plan$target, "^derep2_"), "qstats_knit", "seq_counts")
 )
@@ -315,6 +321,7 @@ cat("\n Fifth drake::make... (future)\n")
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
+     retries = 2,
      caching = "worker"
 )
 #   times[[ncpu]] <- tictoc::toc()

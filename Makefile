@@ -32,7 +32,7 @@ NCORES := $(shell expr $$(nproc) - 1)
 endif
 # This is a default value that we will override when we do a build step that is
 # inherently multithreaded.
-CORES_PER_TASK := 1
+export CORES_PER_TASK := 1
 
 # For "embarrasingly" parallel computations, we need to split the input files
 # into one piece per core.  These will be labeled by the three-character strings
@@ -91,7 +91,8 @@ RMD = cd $(<D) &&\
 # command to run an R script
 # The list of prerequisites is passed on stdin.  Not all scripts use this.
 define R =
-	rm -f $@.temp
+	rm -f $@.temp &&\
+	mkdir -p ${@D} &&\
 	touch $@.temp
 	$(foreach f,$^,$(call filecho,$f))
 	cat $@.temp |\
