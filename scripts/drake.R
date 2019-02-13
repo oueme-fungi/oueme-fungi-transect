@@ -302,21 +302,24 @@ plan <- drake_plan(
 if (!interactive()) saveRDS(plan, "plan.rds")
 
 #drake_plan_source(plan)
+dconfig <- drake_config(plan)
 #predict_runtime(dconfig, jobs = ncpu)
 if (interactive()) {
-  dconfig <- drake_config(plan)
   vis_drake_graph(dconfig)
 }
 future::plan("multiprocess")
 cat("\n Making pre-itsx targets (multiprocess)...\n")
+tictoc::tic()
 # make embarassing targets at the beginning
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
      retries = 2,
      caching = "worker",
-     targets = str_subset(plan$target, "^split_fasta_")
+     targets = str_subset(plan$target, "^split_fasta_"),
+     layout = dconfig$layout
 )
+tictoc::toc()
 
 # itsx does have an internal parallel option, but it isn't very efficient at
 # using all the cores.  Instead, we divide the work into a large number of 
@@ -324,6 +327,7 @@ make(plan,
 # failing that, do all the shards locally on the cores we have.
 if (is_slurm) {
   cat("\n Making itsx_shard (SLURM)...\n")
+  tictoc::tic()
   future::plan(batchtools_slurm, template = "slurm_itsx.tmpl",
                workers = sum(startsWith(plan$target, "itsx_shard")))
   make(plan,
@@ -331,39 +335,51 @@ if (is_slurm) {
        jobs = sum(startsWith(plan$target, "itsx_shard")),
        jobs_preprocess = ncpu,
        caching = "master",
-       targets = str_subset(plan$target, "^itsx_shard")
+       targets = str_subset(plan$target, "^itsx_shard"),
+       layout = dconfig$layout
        )
+  tictoc::toc()
   future::plan("multiprocess")
 }
 
 # embarrasing targets after itsx
 cat("\n Making pre-dada targets (multiprocess)...\n")
+tictoc::tic()
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
      retries = 2,
      caching = "worker",
-     targets = c(str_subset(plan$target, "^derep2_"), "qstats_knit", "seq_counts")
+     targets = c(str_subset(plan$target, "^derep2_"),
+                 "qstats_knit", "seq_counts"),
+     layout = dconfig$layout
 )
+tictoc::toc()
 
 # dada is internally parallel
 cat("\n Making dada and taxonomy targets (loop)...\n")
+tictoc::tic()
 make(plan,
      parallelism = "loop",
      jobs = 1, jobs_preprocess = ncpu,
      caching = "worker",
-     targets = str_subset(plan$target, "^taxon_")
+     targets = str_subset(plan$target, "^taxon_"),
+     layout = dconfig$layout
 )
+tictoc::toc()
+
 # finish up parallel
 cat("\n Making all remaining targets (multiprocess)...\n")
+tictoc::tic()
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
      retries = 2,
-     caching = "worker"
+     caching = "worker",
+     layout = dconfig$layout
 )
-#   times[[ncpu]] <- tictoc::toc()
-# }
+tictoc::toc()
+
 if (interactive()) vis_drake_graph(dconfig)
 
 drake_plan_file_io <- function(plan) {
