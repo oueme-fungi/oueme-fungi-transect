@@ -350,9 +350,13 @@ if (interactive()) {
   vis_drake_graph(dconfig)
 }
 future::plan("multiprocess")
+
+
+# make embarassing targets at the beginning
+preitsx_targets <- str_subset(od, "^split_fasta_")
+if (length(preitsx_targets)) {
 cat("\n Making pre-itsx targets (multiprocess)...\n")
 tictoc::tic()
-# make embarassing targets at the beginning
 make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
@@ -360,32 +364,37 @@ make(plan,
      keep_going = TRUE,
      caching = "worker",
      cache_log_file = TRUE,
-     targets = str_subset(od, "^split_fasta_")
+     targets = preitsx_targets
 )
 tictoc::toc()
+} else cat("\n All pre-itsx targets are up-to-date.\n")
 
 # itsx (actually hmmer) does have an internal parallel option, but it isn't very efficient at
 # using all the cores.  Instead, we divide the work into a large number of 
 # shards and submit them all as seperate jobs on SLURM.
 # failing that, do all the shards locally on the cores we have.
-if (is_slurm) {
+itsx_targets <- str_subset(od, "^itsx_shard")
+if (is_slurm && length(itsx_targets)) {
   cat("\n Making itsx_shard (SLURM)...\n")
   tictoc::tic()
   future::plan(batchtools_slurm, template = "slurm_itsx.tmpl",
                workers = sum(startsWith(plan$target, "itsx_shard")))
   make(plan,
        parallelism = "future",
-       jobs = sum(startsWith(od, "itsx_shard")),
+       jobs = length(itsx_targets),
        jobs_preprocess = ncpu,
        caching = "worker",
        cache_log_file = TRUE,
-       targets = str_subset(od, "^itsx_shard")
+       targets = itsx_targets
   )
   tictoc::toc()
   future::plan("multiprocess")
 }
 
-# embarrasing targets after itsx
+# non-parallel targets after itsx
+predada_targets <- c(str_subset(od, "^derep2_"),
+                     str_subset(od, "^(qstats_knit|seq_counts)$"))
+if (length(predada_targets)) {
 cat("\n Making pre-dada targets (multiprocess)...\n")
 tictoc::tic()
 make(plan,
@@ -395,13 +404,16 @@ make(plan,
      keep_going = TRUE,
      caching = "worker",
      cache_log_file = TRUE,
-     targets = c(str_subset(od, "^derep2_"),
-                 "qstats_knit", "seq_counts")
+     targets = predada_targets
 )
 tictoc::toc()
+} else cat("\n Pre-DADA targets are up-to-date. \n")
+
 
 # dada is internally parallel
-cat("\n Making dada and taxonomy targets (loop)...\n")
+dada_targets <- str_subset(od, "^taxon_")
+if(length(dada_targets)) {
+cat("\n Making DADA and taxonomy targets (multiprocess with", dadacores, "cores per target)...\n")
 tictoc::tic()
 make(plan,
      parallelism = "future",
@@ -410,11 +422,13 @@ make(plan,
      keep_going = TRUE,
      caching = "worker",
      cache_log_file = TRUE,
-     targets = str_subset(od, "^taxon_")
+     targets = dada_targets
 )
 tictoc::toc()
+} else cat("\n DADA2 pipeline targets are up-to-date.\n")
 
 # finish up parallel
+if (length(od)) {
 cat("\n Making all remaining targets (multiprocess)...\n")
 tictoc::tic()
 make(plan,
@@ -426,6 +440,8 @@ make(plan,
      cache_log_file = TRUE
 )
 tictoc::toc()
+}
+cat("\nAll targets are up-to-date.\n")
 
 if (interactive()) vis_drake_graph(dconfig)
 
