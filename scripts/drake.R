@@ -166,20 +166,27 @@ plan <- drake_plan(
   
   datasets = read_csv(file_in(!!dataset.file)),
   
+  # dereplicate input sequences before running ITSx
+  # this is done independently in parallel
   derep1 = target(
     tibble(file = Trim.File,
            derep = list(derepFastq(file_in(!!file.path(trim.dir, Trim.File))))),
     transform = map(.data = !!select(meta1, Trim.File, FID, Primer.pair),
                     .id = FID)),
   
+  # join the results from dereplicating into a list of unique sequences
+  # and a map from the original sequences to the uniques
   join_derep = target(
     combine_derep(derep1),
     transform = combine(derep1, .by = Primer.pair)),
   
+  # break the list of unique files into equal sized chunks for ITSx
   split_fasta = target(
     split(join_derep$fasta, seq_along(join_derep$fasta) %% !!bigsplit + 1),
     transform = map(join_derep, Primer.pair, .id = Primer.pair)),
   
+  # find the location of LSU, 5.8S, and SSU (and this ITS1 and ITS2)
+  # in the sequences from each chunk
   itsx_shard = target(
     itsx(in.file = split_fasta[[shard]],
          read_function = Biostrings::readDNAStringSet,
@@ -188,16 +195,20 @@ plan <- drake_plan(
          complement = FALSE, cpu = 1)[["positions"]],
     transform = cross(split_fasta, shard = !!(1:bigsplit), .id = FALSE)),
   
+  # combine the chunks into a master positions list.
   itsxtrim = target(
     bind_rows(itsx_shard),
     transform = combine(itsx_shard, .by = Primer.pair)),
   
+  # find the entries in the positions list which correspond to the sequences
+  # in each file
   positions = target(
     filter(join_derep$map, file == Trim.File) %>%
       left_join(itsxtrim, by = c("newmap" = "seq")),
     transform = map(.data = !!select(meta1, join_derep, itsxtrim, Trim.File, FID),
                     .id = FID)),
   
+  # cut the required regions out of each sequence
   regions = target(
     extract_region(infile = file_in(!!file.path(trim.dir, Trim.File)),
                    outfile = file_out(!!file.path(region.dir, Region.File)),
@@ -207,6 +218,7 @@ plan <- drake_plan(
                                      positions, RID),
                     .id = RID)),
   
+  # quality filter the sequences
   filter = target({
     outfile <- file_out(!!file.path(filter.dir, Filter.File))
     unlink(outfile)
@@ -223,6 +235,7 @@ plan <- drake_plan(
                                     MaxLength, MinLength, MaxEE, RID),
                     .id = RID)),
   
+  # Do a second round of dereplication on the filtered regions.
   derep2 = target({
     infiles <- file_in(!!file.path(filter.dir, unlist(str_split(Filter.File, " "))))
     infiles <- purrr::discard(infiles, ~file.size(.) < 50)
@@ -230,6 +243,7 @@ plan <- drake_plan(
     transform = map(.data = !!meta3,
                     .id = PID)),
   
+  # Calibrate dada error models
   err = target({
     err.fun <- ifelse(Tech == "PacBio",
                       PacBioErrfun,
@@ -240,6 +254,7 @@ plan <- drake_plan(
                 verbose = TRUE)},
     transform = map(derep2, Tech, PID, .id = PID)),
   
+  # Run dada denoising algorithm
   dada = target(
     dada(derep = derep2, err = err,
          multithread = ignore(!!dadacores), 
@@ -249,34 +264,45 @@ plan <- drake_plan(
     transform = map(derep2, err, PID, Homopolymer.Gap.Penalty, Band.Size, Pool,
                     .id = PID)),
   
+  # Make maps from individual sequences in source files to dada ASVs
   dada_map = target(
     dadamap(derep2, dada),
     transform = map(derep2, dada)),
   
+  # Make a sample x ASV abundance matrix
   seq_table = target(
     makeSequenceTable(dada),
     transform = map(dada, PID, .id = PID)),
   
+  # Remove likely bimeras
   nochim = target(
     dada2::removeBimeraDenovo(seq_table, method = "consensus",
                               multithread = ignore(!!dadacores)),
     transform = map(seq_table, PID, .id = PID)),
   
+  # Join all the sequence tables for each region
   big_seq_table = target(
     join_seqs(nochim),
     transform = combine(nochim, .by = Region)),
   
+  # Assign taxonomy to each ASV
   taxon = target(
     taxonomy(big_seq_table,
              reference = file_in(!!file.path(ref.dir, paste0(Reference, ".fasta.gz"))),
              multithread = ignore(!!dadacores)),
     transform = map(.data = !!meta4, .id = TID)),
   
+  # Download the FUNGuild database
   funguild_db = get_funguild_db(),
   
+  # Assign ecological guilds to the ASVs based on taxonomy.
   guilds_table = target(
     funguild_assign(taxon, db = funguild_db),
     transform = map(taxon, TID, .id = TID)),
+  
+  
+  
+  # Count the sequences in each fastq file
   seq_count = target(
     tibble(
       file = file_in(fq.file),
@@ -286,17 +312,22 @@ plan <- drake_plan(
     transform = map(fq.file = !!c(file.path(trim.dir, meta1$Trim.File),
                                  file.path(region.dir, meta2$Region.File),
                                  file.path(filter.dir, meta2$Filter.File)))),
+  
+  # merge all the sequence counts into one data.frame
   seq_counts = target(
     bind_rows(seq_count),
     transform = combine(seq_count)),
 
+  # calculate quality stats for the different regions
   qstats = target(
     q_stats(file_in(!!file.path(region.dir, Region.File))),
     transform = map(.data = !!meta2,
                     .id = RID)),
+  # join all the quality stats into one data.frame
   qstats_join = target(
     bind_rows(qstats),
     transform = combine(qstats)),
+  # knit a report about the quality stats.
   qstats_knit = {
     if (!dir.exists(out.dir)) dir.create(out.dir, recursive = TRUE)
     rmarkdown::render(
@@ -307,9 +338,12 @@ plan <- drake_plan(
 
 if (!interactive()) saveRDS(plan, "plan.rds")
 
-#drake_plan_source(plan)
+cat("\nCalculating outdated targets...\n")
+tictoc::tic()
 dconfig <- drake_config(plan)
-#predict_runtime(dconfig, jobs = ncpu)
+od <- outdated(dconfig)
+tictoc::toc()
+
 if (interactive()) {
   vis_drake_graph(dconfig)
 }
@@ -323,8 +357,8 @@ make(plan,
      retries = 2,
      keep_going = TRUE,
      caching = "worker",
-     targets = str_subset(plan$target, "^split_fasta_"),
-     layout = dconfig$layout
+     cache_log_file = TRUE,
+     targets = str_subset(od, "^split_fasta_")
 )
 tictoc::toc()
 
@@ -339,11 +373,11 @@ if (is_slurm) {
                workers = sum(startsWith(plan$target, "itsx_shard")))
   make(plan,
        parallelism = "future",
-       jobs = sum(startsWith(plan$target, "itsx_shard")),
+       jobs = sum(startsWith(od, "itsx_shard")),
        jobs_preprocess = ncpu,
        caching = "worker",
-       targets = str_subset(plan$target, "^itsx_shard"),
-       layout = dconfig$layout
+       cache_log_file = TRUE,
+       targets = str_subset(od, "^itsx_shard")
   )
   tictoc::toc()
   future::plan("multiprocess")
@@ -358,9 +392,9 @@ make(plan,
      retries = 2,
      keep_going = TRUE,
      caching = "worker",
-     targets = c(str_subset(plan$target, "^derep2_"),
-                 "qstats_knit", "seq_counts"),
-     layout = dconfig$layout
+     cache_log_file = TRUE,
+     targets = c(str_subset(od, "^derep2_"),
+                 "qstats_knit", "seq_counts")
 )
 tictoc::toc()
 
@@ -373,8 +407,8 @@ make(plan,
      retries = 1,
      keep_going = TRUE,
      caching = "worker",
-     targets = str_subset(plan$target, "^taxon_"),
-     layout = dconfig$layout
+     cache_log_file = TRUE,
+     targets = str_subset(od, "^taxon_")
 )
 tictoc::toc()
 
@@ -387,7 +421,7 @@ make(plan,
      retries = 2,
      keep_going = TRUE,
      caching = "worker",
-     layout = dconfig$layout
+     cache_log_file = TRUE
 )
 tictoc::toc()
 
