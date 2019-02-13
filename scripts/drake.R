@@ -159,8 +159,10 @@ bigsplit = 80
 # dada2 commands can use internal parallelism, but with diminishing returns.
 # instead of devoting a large number of cores to each, we will run them
 # with only a fraction of the node, in several parallel jobs.
-dadacores = min(4, ncpu)
+dadacores = min(8, ncpu)
 dadajobs = ncpu %/% dadacores
+# if this will leave us with extra cores, use them too.
+dadacores = ncpu %/% dadajobs
 
 plan <- drake_plan(
   
