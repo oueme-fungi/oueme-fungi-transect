@@ -220,7 +220,7 @@ plan <- drake_plan(
   derep2 = target({
     infiles <- file_in(!!file.path(filter.dir, unlist(str_split(Filter.File, " "))))
     infiles <- purrr::discard(infiles, ~file.size(.) < 50)
-    dada2::derepFastq(fls = infiles)},
+    dada2::derepFastq(fls = infiles, n = 1e4)},
     transform = map(.data = !!meta3,
                     .id = PID)),
   
@@ -314,6 +314,7 @@ make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
      retries = 2,
+     keep_going = TRUE,
      caching = "worker",
      targets = str_subset(plan$target, "^split_fasta_")
 )
@@ -330,7 +331,7 @@ if (is_slurm) {
        parallelism = "future",
        jobs = sum(startsWith(plan$target, "itsx_shard")),
        jobs_preprocess = ncpu,
-       caching = "master",
+       caching = "worker",
        targets = str_subset(plan$target, "^itsx_shard")
        )
   future::plan("multiprocess")
@@ -342,6 +343,7 @@ make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
      retries = 2,
+     keep_going = TRUE,
      caching = "worker",
      targets = c(str_subset(plan$target, "^derep2_"), "qstats_knit", "seq_counts")
 )
@@ -351,6 +353,8 @@ cat("\n Making dada and taxonomy targets (loop)...\n")
 make(plan,
      parallelism = "loop",
      jobs = 1, jobs_preprocess = ncpu,
+     retries = 1,
+     keep_going = TRUE,
      caching = "worker",
      targets = str_subset(plan$target, "^taxon_")
 )
@@ -360,6 +364,7 @@ make(plan,
      parallelism = "future",
      jobs = ncpu, jobs_preprocess = ncpu,
      retries = 2,
+     keep_going = TRUE,
      caching = "worker"
 )
 #   times[[ncpu]] <- tictoc::toc()

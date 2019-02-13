@@ -22,7 +22,10 @@ extract_region <- function(infile, outfile, region, positions) {
   
   p <- dplyr::filter(positions, region == !!region,
               !is.na(start),
-              !is.na(end))
+              start > 0,
+              !is.na(end),
+              end > 0,
+              end <= readr::parse_number(length))
   fastq <- ShortRead::readFastq(infile)
   fastq <- fastq[p$idx] %>%
     ShortRead::narrow(start = p$start, end = p$end)
