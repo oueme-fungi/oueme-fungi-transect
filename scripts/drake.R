@@ -156,6 +156,12 @@ if (!interactive()) saveRDS(meta4, "meta4.rds")
 # (5 nodes on snowy, 4 nodes on rackham).
 bigsplit = 80
 
+# dada2 commands can use internal parallelism, but with diminishing returns.
+# instead of devoting a large number of cores to each, we will run them
+# with only a fraction of the node, in several parallel jobs.
+dadacores = min(4, ncpu)
+dadajobs = ncpu %/% dadacores
+
 plan <- drake_plan(
   
   datasets = read_csv(file_in(!!dataset.file)),
@@ -229,14 +235,14 @@ plan <- drake_plan(
                       PacBioErrfun,
                       loessErrfun)
     learnErrors(fls = derep2, nbases = 1e8,
-                multithread=ignore(!!ncpu), randomize=TRUE,
+                multithread=ignore(!!dadacores), randomize=TRUE,
                 errorEstimationFunction = err.fun,
                 verbose = TRUE)},
     transform = map(derep2, Tech, PID, .id = PID)),
   
   dada = target(
     dada(derep = derep2, err = err,
-         multithread = ignore(!!ncpu), 
+         multithread = ignore(!!dadacores), 
          HOMOPOLYMER_GAP_PENALTY = eval(parse_expr(Homopolymer.Gap.Penalty)),
          BAND_SIZE = Band.Size,
          pool = eval(parse_expr(Pool))),
@@ -253,7 +259,7 @@ plan <- drake_plan(
   
   nochim = target(
     dada2::removeBimeraDenovo(seq_table, method = "consensus",
-                              multithread = ignore(!!ncpu)),
+                              multithread = ignore(!!dadacores)),
     transform = map(seq_table, PID, .id = PID)),
   
   big_seq_table = target(
@@ -263,7 +269,7 @@ plan <- drake_plan(
   taxon = target(
     taxonomy(big_seq_table,
              reference = file_in(!!file.path(ref.dir, paste0(Reference, ".fasta.gz"))),
-             multithread = ignore(!!ncpu)),
+             multithread = ignore(!!dadacores)),
     transform = map(.data = !!meta4, .id = TID)),
   
   funguild_db = get_funguild_db(),
@@ -319,7 +325,7 @@ make(plan,
      targets = str_subset(plan$target, "^split_fasta_")
 )
 
-# itsx does have an internal parallel option, but it isn't very efficient at
+# itsx (actually hmmer) does have an internal parallel option, but it isn't very efficient at
 # using all the cores.  Instead, we divide the work into a large number of 
 # shards and submit them all as seperate jobs on SLURM.
 # failing that, do all the shards locally on the cores we have.
@@ -351,8 +357,8 @@ make(plan,
 # dada is internally parallel
 cat("\n Making dada and taxonomy targets (loop)...\n")
 make(plan,
-     parallelism = "loop",
-     jobs = 1, jobs_preprocess = ncpu,
+     parallelism = "future",
+     jobs = dadajobs, jobs_preprocess = ncpu,
      retries = 1,
      keep_going = TRUE,
      caching = "worker",

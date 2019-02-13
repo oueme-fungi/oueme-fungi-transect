@@ -67,9 +67,9 @@ export REGIONS := $(LABDIR)/regions.csv
 export GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
 export LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
 
-OUTDIR := ${BASEDIR}/output# reports, plots, etc.
+export OUTDIR := ${BASEDIR}/output# reports, plots, etc.
 
-REF_ROOT := ${BASEDIR}/reference# reference databases
+export REF_ROOT := ${BASEDIR}/reference# reference databases
 vpath %_ref.fasta.gz $(REF_ROOT)
 
 ########################## high-level targets ##########################
