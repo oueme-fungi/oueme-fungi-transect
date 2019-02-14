@@ -15,6 +15,8 @@ library(purrr)
 library(glue)
 library(FUNGuildR)
 library(rITSx)
+library(readxl)
+library(forcats)
 
 if (interactive()) {
   base.dir <- here()
@@ -416,7 +418,7 @@ if(length(dada_targets)) {
 cat("\n Making DADA and taxonomy targets (multiprocess with", dadacores, "cores per target)...\n")
 tictoc::tic()
 make(plan,
-     parallelism = "future",
+     parallelism = if (dadajobs > 1) "future" else "loop",
      jobs = dadajobs, jobs_preprocess = ncpu,
      retries = 1,
      keep_going = TRUE,

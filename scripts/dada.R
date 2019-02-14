@@ -42,5 +42,8 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
     mutate(Taxonomy = paste(Kingdom, Phylum, Class, Order,
                             Family, Genus, Species,
                             sep = ";") %>%
-             str_replace_all(fixed(";NA"), ""))
+             str_replace_all(fixed(";NA"), "")) %>%
+    left_join(tibble(seq = colnames(seq.table),
+                     nreads = colSums(seq.table)),
+              by = "seq")
 }
