@@ -38,12 +38,7 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
       Species = if ("Species" %in% names(.)) Species else NA_character_,
       Species = ifelse(is.na(Genus) | is.na(Species),
                        NA_character_,
-                       paste(Genus, Species)))
-  
-  seq.table %>%
-    t %>%
-    as_tibble(rownames = "seq") %>%
-    left_join(tax, by = "seq") %>%
+                       paste(Genus, Species))) %>%
     mutate(Taxonomy = paste(Kingdom, Phylum, Class, Order,
                             Family, Genus, Species,
                             sep = ";") %>%
