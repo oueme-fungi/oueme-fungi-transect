@@ -28,6 +28,7 @@ if (interactive()) {
   region.dir <- file.path(seq.dir, "regions")
   filter.dir <- file.path(seq.dir, "filter")
   ref.dir <- here("reference")
+  rmd.dir <- here("writing")
   out.dir <- here("output")
   in.files <- list.files(path = trim.dir,
                          pattern = "\\.trim\\.fastq\\.gz$",
@@ -45,6 +46,7 @@ if (interactive()) {
   region.dir <- Sys.getenv("REGIONDIR")
   filter.dir <- Sys.getenv("FILTERDIR")
   ref.dir <- Sys.getenv("REF_ROOT")
+  rmd.dir <- Sys.getenv("RMDDIR")
   out.dir <- Sys.getenv("OUTDIR")
   # get the prereq files on stdin
   # there are too many to pass as an environmental variable!
@@ -329,14 +331,20 @@ plan <- drake_plan(
                     .id = RID)),
   # join all the quality stats into one data.frame
   qstats_join = target(
-    bind_rows(qstats),
+    bind_rows(qstats) %>%
+      tidyr::extract(
+        col = "file",
+        into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),
+        regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.trim\\.fastq\\.gz") %>%
+      left_join(datasets),
     transform = combine(qstats)),
   # knit a report about the quality stats.
   qstats_knit = {
-    if (!dir.exists(out.dir)) dir.create(out.dir, recursive = TRUE)
+    if (!dir.exists(!!out.dir)) dir.create(!!out.dir, recursive = TRUE)
     rmarkdown::render(
-      knitr_in(!!file.path(r.dir, "qual-check.Rmd")),
-      output_file = file_out(!!file.path(out.dir, "qual-check.pdf")))},
+      knitr_in(!!file.path(rmd.dir, "qual-check.Rmd")),
+      output_file = file_out(!!file.path(out.dir, "qual-check.pdf")),
+      output_dir = !!out.dir)},
   trace = TRUE
 )
 

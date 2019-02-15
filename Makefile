@@ -67,6 +67,7 @@ export REGIONS := $(LABDIR)/regions.csv
 export GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
 export LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
 
+export RMDDIR := ${BASEDIR}/writing
 export OUTDIR := ${BASEDIR}/output# reports, plots, etc.
 
 export REF_ROOT := ${BASEDIR}/reference# reference databases

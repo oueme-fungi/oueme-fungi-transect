@@ -19,11 +19,7 @@ knitr::opts_chunk$set(echo = FALSE)
 datasets <- readd(datasets)
 # xdata <- readd(itsxtrim_.its1.lr5.)
 # pos <- readd(positions_pb500002A1f)
-reads <- readd(qstats_join) %>%
-      tidyr::extract(col = "file",
-                     into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),
-                     regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.trim\\.fastq\\.gz") %>%
-  left_join(datasets)
+reads <- readd(qstats_join)
 ```
 
 

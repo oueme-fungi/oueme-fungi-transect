@@ -10,6 +10,7 @@ ignored.packages:
 ignored.directories:
     data
     inst
+    writing
 quiet.package.installation: TRUE
 snapshot.recommended.packages: FALSE
 snapshot.fields:
