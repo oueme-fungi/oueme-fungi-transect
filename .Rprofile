@@ -5,6 +5,6 @@ local({
   r["CRAN"] <- "https://ftp.acc.umu.se/mirror/CRAN/"
   options(repos = r)
 })
-#### -- Packrat Autoloader (version 0.5.0) -- ####
+#### -- Packrat Autoloader (version 0.4.9-3) -- ####
 source("packrat/init.R")
 #### -- End Packrat Autoloader -- ####
