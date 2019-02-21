@@ -12,14 +12,22 @@ library(ShortRead)
 library(ggplot2)
 library("scales")
 library(drake)
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, device = "tikz")
 ```
 
 ```{r include=FALSE}
 datasets <- readd(datasets)
 # xdata <- readd(itsxtrim_.its1.lr5.)
 # pos <- readd(positions_pb500002A1f)
-reads <- readd(qstats_join)
+reads <- readd(qstats_join) %>%
+  mutate_at("Region", factor,
+            levels = c("ITS2", "ITS1", "short", "ITS", "LSU", "long")) %>%
+  mutate_at("Dataset", factor,
+            levels = c("short-ion", "short-pacbio", "long-pacbio")) %>%
+  group_by(Dataset, Plate, Region)
+reads_subset <- reads %>%
+  do(if (nrow(.) > 10000) sample_n(., 10000) else .)
+summarize(reads, n = n())
 ```
 
 
@@ -36,73 +44,105 @@ reverselog_trans <- function(base = exp(1)) {
 
 ## Minimum quality score
 ```{r}
-ggplot(reads, aes(x = minq,
-                  linetype = Region,
+ggplot(reads_subset, aes(x = minq,
+                  linetype = Dataset,
                   group = paste(Dataset, Region),
-                  color = Dataset)) +
-  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
+                  color = Region)) +
+  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
   scale_x_continuous(name = "Minimum quality score",
                      # trans = reverselog_trans(10),
                      # limits = c(NA, 1e-5),
                      oob = squish) +
-  scale_y_continuous(name = "Fraction passing")
+  scale_y_continuous(name = "Fraction passing") +
+  scale_color_viridis_d(option = "C") +
+  scale_linetype_discrete() +
+  theme_bw()
 ```
 
 ## Expected error rate
 ```{r}
 
-ggplot(reads, aes(x = erate,
-                  linetype = Region,
+ggplot(reads_subset, aes(x = erate,
+                  linetype = Dataset,
                   group = paste(Dataset, Region),
-                  color = Dataset)) +
-  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
+                  color = Region)) +
+  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
   scale_x_continuous(name = "Expected number of errors per base",
                      trans = reverselog_trans(10),
                      limits = c(NA, 1e-5),
                      oob = squish) +
-  scale_y_continuous(name = "Fraction passing")
+  scale_y_continuous(name = "Fraction passing") +
+  scale_color_viridis_d(option = "C") +
+  scale_linetype_discrete() +
+  theme_bw()
 ```
 
 ## Expected number of errors
 ```{r}
-ggplot(reads, aes(x = eexp,
-                  linetype = Region,
+ggplot(reads_subset, aes(x = eexp,
+                  linetype = Dataset,
                   group = paste(Dataset, Region),
-                  color = Dataset)) +
-  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
+                  color = Region)) +
+  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
   scale_x_continuous(name = "Expected number of errors",
                      trans = reverselog_trans(10),
                      limits = c(NA, 0.1),
                      oob = squish) +
-  scale_y_continuous(name = "Fraction passing")
+  scale_y_continuous(name = "Fraction passing") +
+  scale_color_viridis_d(option = "C") +
+  scale_linetype_discrete() +
+  theme_bw()
 ```
 
 ## Error-free probability
 
 ```{r}
-ggplot(reads, aes(x = p.noerr,
-                  linetype = Region,
+ggplot(reads_subset, aes(x = p.noerr,
+                  linetype = Dataset,
                   group = paste(Dataset, Region),
-                  color = Dataset)) +
-  geom_step(aes(y = 1 - ..y..), stat = "ecdf") +
+                  color = Region)) +
+  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
   scale_x_continuous(name = "Expectation of being error-free",
                      # trans = log_trans(10),
                      limits = c(0, 1),
                      oob = squish) +
-  scale_y_continuous(name = "Fraction passing")
+  scale_y_continuous(name = "Fraction passing") +
+  scale_color_viridis_d(option = "C") +
+  scale_linetype_discrete() +
+  theme_bw()
 ```
 
 ## Read length
 
 ```{r}
-ggplot(reads, aes(x = length,
-                  linetype = Region,
+ggplot(reads_subset, aes(x = length,
+                  linetype = Dataset,
                   group = paste(Dataset, Region),
-                  color = Dataset)) +
-  geom_step(aes(y = 1- ..y..), stat = "ecdf") +
-  scale_x_log10(name = "Length (bp)") +
-  scale_y_continuous(name = "Fraction Greater than length")
-  
+                  color = Region)) +
+  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
+  scale_x_log10(name = "Length (bp)",
+                limits = c(50, NA),
+                oob = squish) +
+  scale_y_continuous(name = "Fraction Greater than length") +
+  scale_color_viridis_d(option = "C") +
+  scale_linetype_discrete() +
+  theme_bw()
+```
+
+## Read length density
+```{r}
+ggplot(reads_subset, aes(x = length,
+                  linetype = Dataset,
+                  group = paste(Dataset, Region),
+                  color = Region)) +
+  geom_line(stat = "density") +
+  scale_x_log10(name = "Length (bp)",
+                limits = c(50, NA),
+                oob = squish) +
+  scale_y_continuous(name = "count") +
+  scale_color_viridis_d(option = "C") +
+  scale_linetype_discrete() +
+  theme_bw()
 ```
 
 ## Expected error-free reads
@@ -199,6 +239,9 @@ dada.counts <-
          
 dada.counts
 ```
+
+## ASV correspondences
+
 ```{r eval = FALSE}
 s.pb.seqs <- readRDS(glue("{data.dir}/short-pacbio_pb_483.dada.nochim.rds")) %>%
   colSums %>%
@@ -218,10 +261,10 @@ s.ion.seqs <- readRDS(glue("{data.dir}/short-ion_is_057.dada.nochim.rds")) %>%
   scale_x_log10()
 ```
 
-IonTorrent reads which match a PacBio ASV: ` filter(crosstab, pb.reads > 0) %$% sum(ion.reads)`
-IonTorrent reads which do NOT match PacBio: ` filter(crosstab, pb.reads == 0) %$% sum(ion.reads)`
-PacBio reads which match an IonTorrent ASV: ` filter(crosstab, ion.reads > 0) %$% sum(pb.reads)`
-PacBio reads which do NOT match IonTorrent: ` filter(crosstab, ion.reads == 0) %$% sum(pb.reads)`
+- IonTorrent reads which match a PacBio ASV: ` filter(crosstab, pb.reads > 0) %$% sum(ion.reads)`
+- IonTorrent reads which do NOT match PacBio: ` filter(crosstab, pb.reads == 0) %$% sum(ion.reads)`
+- PacBio reads which match an IonTorrent ASV: ` filter(crosstab, ion.reads > 0) %$% sum(pb.reads)`
+- PacBio reads which do NOT match IonTorrent: ` filter(crosstab, ion.reads == 0) %$% sum(pb.reads)`
 
 ```{r eval = FALSE}
 crosstab %>% arrange(pb.reads, ion.reads) %>%

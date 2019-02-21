@@ -56,10 +56,6 @@ GithubRepo: FUNGuildR
 GithubUsername: brendanf
 GithubRef: master
 GithubSha1: c2105676f57a347a272c29a8f3615c7ba24ffc52
-RemoteHost: api.github.com
-RemoteRepo: FUNGuildR
-RemoteUsername: brendanf
-RemoteSha: c2105676f57a347a272c29a8f3615c7ba24ffc52
 
 Package: GenomeInfoDb
 Source: Bioconductor
@@ -254,17 +250,17 @@ Hash: 38a30b33137041a896bd51ae0e9d1d49
 Package: dada2
 Source: github
 Version: 1.11.1
-Hash: df5f30c7765b24412449302c0e050d1b
+Hash: 75a496c21cd97dc888c540b704a6b07c
 Requires: BiocGenerics, Biostrings, IRanges, Rcpp, RcppParallel,
     ShortRead, XVector, ggplot2, reshape2
 GithubRepo: dada2
-GithubUsername: benjjneb
-GithubRef: master
-GithubSha1: 6c4e8a2d57fb40ed4b19a2bafe0a96749500c037
+GithubUsername: brendanf
+GithubRef: solexafix
+GithubSha1: 0e8a8e162c8f0743afe3fa35d5a881799bb7752b
 RemoteHost: api.github.com
 RemoteRepo: dada2
-RemoteUsername: benjjneb
-RemoteSha: 6c4e8a2d57fb40ed4b19a2bafe0a96749500c037
+RemoteUsername: brendanf
+RemoteSha: 0e8a8e162c8f0743afe3fa35d5a881799bb7752b
 
 Package: dbplyr
 Source: CRAN
@@ -294,10 +290,6 @@ GithubRepo: drake
 GithubUsername: ropensci
 GithubRef: 8ec8583c
 GithubSha1: 8ec8583c48630287a1948625202f59e86fab4986
-RemoteHost: api.github.com
-RemoteRepo: drake
-RemoteUsername: ropensci
-RemoteSha: 8ec8583c48630287a1948625202f59e86fab4986
 
 Package: ellipsis
 Source: CRAN
@@ -347,6 +339,12 @@ Source: CRAN
 Version: 1.0.1
 Hash: c5a7e0ce07509a8561881c8860270d71
 
+Package: future
+Source: CRAN
+Version: 1.11.1.1
+Hash: a677ff6e24da147fab3db3d6733b8b39
+Requires: digest, globals, listenv
+
 Package: generics
 Source: CRAN
 Version: 0.0.2
@@ -358,6 +356,11 @@ Version: 3.1.0
 Hash: ef541b05dda10b209d509b5bbaf46ea3
 Requires: digest, gtable, lazyeval, mgcv, plyr, reshape2, rlang,
     scales, tibble, viridisLite, withr
+
+Package: globals
+Source: CRAN
+Version: 0.12.4
+Hash: 813a6280042ee82fa529833489333322
 
 Package: glue
 Source: CRAN
@@ -415,6 +418,12 @@ Source: CRAN
 Version: 1.3.2
 Hash: 4c36a3e4a7471fdc3d5ee75b5188c37d
 
+Package: iNEXT
+Source: CRAN
+Version: 2.0.19
+Hash: ddeb1ad3075ce5a8851ee53add57a892
+Requires: ggplot2, reshape2
+
 Package: igraph
 Source: CRAN
 Version: 1.2.4
@@ -458,6 +467,11 @@ Package: lazyeval
 Source: CRAN
 Version: 0.2.1
 Hash: 88926ad9c43581fd0822a37c8ed09f05
+
+Package: listenv
+Source: CRAN
+Version: 0.7.0
+Hash: f5e0d09f4e42d749ae0f893cff1817b6
 
 Package: lubridate
 Source: CRAN
@@ -597,16 +611,17 @@ Requires: magrittr, rlang
 Package: rITSx
 Source: github
 Version: 0.0.0.9000
-Hash: 585f2441e591c286f939099e5a2cfe76
-Requires: assertthat, dplyr, glue, magrittr, readr, rlang, tidyr
+Hash: 116ea02ebe3e00de3e34c314ab3b370e
+Requires: assertthat, backports, dplyr, glue, magrittr, purrr, readr,
+    rlang, stringr, tidyr
 GithubRepo: rITSx
 GithubUsername: brendanf
 GithubRef: master
-GithubSha1: 421402be322f449191c9a2831c54fa0338b14251
+GithubSha1: bacdf9b8c5964afc613bea3ad919db7e5df654c7
 RemoteHost: api.github.com
 RemoteRepo: rITSx
 RemoteUsername: brendanf
-RemoteSha: 421402be322f449191c9a2831c54fa0338b14251
+RemoteSha: bacdf9b8c5964afc613bea3ad919db7e5df654c7
 
 Package: readr
 Source: CRAN

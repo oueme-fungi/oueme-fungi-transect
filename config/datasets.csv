@@ -1,4 +1,4 @@
-Dataset,Tech,Seq.Run,Runs,Forward,Reverse,Regions,PlateKey,SampleKey.File,SampleKey.Sheet,Homopolymer.Gap.Penalty,Band.Size,Pool
-short-pacbio,PacBio,pb_483,2,gits7_tag,its4,"ITS2,short",gITS7_platekey.csv,Brendan_soil.xlsx,Concentration samples,NULL,16,TRUE
-long-pacbio,PacBio,pb_500,2,its1_tag,lr5_tag,"ITS1,ITS2,LSU,long",ITS1_LR5_platekey.csv,Brendan_soil2.xlsx,Concentration samples,NULL,16,TRUE
-short-ion,Ion,is_057,1,gits7,its4,"ITS2,short",gITS7_platekey.csv,Brendan_soil.xlsx,Concentration samples,-1,32,"""pseudo"""
+Dataset,Tech,Seq.Run,Runs,Forward,Reverse,Regions,PlateKey,Homopolymer.Gap.Penalty,Band.Size,Pool
+short-pacbio,PacBio,pb_483,2,gits7_tag,its4,"ITS2,short",gITS7_platekey.csv,NULL,16,TRUE
+long-pacbio,PacBio,pb_500,2,its1_tag,lr5_tag,"ITS1,ITS2,ITS,LSU,long",ITS1_LR5_platekey.csv,NULL,16,TRUE
+short-ion,Ion,is_057,1,gits7,its4,"ITS2,short",gITS7_platekey.csv,-1,32,"""pseudo"""

@@ -1,0 +1,17 @@
+# From https://github.com/mschubert/clustermq/wiki/SLURM
+#!/bin/sh
+#SBATCH --account=snic2018-8-131
+#SBATCH --job-name={{ job_name }}
+#SBATCH --partition=default
+#SBATCH --output={{ log_file | /dev/null }} # you can add .%a for array index
+#SBATCH --error={{ log_file | /dev/null }}
+#SBATCH --mem-per-cpu={{ memory | 4096 }}
+#SBATCH --array=1-{{ n_jobs }}
+#SBATCH --cpus-per-task={{ ncpus | 1 }}
+#SBATCH --timing={{ minutes | 6:00:00 }}
+
+## load conda environment
+conda activate oueme1
+
+ulimit -v $(( 1024 * {{ memory | 4096 }} ))
+R --no-save --no-restore -e 'clustermq:::worker("{{ master }}")'

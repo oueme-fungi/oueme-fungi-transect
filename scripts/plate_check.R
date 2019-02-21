@@ -36,7 +36,7 @@ read_platemap <- function(filename, sheet, skip = 2) {
     # get rid of empty columns
     discard(~all(is.na(.))) %>%
     # make nice names
-    rename(Comment = V1,
+    dplyr::rename(Comment = V1,
            Well = row,
            DNA.Conc = "Conc. (ng/µl)",
            DNA.Tot = DNA,
@@ -70,5 +70,5 @@ read_platemap <- function(filename, sheet, skip = 2) {
                     levels = c("Blank", "Pos", "Pos. Kontroll")) %>%
              fct_collapse(Blank = "Blank", Pos = c("Pos", "Pos. Kontroll")) %>%
              fct_explicit_na("Sample")) %>%
-    mutate_at(Plate, formatC, width = 3, flag = "0")
+    mutate_at("Plate", formatC, width = 3, flag = "0")
 }
