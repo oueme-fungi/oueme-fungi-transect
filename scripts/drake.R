@@ -471,18 +471,22 @@ if (length(derep_targets)) {
     # These jobs are relatively quick though, so we don't need a single
     # worker each.
     derep_jobs = min(bigsplit, length(derep_targets) %/% 4)
+    derep_template = list(log_file = glue("logs/derep-{strftime(Sys.time(), '%Y%m%d%H%M%S')}%a.log"))
     cat("\n Dereplicating input files (SLURM)...\n")
   } else {
     derep_parallelism = "future"
     derep_jobs = local_cpu
+    derep_template <- list()
     cat("\n Dereplicating input files (multiprocess)...\n")
   }
   tictoc::tic()
   make(plan,
        parallelism = derep_parallelism,
+       template = derep_template,
        jobs = derep_jobs,
        jobs_preprocess = local_cpu,
        retries = 2,
+       elapsed = 3600, # 1 hour per target is more than enough
        keep_going = TRUE,
        caching = "worker",
        cache_log_file = TRUE,
@@ -507,6 +511,7 @@ if (length(preitsx_targets)) {
        jobs = max(local_cpu %/% dadacores, 1),
        jobs_preprocess = local_cpu,
        retries = 2,
+       elapsed = 3600, # 1 hour
        keep_going = TRUE,
        caching = "worker",
        cache_log_file = TRUE,
@@ -532,7 +537,9 @@ if (is_slurm && length(itsx_targets)) {
   tictoc::tic()
   make(plan,
        parallelism = "clustermq",
+       template = list(log_file = glue("logs/itsx-{strftime(Sys.time(), '%Y%m%d%H%M%S')}%a.log")),
        jobs = itsx_jobs,
+       elapsed = 3600*6, #6 hours
        jobs_preprocess = local_cpu,
        caching = "worker",
        cache_log_file = TRUE,
@@ -554,9 +561,11 @@ if (length(predada_targets)) {
   if (is_slurm) {
     predada_parallelism <- "clustermq"
     predada_jobs <- nrow(meta3)
+    predada_template <- list(log_file = glue("logs/predada-{strftime(Sys.time(), '%Y%m%d%H%M%S')}%a.log"))
   } else {
     predada_parallelism <- "future"
     predada_jobs <- local_cpu
+    predada_template <- list()
   }
 cat("\n Making pre-dada targets (multiprocess)...\n")
 tictoc::tic()
@@ -565,6 +574,7 @@ make(plan,
      jobs = predada_jobs,
      jobs_preprocess = local_cores,
      retries = 2,
+     elapsed = 3600, #1 hour
      keep_going = TRUE,
      caching = "worker",
      cache_log_file = TRUE,
@@ -586,7 +596,8 @@ dada_targets <- str_subset(od, "^taxon_")
 if (length(dada_targets)) {
   if (is_slurm) {
     dada_parallelism <- "clustermq"
-    dada_template <- list(ncpus = dadacores)
+    dada_template <- list(ncpus = dadacores, 
+                          log_file = glue("logs/dada-{strftime(Sys.time(), '%Y%m%d%H%M%S')}%a.log"))
   } else {
     dada_parallelism <- if (dadajobs > 1) "future" else "loop"
     dada_template <- list()
@@ -599,6 +610,7 @@ make(plan,
      jobs_preprocess = local_cpu,
      template = dada_template,
      retries = 1,
+     elapsed = 3600*6, #6 hours
      keep_going = TRUE,
      caching = "worker",
      cache_log_file = TRUE,
@@ -621,6 +633,7 @@ make(plan,
      jobs = local_cpu,
      jobs_preprocess = local_cpu,
      retries = 2,
+     elapsed = 600, # 10 minutes
      keep_going = TRUE,
      caching = "worker",
      cache_log_file = TRUE
