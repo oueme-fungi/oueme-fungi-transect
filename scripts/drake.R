@@ -458,6 +458,8 @@ if (is_slurm) {
   options(clustermq.scheduler = "multicore")
 }
 
+timestamp <- strftime(Sys.time(), '%Y%m%d%H%M%S')
+
 #### pre-ITSx ####
 # make embarassingly parallel targets at the beginning
 # if running on SLURM, use the clustermq backend.
@@ -471,7 +473,7 @@ if (length(derep_targets)) {
     # These jobs are relatively quick though, so we don't need a single
     # worker each.
     derep_jobs = min(bigsplit, length(derep_targets) %/% 4)
-    derep_template = list(log_file = glue("logs/derep-{strftime(Sys.time(), '%Y%m%d%H%M%S')}%a.log"))
+    derep_template = list(log_file = glue("logs/derep-{timestamp}%a.log"))
     cat("\n Dereplicating input files (SLURM)...\n")
   } else {
     derep_parallelism = "future"
@@ -537,7 +539,8 @@ if (is_slurm && length(itsx_targets)) {
   tictoc::tic()
   make(plan,
        parallelism = "clustermq",
-       template = list(log_file = glue("logs/itsx-{strftime(Sys.time(), '%Y%m%d%H%M%S')}%a.log")),
+       template = list(log_file = glue("logs/itsx-{timestamp}%a.log"),
+                       memory = 7*1024),
        jobs = itsx_jobs,
        elapsed = 3600*6, #6 hours
        jobs_preprocess = local_cpu,
@@ -561,7 +564,9 @@ if (length(predada_targets)) {
   if (is_slurm) {
     predada_parallelism <- "clustermq"
     predada_jobs <- nrow(meta3)
-    predada_template <- list(log_file = glue("logs/predada-{strftime(Sys.time(), '%Y%m%d%H%M%S')}%a.log"))
+    predada_template <- list(
+      log_file = glue("logs/predada-{timestamp}%a.log"),
+      memory = 7*1024) # 7 gb is 1 processor on a fat node or 2 on a regular
   } else {
     predada_parallelism <- "future"
     predada_jobs <- local_cpu
@@ -571,6 +576,7 @@ cat("\n Making pre-dada targets (multiprocess)...\n")
 tictoc::tic()
 make(plan,
      parallelism = predada_parallelism,
+     template = predada_template,
      jobs = predada_jobs,
      jobs_preprocess = local_cpu,
      retries = 2,
@@ -597,7 +603,7 @@ if (length(dada_targets)) {
   if (is_slurm) {
     dada_parallelism <- "clustermq"
     dada_template <- list(ncpus = dada_cpu, 
-                          log_file = glue("logs/dada-{strftime(Sys.time(), '%Y%m%d%H%M%S')}%a.log"))
+                          log_file = glue("logs/dada-{timestamp)}%a.log"))
   } else {
     dada_parallelism <- if (dadajobs > 1) "future" else "loop"
     dada_template <- list()
