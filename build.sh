@@ -30,9 +30,7 @@
 # always redo this makefile, in case something (number of cores!) changes.
 rm -f demux.make &&
 
-module load R/3.5.0 gcc bioinfo-tools blast/2.7.1+ samtools/1.9 ITSx/1.1-beta \
-            gnuparallel/20180822 SMRT/5.0.1 cutadapt/1.16 Fastx/0.0.14 \
-            texlive/2018 &&
+conda activate oueme1 &&
 
 # convert PacBio RSII files to .bam format
 # these are single-threaded options
