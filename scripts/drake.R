@@ -41,6 +41,8 @@ if (interactive()) {
   r.dir <- Sys.getenv("RDIR")
   dataset.file <- Sys.getenv("DATASET")
   regions.file <- Sys.getenv("REGIONS")
+  platemap.file <- Sys.getenv("PLATEMAPFILE")
+  platemap.sheet <- Sys.getenv("PLATEMAPSHEET")
   target <- Sys.getenv("TARGETLIST")
   trim.dir <- Sys.getenv("TRIMDIR")
   region.dir <- Sys.getenv("REGIONDIR")
@@ -66,7 +68,6 @@ if (interactive()) {
 
 # how many cpus do we have on the local machine?
 local_cpu <- detectCores()
-cat("local_cpu = ", local_cpu, "\n")
 
 # are we running slurm?
 is_slurm <- nchar(Sys.which("sbatch")) > 0
@@ -89,6 +90,8 @@ if (is_slurm) {
   max_cpu <- max(local_cpu - 1, 1)
   local_cpu <- max_cpu
 }
+cat("max_cpu =", max_cpu, "\n")
+cat("local_cpu =", local_cpu, "\n")
 
 # the hmmersearch in itsx is very slow, but super parallel.
 # we can break it into a lot of pieces and run it on several nodes.
@@ -112,6 +115,9 @@ if (local_dada) {
   # if this will leave us with extra cores, use them too.
   dadacores <- max_cpu %/% dadajobs
 }
+
+cat("dadacores =", dadacores, "\n")
+cat("dadajobs =", dadajobs, "\n")
 
 #### read scripts and configs ####
 # load various pipeline functions
@@ -210,6 +216,8 @@ meta4 <- regions %>%
 if (!interactive()) saveRDS(meta4, "meta4.rds")
 
 #### drake plan ####
+cat("\nbuilding plan...\n")
+tictoc::tic()
 plan <- drake_plan(
   
   datasets = read_csv(file_in(!!dataset.file)),
@@ -219,7 +227,8 @@ plan <- drake_plan(
   derep1 = target(
     tibble(file = Trim.File,
            derep = list(derepFastq(file_in(!!file.path(trim.dir, Trim.File)),
-                                   qualityType = "FastqQuality"))),
+                                   qualityType = "FastqQuality",
+                                   n = 1e4) %>% inset2("quals", NULL))),
     transform = map(.data = !!select(meta1, Trim.File, FID, Primer.pair),
                     .tag_in = step,
                     .id = FID)),
@@ -423,6 +432,7 @@ plan <- drake_plan(
       output_dir = !!out.dir)},
   trace = TRUE
 )
+tictoc::toc()
 
 plansteps <- unique(na.omit(plan[["step"]]))
 
@@ -431,7 +441,6 @@ if (!interactive()) saveRDS(plan, "plan.rds")
 cat("\nCalculating outdated targets...\n")
 tictoc::tic()
 dconfig <- drake_config(plan)
-dgraph <- dconfig[["graph"]]
 od <- outdated(dconfig)
 tictoc::toc()
 
@@ -447,33 +456,55 @@ if (is_slurm) {
           clustermq.template = "slurm_clustermq.tmpl")
 } else {
   options(clustermq.scheduler = "multicore")
-  
 }
 
 #### pre-ITSx ####
 # make embarassingly parallel targets at the beginning
 # if running on SLURM, use the clustermq backend.
 # if running on the local machine, future has less overhead.
-preitsx_targets <- str_subset(od, "^split_fasta_")
 derep_targets <- str_subset(od, "^derep1_")
-if (length(preitsx_targets)) {
+if (length(derep_targets)) {
   if (is_slurm) {
     derep_parallelism = "clustermq"
     # the widest part of the workflow is dereplication of each file,
     # so we can determine how many workers to use based on this.
     # These jobs are relatively quick though, so we don't need a single
     # worker each.
-    derep_jobs = max(length(derep_targets) %/% 4, length(preitsx_targets))
+    derep_jobs = min(bigsplit, length(derep_targets) %/% 4)
+    cat("\n Dereplicating input files (SLURM)...\n")
   } else {
     derep_parallelism = "future"
     derep_jobs = local_cpu
-    cat("\n Making pre-itsx targets (multiprocess)...\n")
+    cat("\n Dereplicating input files (multiprocess)...\n")
   }
   tictoc::tic()
   make(plan,
-       graph = dgraph,
        parallelism = derep_parallelism,
        jobs = derep_jobs,
+       jobs_preprocess = local_cpu,
+       retries = 2,
+       keep_going = TRUE,
+       caching = "worker",
+       cache_log_file = TRUE,
+       targets = derep_targets
+  )
+  tictoc::toc()
+  if (length(failed())) {
+    if (interactive()) stop() else quit(status = 1)
+  }
+} else cat("\n All initial dereplication targets are up-to-date.\n")
+
+#### Pre-ITSx targets ####
+# These are computationally easy, but take a lot of memory, and would be
+# inefficient to send to clustermq workers.  It's better to just do them locally.
+preitsx_targets <- str_subset(od, "^split_fasta_")
+if (length(preitsx_targets)) {
+  cat("\nMaking targets to prepare for ITSx...\n")
+  tictoc::tic()
+  future::plan(strategy = "multiprocess")
+  make(plan,
+       parallelism = "future",
+       jobs = max(local_cpu %/% dadacores, 1),
        jobs_preprocess = local_cpu,
        retries = 2,
        keep_going = TRUE,
@@ -488,7 +519,6 @@ if (length(preitsx_targets)) {
 } else cat("\n All pre-itsx targets are up-to-date.\n")
 
 
-
 #### ITSx ####
 # itsx (actually hmmer) does have an internal parallel option, but it isn't
 # very efficient at using all the cores.
@@ -497,11 +527,10 @@ if (length(preitsx_targets)) {
 # failing that, do all the shards locally on the cores we have.
 itsx_targets <- str_subset(od, "^itsx_shard")
 if (is_slurm && length(itsx_targets)) {
-  itsx_jobs <- ceiling(length(itsx_targets) / 2)
+  itsx_jobs <- min(max(ceiling(length(itsx_targets) / 2), bigsplit), length(itsx_targets))
   cat("\n Making itsx_shard (SLURM with ", itsx_jobs, "workers)...\n")
   tictoc::tic()
   make(plan,
-       graph = dgraph,
        parallelism = "clustermq",
        jobs = itsx_jobs,
        jobs_preprocess = local_cpu,
@@ -532,7 +561,6 @@ if (length(predada_targets)) {
 cat("\n Making pre-dada targets (multiprocess)...\n")
 tictoc::tic()
 make(plan,
-     graph = dgraph,
      parallelism = predada_parallelism,
      jobs = predada_jobs,
      jobs_preprocess = local_cores,
