@@ -232,6 +232,11 @@ Version: 0.8.5
 Hash: 5a58007e03fb3bbc5aaa8e2c9fba97e7
 Requires: R6, infuser, narray, progress, purrr, rzmq
 
+Package: codetools
+Source: CRAN
+Version: 0.2-16
+Hash: eb51f6f32efbc11c76c48b9c4307f1b5
+
 Package: colorspace
 Source: CRAN
 Version: 1.4-0
@@ -257,10 +262,6 @@ GithubRepo: dada2
 GithubUsername: brendanf
 GithubRef: solexafix
 GithubSha1: 0e8a8e162c8f0743afe3fa35d5a881799bb7752b
-RemoteHost: api.github.com
-RemoteRepo: dada2
-RemoteUsername: brendanf
-RemoteSha: 0e8a8e162c8f0743afe3fa35d5a881799bb7752b
 
 Package: dbplyr
 Source: CRAN
@@ -361,6 +362,7 @@ Package: globals
 Source: CRAN
 Version: 0.12.4
 Hash: 813a6280042ee82fa529833489333322
+Requires: codetools
 
 Package: glue
 Source: CRAN
@@ -618,10 +620,6 @@ GithubRepo: rITSx
 GithubUsername: brendanf
 GithubRef: master
 GithubSha1: bacdf9b8c5964afc613bea3ad919db7e5df654c7
-RemoteHost: api.github.com
-RemoteRepo: rITSx
-RemoteUsername: brendanf
-RemoteSha: bacdf9b8c5964afc613bea3ad919db7e5df654c7
 
 Package: readr
 Source: CRAN
