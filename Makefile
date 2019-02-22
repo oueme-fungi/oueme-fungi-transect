@@ -21,7 +21,7 @@ ifdef SLURM_JOB_ID
 $(info Using SLURM.)
 SHELL=srun
 SRUNFLAGS=-n 1
-.SHELLFLAGS= -c $(CORES_PER_TASK) $(SRUNFLAGS) --exclusive /bin/bash -c
+.SHELLFLAGS= -c $(CORES_PER_TASK) $(SRUNFLAGS) --exclusive bash -c
 NCORES := $(SLURM_JOB_CPUS_PER_NODE)# assume we have the whole node.
 else
 $(info Not using SLURM.)
@@ -66,6 +66,8 @@ export DATASET := $(LABDIR)/datasets.csv
 export REGIONS := $(LABDIR)/regions.csv
 export GITS7_TAGFILE := $(LABDIR)/Hectors_tag_primer_plates.xlsx
 export LR5_TAGFILE := $(LABDIR)/Brendan_soil2.xlsx
+export PLATEMAPFILE := $(LABDIR)/Brendan_soil2.xlsx
+export PLATEMAPSHEET := Concentration samples
 
 export RMDDIR := ${BASEDIR}/writing
 export OUTDIR := ${BASEDIR}/output# reports, plots, etc.
@@ -92,10 +94,8 @@ RMD = cd $(<D) &&\
 # command to run an R script
 # The list of prerequisites is passed on stdin.  Not all scripts use this.
 define R =
-	rm -f $@.temp &&\
-	mkdir -p ${@D} &&\
-	touch $@.temp
-	$(foreach f,$^,$(call filecho,$f))
+	mkdir -p ${@D}
+	$(file >$@.temp) $(foreach O,$^,$(file >>$@.temp,$O))
 	cat $@.temp |\
 	Rscript $(ROPT) $(<) $(RARGS) &>"$(patsubst %.R,%.Rout,$@.$(<F))"
 	rm $@.temp
