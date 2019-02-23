@@ -193,13 +193,12 @@ if (interactive()) {
 # meta3 has one row per region per plate
 # The index is PID (Plate ID)
 meta3 <- meta2 %>%
-  group_by(Seq.Run, Plate, Region) %>%
-  summarize(Filter.File = paste(as.character(Filter.File), collapse = " ")) %>%
-  ungroup %>%
+  select(Seq.Run, Plate, Region, PID) %>%
+  unique() %>%
+  mutate(region_derep = glue("region_derep_{PID}")) %>%
   left_join(datasets %>% select(-Regions)) %>%
   left_join(regions) %>%
-  mutate(PID = glue("{Seq.Run}_{Plate}_{Region}")) %>%
-  mutate_at(c("PID", "Region"), syms)
+  mutate_at(c("region_derep", "Region"), syms)
 if (!interactive()) saveRDS(meta3, "meta3.rds")
 
 #### meta4 ####
@@ -312,62 +311,71 @@ plan <- drake_plan(
   
   # Do a second round of dereplication on the filtered regions.
   derep2 = target({
-    infiles <- file_in(!!file.path(filter.dir,
-                                   unlist(str_split(Filter.File, " "))))
-    infiles <- purrr::discard(infiles, ~file.size(.) < 50)
-    out <- dada2::derepFastq(fls = infiles, n = 1e4,
-                             qualityType = "FastqQuality")
-    for (f in infiles) {
-      names(out[[basename(f)]][["map"]]) <- as.character(
-        readFastq(dirname(f),
-                  basename(f))@id)
+    infile <- file_in(!!file.path(filter.dir, Filter.File))
+    if (file.size(infile) > 50) {
+      out <- dada2::derepFastq(fls = infiles, n = 1e4,
+                               qualityType = "FastqQuality")
+      fqs <- FastqStreamer(infile, n = 1e4, qualityType = "FastqQuality")
+      seqids <- character(0)
+      while (length(fq <- yield(fqs))) {
+        seqids <- c(seqids, as.character(fq@id))
+      }
+      close(fqs)
+      names(out[["map"]]) <- seqids
+    } else {
+      out = NULL
     }
-    out
+    list(Filter.File = out)
   },
-  transform = map(.data = !!meta3,
+  transform = map(.data = !!meta2,
                   .tag_in = step,
-                  .id = PID)),
+                  .id = RID)),
+  
+  region_derep = target(
+    compact(c(derep2)),
+    transform = combine(derep2, .by = PID, .tag_in = step),
+  ),
   
   # Calibrate dada error models
   err = target({
     err.fun <- ifelse(Tech == "PacBio",
                       PacBioErrfun,
                       loessErrfun)
-    learnErrors(fls = derep2, nbases = 1e8,
+    learnErrors(fls = region_derep, nbases = 1e8,
                 multithread = ignore(!!dada_cpu), randomize = TRUE,
                 errorEstimationFunction = err.fun,
                 verbose = TRUE,
                 qualityType = "FastqQuality")},
-    transform = map(derep2, Tech, PID,
+    transform = map(.data = !!meta3,
                     .tag_in = step, .id = PID)),
   
   # Run dada denoising algorithm
   dada = target(
-    dada(derep = derep2, err = err,
+    dada(derep = region_derep, err = err,
          multithread = ignore(!!dada_cpu), 
          HOMOPOLYMER_GAP_PENALTY = eval(parse_expr(Homopolymer.Gap.Penalty)),
          BAND_SIZE = Band.Size,
          pool = eval(parse_expr(Pool))),
-    transform = map(derep2, err, PID, Homopolymer.Gap.Penalty, Band.Size, Pool,
+    transform = map(err, .data = !!meta3,
                     .tag_in = step,
                     .id = PID)),
   
   # Make maps from individual sequences in source files to dada ASVs
   dada_map = target(
-    dadamap(derep2, dada),
-    transform = map(derep2, dada, PID,
+    dadamap(region_derep, dada),
+    transform = map(dada, .data = !!meta3,
                     .tag_in = step, .id = PID)),
   
   # Make a sample x ASV abundance matrix
   seq_table = target(
     makeSequenceTable(dada),
-    transform = map(dada, PID, .tag_in = step, .id = PID)),
+    transform = map(dada, .data = !!meta3, .tag_in = step, .id = PID)),
   
   # Remove likely bimeras
   nochim = target(
     dada2::removeBimeraDenovo(seq_table, method = "consensus",
                               multithread = ignore(!!dada_cpu)),
-    transform = map(seq_table, PID, .tag_in = step, .id = PID)),
+    transform = map(seq_table, .data = !!meta3, .tag_in = step, .id = PID)),
   
   # Join all the sequence tables for each region
   big_seq_table = target(
@@ -446,7 +454,7 @@ tictoc::toc()
 
 if (interactive()) {
   vis_drake_graph(dconfig,
-                  group = "step", clusters = plansteps,
+                  # group = "step", clusters = plansteps,
                   targets_only = TRUE)
 }
 remove(dconfig)
@@ -569,7 +577,7 @@ if (length(predada_targets)) {
   predada_template <- list()
   
   if (is_slurm 
-      && nrow(meta3) > local_cpu) {
+      && nrow(meta3) > 2 * local_cpu) {
     predada_jobs <- nrow(meta3)
     predada_parallelism <- "clustermq"
     predada_template <- list(
