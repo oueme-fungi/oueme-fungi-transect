@@ -101,9 +101,9 @@ bigsplit <- 80
 # the computationally intensive parts of the dada pipeline have an internal
 # parallel implementation.  This speeds them up, but with diminishing
 # returns.  How many cores do we want?
-dadacores <- 8
+dada_cpu <- 8
 # reduce that if it's not possible
-dadacores <- min(dadacores, max_cpu)
+dada_cpu <- min(dada_cpu, max_cpu)
 # what is the maximum number of dada jobs we can run?
 # (we will later limit it to the number of regions*sequencing runs)
 dadajobs <- Inf
@@ -111,12 +111,12 @@ dadajobs <- Inf
 local_dada <- is_local # for now
 # if we're runing on one machine, then we need to limit the number of jobs.
 if (local_dada) {
-  dadajobs <- max_cpu %/% dadacores
+  dadajobs <- max_cpu %/% dada_cpu
   # if this will leave us with extra cores, use them too.
-  dadacores <- max_cpu %/% dadajobs
+  dada_cpu <- max_cpu %/% dadajobs
 }
 
-cat("dadacores =", dadacores, "\n")
+cat("dada_cpu =", dada_cpu, "\n")
 cat("dadajobs =", dadajobs, "\n")
 
 #### read scripts and configs ####
@@ -334,7 +334,7 @@ plan <- drake_plan(
                       PacBioErrfun,
                       loessErrfun)
     learnErrors(fls = derep2, nbases = 1e8,
-                multithread = ignore(!!dadacores), randomize = TRUE,
+                multithread = ignore(!!dada_cpu), randomize = TRUE,
                 errorEstimationFunction = err.fun,
                 verbose = TRUE,
                 qualityType = "FastqQuality")},
@@ -344,7 +344,7 @@ plan <- drake_plan(
   # Run dada denoising algorithm
   dada = target(
     dada(derep = derep2, err = err,
-         multithread = ignore(!!dadacores), 
+         multithread = ignore(!!dada_cpu), 
          HOMOPOLYMER_GAP_PENALTY = eval(parse_expr(Homopolymer.Gap.Penalty)),
          BAND_SIZE = Band.Size,
          pool = eval(parse_expr(Pool))),
@@ -366,7 +366,7 @@ plan <- drake_plan(
   # Remove likely bimeras
   nochim = target(
     dada2::removeBimeraDenovo(seq_table, method = "consensus",
-                              multithread = ignore(!!dadacores)),
+                              multithread = ignore(!!dada_cpu)),
     transform = map(seq_table, PID, .tag_in = step, .id = PID)),
   
   # Join all the sequence tables for each region
@@ -378,7 +378,7 @@ plan <- drake_plan(
   taxon = target(
     taxonomy(big_seq_table,
              reference = file_in(!!file.path(ref.dir, paste0(Reference, ".fasta.gz"))),
-             multithread = ignore(!!dadacores)),
+             multithread = ignore(!!dada_cpu)),
     transform = map(.data = !!meta4, .tag_in = step, .id = TID)),
   
   # Download the FUNGuild database
@@ -510,7 +510,7 @@ if (length(preitsx_targets)) {
   future::plan(strategy = "multiprocess")
   make(plan,
        parallelism = "future",
-       jobs = max(local_cpu %/% dadacores, 1),
+       jobs = max(local_cpu %/% dada_cpu, 1),
        jobs_preprocess = local_cpu,
        retries = 2,
        elapsed = 3600, # 1 hour
@@ -573,14 +573,13 @@ if (length(predada_targets)) {
     predada_template <- list(
       log_file = glue("logs/predada-{timestamp}%a.log"),
       memory = 7*1024) # 7 gb is 1 processor on a fat node or 2 on a regular
-  }
-  cat("\n Making pre-dada targets (multiprocess)...\n")
+  }cat("\n Making pre-dada targets (multiprocess)...\n")
   tictoc::tic()
   make(plan,
        parallelism = predada_parallelism,
        template = predada_template,
        jobs = predada_jobs,
-       jobs_preprocess = local_cores,
+       jobs_preprocess = local_cpu,
        retries = 2,
        elapsed = 3600, #1 hour
        keep_going = FALSE,
@@ -604,13 +603,13 @@ dada_targets <- str_subset(od, "^taxon_")
 if (length(dada_targets)) {
   if (is_slurm) {
     dada_parallelism <- "clustermq"
-    dada_template <- list(ncpus = dadacores, 
+    dada_template <- list(ncpus = dada_cpu, 
                           log_file = glue("logs/dada-{timestamp)}%a.log"))
   } else {
     dada_parallelism <- if (dadajobs > 1) "future" else "loop"
     dada_template <- list()
   }
-cat("\n Making DADA and taxonomy targets (multiprocess with", dadacores, "cores per target)...\n")
+cat("\n Making DADA and taxonomy targets (multiprocess with", dada_cpu, "cores per target)...\n")
 tictoc::tic()
 make(plan,
      parallelism = dada_parallelism,
