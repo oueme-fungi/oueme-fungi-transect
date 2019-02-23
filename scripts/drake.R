@@ -489,7 +489,7 @@ if (length(derep_targets)) {
        jobs_preprocess = local_cpu,
        retries = 2,
        elapsed = 3600, # 1 hour per target is more than enough
-       keep_going = TRUE,
+       keep_going = FALSE,
        caching = "worker",
        cache_log_file = TRUE,
        targets = derep_targets
@@ -514,7 +514,7 @@ if (length(preitsx_targets)) {
        jobs_preprocess = local_cpu,
        retries = 2,
        elapsed = 3600, # 1 hour
-       keep_going = TRUE,
+       keep_going = FALSE,
        caching = "worker",
        cache_log_file = TRUE,
        targets = preitsx_targets
@@ -561,35 +561,37 @@ derep2_targets <- str_subset(od, "^derep2_")
 predada_targets <- c(str_subset(od, "^derep2_"),
                      str_subset(od, "^(qstats_knit|seq_counts)$"))
 if (length(predada_targets)) {
-  if (is_slurm) {
-    predada_parallelism <- "clustermq"
+  
+  predada_parallelism <- "future"
+  predada_jobs <- local_cpu
+  predada_template <- list()
+  
+  if (is_slurm 
+      && nrow(meta3) > local_cores) {
     predada_jobs <- nrow(meta3)
+    predada_parallelism <- "clustermq"
     predada_template <- list(
       log_file = glue("logs/predada-{timestamp}%a.log"),
       memory = 7*1024) # 7 gb is 1 processor on a fat node or 2 on a regular
-  } else {
-    predada_parallelism <- "future"
-    predada_jobs <- local_cpu
-    predada_template <- list()
   }
-cat("\n Making pre-dada targets (multiprocess)...\n")
-tictoc::tic()
-make(plan,
-     parallelism = predada_parallelism,
-     template = predada_template,
-     jobs = predada_jobs,
-     jobs_preprocess = local_cores,
-     retries = 2,
-     elapsed = 3600, #1 hour
-     keep_going = TRUE,
-     caching = "worker",
-     cache_log_file = TRUE,
-     targets = predada_targets
-)
-tictoc::toc()
-if (length(failed())) {
-  if (interactive()) stop() else quit(status = 1)
-}
+  cat("\n Making pre-dada targets (multiprocess)...\n")
+  tictoc::tic()
+  make(plan,
+       parallelism = predada_parallelism,
+       template = predada_template,
+       jobs = predada_jobs,
+       jobs_preprocess = local_cores,
+       retries = 2,
+       elapsed = 3600, #1 hour
+       keep_going = FALSE,
+       caching = "worker",
+       cache_log_file = TRUE,
+       targets = predada_targets
+  )
+  tictoc::toc()
+  if (length(failed())) {
+    if (interactive()) stop() else quit(status = 1)
+  }
 } else cat("\n Pre-DADA2 targets are up-to-date. \n")
 
 
@@ -617,7 +619,7 @@ make(plan,
      template = dada_template,
      retries = 1,
      elapsed = 3600*6, #6 hours
-     keep_going = TRUE,
+     keep_going = FALSE,
      caching = "worker",
      cache_log_file = TRUE,
      targets = dada_targets
@@ -640,7 +642,7 @@ make(plan,
      jobs_preprocess = local_cpu,
      retries = 2,
      elapsed = 600, # 10 minutes
-     keep_going = TRUE,
+     keep_going = FALSE,
      caching = "worker",
      cache_log_file = TRUE
 )
