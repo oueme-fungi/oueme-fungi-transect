@@ -30,6 +30,8 @@
 # always redo this makefile, in case something (number of cores!) changes.
 rm -f demux.make &&
 
+## texlive from conda isn't functional
+module load texlive &&
 conda activate oueme1 &&
 
 # convert PacBio RSII files to .bam format

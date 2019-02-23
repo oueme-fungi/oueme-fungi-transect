@@ -440,7 +440,7 @@ if (!interactive()) saveRDS(plan, "plan.rds")
 
 cat("\nCalculating outdated targets...\n")
 tictoc::tic()
-dconfig <- drake_config(plan)
+dconfig <- drake_config(plan, jobs_preprocess = local_cpu)
 od <- outdated(dconfig)
 tictoc::toc()
 
@@ -477,6 +477,7 @@ if (length(derep_targets)) {
     cat("\n Dereplicating input files (SLURM)...\n")
   } else {
     derep_parallelism = "future"
+    future::plan(strategy = "multiprocess")
     derep_jobs = local_cpu
     derep_template <- list()
     cat("\n Dereplicating input files (multiprocess)...\n")
@@ -557,23 +558,25 @@ if (is_slurm && length(itsx_targets)) {
 #### pre-DADA2 ####
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
-derep2_targets <- str_subset(od, "^derep2_")
-predada_targets <- c(str_subset(od, "^derep2_"),
+derep2_targets <- str_subset(od, "^filter_")
+predada_targets <- c(str_subset(od, "^filter_"),
                      str_subset(od, "^(qstats_knit|seq_counts)$"))
 if (length(predada_targets)) {
   
   predada_parallelism <- "future"
+  future::plan(strategy = "multiprocess")
   predada_jobs <- local_cpu
   predada_template <- list()
   
   if (is_slurm 
-      && nrow(meta3) > local_cores) {
+      && nrow(meta3) > local_cpu) {
     predada_jobs <- nrow(meta3)
     predada_parallelism <- "clustermq"
     predada_template <- list(
       log_file = glue("logs/predada-{timestamp}%a.log"),
       memory = 7*1024) # 7 gb is 1 processor on a fat node or 2 on a regular
-  }cat("\n Making pre-dada targets (multiprocess)...\n")
+  }
+  cat("\n Making pre-dada targets (multiprocess)...\n")
   tictoc::tic()
   make(plan,
        parallelism = predada_parallelism,
@@ -607,6 +610,7 @@ if (length(dada_targets)) {
                           log_file = glue("logs/dada-{timestamp)}%a.log"))
   } else {
     dada_parallelism <- if (dadajobs > 1) "future" else "loop"
+    future::plan(strategy = "multiprocess")
     dada_template <- list()
   }
 cat("\n Making DADA and taxonomy targets (multiprocess with", dada_cpu, "cores per target)...\n")
@@ -635,6 +639,7 @@ if (length(failed())) {
 if (length(od)) {
 cat("\n Making all remaining targets (multiprocess)...\n")
 tictoc::tic()
+future::plan(strategy = "multiprocess")
 make(plan,
      parallelism = if (local_cpu > 1) "future" else "loop",
      jobs = local_cpu,
