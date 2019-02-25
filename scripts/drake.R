@@ -16,8 +16,6 @@ library(rITSx)
 library(ShortRead)
 library(dada2)
 
-# This tells us the total number of cores on our current machine.
-
 if (interactive()) {
   base.dir <- here()
   r.dir <- here("scripts")
@@ -67,7 +65,7 @@ if (interactive()) {
 #### parallel setup ####
 
 # how many cpus do we have on the local machine?
-local_cpu <- detectCores()
+local_cpus <- detectCores()
 
 # are we running slurm?
 is_slurm <- nchar(Sys.which("sbatch")) > 0
@@ -84,40 +82,36 @@ if (is_slurm) {
   slurminfo <- read_fwf(slurminfo,
                         fwf_empty(slurminfo, col_names = slurmcolnames),
                         skip = 1)
-  max_cpu <- max(slurminfo[["CPUS"]])
-  local_cpu <- as.integer(Sys.getenv("CORES_PER_TASK"))
+  max_cpus <- max(slurminfo[["CPUS"]])
+  local_cpus <- as.integer(Sys.getenv("CORES_PER_TASK"))
 } else {
-  max_cpu <- max(local_cpu - 1, 1)
-  local_cpu <- max_cpu
+  max_cpus <- max(local_cpus - 1, 1)
+  local_cpus <- max_cpus
 }
-cat("max_cpu =", max_cpu, "\n")
-cat("local_cpu =", local_cpu, "\n")
+cat("max_cpus =", max_cpus, "\n")
+cat("local_cpus =", local_cpus, "\n")
 
 # the hmmersearch in itsx is very slow, but super parallel.
 # we can break it into a lot of pieces and run it on several nodes.
-bigsplit <- 80
 # changing this value will invalidate most of the drake cache
+bigsplit <- 80L
+# hmmer can also use multiple processes per job; it tends to become I/O bound after about 4.
+itsx_cpus <- 4L
+itsx_cpus <- min(itsx_cpus, max_cpus)
+itsx_jobs <- bigsplit
 
 # the computationally intensive parts of the dada pipeline have an internal
 # parallel implementation.  This speeds them up, but with diminishing
 # returns.  How many cores do we want?
-dada_cpu <- 8
+dada_cpus <- 8L
 # reduce that if it's not possible
-dada_cpu <- min(dada_cpu, max_cpu)
+dada_cpus <- min(dada_cpus, max_cpus)
 # what is the maximum number of dada jobs we can run?
 # (we will later limit it to the number of regions*sequencing runs)
-dadajobs <- Inf
-# are we going to run the dada pipeline on this machine?
-local_dada <- is_local # for now
-# if we're runing on one machine, then we need to limit the number of jobs.
-if (local_dada) {
-  dadajobs <- max_cpu %/% dada_cpu
-  # if this will leave us with extra cores, use them too.
-  dada_cpu <- max_cpu %/% dadajobs
-}
+dada_jobs <- Inf
 
-cat("dada_cpu =", dada_cpu, "\n")
-cat("dadajobs =", dadajobs, "\n")
+cat("dada_cpus =", dada_cpus, "\n")
+cat("dada_jobs =", dada_jobs, "\n")
 
 #### read scripts and configs ####
 # load various pipeline functions
@@ -250,10 +244,11 @@ plan <- drake_plan(
   # in the sequences from each chunk
   itsx_shard = target(
     itsx(in.file = split_fasta[[shard]],
+         nhmmer = TRUE,
          read_function = Biostrings::readDNAStringSet,
          fasta = FALSE, summary = FALSE, graphical = FALSE,
          save_regions = "none", not_found = FALSE,
-         complement = FALSE, cpu = 1)[["positions"]],
+         complement = FALSE, cpu = ignore(itsx_cpus))[["positions"]],
     transform = cross(split_fasta,
                       shard = !!(1:bigsplit),
                       .tag_in = step,
@@ -313,11 +308,11 @@ plan <- drake_plan(
   derep2 = target({
     infile <- file_in(!!file.path(filter.dir, Filter.File))
     if (file.size(infile) > 50) {
-      out <- dada2::derepFastq(fls = infiles, n = 1e4,
+      out <- dada2::derepFastq(fls = infile, n = 1e4,
                                qualityType = "FastqQuality")
-      fqs <- FastqStreamer(infile, n = 1e4, qualityType = "FastqQuality")
+      fqs <- FastqStreamer(infile, n = 1e4)
       seqids <- character(0)
-      while (length(fq <- yield(fqs))) {
+      while (length(fq <- yield(fqs, qualityType = "FastqQuality"))) {
         seqids <- c(seqids, as.character(fq@id))
       }
       close(fqs)
@@ -325,7 +320,9 @@ plan <- drake_plan(
     } else {
       out = NULL
     }
-    list(Filter.File = out)
+    result <- list()
+    result[[Filter.File]] <- out
+    result
   },
   transform = map(.data = !!meta2,
                   .tag_in = step,
@@ -342,7 +339,7 @@ plan <- drake_plan(
                       PacBioErrfun,
                       loessErrfun)
     learnErrors(fls = region_derep, nbases = 1e8,
-                multithread = ignore(!!dada_cpu), randomize = TRUE,
+                multithread = ignore(dada_cpus), randomize = TRUE,
                 errorEstimationFunction = err.fun,
                 verbose = TRUE,
                 qualityType = "FastqQuality")},
@@ -352,7 +349,7 @@ plan <- drake_plan(
   # Run dada denoising algorithm
   dada = target(
     dada(derep = region_derep, err = err,
-         multithread = ignore(!!dada_cpu), 
+         multithread = ignore(dada_cpus), 
          HOMOPOLYMER_GAP_PENALTY = eval(parse_expr(Homopolymer.Gap.Penalty)),
          BAND_SIZE = Band.Size,
          pool = eval(parse_expr(Pool))),
@@ -374,7 +371,7 @@ plan <- drake_plan(
   # Remove likely bimeras
   nochim = target(
     dada2::removeBimeraDenovo(seq_table, method = "consensus",
-                              multithread = ignore(!!dada_cpu)),
+                              multithread = ignore(dada_cpus)),
     transform = map(seq_table, .data = !!meta3, .tag_in = step, .id = PID)),
   
   # Join all the sequence tables for each region
@@ -386,7 +383,7 @@ plan <- drake_plan(
   taxon = target(
     taxonomy(big_seq_table,
              reference = file_in(!!file.path(ref.dir, paste0(Reference, ".fasta.gz"))),
-             multithread = ignore(!!dada_cpu)),
+             multithread = ignore(dada_cpus)),
     transform = map(.data = !!meta4, .tag_in = step, .id = TID)),
   
   # Download the FUNGuild database
@@ -448,7 +445,7 @@ if (!interactive()) saveRDS(plan, "plan.rds")
 
 cat("\nCalculating outdated targets...\n")
 tictoc::tic()
-dconfig <- drake_config(plan, jobs_preprocess = local_cpu)
+dconfig <- drake_config(plan, jobs_preprocess = local_cpus)
 od <- outdated(dconfig)
 tictoc::toc()
 
@@ -481,12 +478,12 @@ if (length(derep_targets)) {
     # These jobs are relatively quick though, so we don't need a single
     # worker each.
     derep_jobs = min(bigsplit, length(derep_targets) %/% 4)
-    derep_template = list(log_file = glue("logs/derep-{timestamp}%a.log"))
+    derep_template = list(log_file = glue("logs/derep-%A_%a.log"))
     cat("\n Dereplicating input files (SLURM)...\n")
   } else {
     derep_parallelism = "future"
     future::plan(strategy = "multiprocess")
-    derep_jobs = local_cpu
+    derep_jobs = local_cpus
     derep_template <- list()
     cat("\n Dereplicating input files (multiprocess)...\n")
   }
@@ -495,7 +492,7 @@ if (length(derep_targets)) {
        parallelism = derep_parallelism,
        template = derep_template,
        jobs = derep_jobs,
-       jobs_preprocess = local_cpu,
+       jobs_preprocess = local_cpus,
        retries = 2,
        elapsed = 3600, # 1 hour per target is more than enough
        keep_going = FALSE,
@@ -519,8 +516,8 @@ if (length(preitsx_targets)) {
   future::plan(strategy = "multiprocess")
   make(plan,
        parallelism = "future",
-       jobs = max(local_cpu %/% dada_cpu, 1),
-       jobs_preprocess = local_cpu,
+       jobs = max(local_cpus %/% dada_cpus, 1),
+       jobs_preprocess = local_cpus,
        retries = 2,
        elapsed = 3600, # 1 hour
        keep_going = FALSE,
@@ -542,17 +539,43 @@ if (length(preitsx_targets)) {
 # shards and submit them all as seperate jobs on SLURM.
 # failing that, do all the shards locally on the cores we have.
 itsx_targets <- str_subset(od, "^itsx_shard")
-if (is_slurm && length(itsx_targets)) {
-  itsx_jobs <- min(max(ceiling(length(itsx_targets) / 2), bigsplit), length(itsx_targets))
-  cat("\n Making itsx_shard (SLURM with ", itsx_jobs, "workers)...\n")
+
+if (length(itsx_targets)) {
+  # send two jobs per target to help with load balancing
+  # this will tend to be one Ion Torrent job (long, first) and one PacBio job (short, second)
+  itsx_jobs <- max(ceiling(length(itsx_targets) / 2), itsx_jobs)
+  # in any case never send more jobs than there are targets
+  itsx_jobs <- min(itsx_jobs, length(itsx_targets))
+
+  # do it as SLURM jobs if possible and
+  # - we don't have enough local cores to run 1 job locally
+  #   -or-
+  # - it would use less than twice as much total CPU time, compared to running locally
+  if (is_slurm
+      && ((local_cpus < itsx_cpus)
+          || (length(itsx_targets) / itsx_jobs * (itsx_jobs * itsx_cpus + local_cpus) <
+              2 * length(itsx_targets) * itsx_cpus))) {
+    itsx_parallelism <- "clustermq"
+    itsx_template <- list(log_file = glue("logs/itsx-%A_%a.log"),
+                         ncpus = itsx_cpus,
+                         memory = 7*1024,
+                         timeout = 1800) # the master can take a while to send everything.
+    cat("\n Making itsx_shard (SLURM with ", itsx_jobs, "worker(s))...\n")
+  } else {
+    itsx_jobs <- local_cpus %/% itsx_cpus
+    itsx_cpus <- local_cpus %/% itsx_cpus
+    itsx_parallelism <- if (itsx_jobs > 1) "future" else "loop"
+    future::plan(strategy = "multiprocess")
+    itsx_template = list()
+    cat("\n Making itsx_shard (local with ", itsx_jobs, "worker(s))...\n")
+  }
   tictoc::tic()
   make(plan,
-       parallelism = "clustermq",
-       template = list(log_file = glue("logs/itsx-{timestamp}%a.log"),
-                       memory = 7*1024),
+       parallelism = itsx_parallelism,
+       template = itsx_template,
        jobs = itsx_jobs,
        elapsed = 3600*6, #6 hours
-       jobs_preprocess = local_cpu,
+       jobs_preprocess = local_cpus,
        caching = "worker",
        cache_log_file = TRUE,
        targets = itsx_targets
@@ -566,22 +589,22 @@ if (is_slurm && length(itsx_targets)) {
 #### pre-DADA2 ####
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
-derep2_targets <- str_subset(od, "^filter_")
-predada_targets <- c(str_subset(od, "^filter_"),
+derep2_targets <- str_subset(od, "^derep2_")
+predada_targets <- c(str_subset(od, "^derep2_"),
                      str_subset(od, "^(qstats_knit|seq_counts)$"))
 if (length(predada_targets)) {
   
   predada_parallelism <- "future"
   future::plan(strategy = "multiprocess")
-  predada_jobs <- local_cpu
+  predada_jobs <- local_cpus
   predada_template <- list()
   
   if (is_slurm 
-      && nrow(meta3) > 2 * local_cpu) {
+      && nrow(meta3) > 2 * local_cpus) {
     predada_jobs <- nrow(meta3)
     predada_parallelism <- "clustermq"
     predada_template <- list(
-      log_file = glue("logs/predada-{timestamp}%a.log"),
+      log_file = glue("logs/predada-%A_%a.log"),
       memory = 7*1024) # 7 gb is 1 processor on a fat node or 2 on a regular
   }
   cat("\n Making pre-dada targets (multiprocess)...\n")
@@ -590,7 +613,7 @@ if (length(predada_targets)) {
        parallelism = predada_parallelism,
        template = predada_template,
        jobs = predada_jobs,
-       jobs_preprocess = local_cpu,
+       jobs_preprocess = local_cpus,
        retries = 2,
        elapsed = 3600, #1 hour
        keep_going = FALSE,
@@ -611,22 +634,28 @@ if (length(predada_targets)) {
 # the local machine
 
 dada_targets <- str_subset(od, "^taxon_")
-if (length(dada_targets)) {
+if (length(dada_targets) > 0) {
+cat("\n Making DADA and taxonomy targets") 
   if (is_slurm) {
     dada_parallelism <- "clustermq"
-    dada_template <- list(ncpus = dada_cpu, 
-                          log_file = glue("logs/dada-{timestamp)}%a.log"))
+    dada_template <- list(ncpus = dada_cpus, 
+                          log_file = glue("logs/dada-%A_%a.log"))
+    dada_jobs <- length(dada_targets)
+  cat("(SLURM with", dada_cpus, "cores per worker and", dada_jobs, "workers)...\n")
   } else {
-    dada_parallelism <- if (dadajobs > 1) "future" else "loop"
+    dada_jobs <- local_cpus %/% dada_cpus
+    # if this will leave us with extra cores, use them too.
+    dada_cpus <- local_cpus %/% dada_jobs
+    dada_parallelism <- if (dada_jobs > 1) "future" else "loop"
     future::plan(strategy = "multiprocess")
     dada_template <- list()
+cat("(local with", dada_cpus, "cores per task and", dada_jobs, "simultaneous tasks)...\n")
   }
-cat("\n Making DADA and taxonomy targets (multiprocess with", dada_cpu, "cores per target)...\n")
 tictoc::tic()
 make(plan,
      parallelism = dada_parallelism,
-     jobs = dadajobs,
-     jobs_preprocess = local_cpu,
+     jobs = dada_jobs,
+     jobs_preprocess = local_cpus,
      template = dada_template,
      retries = 1,
      elapsed = 3600*6, #6 hours
@@ -649,9 +678,9 @@ cat("\n Making all remaining targets (multiprocess)...\n")
 tictoc::tic()
 future::plan(strategy = "multiprocess")
 make(plan,
-     parallelism = if (local_cpu > 1) "future" else "loop",
-     jobs = local_cpu,
-     jobs_preprocess = local_cpu,
+     parallelism = if (local_cpus > 1) "future" else "loop",
+     jobs = local_cpus,
+     jobs_preprocess = local_cpus,
      retries = 2,
      elapsed = 600, # 10 minutes
      keep_going = FALSE,

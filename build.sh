@@ -10,6 +10,7 @@
 #SBATCH -J oueme-fungi-transect
 #SBATCH -C usage_mail
 #SBATCH --mail-type=ALL
+#SBATCH --output="logs/master-%j.log"
 
 # Disabled -- not sure how to make it work when calling new SLURM jobs from the main one.
 
