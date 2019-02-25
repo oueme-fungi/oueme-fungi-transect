@@ -26,6 +26,8 @@ plan.rds
 ITSx_temp*
 Rtmp*
 .future
-
 private
 snowy-*.png
+.snakemake
+.idea
+.spyderworkspace
