@@ -1,22 +1,5 @@
-library(magrittr)
-library(tidyverse)
-library(rlang)
-library(glue)
-library(readxl)
-
-library(here)
-library(drake)
-library(future)
-
-library(assertthat)
-library(assertr)
-
-library(FUNGuildR)
-library(rITSx)
-library(ShortRead)
-library(dada2)
-
 if (interactive()) {
+  library(here)
   base.dir <- here()
   r.dir <- here("scripts")
   data.dir <- here("data")
@@ -35,6 +18,22 @@ if (interactive()) {
   regions.file <- file.path(lab.dir, "regions.csv")
   platemap.file <- file.path(lab.dir, "Brendan_soil2.xlsx")
   platemap.sheet <- "Concentration samples"
+} else if (exists("snakemake")) {
+  r.dir <- snakemake@config$rdir
+  dataset.file <- snakemake@input$dataset
+  regions.file <- snakemake@input$regions
+  platemap.file <- snakemake@input$platemap
+  platemap.sheet <- snakemake@config$platemap_sheet
+  target <- sub("^.", "", snakemake@output)
+  trim.dir <- snakemake@config$trimdir
+  region.dir <- snakemake@config$regiondir
+  filter.dir <- snakemake@config$filterdir
+  ref.dir <- snakemake@config$ref_root
+  rmd.dir <- snakemake@config$rmddir
+  out.dir <- snakemake@config$outdir
+  prereqs <- snakemake@input
+  in.files <- snakemake@input$fastq
+  sink(snakemake@log)
 } else {
   r.dir <- Sys.getenv("RDIR")
   dataset.file <- Sys.getenv("DATASET")
@@ -55,12 +54,28 @@ if (interactive()) {
   prereqs <- readLines(con)
   close(con)
   prereqs <- str_split(prereqs, " ") %>% unlist
-#  cat("prereqs: ", prereqs, "\n")
   
   in.files <- str_subset(prereqs,
                          pattern = "\\.trim\\.fastq\\.gz$")
-#  cat("in.files: ", in.files, "\n")
 }
+
+library(magrittr)
+library(tidyverse)
+library(rlang)
+library(glue)
+library(readxl)
+
+library(here)
+library(drake)
+library(future)
+
+library(assertthat)
+library(assertr)
+
+library(FUNGuildR)
+library(rITSx)
+library(ShortRead)
+library(dada2)
 
 #### parallel setup ####
 
@@ -95,10 +110,6 @@ cat("local_cpus =", local_cpus, "\n")
 # we can break it into a lot of pieces and run it on several nodes.
 # changing this value will invalidate most of the drake cache
 bigsplit <- 80L
-# hmmer can also use multiple processes per job; it tends to become I/O bound after about 4.
-itsx_cpus <- 4L
-itsx_cpus <- min(itsx_cpus, max_cpus)
-itsx_jobs <- bigsplit
 
 # the computationally intensive parts of the dada pipeline have an internal
 # parallel implementation.  This speeds them up, but with diminishing
@@ -218,10 +229,11 @@ plan <- drake_plan(
   # dereplicate input sequences before running ITSx
   # this is done independently in parallel
   derep1 = target(
-    tibble(file = Trim.File,
-           derep = list(derepFastq(file_in(!!file.path(trim.dir, Trim.File)),
-                                   qualityType = "FastqQuality",
-                                   n = 1e4) %>% inset2("quals", NULL))),
+    tibble::tibble(
+      file = Trim.File,
+      derep = list(dada2::derepFastq(file_in(!!file.path(trim.dir, Trim.File)),
+                                     qualityType = "FastqQuality",
+                                     n = 1e4) %>% inset2("quals", NULL))),
     transform = map(.data = !!select(meta1, Trim.File, FID, Primer.pair),
                     .tag_in = step,
                     .id = FID)),
@@ -243,12 +255,12 @@ plan <- drake_plan(
   # find the location of LSU, 5.8S, and SSU (and this ITS1 and ITS2)
   # in the sequences from each chunk
   itsx_shard = target(
-    itsx(in.file = split_fasta[[shard]],
-         nhmmer = TRUE,
-         read_function = Biostrings::readDNAStringSet,
-         fasta = FALSE, summary = FALSE, graphical = FALSE,
-         save_regions = "none", not_found = FALSE,
-         complement = FALSE, cpu = ignore(itsx_cpus))[["positions"]],
+    rITSx::itsx(in.file = split_fasta[[shard]],
+                nhmmer = TRUE,
+                read_function = Biostrings::readDNAStringSet,
+                fasta = FALSE, summary = FALSE, graphical = FALSE,
+                save_regions = "none", not_found = FALSE,
+                complement = FALSE, cpu = ignore(itsx_cpus))[["positions"]],
     transform = cross(split_fasta,
                       shard = !!(1:bigsplit),
                       .tag_in = step,
@@ -256,7 +268,7 @@ plan <- drake_plan(
   
   # combine the chunks into a master positions list.
   itsxtrim = target(
-    bind_rows(itsx_shard),
+    dplyr::bind_rows(itsx_shard),
     transform = combine(itsx_shard,
                         .tag_in = step,
                         .by = Primer.pair)),
@@ -264,9 +276,10 @@ plan <- drake_plan(
   # find the entries in the positions list which correspond to the sequences
   # in each file
   positions = target(
-    filter(join_derep$map, file == Trim.File) %>%
-      left_join(itsxtrim, by = c("newmap" = "seq")),
-    transform = map(.data = !!select(meta1, join_derep, itsxtrim, Trim.File, FID),
+    dplyr::filter(join_derep$map, file == Trim.File) %>%
+      dplyr::left_join(itsxtrim, by = c("newmap" = "seq")),
+    transform = map(.data = !!select(meta1, join_derep, itsxtrim, Trim.File,
+                                     FID),
                     .tag_in = step,
                     .id = FID)),
   
@@ -310,9 +323,9 @@ plan <- drake_plan(
     if (file.size(infile) > 50) {
       out <- dada2::derepFastq(fls = infile, n = 1e4,
                                qualityType = "FastqQuality")
-      fqs <- FastqStreamer(infile, n = 1e4)
+      fqs <- ShortRead::FastqStreamer(infile, n = 1e4)
       seqids <- character(0)
-      while (length(fq <- yield(fqs, qualityType = "FastqQuality"))) {
+      while (length(fq <- ShortRead::yield(fqs, qualityType = "FastqQuality"))) {
         seqids <- c(seqids, as.character(fq@id))
       }
       close(fqs)
@@ -329,30 +342,30 @@ plan <- drake_plan(
                   .id = RID)),
   
   region_derep = target(
-    compact(c(derep2)),
+    purrr::compact(c(derep2)),
     transform = combine(derep2, .by = PID, .tag_in = step),
   ),
   
   # Calibrate dada error models
   err = target({
     err.fun <- ifelse(Tech == "PacBio",
-                      PacBioErrfun,
-                      loessErrfun)
-    learnErrors(fls = region_derep, nbases = 1e8,
-                multithread = ignore(dada_cpus), randomize = TRUE,
-                errorEstimationFunction = err.fun,
-                verbose = TRUE,
-                qualityType = "FastqQuality")},
+                      dada2::PacBioErrfun,
+                      dada2::loessErrfun)
+    dada2::learnErrors(fls = region_derep, nbases = 1e8,
+                       multithread = ignore(dada_cpus), randomize = TRUE,
+                       errorEstimationFunction = err.fun,
+                       verbose = TRUE,
+                       qualityType = "FastqQuality")},
     transform = map(.data = !!meta3,
                     .tag_in = step, .id = PID)),
   
   # Run dada denoising algorithm
   dada = target(
-    dada(derep = region_derep, err = err,
-         multithread = ignore(dada_cpus), 
-         HOMOPOLYMER_GAP_PENALTY = eval(parse_expr(Homopolymer.Gap.Penalty)),
-         BAND_SIZE = Band.Size,
-         pool = eval(parse_expr(Pool))),
+    dada2::dada(derep = region_derep, err = err,
+                multithread = ignore(dada_cpus), 
+                HOMOPOLYMER_GAP_PENALTY = eval(parse_expr(Homopolymer.Gap.Penalty)),
+                BAND_SIZE = Band.Size,
+                pool = eval(parse_expr(Pool))),
     transform = map(err, .data = !!meta3,
                     .tag_in = step,
                     .id = PID)),
@@ -365,7 +378,7 @@ plan <- drake_plan(
   
   # Make a sample x ASV abundance matrix
   seq_table = target(
-    makeSequenceTable(dada),
+    dada2::makeSequenceTable(dada),
     transform = map(dada, .data = !!meta3, .tag_in = step, .id = PID)),
   
   # Remove likely bimeras
@@ -387,20 +400,20 @@ plan <- drake_plan(
     transform = map(.data = !!meta4, .tag_in = step, .id = TID)),
   
   # Download the FUNGuild database
-  funguild_db = get_funguild_db(),
+  funguild_db = FUNGuildR::get_funguild_db(),
   
   # Assign ecological guilds to the ASVs based on taxonomy.
   guilds_table = target(
-    funguild_assign(taxon, db = funguild_db),
+    FUNGuildR::funguild_assign(taxon, db = funguild_db),
     transform = map(taxon, TID, .tag_in = step, .id = TID)),
   
   platemap = read_platemap(file_in(!!platemap.file), platemap.sheet),
   
   # Count the sequences in each fastq file
   seq_count = target(
-    tibble(
+    tibble::tibble(
       file = file_in(fq.file),
-      reads = system(glue("zcat {file} | grep -c '^@'", file = fq.file),
+      reads = system(glue::glue("zcat {file} | grep -c '^@'", file = fq.file),
                      intern = TRUE) %>%
         as.integer),
     transform = map(fq.file = !!c(file.path(trim.dir, meta1$Trim.File),
@@ -410,7 +423,7 @@ plan <- drake_plan(
   
   # merge all the sequence counts into one data.frame
   seq_counts = target(
-    bind_rows(seq_count),
+    dplyr::bind_rows(seq_count),
     transform = combine(seq_count)),
 
   # calculate quality stats for the different regions
@@ -421,12 +434,12 @@ plan <- drake_plan(
                     .id = RID)),
   # join all the quality stats into one data.frame
   qstats_join = target(
-    bind_rows(qstats) %>%
+    dplyr::bind_rows(qstats) %>%
       tidyr::extract(
         col = "file",
         into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),
         regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.trim\\.fastq\\.gz") %>%
-      left_join(datasets),
+      dplyr::left_join(datasets),
     transform = combine(qstats)),
   # knit a report about the quality stats.
   qstats_knit = {
@@ -455,245 +468,12 @@ if (interactive()) {
                   targets_only = TRUE)
 }
 remove(dconfig)
-
-if (is_slurm) {
-  options(clustermq.scheduler = "slurm",
-          clustermq.template = "slurm_clustermq.tmpl")
-} else {
-  options(clustermq.scheduler = "multicore")
-}
-
-timestamp <- strftime(Sys.time(), '%Y%m%d%H%M%S')
-
-#### pre-ITSx ####
-# make embarassingly parallel targets at the beginning
-# if running on SLURM, use the clustermq backend.
-# if running on the local machine, future has less overhead.
-derep_targets <- str_subset(od, "^derep1_")
-if (length(derep_targets)) {
-  if (is_slurm) {
-    derep_parallelism = "clustermq"
-    # the widest part of the workflow is dereplication of each file,
-    # so we can determine how many workers to use based on this.
-    # These jobs are relatively quick though, so we don't need a single
-    # worker each.
-    derep_jobs = min(bigsplit, length(derep_targets) %/% 4)
-    derep_template = list(log_file = glue("logs/derep-%A_%a.log"))
-    cat("\n Dereplicating input files (SLURM)...\n")
-  } else {
-    derep_parallelism = "future"
-    future::plan(strategy = "multiprocess")
-    derep_jobs = local_cpus
-    derep_template <- list()
-    cat("\n Dereplicating input files (multiprocess)...\n")
-  }
-  tictoc::tic()
-  make(plan,
-       parallelism = derep_parallelism,
-       template = derep_template,
-       jobs = derep_jobs,
-       jobs_preprocess = local_cpus,
-       retries = 2,
-       elapsed = 3600, # 1 hour per target is more than enough
-       keep_going = FALSE,
-       caching = "worker",
-       cache_log_file = TRUE,
-       targets = derep_targets
-  )
-  tictoc::toc()
-  if (length(failed())) {
-    if (interactive()) stop() else quit(status = 1)
-  }
-} else cat("\n All initial dereplication targets are up-to-date.\n")
-
-#### Pre-ITSx targets ####
-# These are computationally easy, but take a lot of memory, and would be
-# inefficient to send to clustermq workers.  It's better to just do them locally.
-preitsx_targets <- str_subset(od, "^split_fasta_")
-if (length(preitsx_targets)) {
-  cat("\nMaking targets to prepare for ITSx...\n")
-  tictoc::tic()
-  future::plan(strategy = "multiprocess")
-  make(plan,
-       parallelism = "future",
-       jobs = max(local_cpus %/% dada_cpus, 1),
-       jobs_preprocess = local_cpus,
-       retries = 2,
-       elapsed = 3600, # 1 hour
-       keep_going = FALSE,
-       caching = "worker",
-       cache_log_file = TRUE,
-       targets = preitsx_targets
-  )
-  tictoc::toc()
-  if (length(failed())) {
-    if (interactive()) stop() else quit(status = 1)
-  }
-} else cat("\n All pre-itsx targets are up-to-date.\n")
-
-
-#### ITSx ####
-# itsx (actually hmmer) does have an internal parallel option, but it isn't
-# very efficient at using all the cores.
-# Instead, we divide the work into a large number of 
-# shards and submit them all as seperate jobs on SLURM.
-# failing that, do all the shards locally on the cores we have.
-itsx_targets <- str_subset(od, "^itsx_shard")
-
-if (length(itsx_targets)) {
-  # send two jobs per target to help with load balancing
-  # this will tend to be one Ion Torrent job (long, first) and one PacBio job (short, second)
-  itsx_jobs <- max(ceiling(length(itsx_targets) / 2), itsx_jobs)
-  # in any case never send more jobs than there are targets
-  itsx_jobs <- min(itsx_jobs, length(itsx_targets))
-
-  # do it as SLURM jobs if possible and
-  # - we don't have enough local cores to run 1 job locally
-  #   -or-
-  # - it would use less than twice as much total CPU time, compared to running locally
-  if (is_slurm
-      && ((local_cpus < itsx_cpus)
-          || (length(itsx_targets) / itsx_jobs * (itsx_jobs * itsx_cpus + local_cpus) <
-              2 * length(itsx_targets) * itsx_cpus))) {
-    itsx_parallelism <- "clustermq"
-    itsx_template <- list(log_file = glue("logs/itsx-%A_%a.log"),
-                         ncpus = itsx_cpus,
-                         memory = 7*1024,
-                         timeout = 1800) # the master can take a while to send everything.
-    cat("\n Making itsx_shard (SLURM with ", itsx_jobs, "worker(s))...\n")
-  } else {
-    itsx_jobs <- local_cpus %/% itsx_cpus
-    itsx_cpus <- local_cpus %/% itsx_cpus
-    itsx_parallelism <- if (itsx_jobs > 1) "future" else "loop"
-    future::plan(strategy = "multiprocess")
-    itsx_template = list()
-    cat("\n Making itsx_shard (local with ", itsx_jobs, "worker(s))...\n")
-  }
-  tictoc::tic()
-  make(plan,
-       parallelism = itsx_parallelism,
-       template = itsx_template,
-       jobs = itsx_jobs,
-       elapsed = 3600*6, #6 hours
-       jobs_preprocess = local_cpus,
-       caching = "worker",
-       cache_log_file = TRUE,
-       targets = itsx_targets
-  )
-  tictoc::toc()
-  if (length(failed())) {
-    if (interactive()) stop() else quit(status = 1)
-  }
-}
-
-#### pre-DADA2 ####
-# single-threaded targets after itsx
-# for local runs, ITSx targets will also run here.
-derep2_targets <- str_subset(od, "^derep2_")
-predada_targets <- c(str_subset(od, "^derep2_"),
-                     str_subset(od, "^(qstats_knit|seq_counts)$"))
-if (length(predada_targets)) {
-  
-  predada_parallelism <- "future"
-  future::plan(strategy = "multiprocess")
-  predada_jobs <- local_cpus
-  predada_template <- list()
-  
-  if (is_slurm 
-      && nrow(meta3) > 2 * local_cpus) {
-    predada_jobs <- nrow(meta3)
-    predada_parallelism <- "clustermq"
-    predada_template <- list(
-      log_file = glue("logs/predada-%A_%a.log"),
-      memory = 7*1024) # 7 gb is 1 processor on a fat node or 2 on a regular
-  }
-  cat("\n Making pre-dada targets (multiprocess)...\n")
-  tictoc::tic()
-  make(plan,
-       parallelism = predada_parallelism,
-       template = predada_template,
-       jobs = predada_jobs,
-       jobs_preprocess = local_cpus,
-       retries = 2,
-       elapsed = 3600, #1 hour
-       keep_going = FALSE,
-       caching = "worker",
-       cache_log_file = TRUE,
-       targets = predada_targets
-  )
-  tictoc::toc()
-  if (length(failed())) {
-    if (interactive()) stop() else quit(status = 1)
-  }
-} else cat("\n Pre-DADA2 targets are up-to-date. \n")
-
-
-#### DADA2 pipeline ####
-# dada is internally parallel, so these need to be sent to nodes with multiple
-# cores (and incidentally a lot of memory) or, if local, use all the cores of
-# the local machine
-
-dada_targets <- str_subset(od, "^taxon_")
-if (length(dada_targets) > 0) {
-cat("\n Making DADA and taxonomy targets") 
-  if (is_slurm) {
-    dada_parallelism <- "clustermq"
-    dada_template <- list(ncpus = dada_cpus, 
-                          log_file = glue("logs/dada-%A_%a.log"))
-    dada_jobs <- length(dada_targets)
-  cat("(SLURM with", dada_cpus, "cores per worker and", dada_jobs, "workers)...\n")
-  } else {
-    dada_jobs <- local_cpus %/% dada_cpus
-    # if this will leave us with extra cores, use them too.
-    dada_cpus <- local_cpus %/% dada_jobs
-    dada_parallelism <- if (dada_jobs > 1) "future" else "loop"
-    future::plan(strategy = "multiprocess")
-    dada_template <- list()
-cat("(local with", dada_cpus, "cores per task and", dada_jobs, "simultaneous tasks)...\n")
-  }
-tictoc::tic()
-make(plan,
-     parallelism = dada_parallelism,
-     jobs = dada_jobs,
-     jobs_preprocess = local_cpus,
-     template = dada_template,
-     retries = 1,
-     elapsed = 3600*6, #6 hours
-     keep_going = FALSE,
-     caching = "worker",
-     cache_log_file = TRUE,
-     targets = dada_targets
-)
-tictoc::toc()
-if (length(failed())) {
-  if (interactive()) stop() else quit(status = 1)
-}
-} else cat("\n DADA2 pipeline targets are up-to-date.\n")
-
-#### Finish ####
-# For now the later steps are not very intensive, so they can be done
-# using the resources of the master computer.
-if (length(od)) {
-cat("\n Making all remaining targets (multiprocess)...\n")
-tictoc::tic()
-future::plan(strategy = "multiprocess")
-make(plan,
-     parallelism = if (local_cpus > 1) "future" else "loop",
-     jobs = local_cpus,
-     jobs_preprocess = local_cpus,
-     retries = 2,
-     elapsed = 600, # 10 minutes
-     keep_going = FALSE,
-     caching = "worker",
-     cache_log_file = TRUE
-)
-tictoc::toc()
-if (length(failed())) {
-  if (interactive()) stop() else quit(status = 1)
-}
-}
-cat("\nAll targets are up-to-date.\n")
-
+remove(meta1)
+remove(meta2)
+remove(meta3)
+remove(meta4)
+remove(datasets)
+remove(regions)
 
 if (interactive()) {
   dconfig <- drake_config(plan)

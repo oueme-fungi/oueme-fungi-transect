@@ -9,7 +9,7 @@
 #' \item{fasta}{a DNAStringSet giving all unique sequences; the name of the sequence is an integer which matches the values of "newmap" in "map"}
 #' }
 combine_derep <- function(dereps) {
-  dereps <- bind_rows(dereps)
+  dereps <- dplyr::bind_rows(dereps)
   
   # get all the old mappings
   oldmap <- dereps %>%

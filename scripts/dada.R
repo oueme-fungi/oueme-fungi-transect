@@ -1,5 +1,5 @@
 dadamap <- function(derep, asv) {
-  map2(derep, asv,
+  purrr::map2(derep, asv,
        function(derep, asv) {
          m <- tibble::tibble(seq.id = names(derep$map),
                              derep.idx = derep$map,
@@ -23,40 +23,40 @@ join_seqs <- function(seq.tabs) {
 }
 
 taxonomy <- function(seq.table, reference, multithread = FALSE) {
-  assert_that(file.exists(reference),
-              is.readable(reference))
+  assertthat::assert_that(file.exists(reference),
+                          assertthat::is.readable(reference))
   
   tax <- seq.table %>%
     colnames %>%
-    assignTaxonomy(reference, multithread = multithread) %>%
-    as_tibble(rownames = "seq") %>%
+    dada2::assignTaxonomy(reference, multithread = multithread) %>%
+    tibble::as_tibble(rownames = "seq") %>%
     # remove taxon rank prefixed from Unite reference
-    mutate_at(vars(-seq), str_replace, "^[kpcofgs]__", "") %>%
-    mutate(
+    dplyr::mutate_at(vars(-seq), str_replace, "^[kpcofgs]__", "") %>%
+    dplyr::mutate(
       # add Species to RDP reference
       Species = if ("Species" %in% names(.)) Species else NA_character_,
       Species = ifelse(is.na(Genus) | is.na(Species),
                        NA_character_,
                        paste(Genus, Species))) %>%
-    mutate(Taxonomy = paste(Kingdom, Phylum, Class, Order,
+    dplyr::mutate(Taxonomy = paste(Kingdom, Phylum, Class, Order,
                             Family, Genus, Species,
                             sep = ";") %>%
-             str_replace_all(fixed(";NA"), "")) %>%
-    left_join(tibble(seq = colnames(seq.table),
-                     nreads = colSums(seq.table)),
+             stringr::str_replace_all(fixed(";NA"), "")) %>%
+    dplyr::left_join(tibble(seq = colnames(seq.table),
+                     nreads = Matrix::colSums(seq.table)),
               by = "seq")
 }
 
 its_join <- function(bigmaps) {
   combined_map <-
-    purrr::map_dfr(bigmaps, ~tibble(file = names(.), data = .)) %>%
+    purrr::map_dfr(bigmaps, ~tibble::tibble(file = names(.), data = .)) %>%
     tidyr::extract(
       col = "file",
       into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),
       regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.qfilt\\.fastq\\.gz") %>%
     tidyr::unnest(data) %>%
     dplyr::group_by(seq.id) %>%
-    filter(any(!is.na(asv.idx))) %>%
+    dplyr::filter(any(!is.na(asv.idx))) %>%
     dplyr::mutate(seq = dplyr::coalesce(asv.seq, derep.seq)) %>%
     dplyr::select(-derep.seq, -derep.idx, -asv.seq, -asv.idx) %>%
     tidyr::spread(key = Region, value = seq)
@@ -87,13 +87,13 @@ its_join <- function(bigmaps) {
             - sum(group_map$chimera))) {
       # get the sequences already assigned to this group
       ingroup <- purrr::map(regions,
-                     ~ unique(na.omit(group_map[[.]][group_map$group == g])))
+                     ~ unique(stats::na.omit(group_map[[.]][group_map$group == g])))
       candidates <- purrr::map(regions,
                         ~group_map[[.]] %in% ingroup[[.]]) %>%
         purrr::reduce(or) %>%
         which
       cand <- purrr::map(regions,
-                  ~unique(na.omit(group_map[[.]][candidates])))
+                  ~unique(stats::na.omit(group_map[[.]][candidates])))
       chimeras <- purrr::map2(
         cand, ingroup,
         function(cand, ingroup) {
