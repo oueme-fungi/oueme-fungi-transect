@@ -1,19 +1,18 @@
-library(magrittr)
-#library(plyr)
-library(tidyverse)
-library(readxl)
-library(seqinr)
-library(here)
-library(assertthat)
-
 # for scripted use, these are specified in the makefile
 if (interactive()) {
+  library(here)
   data.dir <- here("data")
   lab.dir <- here("config")
   gits7.file <- file.path(lab.dir, "Hectors_tag_primer_plates.xlsx")
   its1.lr5.file <- file.path(lab.dir, "Brendan_soil2.xlsx")
   tags.dir <- file.path(lab.dir, "tags")
   dataset.file <- file.path(lab.dir, "datasets.csv")
+} else if (exists("snakemake")) {
+  lab.dir <- snakemake@config$labdir
+  tags.dir <- snakemake@config$tagdir
+  gits7.file <- snakemake@input$gits7_tags
+  its1.lr5.file <- snakemake@input$lr5_tags
+  dataset.file <- snakemake@input$dataset
 } else {
   lab.dir <- Sys.getenv("LABDIR")
   tags.dir <- Sys.getenv("TAG_ROOT")
@@ -21,6 +20,12 @@ if (interactive()) {
   its1.lr5.file <- Sys.getenv('LR5_TAGFILE')
   dataset.file <- Sys.getenv("DATASET")
 }
+
+library(magrittr)
+library(tidyverse)
+library(readxl)
+library(seqinr)
+library(assertthat)
 
 assert_that(file.exists(gits7.file),
             file.exists(its1.lr5.file),
@@ -34,7 +39,9 @@ tags$gits7_tag <- read_xlsx(gits7.file, skip = 1) %>%
   filter(str_detect(name, "gITS7mod"))
 
 # read the gITS7 tags, and remove sequencing adapter
-ionA <- read_xlsx(gits7.file, skip = 1) %>% filter(oligoname == "Ion-A") %$% sequence
+ionA <- read_xlsx(gits7.file, skip = 1) %>%
+  filter(oligoname == "Ion-A") %$%
+  sequence
 tags$gits7_iontag <- tags$gits7_tag %>%
   mutate_at("object", str_replace, ionA, "")
 
@@ -83,10 +90,10 @@ dataset <- read_csv(dataset.file) %>%
                   object = paste0(seq.fwd, "...", seq.rev))
     ))
 # Write the outputs
-dataset %>%
-  pwalk(function(tagfile.name, out.fasta, ...) {
-    write.fasta(sequences = as.list(out.fasta$object),
-                names = out.fasta$name,
-                file.out = tagfile.name,
-                as.string = TRUE)
-  })
+pwalk(dataset,
+      function(tagfile.name, out.fasta, ...) {
+        write.fasta(sequences = as.list(out.fasta$object),
+                    names = out.fasta$name,
+                    file.out = tagfile.name,
+                    as.string = TRUE)
+      })
