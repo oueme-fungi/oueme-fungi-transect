@@ -4,8 +4,8 @@ from glob import glob
 import re
 
 # For testing, parse the yaml file (this is automatically done my Snakemake)
-# import yaml
-# with open("config/config.yaml", 'r') as ymlfile: config = yaml.load(ymlfile)
+import yaml
+with open("config/config.yaml", 'r') as ymlfile: config = yaml.load(ymlfile)
 
 configfile: "config/config.yaml"
 
@@ -72,26 +72,29 @@ rule bax2bam:
                movietype = ["subreads", "scraps"])
     params:
         prefix="{moviedir}/{{movie}}".format_map(config)
+    log: "{logdir}/bax2bam_{{movie}}.log".format_map(config)
     shell:
-         "bax2bam {input} -o {params.prefix}"
+         "bax2bam {input} -o {params.prefix} &> {log}"
 
 rule ccs:
-    input:
-         "{moviedir}/{{movie}}.subreads.bam".format_map(config)
     output:
           "{ccsdir}/{{movie}}.ccs.bam".format_map(config)
+    input:
+         "{moviedir}/{{movie}}.subreads.bam".format_map(config)
+    log: "{logdir}/ccs_{{movie}}.log".format_map(config)
     shell:
-         "ccs --polish {input}"
+         "ccs --polish {input} &>{log}"
 
 rule ccs2fastq:
+    output:
+        "{fastqdir}/{{seqplate}}.fastq.gz".format_map(config)
     input:
          lambda wildcards: expand("{ccsdir}/{movie}.ccs.bam",
                                   ccsdir = config['ccsdir'],
                                   movie = moviefiles[wildcards.seqplate])
-    output:
-        "{fastqdir}/{{seqplate}}.fastq.gz".format_map(config)
+    log: "{logdir}/ccs2fastq_{{seqplate}}.log".format_map(config)
     shell:
-         "samtools cat {input} | samtools fastq -0 {output} -"
+         "samtools cat {input} | samtools fastq -0 {output} - &>{log}"
 
 rule pacbio_fastq:
     input:
@@ -106,15 +109,17 @@ rule tagfiles:
         dataset = config['dataset']
     output:
         expand("{tagdir}/{seqrun}.fasta", tagdir = config['tagdir'], seqrun = datasets['Seq.Run'])
+    log: "{logdir}/tagfiles.log".format_map(config)
     script:
         "{config[rdir]}/tags.extract.R"
 
+def find_barcode(wildcards): "{tagdir}/{seqrun}.fasta".format(tagdir = config['tagdir'],
+                                                              seqrun = datasets2.loc[wildcards['seqplate'], 'Seq.Run'])
 
 checkpoint pacbio_demux:
     input:
         fastq = "{fastqdir}/{{seqplate}}.fastq.gz".format_map(config),
-        barcode = lambda wildcards: "{tagdir}/{seqrun}.fasta".format(tagdir = config['tagdir'],
-                                                                     seqrun = datasets2.loc[wildcards['seqplate'], 'Seq.Run'])
+        barcode = find_barcode
     output:
         directory("{trimdir}/{{seqplate}}/".format_map(config))
     params:
@@ -122,6 +127,7 @@ checkpoint pacbio_demux:
                                                                                            seqplate = wildcards['seqplate']),
         rpattern = lambda wildcards: "{trimdir}/{seqplate}/{seqplate}-{{name}}r.trim.fastq.gz".format(trimdir = config['trimdir'],
                                                                                            seqplate = wildcards['seqplate'])
+    log: "{logdir}/pacbio_demux_{{seqplate}}.log".format_map(config)
     shell:
          """
          mkdir -p {output} &&
@@ -137,15 +143,47 @@ checkpoint pacbio_demux:
            -m 1\\
            --trimmed-only\\
            -o {params.rpattern}\\
-           -
+           - 2>{log}
          """
 
 def find_ion_bam(wildcards):
-    platekey = (pd.read_csv(datasets.loc[wildcards.seqrun].PlateKey)
+    platekey = (pd.read_csv(os.path.join(config['labdir'], datasets.loc[wildcards.seqrun].PlateKey))
                 .assign(id = lambda x: x['tag.fwd'].str.rsplit('-').str.get(1)))
-    return
+    num = platekey.loc[lambda x: x['well'] == wildcards.well, 'id'].get_values()[0]
+    dset = datasets.loc[lambda x: x['Seq.Run'] == wildcards.seqrun, 'Dataset'][0]
+    return glob("{rawdir}/{dset}/{seqrun}/rawdata/*/IonXpress_{num}*.bam".format(rawdir = config['rawdir'],
+                                                                                 dset = dset,
+                                                                                 seqrun = wildcards.seqrun,
+                                                                                 num = '{:03d}'.format(int(num))))
+
 rule bam2fastq:
+    output: "{demuxdir}/{{seqrun}}_{{plate,\d+}}-{{well,[A-H]\d+}}.demux.fastq.gz".format_map(config)
+    input: find_ion_bam
+    log: "{logdir}/bam2fastq_{{seqrun}}_{{plate}}-{{well}}.log".format_map(config)
+    shell:
+        """
+        mkdir -p {config[demuxdir]}
+        samtools fastq {input} | gzip >>{output} 2>{log}
+        """
+
+rule ion_trim:
+    output: "{trimdir}/{{seqrun}}_{{plate,\d+}}-{{well,[A-H]\d+}}.trim.fastq.gz"
     input:
+        fastq = "{demuxdir}/{seqrun}_{plate}-{well}.demux.fastq.gz",
+        barcode = find_barcode
+    log: "{logdir}/ion_trim_{{seqrun}}_{{plate}}-{{well}}.log".format_map(config)
+    shell:
+        """
+        mkdir -p {config[trimdir]}
+        cutadapt --trimmed-only\
+                 -m 1\
+	             -g file:{input.barcode}\
+	             -j {threads}\
+	             -o {output}\
+	             {input.fastq}\
+	             &> {log}
+        """
+
 
 
 def demux_find(seqplate):
