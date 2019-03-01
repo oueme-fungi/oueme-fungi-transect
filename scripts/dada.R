@@ -31,7 +31,7 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
     dada2::assignTaxonomy(reference, multithread = multithread) %>%
     tibble::as_tibble(rownames = "seq") %>%
     # remove taxon rank prefixed from Unite reference
-    dplyr::mutate_at(vars(-seq), str_replace, "^[kpcofgs]__", "") %>%
+    dplyr::mutate_at(dplyr::vars(-seq), stringr::str_replace, "^[kpcofgs]__", "") %>%
     dplyr::mutate(
       # add Species to RDP reference
       Species = if ("Species" %in% names(.)) Species else NA_character_,
@@ -41,10 +41,10 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
     dplyr::mutate(Taxonomy = paste(Kingdom, Phylum, Class, Order,
                             Family, Genus, Species,
                             sep = ";") %>%
-             stringr::str_replace_all(fixed(";NA"), "")) %>%
-    dplyr::left_join(tibble(seq = colnames(seq.table),
-                     nreads = Matrix::colSums(seq.table)),
-              by = "seq")
+             stringr::str_replace_all(stringr::fixed(";NA"), "")) %>%
+    dplyr::left_join(tibble::tibble(seq = colnames(seq.table),
+                                    nreads = Matrix::colSums(seq.table)),
+                     by = "seq")
 }
 
 its_join <- function(bigmaps) {

@@ -1,14 +1,13 @@
-if (interactive()) {
-  r.dir <- here::here("scripts")
-} else if (exists("snakemake")) {
-  r.dir <- snakemake@config$rdir
+if (exists("snakemake")) {
+  snakemake@source(".Rprofile", echo = FALSE)
+  load(snakemake@input[["drakedata"]])
 } else {
-  r.dir <- Sys.getenv("RDIR")
+  load("drake.Rdata")
 }
 
-source(file.path(r.dir, "drake.R"))
-
-
+library(magrittr)
+library(backports)
+setup_log("finish")
 
 #### Finish ####
 # For now the later steps are not very intensive, so they can be done
@@ -17,9 +16,9 @@ if (length(od)) {
   cat("\n Making all remaining targets (loop)...\n")
   tictoc::tic()
   future::plan(strategy = "multiprocess")
-  make(plan,
+  drake::make(plan,
        parallelism = "loop",
-       jobs_preprocess = local_cpus,
+       jobs_preprocess = local_cpus(),
        retries = 2,
        elapsed = 600, # 10 minutes
        keep_going = FALSE,
@@ -27,7 +26,7 @@ if (length(od)) {
        cache_log_file = TRUE
   )
   tictoc::toc()
-  if (length(failed())) {
+  if (length(drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 }

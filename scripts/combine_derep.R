@@ -8,12 +8,12 @@
 #' \item{map}{a tibble with columns "file", "idx", and "newmap", giving the mapping from the "idx"th sequence in "file" to a sequence in "fasta"}
 #' \item{fasta}{a DNAStringSet giving all unique sequences; the name of the sequence is an integer which matches the values of "newmap" in "map"}
 #' }
-combine_derep <- function(dereps) {
-  dereps <- dplyr::bind_rows(dereps)
+combine_derep <- function(...) {
+  dereps <- dplyr::bind_rows(...)
   
   # get all the old mappings
   oldmap <- dereps %>%
-    dplyr::mutate_at("derep", map, "map") %>%
+    dplyr::mutate_at("derep", purrr::map, "map") %>%
     tidyr::unnest() %>%
     dplyr::rename(oldmap = derep) %>%
     dplyr::group_by(file) %>%
@@ -22,8 +22,9 @@ combine_derep <- function(dereps) {
   
   # get the old unique sequences
   olduniques <- dereps %>%
-    dplyr::mutate_at("derep", ~map(., .f = ~tibble(seq = names(.$uniques),
-                                            n = .$uniques))) %>%
+    dplyr::mutate_at("derep",
+                     ~purrr::map(., .f = ~tibble::tibble(seq = names(.$uniques),
+                                                         n = .$uniques))) %>%
     tidyr::unnest()
   
   # combine duplicate sequences among all files.

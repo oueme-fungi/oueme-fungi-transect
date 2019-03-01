@@ -7,14 +7,14 @@ if (exists("snakemake")) {
 
 library(magrittr)
 library(backports)
-setup_log("predada")
+setup_log("pretaxonomy")
 
 #### pre-DADA2 ####
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
-predada_targets <- stringr::str_subset(od, "^derep2_")
-if (length(predada_targets)) {
-  cat("\n Making pre-dada targets (loop)...\n")
+pretaxon_targets <- stringr::str_subset(od, "^big_seq_table_")
+if (length(pretaxon_targets)) {
+  cat("\n Making pre-taxonomy targets (loop)...\n")
   tictoc::tic()
   drake::make(plan,
        parallelism = "loop",
@@ -23,10 +23,10 @@ if (length(predada_targets)) {
        elapsed = 3600, #1 hour
        keep_going = FALSE,
        cache_log_file = TRUE,
-       targets = predada_targets
+       targets = pretaxon_targets
   )
   tictoc::toc()
   if (length(drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else cat("\n Pre-DADA2 targets are up-to-date. \n")
+} else cat("\n Pre-taxonomy targets are up-to-date. \n")

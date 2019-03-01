@@ -1,36 +1,34 @@
-if (interactive()) {
-  r.dir <- here::here("scripts")
-} else if (exists("snakemake")) {
-  r.dir <- snakemake@config$rdir
+if (exists("snakemake")) {
+  snakemake@source(".Rprofile", echo = FALSE)
+  load(snakemake@input[["drakedata"]])
 } else {
-  r.dir <- Sys.getenv("RDIR")
+  load("drake.Rdata")
 }
 
-source(file.path(r.dir, "drake.R"))
-
-
+target <- get_target(default = "nochim_pb_500_002_ITS2")
+library(magrittr)
+library(backports)
+setup_log("dada")
 
 #### DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
-# cores (and incidentally a lot of memory) or, if local, use all the cores of
-# the local machine
-dada_cores <- local_cores
-dada_target <- target
+# cores (and incidentally a lot of memory)
+dada_cpus <- local_cpus()
 if (target %in% od) {
-  cat("\n Making DADA targets (local with", local_cpus, "cores)...\n")
+  cat("\n Making", target, " with", dada_cpus, "cores...\n")
   tictoc::tic()
-  make(plan,
+  drake::make(plan,
        parallelism = "loop",
-       jobs_preprocess = local_cpus,
+       jobs_preprocess = dada_cpus,
        retries = 1,
        elapsed = 3600*6, #6 hours
        keep_going = FALSE,
        caching = "worker",
        cache_log_file = TRUE,
-       targets = dada_target
+       targets = target
   )
   tictoc::toc()
-  if (length(failed())) {
+  if (length(drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else cat("\n DADA2 pipeline targets are up-to-date.\n")
+} else cat("\n Target", target, "is up-to-date.\n")

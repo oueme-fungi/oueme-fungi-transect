@@ -1,12 +1,13 @@
-if (interactive()) {
-  r.dir <- here::here("scripts")
-} else if (exists("snakemake")) {
-  r.dir <- snakemake@config$rdir
+if (exists("snakemake")) {
+  snakemake@source(".Rprofile", echo = FALSE)
+  load(snakemake@input[["drakedata"]])
 } else {
-  r.dir <- Sys.getenv("RDIR")
+  load("drake.Rdata")
 }
 
-source(file.path(r.dir, "drake.R"))
+library(magrittr)
+library(backports)
+setup_log("ITSx")
 
 #### ITSx ####
 # itsx (actually hmmer) does have an internal parallel option, but it isn't
@@ -14,10 +15,10 @@ source(file.path(r.dir, "drake.R"))
 # Instead, we divide the work into a large number of 
 # shards and submit them all as seperate jobs on SLURM.
 # failing that, do all the shards locally on the cores we have.
-itsx_targets <- str_subset(od, "^itsx_shard")
+itsx_targets <- stringr::str_subset(od, "^itsx_shard")
 # hmmer can use multiple processes per job; it tends to become I/O bound after about 4.
 itsx_cpus <- 4L
-itsx_cpus <- min(itsx_cpus, max_cpus)
+itsx_cpus <- min(itsx_cpus, max_cpus())
 itsx_jobs <- bigsplit
 
 if (length(itsx_targets)) {
@@ -31,9 +32,9 @@ if (length(itsx_targets)) {
   # - we don't have enough local cores to run 1 job locally
   #   -or-
   # - it would use less than twice as much total CPU time, compared to running locally
-  if (is_slurm
-      && ((local_cpus < itsx_cpus)
-          || (length(itsx_targets) / itsx_jobs * (itsx_jobs * itsx_cpus + local_cpus) <
+  if (is_slurm()
+      && ((local_cpus() < itsx_cpus)
+          || (length(itsx_targets) / itsx_jobs * (itsx_jobs * itsx_cpus + local_cpus()) <
               2 * length(itsx_targets) * itsx_cpus))) {
     itsx_parallelism <- "clustermq"
     options(clustermq.scheduler = "slurm",
@@ -44,26 +45,27 @@ if (length(itsx_targets)) {
                           timeout = 1800) # the master can take a while to send everything.
     cat("\n Making itsx_shard (SLURM with ", itsx_jobs, "worker(s))...\n")
   } else {
-    itsx_jobs <- local_cpus %/% itsx_cpus
-    itsx_cpus <- local_cpus %/% itsx_cpus
+    itsx_cpus <- 1
+    itsx_jobs <- local_cpus() %/% itsx_cpus
+    itsx_cpus <- local_cpus() %/% itsx_jobs
     itsx_parallelism <- if (itsx_jobs > 1) "clustermq" else "loop"
-    options(clustermq.scheduler = "multiprocess")
+    options(clustermq.scheduler = "multicore")
     itsx_template = list()
     cat("\n Making itsx_shard (local with ", itsx_jobs, "worker(s))...\n")
   }
   tictoc::tic()
-  make(plan,
+  drake::make(plan,
        parallelism = itsx_parallelism,
        template = itsx_template,
        jobs = itsx_jobs,
        elapsed = 3600*6, #6 hours
-       jobs_preprocess = local_cpus,
+       jobs_preprocess = local_cpus(),
        caching = "worker",
        cache_log_file = TRUE,
        targets = itsx_targets
   )
   tictoc::toc()
-  if (length(failed())) {
+  if (length(drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 } else cat("\n ITSx targets are up-to-date. \n")

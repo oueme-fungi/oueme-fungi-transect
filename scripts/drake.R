@@ -1,4 +1,5 @@
 if (interactive()) {
+  cat("Creating drake plan in interactive session...\n")
   library(here)
   base.dir <- here()
   r.dir <- here("scripts")
@@ -18,7 +19,19 @@ if (interactive()) {
   regions.file <- file.path(lab.dir, "regions.csv")
   platemap.file <- file.path(lab.dir, "Brendan_soil2.xlsx")
   platemap.sheet <- "Concentration samples"
+  plan.file <- "plan.rds"
+  meta1.file <- "meta1.rds"
+  meta2.file <- "meta2.rds"
+  meta3.file <- "meta3.rds"
+  meta4.file <- "meta4.rds"
+  meta4.csv <- "meta4.csv"
+  pid.file <- "pids.txt"
+  tid.file <- "tids.txt"
+  drakedata.file <- "drake.Rdata"
+  bigsplit <- 80L
 } else if (exists("snakemake")) {
+  cat("Creating drake plan in snakemake session...\n")
+  snakemake@source(".Rprofile", echo = FALSE)
   r.dir <- snakemake@config$rdir
   dataset.file <- snakemake@input$dataset
   regions.file <- snakemake@input$regions
@@ -32,9 +45,23 @@ if (interactive()) {
   rmd.dir <- snakemake@config$rmddir
   out.dir <- snakemake@config$outdir
   prereqs <- snakemake@input
-  in.files <- snakemake@input$fastq
-  sink(snakemake@log)
+  in.files <- stringr::str_subset(prereqs,
+                         pattern = "\\.trim\\.fastq\\.gz$")
+  bigsplit <- snakemake@config$bigsplit
+  plan.file <- snakemake@output[["plan"]]
+  meta1.file <- snakemake@output[["meta1"]]
+  meta2.file <- snakemake@output[["meta2"]]
+  meta3.file <- snakemake@output[["meta3"]]
+  meta4.file <- snakemake@output[["meta4"]]
+  meta4.csv <- snakemake@output[["meta4.csv"]]
+  pid.file <- snakemake@output[["pids"]]
+  tid.file <- snakemake@output[["tids"]]
+  drakedata.file <- snakemake@output[["drakedata"]]
+  logfile <- file(snakemake@log[[1]], open = "at")
+  sink(logfile)
+  sink(logfile, type = "message")
 } else {
+  cat("Creating drake plan in command line session...\n")
   r.dir <- Sys.getenv("RDIR")
   dataset.file <- Sys.getenv("DATASET")
   regions.file <- Sys.getenv("REGIONS")
@@ -53,9 +80,9 @@ if (interactive()) {
   open(con, blocking = TRUE)
   prereqs <- readLines(con)
   close(con)
-  prereqs <- str_split(prereqs, " ") %>% unlist
+  prereqs <- stringr::str_split(prereqs, " ") %>% unlist
   
-  in.files <- str_subset(prereqs,
+  in.files <- stringr::str_subset(prereqs,
                          pattern = "\\.trim\\.fastq\\.gz$")
 }
 
@@ -63,66 +90,67 @@ library(magrittr)
 library(tidyverse)
 library(rlang)
 library(glue)
-library(readxl)
-
-library(here)
 library(drake)
-library(future)
-
-library(assertthat)
 library(assertr)
-
-library(FUNGuildR)
-library(rITSx)
-library(ShortRead)
-library(dada2)
 
 #### parallel setup ####
 
-# how many cpus do we have on the local machine?
-local_cpus <- detectCores()
-
 # are we running slurm?
-is_slurm <- nchar(Sys.which("sbatch")) > 0
-is_local <- !is_slurm
+is_slurm <- function() nchar(Sys.which("sbatch")) > 0
+is_local <- function() !is_slurm()
+
+# how many cpus do we have on the local machine?
+# if we're not running on the cluster, leave one cpu free.
+local_cpus <- function() {
+  if (is_slurm()) {
+    as.integer(Sys.getenv("CORES_PER_TASK"))
+  } else {
+    max(parallel::detectCores() - 1, 1)
+  }
+}
 
 # how many cpus can we get on one node?
-if (is_slurm) {
-  options(
-    clustermq.scheduler = "slurm",
-    clustermq.template = "slurm_clustermq.tmpl"
-  )
-  slurminfo <- system("sinfo -N --long", intern = TRUE)[-1]
-  slurmcolnames <- strsplit(slurminfo[1], "\\s+")[[1]]
-  slurminfo <- read_fwf(slurminfo,
-                        fwf_empty(slurminfo, col_names = slurmcolnames),
-                        skip = 1)
-  max_cpus <- max(slurminfo[["CPUS"]])
-  local_cpus <- as.integer(Sys.getenv("CORES_PER_TASK"))
-} else {
-  max_cpus <- max(local_cpus - 1, 1)
-  local_cpus <- max_cpus
+max_cpus <- function() {
+  if (is_slurm()) {
+    slurminfo <- system("sinfo -N --long", intern = TRUE)[-1]
+    slurmcolnames <- strsplit(slurminfo[1], "\\s+")[[1]]
+    slurminfo <- readr::read_fwf(slurminfo,
+                          readr::fwf_empty(slurminfo, col_names = slurmcolnames),
+                          skip = 1)
+    return(max(slurminfo[["CPUS"]]))
+  } else {
+    return(local_cpus())
+  }
 }
-cat("max_cpus =", max_cpus, "\n")
-cat("local_cpus =", local_cpus, "\n")
 
-# the hmmersearch in itsx is very slow, but super parallel.
-# we can break it into a lot of pieces and run it on several nodes.
-# changing this value will invalidate most of the drake cache
-bigsplit <- 80L
+#### If we were passed a target, what is it?
+get_target <- function(default) {
+  if (interactive()) {
+    return(default)
+  } else if (exists("snakemake")) {
+    return(sub("^.", "", snakemake@output))
+  } else {
+    return(sub("^.", "", Sys.getenv("TARGETLIST")))
+  }
+}
 
-# the computationally intensive parts of the dada pipeline have an internal
-# parallel implementation.  This speeds them up, but with diminishing
-# returns.  How many cores do we want?
-dada_cpus <- 8L
-# reduce that if it's not possible
-dada_cpus <- min(dada_cpus, max_cpus)
-# what is the maximum number of dada jobs we can run?
-# (we will later limit it to the number of regions*sequencing runs)
-dada_jobs <- Inf
+#### what is our logfile called?
+get_logfile <- function(default) {
+  if (interactive()) {
+    return(file.path("logs", paste0(default, ".log")))
+  } else if (exists("snakemake")) {
+    return(file(snakemake@log[[1]], open = "at"))
+  } else {
+    return(file(file.path(Sys.getenv("LOGDIR"), paste0(default, ".log"))))
+  }
+}
 
-cat("dada_cpus =", dada_cpus, "\n")
-cat("dada_jobs =", dada_jobs, "\n")
+#### Start logging ####
+setup_log <- function(default) {
+  logfile <- get_logfile(default)
+  sink(logfile, split = TRUE)
+  sink(logfile, type = "message")
+}
 
 #### read scripts and configs ####
 # load various pipeline functions
@@ -171,7 +199,7 @@ meta1 <- datasets %>%
 meta2 <- meta1 %>%
   mutate_at("Regions", str_split, ",") %>%
   unnest(Region = Regions) %>%
-  left_join(regions) %>%
+  left_join(regions, by = "Region") %>%
   mutate(RID = glue("{Seq.Run}{Plate}{Well}{Direction}{Region}"),
          PID = glue("{Seq.Run}_{Plate}_{Region}"), 
          Region.File = glue("{Seq.Run}_{Plate}-{Well}{Direction}-{Region}.trim.fastq.gz"),
@@ -200,31 +228,46 @@ if (interactive()) {
 meta3 <- meta2 %>%
   select(Seq.Run, Plate, Region, PID) %>%
   unique() %>%
+  mutate_at("PID", as.character) %>%
+  arrange(PID) %>%
   mutate(region_derep = glue("region_derep_{PID}")) %>%
-  left_join(datasets %>% select(-Regions)) %>%
-  left_join(regions) %>%
-  mutate_at(c("region_derep", "Region"), syms)
-if (!interactive()) saveRDS(meta3, "meta3.rds")
+  left_join(datasets %>% select(-Regions), by = "Seq.Run") %>%
+  left_join(regions, by = "Region") %>%
+  mutate_at(c("region_derep", "Region", "PID"), syms)
+if (!interactive()) {
+  saveRDS(meta3, "meta3.rds")
+  readr::write_lines(meta3$PID, "pids.txt")
+}
 
 #### meta4 ####
 # meta4 has one row per region
 # The index is TID (Taxonomy ID)
-meta4 <- regions %>%
+meta4 <- meta3 %>%
+  mutate_if(is.list, as.character) %>%
+  group_by_at(names(regions)) %>%
+  summarize(PID = paste(PID, collapse = ",")) %>%
+  ungroup() %>%
   mutate(Reference = strsplit(Reference, " *, *") %>%
                                 map(unlist)) %>%
   unnest(Reference, .preserve = Region) %>%
   mutate(TID = glue("{Region}_{Reference}"),
          big_seq_table = glue("big_seq_table_{Region}"),
          Reference.File = Reference) %>%
+  arrange(TID) %>%
   mutate_at(c("TID", "big_seq_table", "Region"), syms)
-if (!interactive()) saveRDS(meta4, "meta4.rds")
+if (!interactive()) {
+  saveRDS(meta4, "meta4.rds")
+  mutate_if(meta4, is.list, as.character) %>%
+  readr::write_csv("meta4.csv")
+  readr::write_lines(meta4$TID, "tids.txt")
+}
 
 #### drake plan ####
 cat("\nbuilding plan...\n")
 tictoc::tic()
 plan <- drake_plan(
   
-  datasets = read_csv(file_in(!!dataset.file)),
+  datasets = readr::read_csv(file_in(!!dataset.file)),
   
   # dereplicate input sequences before running ITSx
   # this is done independently in parallel
@@ -249,22 +292,25 @@ plan <- drake_plan(
   # break the list of unique files into equal sized chunks for ITSx
   split_fasta = target(
     split(join_derep$fasta, seq_along(join_derep$fasta) %% !!bigsplit + 1),
-    transform = map(join_derep, Primer.pair,
+    transform = map(join_derep,
                     .tag_in = step, .id = Primer.pair)),
   
   # find the location of LSU, 5.8S, and SSU (and this ITS1 and ITS2)
   # in the sequences from each chunk
-  itsx_shard = target(
+  itsx_shard = target({
+    library(Biostrings)
+    library(dplyr)
     rITSx::itsx(in.file = split_fasta[[shard]],
-                nhmmer = TRUE,
+                # nhmmer = TRUE,
                 read_function = Biostrings::readDNAStringSet,
                 fasta = FALSE, summary = FALSE, graphical = FALSE,
                 save_regions = "none", not_found = FALSE,
-                complement = FALSE, cpu = ignore(itsx_cpus))[["positions"]],
+                complement = FALSE, cpu = ignore(itsx_cpus))[["positions"]]
+    },
     transform = cross(split_fasta,
                       shard = !!(1:bigsplit),
                       .tag_in = step,
-                      .id = FALSE)),
+                      .id = Primer.pair)),
   
   # combine the chunks into a master positions list.
   itsxtrim = target(
@@ -351,21 +397,26 @@ plan <- drake_plan(
     err.fun <- ifelse(Tech == "PacBio",
                       dada2::PacBioErrfun,
                       dada2::loessErrfun)
-    dada2::learnErrors(fls = region_derep, nbases = 1e8,
-                       multithread = ignore(dada_cpus), randomize = TRUE,
-                       errorEstimationFunction = err.fun,
-                       verbose = TRUE,
-                       qualityType = "FastqQuality")},
+    dada2::learnErrors(
+      fls = region_derep, nbases = 1e8,
+      multithread = ignore(dada_cpus), randomize = TRUE,
+      errorEstimationFunction = err.fun, 
+      HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(Homopolymer.Gap.Penalty)),
+      BAND_SIZE = Band.Size,
+      pool = eval(rlang::parse_expr(Pool)),
+      verbose = TRUE,
+      qualityType = "FastqQuality")},
     transform = map(.data = !!meta3,
                     .tag_in = step, .id = PID)),
   
   # Run dada denoising algorithm
   dada = target(
-    dada2::dada(derep = region_derep, err = err,
-                multithread = ignore(dada_cpus), 
-                HOMOPOLYMER_GAP_PENALTY = eval(parse_expr(Homopolymer.Gap.Penalty)),
-                BAND_SIZE = Band.Size,
-                pool = eval(parse_expr(Pool))),
+    dada2::dada(
+      derep = region_derep, err = err,
+      multithread = ignore(dada_cpus), 
+      HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(Homopolymer.Gap.Penalty)),
+      BAND_SIZE = Band.Size,
+      pool = eval(rlang::parse_expr(Pool))),
     transform = map(err, .data = !!meta3,
                     .tag_in = step,
                     .id = PID)),
@@ -389,7 +440,7 @@ plan <- drake_plan(
   
   # Join all the sequence tables for each region
   big_seq_table = target(
-    dada2::mergeSequenceTables(tables = nochim),
+    dada2::mergeSequenceTables(tables = list(nochim)),
     transform = combine(nochim, .tag_in = step, .by = Region)),
   
   # Assign taxonomy to each ASV
@@ -452,22 +503,8 @@ plan <- drake_plan(
 )
 tictoc::toc()
 
-plansteps <- unique(na.omit(plan[["step"]]))
-
 if (!interactive()) saveRDS(plan, "plan.rds")
 
-cat("\nCalculating outdated targets...\n")
-tictoc::tic()
-dconfig <- drake_config(plan, jobs_preprocess = local_cpus)
-od <- outdated(dconfig)
-tictoc::toc()
-
-if (interactive()) {
-  vis_drake_graph(dconfig,
-                  # group = "step", clusters = plansteps,
-                  targets_only = TRUE)
-}
-remove(dconfig)
 remove(meta1)
 remove(meta2)
 remove(meta3)
@@ -475,10 +512,28 @@ remove(meta4)
 remove(datasets)
 remove(regions)
 
+cat("\nCalculating outdated targets...\n")
+tictoc::tic()
+dconfig <- drake_config(plan, jobs_preprocess = local_cpus())
+od <- outdated(dconfig)
+tictoc::toc()
+
+if (interactive()) {
+  # plansteps <- unique(na.omit(plan[["step"]]))
+  vis_drake_graph(dconfig,
+                  # group = "step", clusters = plansteps,
+                  targets_only = TRUE)
+}
+
 if (interactive()) {
   dconfig <- drake_config(plan)
   vis_drake_graph(dconfig)
 }
+remove(dconfig)
+remove(snakemake)
+
+save(list = ls(),
+     file = "drake.Rdata")
 
 drake_plan_file_io <- function(plan) {
   if ("file_in" %in% names(plan)) {
