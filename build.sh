@@ -15,6 +15,9 @@
 module load texlive &&
 conda activate oueme1 &&
 
-snakemake --cluster "sbatch --account {account} --time {time} --cpu
+snakemake --immediate-submit\
+  --cluster "sbatch --account {account} --time {time} --cpu {threads} --dependency {dependencies}"\
+  --cluster-config config/UPPMAX.yaml\
+  --jobscript UPPMAX-jobscript.sh
 
 exit $out
