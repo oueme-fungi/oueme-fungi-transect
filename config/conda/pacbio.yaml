@@ -1,0 +1,12 @@
+name: pacbio
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - bam2fastq
+  - bax2bam
+  - pbccs
+  - pblaa
+  - lima
+

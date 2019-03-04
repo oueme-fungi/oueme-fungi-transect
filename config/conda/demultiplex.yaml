@@ -1,0 +1,7 @@
+name: demultiplex
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - pasta=1.7.8

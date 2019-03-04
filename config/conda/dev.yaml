@@ -1,0 +1,12 @@
+name: dev
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - r-base=3.4.1
+  - r-packrat
+  - r-recommended
+  - r-rstudio
+  - zlib=1.2.8
+  - zeromq

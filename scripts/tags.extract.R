@@ -8,6 +8,7 @@ if (interactive()) {
   tags.dir <- file.path(lab.dir, "tags")
   dataset.file <- file.path(lab.dir, "datasets.csv")
 } else if (exists("snakemake")) {
+  snakemake@source(".Rprofile", echo = FALSE)
   lab.dir <- snakemake@config$labdir
   tags.dir <- snakemake@config$tagdir
   gits7.file <- snakemake@input$gits7_tags

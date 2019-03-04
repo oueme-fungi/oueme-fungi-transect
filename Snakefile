@@ -77,6 +77,8 @@ rule bax2bam:
                                recursive = True)
     params:
         prefix="{moviedir}/{{movie}}".format_map(config)
+    resources:
+        walltime=5
     log: "{logdir}/bax2bam_{{movie}}.log".format_map(config)
     shell:
          "bax2bam {input} -o {params.prefix} &> {log}"
@@ -87,6 +89,8 @@ rule ccs:
           "{ccsdir}/{{movie}}.ccs.bam".format_map(config)
     input:
          "{moviedir}/{{movie}}.subreads.bam".format_map(config)
+    resources:
+        walltime=120
     log: "{logdir}/ccs_{{movie}}.log".format_map(config)
     shell:
          "ccs --polish {input} &>{log}"
@@ -100,6 +104,8 @@ rule ccs2fastq:
                                   ccsdir = config['ccsdir'],
                                   movie = moviefiles[wildcards.seqplate])
     log: "{logdir}/ccs2fastq_{{seqplate}}.log".format_map(config)
+    resources:
+        walltime=10
     shell:
          "samtools cat {input} | samtools fastq -0 {output} - &>{log}"
 
@@ -118,6 +124,8 @@ rule tagfiles:
         dataset = config['dataset']
     output:
         expand("{tagdir}/{seqrun}.fasta", tagdir = config['tagdir'], seqrun = datasets['Seq.Run'])
+    resources:
+        walltime=5
     log: "{logdir}/tagfiles.log".format_map(config)
     script:
         "{config[rdir]}/tags.extract.R"
@@ -143,6 +151,9 @@ checkpoint pacbio_demux:
         rpattern = lambda wildcards: ("{trimdir}/{seqplate}/{seqplate}-{{name}}r.trim.fastq.gz"
                                       .format(trimdir = config['trimdir'],
                                               seqplate = wildcards['seqplate']))
+    resources:
+        walltime=60
+    threads: 3
     log: "{logdir}/pacbio_demux_{{seqplate}}.log".format_map(config)
     shell:
          """
@@ -207,6 +218,8 @@ def find_ion_bam(wildcards):
 rule bam2fastq:
     output: "{demuxdir}/{{seqrun}}_{{plate,\d+}}-{{well,[A-H]\d+}}.demux.fastq.gz".format_map(config)
     input: find_ion_bam
+    resources:
+        walltime=5
     log: "{logdir}/bam2fastq_{{seqrun}}_{{plate}}-{{well}}.log".format_map(config)
     shell:
         """
@@ -220,17 +233,20 @@ rule ion_trim:
     input:
         fastq = "{demuxdir}/{{seqplate}}-{{well}}.demux.fastq.gz".format_map(config),
         barcode = find_barcode
+    resources:
+        walltime=60
+    threads: 4
     log: "{logdir}/ion_trim_{{seqplate}}-{{well}}.log".format_map(config)
     shell:
         """
         mkdir -p {config[trimdir]}
         cutadapt --trimmed-only\
                  -m 1\
-	             -g file:{input.barcode}\
-	             -j {threads}\
-	             -o {output}\
-	             {input.fastq}\
-	             &> {log}
+                     -g file:{input.barcode}\
+                     -j {threads}\
+                     -o {output}\
+                     {input.fastq}\
+                     &> {log}
         """
 
 # Generate the names of all the trimmed IonTorrent files which will be generated from the available .bam files
@@ -284,6 +300,8 @@ checkpoint drake_plan:
         platemap = config['platemap'],
         script = "{rdir}/drake.R".format_map(config)
     threads: 1
+    resources:
+        walltime=1440
     log: "{logdir}/drakeplan.log".format_map(config)
     script: "{rdir}/drake.R".format_map(config)
 
@@ -295,6 +313,8 @@ rule preITSx:
         drakedata = "drake.Rdata",
         script = "{rdir}/drake-preITSx.R".format_map(config)
     threads: 4
+    resources:
+        walltime=60
     log: "{logdir}/preITSx.log".format_map(config)
     script: "{rdir}/drake-preITSx.R".format_map(config)
 
@@ -305,6 +325,8 @@ rule ITSx:
         preITSx = ".preITSx",
         script = "{rdir}/drake-ITSx.R".format_map(config)
     threads: 1
+    resources:
+        walltime=360
     log: "{logdir}/ITSx.log".format_map(config)
     script: "{rdir}/drake-ITSx.R".format_map(config)
 
@@ -315,6 +337,8 @@ rule preDADA:
         ITSx = ".ITSx",
         script = "{rdir}/drake-preDADA.R".format_map(config)
     threads: 4
+    resources:
+        walltime=120
     log: "{logdir}/preDADA.log".format_map(config)
     script: "{rdir}/drake-preDADA.R".format_map(config)
 
@@ -325,6 +349,8 @@ rule DADA:
         preDADA = ".preDADA",
         script = "{rdir}/drake-DADA.R".format_map(config)
     threads: 8
+    resources:
+        walltime = 120
     log: "{logdir}/DADA_{{RID}}.log".format_map(config)
     script: "{rdir}/drake-DADA.R".format_map(config)
 
@@ -341,6 +367,8 @@ rule region_table:
         dada = region_inputs,
         script = "{rdir}/drake-pretaxonomy.R".format_map(config)
     threads: 1
+    resources:
+        walltime = 10
     log: "{logdir}/pretaxonomy_{{region}}.log".format_map(config)
     script: "{rdir}/drake-pretaxonomy.R".format_map(config)
 
@@ -357,6 +385,8 @@ rule taxonomy:
         dada = taxon_inputs,
         script = "{rdir}/drake-taxonomy.R".format_map(config)
     threads: 8
+    resources:
+        walltime = 240
     log: "{logdir}/taxonomy_{{TID}}.log".format_map(config)
     script: "{rdir}/drake-taxonomy.R".format_map(config)
 
@@ -374,5 +404,7 @@ rule finish:
         taxonomy = taxon_outputs,
         script = "{rdir}/drake-finish.R".format_map(config)
     threads: 1
+    resources:
+        walltime = 60
     log: "{logdir}/drake_finish.log".format_map(config)
     script: "{rdir}/drake-finish.R".format_map(config)

@@ -44,7 +44,7 @@ if (interactive()) {
   ref.dir <- snakemake@config$ref_root
   rmd.dir <- snakemake@config$rmddir
   out.dir <- snakemake@config$outdir
-  prereqs <- snakemake@input
+  prereqs <- unlist(snakemake@input)
   in.files <- stringr::str_subset(prereqs,
                          pattern = "\\.trim\\.fastq\\.gz$")
   bigsplit <- snakemake@config$bigsplit
@@ -92,6 +92,7 @@ library(rlang)
 library(glue)
 library(drake)
 library(assertr)
+library(parallel)
 
 #### parallel setup ####
 
@@ -103,7 +104,9 @@ is_local <- function() !is_slurm()
 # if we're not running on the cluster, leave one cpu free.
 local_cpus <- function() {
   if (is_slurm()) {
-    as.integer(Sys.getenv("CORES_PER_TASK"))
+    out <- as.integer(Sys.getenv("CORES_PER_TASK"))
+    assertthat::assert_that(assertthat::is.count(out))
+    out
   } else {
     max(parallel::detectCores() - 1, 1)
   }
@@ -181,7 +184,7 @@ meta1 <- datasets %>%
   mutate(Well = list(tidyr::crossing(Row = LETTERS[1:8], Col = 1:12) %>%
                        transmute(Well = paste0(Row, Col)))) %>%
   unnest(Well) %>%
-  mutate(Trim.File = glue("{Seq.Run}_{Plate}-{Well}{Direction}.trim.fastq.gz"),
+  mutate(Trim.File = glue("{Seq.Run}_{Plate}/{Seq.Run}_{Plate}-{Well}{Direction}.trim.fastq.gz"),
          FID = glue("{Seq.Run}{Plate}{Well}{Direction}") %>%
            str_replace_all("[:punct:]", ""),
          positions = make.names(glue("positions_{FID}")),
@@ -189,7 +192,7 @@ meta1 <- datasets %>%
          itsxtrim = make.names(glue("itsxtrim_.{Primer.pair}."))) %>%
   filter(file.exists(file.path(trim.dir, Trim.File))) %>%
   filter(file.size(file.path(trim.dir, Trim.File)) > 40) %>%
-  verify(Trim.File %in% basename(in.files)) %>%
+  verify(file.path(trim.dir, Trim.File) %in% in.files) %>%
   mutate_at(c("join_derep", "itsxtrim", "FID"), syms)
 
 #### meta2 ####
