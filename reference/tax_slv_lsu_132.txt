@@ -3464,7 +3464,7 @@ Eukaryota;Opisthokonta;Nucletmycea;Fungi;Blastocladiomycota;Incertae Sedis;	1180
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Blastocladiomycota;Incertae Sedis;Blastocladiomycetes;	11809	class		123
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Blastocladiomycota;Incertae Sedis;Blastocladiomycetes;Blastocladiales;	11810	order		123
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Chytridiomycota;	11811	phylum		123
-Eukaryota;Opisthokonta;Nucletmycea;Fungi;Chytridiomycota;Incertae Sedis;	11812	class		123
+Eukaryota;Opisthokonta;Nucletmycea;Fungi;Chytridiomycota;Incertae Sedis;	11812	subphylum		123
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Chytridiomycota;Incertae Sedis;Chytridiomycetes;	11813	class		123
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Chytridiomycota;Incertae Sedis;Chytridiomycetes;Chytridiales;	11814	order		123
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Chytridiomycota;Incertae Sedis;Chytridiomycetes;Cladochytriales;	11815	order		123
@@ -3556,7 +3556,7 @@ Eukaryota;Opisthokonta;Nucletmycea;Fungi;Glomeromycota;Incertae Sedis;Glomeromyc
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Glomeromycota;Incertae Sedis;Glomeromycetes;Glomerales;	11901	order		123
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Incertae Sedis;	11902	phylum		123
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Incertae Sedis;Zoopagomycotina;	11903	subphylum		123
-Eukaryota;Opisthokonta;Nucletmycea;Fungi;Incertae Sedis;Zoopagomycotina;Incertae Sedis;	11904	order		123
+Eukaryota;Opisthokonta;Nucletmycea;Fungi;Incertae Sedis;Zoopagomycotina;Incertae Sedis;	11904	class		123
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Incertae Sedis;Zoopagomycotina;Incertae Sedis;Zoopagales;	11905	order		123
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Microsporidia;	13427	phylum		128
 Eukaryota;Opisthokonta;Nucletmycea;Fungi;Neocallimastigomycota;	11906	phylum		123
