@@ -15,10 +15,11 @@
 
 ## texlive from conda isn't functional
 module load texlive &&
-conda activate oueme1 &&
 
 snakemake -pr --jobs 999\
   --rerun-incomplete\
-  --profile config/UPPMAX
+  --profile config/UPPMAX\
+  --immediate-submit\
+  --use-conda
 
 #exit $out

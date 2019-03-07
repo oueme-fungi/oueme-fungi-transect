@@ -53,10 +53,12 @@ datasets2 = (datasets.join(pd.DataFrame({"Plate" : datasets2}))
              .set_index('SeqPlate', drop = False))
 
 # endpoint target
+localrules: all
 rule all:
     input: ".drake_finish"
 
 # endpoint target: convert all pacbio movies to Sequel format
+localrules: convertmovies
 rule convertmovies:
     input:
         expand("{moviedir}/{movie}.{type}.bam",
@@ -75,6 +77,8 @@ rule bax2bam:
                                .format(wildcards = wildcards,
                                        rawdir = config['rawdir']),
                                recursive = True)
+    conda: "config/conda/pacbio.yaml"
+    group: "pacbio"
     params:
         prefix="{moviedir}/{{movie}}".format_map(config)
     resources:
@@ -91,9 +95,12 @@ rule ccs:
          "{moviedir}/{{movie}}.subreads.bam".format_map(config)
     resources:
         walltime=120
+    conda: "config/conda/pacbio.yaml"
+    group: "pacbio"
+    threads: 4
     log: "{logdir}/ccs_{{movie}}.log".format_map(config)
     shell:
-         "ccs --polish {input} &>{log}"
+         "ccs --polish --numThreads={threads} {input} &>{log}"
 
 # convert all circular consensus files for a sequencing run to fastq.gz format
 rule ccs2fastq:
@@ -103,11 +110,13 @@ rule ccs2fastq:
          lambda wildcards: expand("{ccsdir}/{movie}.ccs.bam",
                                   ccsdir = config['ccsdir'],
                                   movie = moviefiles[wildcards.seqplate])
+    conda: "config/conda/pacbio.yaml"
+    group: "pacbio"
     log: "{logdir}/ccs2fastq_{{seqplate}}.log".format_map(config)
     resources:
         walltime=10
     shell:
-         "samtools cat {input} | samtools fastq -0 {output} - &>{log}"
+         "bam2fastq -o {output} {input} &>{log}"
 
 # endpoint target: generate all PacBio fastq files
 rule pacbio_fastq:
@@ -117,6 +126,7 @@ rule pacbio_fastq:
                seqplate = [sp for sp in seqplates if sp.startswith('pb')])
 
 # generate a fasta file of primer sequences for each platein the format required by cutadapt
+localrules: tagfiles
 rule tagfiles:
     input:
         gits7_tags = config['gits7_tags'],
@@ -126,6 +136,7 @@ rule tagfiles:
         expand("{tagdir}/{seqrun}.fasta", tagdir = config['tagdir'], seqrun = datasets['Seq.Run'])
     resources:
         walltime=5
+    conda: "config/conda/drake.yaml"
     log: "{logdir}/tagfiles.log".format_map(config)
     script:
         "{config[rdir]}/tags.extract.R"
@@ -153,7 +164,9 @@ checkpoint pacbio_demux:
                                               seqplate = wildcards['seqplate']))
     resources:
         walltime=60
-    threads: 3
+    conda: "config/conda/demultiplex.yaml"
+    group: "pacbio"
+    threads: 3 #2 instances of cutadapt and 1 fastx_reverse_complement
     log: "{logdir}/pacbio_demux_{{seqplate}}.log".format_map(config)
     shell:
          """
@@ -185,12 +198,14 @@ def demux_find(seqplate):
     return subfind
 
 # endpoint rule to demultiplex all the PacBio reads.
+localrules: pacbio_demuxall
 rule pacbio_demuxall:
     input:
          demux_find('pb_500_001'),
          demux_find('pb_500_002'),
          demux_find('pb_483_001'),
          demux_find('pb_483_002')
+
 
 #### IonTorrent files ####
 # The IonTorrent files have already been demultiplexed by the IonTorrent pipeline.
@@ -220,6 +235,8 @@ rule bam2fastq:
     input: find_ion_bam
     resources:
         walltime=5
+    conda: "config/conda/demultiplex.yaml"
+    group: "iontorrent"
     log: "{logdir}/bam2fastq_{{seqrun}}_{{plate}}-{{well}}.log".format_map(config)
     shell:
         """
@@ -236,6 +253,8 @@ rule ion_trim:
     resources:
         walltime=60
     threads: 4
+    conda: "config/conda/demultiplex.yaml"
+    group: "iontorrent"
     log: "{logdir}/ion_trim_{{seqplate}}-{{well}}.log".format_map(config)
     shell:
         """
@@ -273,7 +292,7 @@ def ion_find(seqrun, plate):
 # on the cluster when there are heterogenous jobs, including many short jobs.
 # therefore we cut the workflow up into chunks with simple dependency relations and dispatch them to SLURM
 # from Snakemake.
-
+localrules: drake_plan
 checkpoint drake_plan:
     output:
         plan = "plan.rds",
@@ -299,6 +318,7 @@ checkpoint drake_plan:
         regions = config['regions'],
         platemap = config['platemap'],
         script = "{rdir}/drake.R".format_map(config)
+    conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime=1440
@@ -312,42 +332,51 @@ rule preITSx:
     input:
         drakedata = "drake.Rdata",
         script = "{rdir}/drake-preITSx.R".format_map(config)
+    conda: "config/conda/drake.yaml"
     threads: 4
     resources:
         walltime=60
     log: "{logdir}/preITSx.log".format_map(config)
     script: "{rdir}/drake-preITSx.R".format_map(config)
 
+# Detect rDNA regions using ITSx
+# This script will spawn additional jobs.
+localrules: ITSx
 rule ITSx:
     output: touch(".ITSx")
     input:
         drakedata = "drake.Rdata",
         preITSx = ".preITSx",
         script = "{rdir}/drake-ITSx.R".format_map(config)
+    conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime=360
     log: "{logdir}/ITSx.log".format_map(config)
     script: "{rdir}/drake-ITSx.R".format_map(config)
 
+# Recombine the ITSx results, split the fastq files into different regions, and do quality filtering.
 rule preDADA:
     output: touch(".preDADA")
     input:
         drakedata = "drake.Rdata",
         ITSx = ".ITSx",
         script = "{rdir}/drake-preDADA.R".format_map(config)
+    conda: "config/conda/drake.yaml"
     threads: 4
     resources:
         walltime=120
     log: "{logdir}/preDADA.log".format_map(config)
     script: "{rdir}/drake-preDADA.R".format_map(config)
 
+# Dereplicate, denoise, and remove chimeras for each region/plate combination
 rule DADA:
     output: touch(".nochim_{RID}")
     input:
         drakedata = "drake.Rdata",
         preDADA = ".preDADA",
         script = "{rdir}/drake-DADA.R".format_map(config)
+    conda: "config/conda/drake.yaml"
     threads: 8
     resources:
         walltime = 120
@@ -360,12 +389,15 @@ def region_inputs(wildcards):
     PIDs = meta4.loc[[wildcards.region], 'PID'].unique()[0].split(',')
     return expand('.nochim_{PID}', PID = PIDs)
 
+# combine the dada results for each region
+localrules: region_table
 rule region_table:
     output: touch(".big_seq_table_{region}")
     input:
         drakedata = "drake.Rdata",
         dada = region_inputs,
         script = "{rdir}/drake-pretaxonomy.R".format_map(config)
+    conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime = 10
@@ -378,12 +410,14 @@ def taxon_inputs(wildcards):
     regions = meta4.loc[wildcards.TID, 'Region'].split(sep = ",")
     return expand('.big_seq_table_{region}', region = regions)
 
+# call taxonomy and assign guilds
 rule taxonomy:
     output: touch(".guilds_table_{TID}")
     input:
         drakedata = "drake.Rdata",
         dada = taxon_inputs,
         script = "{rdir}/drake-taxonomy.R".format_map(config)
+    conda: "config/conda/drake.yaml"
     threads: 8
     resources:
         walltime = 240
@@ -397,12 +431,20 @@ def taxon_outputs(wildcards):
     file.close()
     return expand(".guilds_table_{TID}", TID = TIDs)
 
+rule pasta:
+    output:
+        tree="{root}.tre"
+        alignment=
+
+# do all remaining actions in the drake plan:  at the moment, this means making reports.
+localrules: finish
 rule finish:
     output: touch(".drake_finish")
     input:
         drakedata = "drake.Rdata",
         taxonomy = taxon_outputs,
         script = "{rdir}/drake-finish.R".format_map(config)
+    conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime = 60
