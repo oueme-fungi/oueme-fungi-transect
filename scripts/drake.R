@@ -104,7 +104,7 @@ is_local <- function() !is_slurm()
 # if we're not running on the cluster, leave one cpu free.
 local_cpus <- function() {
   if (is_slurm()) {
-    out <- as.integer(Sys.getenv("CORES_PER_TASK"))
+    out <- as.integer(Sys.getenv("SLURM_JOB_CPUS_PER_NODE"))
     assertthat::assert_that(assertthat::is.count(out))
     out
   } else {

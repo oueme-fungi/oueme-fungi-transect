@@ -431,10 +431,10 @@ def taxon_outputs(wildcards):
     file.close()
     return expand(".guilds_table_{TID}", TID = TIDs)
 
-rule pasta:
-    output:
-        tree="{root}.tre"
-        alignment=
+#rule pasta:
+#    output:
+#        tree="{root}.tre"
+#        alignment=
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
 localrules: finish
