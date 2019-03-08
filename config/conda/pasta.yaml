@@ -1,0 +1,6 @@
+name: pasta
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - pasta

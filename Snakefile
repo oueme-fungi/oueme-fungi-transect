@@ -19,6 +19,7 @@ config['demuxdir']  = "{seqdir}/demux".format_map(config)
 config['trimdir']   = "{seqdir}/trim".format_map(config)
 config['regiondir'] = "{seqdir}/regions".format_map(config)
 config['filterdir'] = "{seqdir}/filter".format_map(config)
+config['pastadir']  = "{datadir}/pasta".format_map(config)
 config['tagdir']    = "{labdir}/tags".format_map(config)
 
 config['dataset']    = '{labdir}/datasets.csv'.format_map(config)
@@ -386,8 +387,8 @@ rule DADA:
 def region_inputs(wildcards):
     checkpoints.drake_plan.get()
     meta4 = pd.read_csv("meta4.csv").set_index("Region")
-    PIDs = meta4.loc[[wildcards.region], 'PID'].unique()[0].split(',')
-    return expand('.nochim_{PID}', PID = PIDs)
+    PIDs = meta4.loc[[wildcards.region], 'PlateRegionID'].unique()[0].split(',')
+    return expand('.nochim_{PlateRegionID}', PlateRegionID = PIDs)
 
 # combine the dada results for each region
 localrules: region_table
@@ -406,13 +407,13 @@ rule region_table:
 
 def taxon_inputs(wildcards):
     checkpoints.drake_plan.get()
-    meta4 = pd.read_csv("meta4.csv").set_index("TID")
-    regions = meta4.loc[wildcards.TID, 'Region'].split(sep = ",")
+    meta4 = pd.read_csv("meta4.csv").set_index("TaxID")
+    regions = meta4.loc[wildcards.TaxID, 'Region'].split(sep = ",")
     return expand('.big_seq_table_{region}', region = regions)
 
 # call taxonomy and assign guilds
 rule taxonomy:
-    output: touch(".guilds_table_{TID}")
+    output: touch(".guilds_table_{TaxID}")
     input:
         drakedata = "drake.Rdata",
         dada = taxon_inputs,
@@ -421,26 +422,66 @@ rule taxonomy:
     threads: 8
     resources:
         walltime = 240
-    log: "{logdir}/taxonomy_{{TID}}.log".format_map(config)
+    log: "{logdir}/taxonomy_{{TaxID}}.log".format_map(config)
     script: "{rdir}/drake-taxonomy.R".format_map(config)
 
 def taxon_outputs(wildcards):
     checkpoints.drake_plan.get()
     file = open("tids.txt", mode = 'r')
-    TIDs = file.read().splitlines()
+    TaxIDs = file.read().splitlines()
     file.close()
-    return expand(".guilds_table_{TID}", TID = TIDs)
+    return expand(".guilds_table_{TaxID}", TaxID = TaxIDs)
 
-#rule pasta:
-#    output:
-#        tree="{root}.tre"
-#        alignment=
+rule consensus:
+    output:
+        flag=touch(".consensus"),
+        guide="{pastadir}/LSU_guide.tree".format_map(config),
+        seq="{pastadir}/long_ASVs.fasta".format_map(config)
+    input:
+        drakedata = "drake.Rdata",
+        taxon = taxon_outputs,
+        script = "{rdir}/drake-consensus.R".format_map(config)
+    conda: "config/conda/drake.yaml"
+    threads: 8
+    resources:
+        walltime = 240
+    log: "{logdir}/consensus.log".format_map(config)
+    script: "{rdir}/drake-consensus.R".format_map(config)
+
+rule pasta:
+    output:
+        "{pastadir}/pasta_raxml.tree".format_map(config)
+    input:
+        consensus=".consensus",
+        guide="{pastadir}/LSU_guide.tree".format_map(config),
+        seq="{pastadir}/long_ASVs.fasta".format_map(config)
+    log: "{logdir}/pasta.log".format_map(config)
+    threads: 16
+    resources:
+        walltime=60
+    conda: "config/conda/pasta.yaml"
+    shell:
+        """
+        mkdir -p {config[pastadir]} &&
+        cd {config[pastadir]} &&
+        rm *postraxtree_tree.tre &&
+        PASTA_TOOLS_DEVDIR=$CONDA_PREFIX/bin/ \
+        run_pasta.py \
+        -j ITS_LSU \
+        --input {input.seq} \
+        --treefile {input.guide} \
+        --datatype rna \
+        --raxml-search-after \
+        --num-cpus={threads} &&
+        mv *postraxtree_tree.tre {output} &> {log}
+        """
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
 localrules: finish
 rule finish:
     output: touch(".drake_finish")
     input:
+        pasta = "{pastadir}/pasta_raxml.tree".format_map(config),
         drakedata = "drake.Rdata",
         taxonomy = taxon_outputs,
         script = "{rdir}/drake-finish.R".format_map(config)
