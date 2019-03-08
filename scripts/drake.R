@@ -84,12 +84,11 @@ is_local <- function() !is_slurm()
 # if we're not running on the cluster, leave one cpu free.
 local_cpus <- function() {
   if (is_slurm()) {
-    out <- as.integer(Sys.getenv("CORES_PER_TASK"))
+    out <- as.integer(Sys.getenv("SLURM_CORES_PER_TASK"))
     assertthat::assert_that(assertthat::is.count(out))
     out
   } else {
-    #max(parallel::detectCores() - 1, 1)
-    1 # Having trouble with RcppParallel
+    max(parallel::detectCores() - 1, 1)
   }
 }
 
