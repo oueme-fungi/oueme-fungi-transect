@@ -315,6 +315,7 @@ checkpoint drake_plan:
         "{rdir}/extract_regions.R".format_map(config),
         "{rdir}/dada.R".format_map(config),
         "{rdir}/plate_check.R".format_map(config),
+        "{rdir}/map_LSU.R".format_map(config),
         dataset = config['dataset'],
         regions = config['regions'],
         platemap = config['platemap'],

@@ -16,7 +16,7 @@ targets <- c("lsutree", "long_consensus")
 
 dada_cpus <- local_cpus()
 if (any(targets %in% od)) {
-  cat("\n Making", target, " with", dada_cpus, "cores...\n")
+  cat("\n Making", targets, "with", dada_cpus, "cores...\n")
   tictoc::tic()
   drake::make(plan,
        parallelism = "loop",

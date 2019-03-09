@@ -1,30 +1,23 @@
 # Take a list of \code{ShortReadQ} and return the reads, ids, and expected error
 # in \code{tibble} form
 raw_reads <- function(..., max_ee = Inf) {
-  map_dfr(list(...),
+  purrr::map_dfr(list(...),
           function(x) {
             if (!methods::is(x, "ShortReadQ")) return(tibble::tibble(
               seq.id = character(),
               seq = character(),
               ee = numeric()))
             tibble::tibble(
-              file = name, 
-              data = list(tibble::tibble(
                 seq.id = as.character(x@id),
                 seq = as.character(x@sread),
-                ee = rowSums(10^-(as(x@quality, "matrix")/10), na.rm = TRUE))))
+                ee = rowSums(10^-(as(x@quality, "matrix")/10), na.rm = TRUE))
           }) %>%
-    tidyr::extract(
-      file,
-      c("Seq.Run", "Plate", "Well", "Direction", "Region"),
-      "regions_([:alpha:]{2}_\\d{3})(\\d{3})([A-H]1?\\d)([rf]?)([:alnum:]+)") %>%
-    tidyr::unnest(data) %>%
     dplyr::filter(ee <= max_ee)
 }
 
 
 combine_bigmaps <- function(dadamap, rawdata) {
-  purrr::map_dfr(bigmaps, ~tibble::tibble(file = names(.), data = .)) %>%
+  purrr::map_dfr(dadamap, ~tibble::tibble(file = names(.), data = .)) %>%
     tidyr::extract(
       col = "file",
       into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),

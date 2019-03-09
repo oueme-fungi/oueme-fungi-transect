@@ -428,7 +428,7 @@ plan <- drake_plan(
   # Join all the sequence tables for each region
   big_seq_table = target(
     dada2::mergeSequenceTables(tables = list(nochim)),
-    transform = combine(nochim, .tag_in = step, .by = Region)),
+    transform = combine(nochim, .tag_in = step, .by = RegionID)),
   
   # Assign taxonomy to each ASV
   taxon = target(
