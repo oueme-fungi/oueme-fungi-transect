@@ -499,7 +499,9 @@ plan <- drake_plan(
         Biostrings::letterFrequency(., "MRWSYKVHDBN"),
       qLSU = Biostrings::RNAStringSet(LSU) %>%
         Biostrings::letterFrequency(., "MRWSYKVHDBN")) %>%
-    dplyr::filter(qITS < 3, qLSU < 3, qlong < 3),
+    dplyr::filter(qITS < 3, qLSU < 3, qlong < 3) %>%
+    dplyr::mutate(hash = seqhash(long)) %>%
+    dplyr::arrange(hash),
   
   # Assign taxonomy to the consensus LSU sequences.
   taxon_LSUcons_rdp =
@@ -519,12 +521,11 @@ plan <- drake_plan(
     dplyr::left_join(dplyr::select(taxon_LSUcons_rdp, LSU = seq, Name),
                      suffix = c("_ITS2", "_LSU"),
                      by = "LSU") %>%
-    tidyr::unite("Name", Name_ITS2, Name_LSU, sep = "/") %>%
-    dplyr::mutate(hash = seqhash(long)),
+    tidyr::unite("Name", Name_ITS2, Name_LSU, sep = "/"),
   
   # get the long amplicon consensus and convert to RNAStringSet.
   # Use the sequence hashes as the name, so that names will be robust in PASTA
-  long_consensus = cons_tax %$%
+  long_consensus = conseq_filt %$%
     rlang::set_names(long, hash) %>%
     Biostrings::RNAStringSet(),
   
