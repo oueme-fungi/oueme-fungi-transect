@@ -474,7 +474,7 @@ rule pasta:
     conda: "config/conda/pasta.yaml"
     shell:
         """
-        [ -e .dopasta ] &&
+        [ -e {config[pastadir]}/.dopasta ] &&
         rm -f {config[pastadir]}/*postraxtree_tree.tre &&
         PASTA_TOOLS_DEVDIR=$CONDA_PREFIX/bin/ \
         run_pasta.py \
@@ -485,7 +485,9 @@ rule pasta:
         --raxml-search-after \
         --num-cpus={threads} &&
         mv {config[pastadir]}/*postraxtree_tree.tre {output.tree} &&
-        rm -f .dopasta &> {log}
+        rm -f {config[pastadir]}/.dopasta &> {log} ||
+        ( echo "alignment unchanged, skipping PASTA and using old tree.";
+          touch {output.tree} )
         """
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
