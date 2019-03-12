@@ -1,3 +1,14 @@
+# hash a set of sequences
+seqhash <- function(seq, len = 8) UseMethod("seqhash")
+seqhash.character <- function(seq, len = 8) {
+  h <- purrr::map_chr(seq, digest::digest)
+  stringr::str_sub(h, end = len)
+}
+seqhash.XStringSet <- function(seq, len = 8) {
+  seqhash.character(as.character(seq))
+}
+
+
 # Take a list of \code{ShortReadQ} and return the reads, ids, and expected error
 # in \code{tibble} form
 raw_reads <- function(..., filenames, max_ee = Inf) {
