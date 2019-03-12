@@ -2,10 +2,9 @@ name: dev
 channels:
   - conda-forge
   - defaults
-  - rdonnelly
 dependencies:
-  - r-base=3.5.1
+  - r-base=3.4.1
   - r-packrat
   - r-recommended
-  - rstudio>=1.2
+  - rstudio
   - zeromq

@@ -1,6 +1,6 @@
 PackratFormat: 1.4
 PackratVersion: 0.5.0
-RVersion: 3.5.1
+RVersion: 3.4.1
 Repos: CRAN=https://ftp.acc.umu.se/mirror/CRAN/,
     BioCsoft=https://bioconductor.org/packages/3.7/bioc,
     BioCann=https://bioconductor.org/packages/3.7/data/annotation,
@@ -61,11 +61,6 @@ GithubRepo: FUNGuildR
 GithubUsername: brendanf
 GithubRef: master
 GithubSha1: cd999a539e9e17f282285a257719eb5144139737
-RemoteHost: api.github.com
-RemoteRepo: FUNGuildR
-RemoteUsername: brendanf
-RemoteRef: master
-RemoteSha: cd999a539e9e17f282285a257719eb5144139737
 
 Package: GenomeInfoDb
 Source: Bioconductor
@@ -163,11 +158,6 @@ GithubRepo: ShortRead
 GithubUsername: brendanf
 GithubRef: master
 GithubSha1: af70ab1888228e0b9035e7ac42e2cb09d5b10572
-RemoteHost: api.github.com
-RemoteRepo: ShortRead
-RemoteUsername: brendanf
-RemoteRef: master
-RemoteSha: af70ab1888228e0b9035e7ac42e2cb09d5b10572
 
 Package: SummarizedExperiment
 Source: Bioconductor
@@ -332,11 +322,6 @@ GithubRepo: dada2
 GithubUsername: benjjneb
 GithubRef: master
 GithubSha1: f96fdc6cf51596d8007e9a28bc13d73ef4d2193d
-RemoteHost: api.github.com
-RemoteRepo: dada2
-RemoteUsername: benjjneb
-RemoteRef: master
-RemoteSha: f96fdc6cf51596d8007e9a28bc13d73ef4d2193d
 
 Package: data.table
 Source: CRAN
@@ -371,11 +356,6 @@ GithubRepo: drake
 GithubUsername: ropensci
 GithubRef: master
 GithubSha1: 44020662d4141a6cbbf84744c6cbfd2985fbe055
-RemoteHost: api.github.com
-RemoteRepo: drake
-RemoteUsername: ropensci
-RemoteRef: master
-RemoteSha: 44020662d4141a6cbbf84744c6cbfd2985fbe055
 
 Package: e1071
 Source: CRAN
@@ -763,11 +743,6 @@ GithubRepo: rITSx
 GithubUsername: brendanf
 GithubRef: master
 GithubSha1: b894bc016bd3066d25d214e45f3002e9f19ba1ae
-RemoteHost: api.github.com
-RemoteRepo: rITSx
-RemoteUsername: brendanf
-RemoteRef: master
-RemoteSha: b894bc016bd3066d25d214e45f3002e9f19ba1ae
 
 Package: readr
 Source: CRAN

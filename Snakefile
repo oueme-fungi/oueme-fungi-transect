@@ -20,6 +20,7 @@ config['trimdir']   = "{seqdir}/trim".format_map(config)
 config['regiondir'] = "{seqdir}/regions".format_map(config)
 config['filterdir'] = "{seqdir}/filter".format_map(config)
 config['pastadir']  = "{datadir}/pasta".format_map(config)
+config['plandir']   = "{datadir}/plan".format_map(config)
 config['tagdir']    = "{labdir}/tags".format_map(config)
 
 config['dataset']    = '{labdir}/datasets.csv'.format_map(config)
@@ -296,18 +297,21 @@ def ion_find(seqrun, plate):
 # on the cluster when there are heterogenous jobs, including many short jobs.
 # therefore we cut the workflow up into chunks with simple dependency relations and dispatch them to SLURM
 # from Snakemake.
+
+# Configure the drake plan
+# This does not build any targets, but it does most of the preliminary work, including calculating which targets
+# are outdated.
 localrules: drake_plan
 checkpoint drake_plan:
     output:
-        plan = "plan.rds",
-        meta1 = "meta1.rds",
-        meta2 = "meta2.rds",
-        meta3 = "meta3.rds",
-        meta4 = "meta4.rds",
-        drakedata = "drake.Rdata",
-        pids = "pids.txt",
-        meta4csv = "meta4.csv",
-        tids = "tids.txt"
+        plan      = "{plandir}/plan.rds".format_map(config),
+        meta1     = "{plandir}/meta1.rds".format_map(config),
+        meta2     = "{plandir}/meta2.rds".format_map(config),
+        meta3     = "{plandir}/meta3.rds".format_map(config),
+        meta4     = "{plandir}/meta4.rds".format_map(config),
+        drakedata = "{plandir}/drake.Rdata".format_map(config),
+        meta4csv  = "{plandir}/meta4.csv".format_map(config),
+        tids      = "{plandir}/tids.txt".format_map(config)
     input:
         demux_find('pb_500_001'),
         demux_find('pb_500_002'),
@@ -318,38 +322,42 @@ checkpoint drake_plan:
         "{rdir}/extract_regions.R".format_map(config),
         "{rdir}/dada.R".format_map(config),
         "{rdir}/plate_check.R".format_map(config),
-        dataset = config['dataset'],
-        regions = config['regions'],
+        "{rdir}/map_LSU.R".format_map(config),
+        packrat  = "packrat/packrat.lock",
+        dataset  = config['dataset'],
+        regions  = config['regions'],
         platemap = config['platemap'],
-        script = "{rdir}/drake.R".format_map(config)
+        script   = "{rdir}/drake.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime=1440
     log: "{logdir}/drakeplan.log".format_map(config)
-    script: "{rdir}/drake.R".format_map(config)
+    script: "{input.script}"
 
 
 # Dereplicate the sequences in the fastq.gz files and split them into equal-size groups for region detection using ITSx
 rule preITSx:
-    output: touch(".preITSx")
+    output:
+        flag = touch(".preITSx")
     input:
-        drakedata = "drake.Rdata",
-        script = "{rdir}/drake-preITSx.R".format_map(config)
+        drakedata = rules.drake_plan.output.drakedata,
+        script    = "{rdir}/drake-preITSx.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 4
     resources:
         walltime=60
     log: "{logdir}/preITSx.log".format_map(config)
-    script: "{rdir}/drake-preITSx.R".format_map(config)
+    script: "{input.script}"
 
 # Detect rDNA regions using ITSx
 # This script will spawn additional jobs.
 localrules: ITSx
 rule ITSx:
-    output: touch(".ITSx")
+    output:
+        flag = touch(".ITSx")
     input:
-        drakedata = "drake.Rdata",
+        drakedata = rules.drake_plan.output.drakedata,
         preITSx = ".preITSx",
         script = "{rdir}/drake-ITSx.R".format_map(config)
     conda: "config/conda/drake.yaml"
@@ -357,39 +365,40 @@ rule ITSx:
     resources:
         walltime=360
     log: "{logdir}/ITSx.log".format_map(config)
-    script: "{rdir}/drake-ITSx.R".format_map(config)
+    script: "{input.script}"
 
 # Recombine the ITSx results, split the fastq files into different regions, and do quality filtering.
 rule preDADA:
     output: touch(".preDADA")
     input:
-        drakedata = "drake.Rdata",
-        ITSx = ".ITSx",
+        drakedata = rules.drake_plan.output.drakedata,
+        ITSx      = rules.ITSx.output.flag,
         script = "{rdir}/drake-preDADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 4
     resources:
         walltime=120
     log: "{logdir}/preDADA.log".format_map(config)
-    script: "{rdir}/drake-preDADA.R".format_map(config)
+    script: "{input.script}"
 
 # Dereplicate, denoise, and remove chimeras for each region/plate combination
 rule DADA:
     output: touch(".nochim_{RID}")
     input:
-        drakedata = "drake.Rdata",
-        preDADA = ".preDADA",
-        script = "{rdir}/drake-DADA.R".format_map(config)
+        drakedata = rules.drake_plan.output.drakedata,
+        preDADA   = ".preDADA",
+        script    = "{rdir}/drake-DADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:
         walltime = 120
     log: "{logdir}/DADA_{{RID}}.log".format_map(config)
-    script: "{rdir}/drake-DADA.R".format_map(config)
+    script: "{input.script}"
 
+# Function to calculate which DADA results represent each region.
 def region_inputs(wildcards):
     checkpoints.drake_plan.get()
-    meta4 = pd.read_csv("meta4.csv").set_index("Region")
+    meta4 = pd.read_csv(rules.drake_plan.output.meta4csv).set_index("Region")
     PIDs = meta4.loc[[wildcards.region], 'PlateRegionID'].unique()[0].split(',')
     return expand('.nochim_{PlateRegionID}', PlateRegionID = PIDs)
 
@@ -398,19 +407,20 @@ localrules: region_table
 rule region_table:
     output: touch(".big_seq_table_{region}")
     input:
-        drakedata = "drake.Rdata",
-        dada = region_inputs,
-        script = "{rdir}/drake-pretaxonomy.R".format_map(config)
+        drakedata = rules.drake_plan.output.drakedata,
+        dada      = region_inputs,
+        script    = "{rdir}/drake-pretaxonomy.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime = 10
     log: "{logdir}/pretaxonomy_{{region}}.log".format_map(config)
-    script: "{rdir}/drake-pretaxonomy.R".format_map(config)
+    script: "{input.script}"
 
+# calculate which sequence tables are needed for a taxonomy assignment step
 def taxon_inputs(wildcards):
     checkpoints.drake_plan.get()
-    meta4 = pd.read_csv("meta4.csv").set_index("TaxID")
+    meta4 = pd.read_csv(rules.drake_plan.output.meta4csv).set_index("TaxID")
     regions = meta4.loc[wildcards.TaxID, 'Region'].split(sep = ",")
     return expand('.big_seq_table_{region}', region = regions)
 
@@ -418,46 +428,48 @@ def taxon_inputs(wildcards):
 rule taxonomy:
     output: touch(".guilds_table_{TaxID}")
     input:
-        drakedata = "drake.Rdata",
-        dada = taxon_inputs,
-        script = "{rdir}/drake-taxonomy.R".format_map(config)
+        drakedata = rules.drake_plan.output.drakedata,
+        dada      = taxon_inputs,
+        script    = "{rdir}/drake-taxonomy.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:
         walltime = 240
     log: "{logdir}/taxonomy_{{TaxID}}.log".format_map(config)
-    script: "{rdir}/drake-taxonomy.R".format_map(config)
+    script: "{input.script}"
 
+# calculate all the taxonomy outputs which should be calculated
 def taxon_outputs(wildcards):
     checkpoints.drake_plan.get()
-    file = open("tids.txt", mode = 'r')
+    file = open(rules.drake_plan.output.tids, mode = 'r')
     TaxIDs = file.read().splitlines()
     file.close()
     return expand(".guilds_table_{TaxID}", TaxID = TaxIDs)
 
+# Calculate a consensus LSU and long amplicon (ITS1--LR5) for each ITS2 ASV,
+# and build a guide tree based on LSU
 rule consensus:
     output:
-        flag=touch(".consensus"),
-        guide="{pastadir}/LSU_guide.tree".format_map(config),
-        seq="{pastadir}/long_ASVs.fasta".format_map(config)
+        flag    = touch(".consensus"),
+        longasv = "{pastadir}/long_ASVs.fasta".format_map(config)
     input:
-        drakedata = "drake.Rdata",
-        taxon = taxon_outputs,
-        script = "{rdir}/drake-consensus.R".format_map(config)
+        drakedata = rules.drake_plan.output.drakedata,
+        taxon     = taxon_outputs,
+        script    = "{rdir}/drake-consensus.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:
         walltime = 240
     log: "{logdir}/consensus.log".format_map(config)
-    script: "{rdir}/drake-consensus.R".format_map(config)
+    script: "{input.script}"
 
+# Build a progressive tree using PASTA, with the LSU tree as guide
 rule pasta:
     output:
-        "{pastadir}/pasta_raxml.tree".format_map(config)
+        tree = "{pastadir}/pasta_raxml.tree".format_map(config)
     input:
-        consensus=".consensus",
-        guide="{pastadir}/LSU_guide.tree".format_map(config),
-        seq="{pastadir}/long_ASVs.fasta".format_map(config)
+        consensus = rules.consensus.output.flag,
+        longasv   = rules.consensus.output.longasv
     log: "{logdir}/pasta.log".format_map(config)
     threads: 16
     resources:
@@ -467,16 +479,18 @@ rule pasta:
         """
         mkdir -p {config[pastadir]} &&
         cd {config[pastadir]} &&
-        rm *postraxtree_tree.tre &&
+        [ -e .dopasta ] &&
+        rm -f *postraxtree_tree.tre &&
         PASTA_TOOLS_DEVDIR=$CONDA_PREFIX/bin/ \
         run_pasta.py \
         -j ITS_LSU \
-        --input {input.seq} \
-        --treefile {input.guide} \
+        --input {input.longasv} \
+        --aligned \
         --datatype rna \
         --raxml-search-after \
         --num-cpus={threads} &&
-        mv *postraxtree_tree.tre {output} &> {log}
+        mv {config[pastadir]}/*postraxtree_tree.tre {output.tree} &&
+        rm -f .dopasta &> {log}
         """
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
@@ -484,13 +498,13 @@ localrules: finish
 rule finish:
     output: touch(".drake_finish")
     input:
-        pasta = "{pastadir}/pasta_raxml.tree".format_map(config),
-        drakedata = "drake.Rdata",
-        taxonomy = taxon_outputs,
-        script = "{rdir}/drake-finish.R".format_map(config)
+        pasta     = rules.pasta.output.tree,
+        drakedata = rules.drake_plan.output.drakedata,
+        taxonomy  = taxon_outputs,
+        script    = "{rdir}/drake-finish.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime = 60
     log: "{logdir}/drake_finish.log".format_map(config)
-    script: "{rdir}/drake-finish.R".format_map(config)
+    script: "{input.script}"

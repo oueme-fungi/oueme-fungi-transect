@@ -10,6 +10,7 @@ if (interactive()) {
   region.dir <- file.path(seq.dir, "regions")
   filter.dir <- file.path(seq.dir, "filter")
   pasta.dir <- file.path(data.dir, "pasta")
+  plan.dir <- file.path(data.dir, "plan")
   ref.dir <- here("reference")
   rmd.dir <- here("writing")
   out.dir <- here("output")
@@ -20,15 +21,14 @@ if (interactive()) {
   regions.file <- file.path(lab.dir, "regions.csv")
   platemap.file <- file.path(lab.dir, "Brendan_soil2.xlsx")
   platemap.sheet <- "Concentration samples"
-  plan.file <- "plan.rds"
-  meta1.file <- "meta1.rds"
-  meta2.file <- "meta2.rds"
-  meta3.file <- "meta3.rds"
-  meta4.file <- "meta4.rds"
-  meta4.csv <- "meta4.csv"
-  pid.file <- "pids.txt"
-  tid.file <- "tids.txt"
-  drakedata.file <- "drake.Rdata"
+  plan_file <- file.path(plan.dir, "plan.rds")
+  meta1_file <- file.path(plan.dir, "meta1.rds")
+  meta2_file <- file.path(plan.dir, "meta2.rds")
+  meta3_file <- file.path(plan.dir, "meta3.rds")
+  meta4_file <- file.path(plan.dir, "meta4.rds")
+  meta4csv_file <- file.path(plan.dir, "meta4.csv")
+  tid_file <- file.path(plan.dir, "tids.txt")
+  drakedata.file <- file.path(plan.dir, "drake.Rdata")
   bigsplit <- 80L
 } else if (exists("snakemake")) {
   cat("Creating drake plan in snakemake session...\n")
@@ -46,6 +46,15 @@ if (interactive()) {
   rmd.dir <- snakemake@config$rmddir
   out.dir <- snakemake@config$outdir
   pasta.dir <- snakemake@config$pastadir
+  plan.dir <- snakemake@config$plandir
+  plan_file <- snakemake@output$plan
+  meta1_file <- snakemake@output$meta1
+  meta2_file <- snakemake@output$meta2
+  meta3_file <- snakemake@output$meta3
+  meta4_file <- snakemake@output$meta4
+  drakedata_file <- snakemake@output$drakedata
+  meta4csv_file <- snakemake@output$meta4csv
+  tids_file <- snakemake@output$tids
   prereqs <- unlist(snakemake@input)
   in.files <- stringr::str_subset(prereqs,
                          pattern = "\\.trim\\.fastq\\.gz$")
@@ -83,7 +92,9 @@ is_local <- function() !is_slurm()
 # how many cpus do we have on the local machine?
 # if we're not running on the cluster, leave one cpu free.
 local_cpus <- function() {
-  if (is_slurm()) {
+  if (exists("snakemake")) {
+    snakemake@threads
+  } else if (is_slurm()) {
     out <- as.integer(Sys.getenv("SLURM_JOB_CPUS_PER_NODE"))
     assertthat::assert_that(assertthat::is.count(out))
     out
@@ -151,7 +162,7 @@ regions <- read_csv(regions.file)
 
 #### meta1 ####
 # meta1 has one row per demultiplexed, primer-trimmed fastq.gz file
-# The "index" is FileID (File ID)
+# The "index" is FileID
 meta1 <- datasets %>%
   mutate(PrimerID = paste0(str_replace(Forward, "_tag.*$", ""),
                             str_replace(Reverse, "_tag.*$", "")),
@@ -204,8 +215,8 @@ if (interactive()) {
   meta2 %<>%
     semi_join(meta1, by = "Trim.File")
 } else {
-  saveRDS(meta1, "meta1.rds")
-  saveRDS(meta2, "meta2.rds")
+  saveRDS(meta1, meta1_file)
+  saveRDS(meta2, meta2_file)
 }
 
 #### meta3 ####
@@ -220,10 +231,7 @@ meta3 <- meta2 %>%
   left_join(regions, by = "Region") %>%
   mutate_at(c("region_derep"), syms)
 if (!interactive()) {
-  saveRDS(meta3, "meta3.rds")
-  meta3 %>%
-    glue::glue_data("{PlateID}_{RegionID}") %>%
-    readr::write_lines("pids.txt")
+  saveRDS(meta3, meta3_file)
 }
 
 #### meta4 ####
@@ -243,10 +251,10 @@ meta4 <- meta3 %>%
   arrange(TaxID) %>%
   mutate_at(c("TaxID", "big_seq_table"), syms)
 if (!interactive()) {
-  saveRDS(meta4, "meta4.rds")
+  saveRDS(meta4, meta4_file)
   mutate_if(meta4, is.list, as.character) %>%
-  readr::write_csv("meta4.csv")
-  readr::write_lines(meta4$TaxID, "tids.txt")
+  readr::write_csv(meta4csv_file)
+  readr::write_lines(meta4$TaxID, tids_file)
 }
 
 #### drake plan ####
@@ -428,7 +436,7 @@ plan <- drake_plan(
   # Join all the sequence tables for each region
   big_seq_table = target(
     dada2::mergeSequenceTables(tables = list(nochim)),
-    transform = combine(nochim, .tag_in = step, .by = Region)),
+    transform = combine(nochim, .tag_in = step, .by = RegionID)),
   
   # Assign taxonomy to each ASV
   taxon = target(
@@ -450,8 +458,10 @@ plan <- drake_plan(
   
   # Join the raw read info (for long pacbio reads).
   raw = target(
-    raw_reads(regions, max_ee = 3),
-    transform = combine(regions,
+    raw_reads(regions, 
+              filenames = purrr::map_chr(rlang::exprs(regions), rlang::as_string),
+              max_ee = 3),
+    transform = combine(regions, Seq.Run, Region,
                         .by = c(SeqRunID, RegionID),
                         .tag_in = step,
                         .id = c(SeqRunID, RegionID))
@@ -464,12 +474,15 @@ plan <- drake_plan(
     transform = combine(dada_map, raw, .by = SeqRunID, .tag_in = step)
   ),
   
-  # Calculate consensus sequences for full ITS and LSU for each ITS2 ASV.
+  # Calculate consensus sequences for full ITS and LSU for each ITS2 ASV with
+  # with at least 3 sequences.
   conseq = 
     combined_pb_500 %>%
     dplyr::group_by(ITS2) %>%
-    dplyr::filter(!is.na(ITS2), n() >= 3) %>%
-    dplyr::summarize(nreads = n(),
+    dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
+    dplyr::summarize(nreads = dplyr::n(),
+                     long = as.character(
+                       calculate_consensus(long, seq.id, ignore(dada_cpus))),
                      ITS = as.character(
                        calculate_consensus(ITS, seq.id, ignore(dada_cpus))),
                      LSU = as.character(
@@ -478,11 +491,15 @@ plan <- drake_plan(
   # Remove consensus sequences which did not have a strong consensus.
   conseq_filt =
     conseq %>%
-    dplyr::mutate(qITS = Biostrings::RNAStringSet(ITS) %>%
-                    Biostrings::letterFrequency(., "MRWSYKVHDBN"),
-                  qLSU = Biostrings::RNAStringSet(LSU) %>%
-                    Biostrings::letterFrequency(., "MRWSYKVHDBN")) %>%
-    dplyr::filter(qITS < 3, qLSU < 3),
+    dplyr::filter(complete.cases(.)) %>%
+    dplyr::mutate(
+      qlong = Biostrings::RNAStringSet(long) %>%
+        Biostrings::letterFrequency(., "MRWSYKVHDBN"),
+      qITS = Biostrings::RNAStringSet(ITS) %>%
+        Biostrings::letterFrequency(., "MRWSYKVHDBN"),
+      qLSU = Biostrings::RNAStringSet(LSU) %>%
+        Biostrings::letterFrequency(., "MRWSYKVHDBN")) %>%
+    dplyr::filter(qITS < 3, qLSU < 3, qlong < 3),
   
   # Assign taxonomy to the consensus LSU sequences.
   taxon_LSUcons_rdp =
@@ -491,39 +508,41 @@ plan <- drake_plan(
     stringr::str_replace_all("U", "T") %>%
     taxonomy(reference = file_in("reference/rdp.fasta.gz"),
              multithread = ignore(dada_cpus)) %>%
-    mutate_at("seq", stringr::str_replace_all, "T", "U"),
+    dplyr::mutate_at("seq", stringr::str_replace_all, "T", "U"),
   
   # Make names which combine the ITS2 and LSU identifications to put on the tree
+  # Also make hash names, because PASTA will destroy non-alphanumeric names
   cons_tax  =
-    dplyr::left_join(conseq_filt,
-                     select(taxon_ITS2_unite, ITS2 = seq, Name),
+    conseq_filt %>%
+    dplyr::left_join(dplyr::select(taxon_ITS2_unite, ITS2 = seq, Name),
                      by = "ITS2") %>%
-    dplyr::left_join(select(taxon_LSUcons_rdp, LSU = seq, Name),
+    dplyr::left_join(dplyr::select(taxon_LSUcons_rdp, LSU = seq, Name),
                      suffix = c("_ITS2", "_LSU"),
                      by = "LSU") %>%
-    tidyr::unite("name", name.ITS, name.LSU, sep = "/"),
+    tidyr::unite("Name", Name_ITS2, Name_LSU, sep = "/") %>%
+    dplyr::mutate(hash = seqhash(long)),
   
-  # Align the LSU consensus
-  lsualn =  cons_tax %$%
-    rlang::set_names(LSU, name) %>%
-    Biostrings::RNAStringSet() %>%
-    DECIPHER::AlignSeqs(iterations = 10, refinements = 10,
+  # get the long amplicon consensus and convert to RNAStringSet.
+  # Use the sequence hashes as the name, so that names will be robust in PASTA
+  long_consensus = cons_tax %$%
+    rlang::set_names(long, hash) %>%
+    Biostrings::RNAStringSet(),
+  
+  # Align the LSU consensus.
+  # DECIPHER has a fast progressive alignment algorthm that calculates RNA
+  # secondary structure
+  lsualn =
+    DECIPHER::AlignSeqs(long_consensus,
+                        iterations = 10, refinements = 10,
                         processors = ignore(dada_cpus)),
   
-  # Make a guide tree to start PASTA
-  lsutree = DECIPHER::DistanceMatrix(lsualn, includeTerminalGaps = FALSE,
-                                     correction = "Jukes-Cantor") %>%
-    DECIPHER::IdClusters(myXStringSet = lsualn, 
-                         method = "ML", showPlot = TRUE,
-                         type = "dendrogram", processors = ignore(dada_cpus)) %T>%
-    DECIPHER::WriteDendrogram(file_out(!!file.path(pasta.dir, "lsutree.tree"))),
-  
-  # Concatenate ITS and LSU (they should line up perfectly) and save to file for
-  # PASTA
-  long_consensus = cons_tax %$%
-    rlang::set_names(paste0(ITS, LSU), name) %>%
-    Biostrings::RNAStringSet() %T>%
-    Biostrings::writeXStringSet(file_out(!!file.path(pasta.dir, "longASV.fasta"))),
+  # write the aligned consensus for PASTA.
+  # also touch a file to mark that we really need to re-run PASTA.
+  write_lsualn = {
+    Biostrings::writeXStringSet(lsualn,
+                                file_out(ignore(longASV_file)))
+    Sys.setFileTime(file.path(pasta.dir, ".dopasta"), Sys.time())
+  },
   
   # Count the sequences in each fastq file
   seq_count = target(
@@ -569,7 +588,7 @@ plan <- drake_plan(
   filter(!(step %in% c("raw", "combined")) | SeqRunID == 'pb_500')
 tictoc::toc()
 
-if (!interactive()) saveRDS(plan, "plan.rds")
+if (!interactive()) saveRDS(plan, plan_file)
 
 remove(meta1)
 remove(meta2)
@@ -599,7 +618,7 @@ remove(dconfig)
 remove(snakemake)
 
 save(list = ls(),
-     file = "drake.Rdata")
+     file = drakedata_file)
 
 drake_plan_file_io <- function(plan) {
   if ("file_in" %in% names(plan)) {

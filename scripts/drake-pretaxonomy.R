@@ -5,15 +5,14 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
+target <- get_target(default = "big_seq_table_ITS2")
 library(magrittr)
 library(backports)
 setup_log("pretaxonomy")
 
-#### pre-DADA2 ####
-# single-threaded targets after itsx
-# for local runs, ITSx targets will also run here.
-pretaxon_targets <- stringr::str_subset(od, "^big_seq_table_")
-if (length(pretaxon_targets)) {
+#### pre-taxonomy ####
+# single-threaded targets after dada2, before taxonomy.
+if (target %in% od) {
   cat("\n Making pre-taxonomy targets (loop)...\n")
   tictoc::tic()
   drake::make(plan,

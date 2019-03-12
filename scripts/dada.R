@@ -1,4 +1,5 @@
 dadamap <- function(derep, asv) {
+	loadNamespace("dada2")
   purrr::map2(derep, asv,
        function(derep, asv) {
          m <- tibble::tibble(seq.id = names(derep$map),
@@ -56,7 +57,7 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
         stringr::str_replace_all("\\s", "_")) %>%
     # If there are duplicate names, number them.
     dplyr::group_by(Name) %>%
-    dplyr::mutate(newname = if (n() > 1) {
+    dplyr::mutate(newname = if (dplyr::n() > 1) {
       paste(Name, seq_along(Name), sep = "_")
     } else {
       Name
@@ -67,7 +68,7 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
     
     # add in the reads if we had them.
     dplyr::left_join(tibble::tibble(seq = seq,
-                                    nreads = Matrix::colSums(seq.table)),
+                                    nreads = nreads),
                      by = "seq")
 }
 

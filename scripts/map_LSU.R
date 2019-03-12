@@ -1,30 +1,47 @@
+# hash a set of sequences
+seqhash <- function(seq, len = 8) UseMethod("seqhash")
+seqhash.character <- function(seq, len = 8) {
+  h <- purrr::map_chr(seq, digest::digest)
+  stringr::str_sub(h, end = len)
+}
+seqhash.XStringSet <- function(seq, len = 8) {
+  seqhash.character(as.character(seq))
+}
+
+
 # Take a list of \code{ShortReadQ} and return the reads, ids, and expected error
 # in \code{tibble} form
-raw_reads <- function(..., max_ee = Inf) {
-  map_dfr(list(...),
-          function(x) {
+raw_reads <- function(..., filenames, max_ee = Inf) {
+  purrr::map2_dfr(list(...), filenames,
+          function(x, name) {
             if (!methods::is(x, "ShortReadQ")) return(tibble::tibble(
+              Seq.Run = character(),
+              Region = character(),
               seq.id = character(),
               seq = character(),
               ee = numeric()))
+            name <-
+              stringr::str_match(name,
+                        "regions_([:alpha:]{2}_\\d{3})(\\d{3})([A-H]1?\\d)([rf]?)_([:alnum:]+)")
+            name <- c(name)[-1]
+            
             tibble::tibble(
-              file = name, 
-              data = list(tibble::tibble(
-                seq.id = as.character(x@id),
-                seq = as.character(x@sread),
-                ee = rowSums(10^-(as(x@quality, "matrix")/10), na.rm = TRUE))))
-          }) %>%
-    tidyr::extract(
-      file,
-      c("Seq.Run", "Plate", "Well", "Direction", "Region"),
-      "regions_([:alpha:]{2}_\\d{3})(\\d{3})([A-H]1?\\d)([rf]?)([:alnum:]+)") %>%
-    tidyr::unnest(data) %>%
-    dplyr::filter(ee <= max_ee)
+              Seq.Run = name[1],
+              Plate = name[2],
+              Well = name[3],
+              Direction = name[4],
+              Region = name[5],
+              seq.id = as.character(x@id),
+              seq = as.character(x@sread),
+              ee = rowSums(10^-(as(x@quality, "matrix")/10), na.rm = TRUE)) %>%
+              dplyr::filter(ee <= max_ee) %>%
+              dplyr::select(-ee)
+          })
 }
 
 
 combine_bigmaps <- function(dadamap, rawdata) {
-  purrr::map_dfr(bigmaps, ~tibble::tibble(file = names(.), data = .)) %>%
+  purrr::map_dfr(dadamap, ~tibble::tibble(file = names(.), data = .)) %>%
     tidyr::extract(
       col = "file",
       into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),
