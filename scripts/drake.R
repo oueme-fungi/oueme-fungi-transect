@@ -151,7 +151,7 @@ regions <- read_csv(regions.file)
 
 #### meta1 ####
 # meta1 has one row per demultiplexed, primer-trimmed fastq.gz file
-# The "index" is FileID (File ID)
+# The "index" is FileID
 meta1 <- datasets %>%
   mutate(PrimerID = paste0(str_replace(Forward, "_tag.*$", ""),
                             str_replace(Reverse, "_tag.*$", "")),
@@ -466,12 +466,15 @@ plan <- drake_plan(
     transform = combine(dada_map, raw, .by = SeqRunID, .tag_in = step)
   ),
   
-  # Calculate consensus sequences for full ITS and LSU for each ITS2 ASV.
+  # Calculate consensus sequences for full ITS and LSU for each ITS2 ASV with
+  # with at least 3 sequences.
   conseq = 
     combined_pb_500 %>%
     dplyr::group_by(ITS2) %>%
-    dplyr::filter(!is.na(ITS2), n() >= 3) %>%
-    dplyr::summarize(nreads = n(),
+    dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
+    dplyr::summarize(nreads = dplyr::n(),
+                     long = as.character(
+                       calculate_consensus(long, seq.id, ignore(dada_cpus))),
                      ITS = as.character(
                        calculate_consensus(ITS, seq.id, ignore(dada_cpus))),
                      LSU = as.character(
@@ -480,6 +483,7 @@ plan <- drake_plan(
   # Remove consensus sequences which did not have a strong consensus.
   conseq_filt =
     conseq %>%
+    dplyr::filter(complete.cases(.)) %>%
     dplyr::mutate(qITS = Biostrings::RNAStringSet(ITS) %>%
                     Biostrings::letterFrequency(., "MRWSYKVHDBN"),
                   qLSU = Biostrings::RNAStringSet(LSU) %>%
@@ -493,21 +497,21 @@ plan <- drake_plan(
     stringr::str_replace_all("U", "T") %>%
     taxonomy(reference = file_in("reference/rdp.fasta.gz"),
              multithread = ignore(dada_cpus)) %>%
-    mutate_at("seq", stringr::str_replace_all, "T", "U"),
+    dplyr::mutate_at("seq", stringr::str_replace_all, "T", "U"),
   
   # Make names which combine the ITS2 and LSU identifications to put on the tree
   cons_tax  =
-    dplyr::left_join(conseq_filt,
-                     select(taxon_ITS2_unite, ITS2 = seq, Name),
+    conseq_filt %>%
+    dplyr::left_join(dplyr::select(taxon_ITS2_unite, ITS2 = seq, Name),
                      by = "ITS2") %>%
-    dplyr::left_join(select(taxon_LSUcons_rdp, LSU = seq, Name),
+    dplyr::left_join(dplyr::select(taxon_LSUcons_rdp, LSU = seq, Name),
                      suffix = c("_ITS2", "_LSU"),
                      by = "LSU") %>%
-    tidyr::unite("name", name.ITS, name.LSU, sep = "/"),
+    tidyr::unite("Name", Name_ITS2, Name_LSU, sep = "/"),
   
   # Align the LSU consensus
   lsualn =  cons_tax %$%
-    rlang::set_names(LSU, name) %>%
+    rlang::set_names(LSU, Name) %>%
     Biostrings::RNAStringSet() %>%
     DECIPHER::AlignSeqs(iterations = 10, refinements = 10,
                         processors = ignore(dada_cpus)),
@@ -523,7 +527,7 @@ plan <- drake_plan(
   # Concatenate ITS and LSU (they should line up perfectly) and save to file for
   # PASTA
   long_consensus = cons_tax %$%
-    rlang::set_names(paste0(ITS, LSU), name) %>%
+    rlang::set_names(long, Name) %>%
     Biostrings::RNAStringSet() %T>%
     Biostrings::writeXStringSet(file_out(!!file.path(pasta.dir, "longASV.fasta"))),
   

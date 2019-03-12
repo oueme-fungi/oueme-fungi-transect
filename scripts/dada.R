@@ -68,7 +68,7 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
     
     # add in the reads if we had them.
     dplyr::left_join(tibble::tibble(seq = seq,
-                                    nreads = Matrix::colSums(seq.table)),
+                                    nreads = nreads),
                      by = "seq")
 }
 
