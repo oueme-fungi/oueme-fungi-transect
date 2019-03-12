@@ -450,8 +450,10 @@ plan <- drake_plan(
   
   # Join the raw read info (for long pacbio reads).
   raw = target(
-    raw_reads(regions, max_ee = 3),
-    transform = combine(regions,
+    raw_reads(regions, 
+              filenames = purrr::map_chr(rlang::exprs(regions), rlang::as_string),
+              max_ee = 3),
+    transform = combine(regions, Seq.Run, Region,
                         .by = c(SeqRunID, RegionID),
                         .tag_in = step,
                         .id = c(SeqRunID, RegionID))
