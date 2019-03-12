@@ -11,9 +11,11 @@ extract_region <- function(infile, outfile, region, positions) {
   
   # if the region is "full", then we don't need to cut anything.
   if (region %in% c("full", "long", "short")) {
-    return(file.copy(from = infile, 
-                     to = outfile,
-                     overwrite = TRUE))
+    file.copy(from = infile, 
+              to = outfile,
+              overwrite = TRUE)
+    return(ShortRead::readFastq(outfile,
+                                qualityType = "FastqQuality"))
   }
   
   # make sure the file exists even if we don't have anything to write.
@@ -37,12 +39,15 @@ extract_region <- function(infile, outfile, region, positions) {
               end > 0,
               end <= readr::parse_number(length),
               end > start)
-  fastq <- ShortRead::readFastq(infile)
+  fastq <- ShortRead::readFastq(infile,
+                                qualityType = "FastqQuality")
   if (nrow(p)) {
     fastq <- fastq[p$idx] %>%
       ShortRead::narrow(start = p$start, end = p$end)
     ShortRead::writeFastq(fastq, outfile, mode = "a")
+    return(fastq)
   }
+  return(ShortRead::ShortReadQ())
 }
 
 q_stats <- function(file) {

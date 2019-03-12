@@ -104,6 +104,7 @@ rule ccs:
          "ccs --polish --numThreads={threads} {input} &>{log}"
 
 # convert all circular consensus files for a sequencing run to fastq.gz format
+localrules: ccs2fastq
 rule ccs2fastq:
     output:
         "{fastqdir}/{{seqplate}}.fastq.gz".format_map(config)
@@ -150,6 +151,7 @@ def find_barcode(wildcards):
 
 # demultiplex and trim primers from a PacBio circular consensus in fastq.gz format
 # The number of output files is not known a priori, so the declared output is a directory and this is a checkpoint
+localrules: pacbio_demux
 checkpoint pacbio_demux:
     input:
         fastq = "{fastqdir}/{{seqplate}}.fastq.gz".format_map(config),
@@ -164,7 +166,7 @@ checkpoint pacbio_demux:
                                       .format(trimdir = config['trimdir'],
                                               seqplate = wildcards['seqplate']))
     resources:
-        walltime=60
+        walltime=5
     conda: "config/conda/demultiplex.yaml"
     group: "pacbio"
     threads: 3 #2 instances of cutadapt and 1 fastx_reverse_complement
@@ -230,6 +232,7 @@ def find_ion_bam(wildcards):
                                                                                  seqrun = wildcards.seqrun,
                                                                                  num = '{:03d}'.format(int(num))))
 
+localrules: bam2fastq, ion_trim
 # convert a demultiplexed IonTorrent .bam file to .fastq.gz
 rule bam2fastq:
     output: "{demuxdir}/{{seqrun}}_{{plate,\d+}}-{{well,[A-H]\d+}}.demux.fastq.gz".format_map(config)
@@ -252,7 +255,7 @@ rule ion_trim:
         fastq = "{demuxdir}/{{seqplate}}-{{well}}.demux.fastq.gz".format_map(config),
         barcode = find_barcode
     resources:
-        walltime=60
+        walltime=5
     threads: 4
     conda: "config/conda/demultiplex.yaml"
     group: "iontorrent"

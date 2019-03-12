@@ -4,8 +4,8 @@
 # sequences from IonTorrent and PacBio runs in Oueme Fungi transect project
 
 #SBATCH -A snic2018-8-131
-#SBATCH -p core
-#SBATCH -n 1
+#SBATCH -p node
+#SBATCH -N 1
 #SBATCH -t 24:00:00
 #SBATCH -J oueme-fungi-transect
 #SBATCH -C usage_mail
@@ -16,10 +16,8 @@
 ## texlive from conda isn't functional
 module load texlive &&
 
-snakemake -pr --jobs 999\
+snakemake -pr --jobs $SLURM_JOB_CPUS_PER_NODE\
   --keep-going\
-  --profile config/UPPMAX\
-  --use-conda\
-  --local-cores $SLURM_JOB_CPUS_PER_NODE
+  --use-conda
 
 #exit $out

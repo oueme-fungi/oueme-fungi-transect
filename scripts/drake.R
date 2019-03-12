@@ -88,8 +88,7 @@ local_cpus <- function() {
     assertthat::assert_that(assertthat::is.count(out))
     out
   } else {
-    #max(parallel::detectCores() - 1, 1)
-    1 # Having trouble with RcppParallel
+    max(parallel::detectCores() - 1, 1)
   }
 }
 

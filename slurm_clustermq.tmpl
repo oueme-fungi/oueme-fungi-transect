@@ -13,7 +13,7 @@
 module load texlive
 
 ## load conda environment
-conda activate oueme1
+conda activate drake
 
 ulimit -v $(( 1024 * {{ memory | 4096 }} * {{ ncpus | 1 }} ))
-R --no-save --no-restore -e 'clustermq:::worker("{{ master }}", timeout = {{ timeout | 600 }})'
+R --no-save --no-restore -e 'source(".Rprofile"); clustermq:::worker("{{ master }}", timeout = {{ timeout | 600 }})'
