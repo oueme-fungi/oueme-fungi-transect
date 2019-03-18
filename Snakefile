@@ -307,11 +307,10 @@ def ion_find(seqrun, plate):
 #### Reference databases ####
 
 # Process an ITS database (e.g., UNITE)
-# Split into ITS1, ITS2, and full ITS using ITSx.
+# Split into ITS1, ITS2 using ITSx.
 
-rule its_reference:
+rule itsx_reference:
     output:
-        ITS  = "{ref_root}/{{dbname}}.ITS.fasta.gz".format_map(config),
         ITS2 = "{ref_root}/{{dbname}}.ITS2.fasta.gz".format_map(config),
         ITS1 = "{ref_root}/{{dbname}}.ITS1.fasta.gz".format_map(config)
     input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
@@ -354,12 +353,20 @@ rule its_reference:
                  --graphical F\
                  --preserve T\
                  --positions F\
-                 --not-found F &&
-            cat temp.part-{{1..{params.shards}}}.full.fasta | gzip > {output.ITS} &&
+                 --not-found F\
+                 --fasta F &&
             cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip > {output.ITS1} &&
             cat temp.part-{{1..{params.shards}}}.ITS2.fasta | gzip > {output.ITS2} ) &> {log}
         #fi
         """
+
+# Assume the entire database is ITS.
+rule its_reference:
+    output: "{ref_root}/{{dbname}}.ITS.fasta.gz".format_map(config)
+    input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
+    threads: 1
+    log: "{logdir}/{{dbname}}_ITS.log".format_map(config)
+    shell: "rm -f {output} && ln -s {input} {output}"
 
 # Process an LSU reference database (e.g., RDP or Silva)
 # 1- Take only Eukaryote sequences (Silva)
