@@ -5,8 +5,14 @@ b2f3486c7ab9c6f6 target big_seq_table_.ITS2.
 ecc0bac10f78abca target big_seq_table_.long.
 d157980f4ddbc591 target big_seq_table_.LSU.
 3a5d5b337fc70881 target big_seq_table_.short.
+046fd8b05507db76 target big_seq_table_ITS
+a329382aae28514b target big_seq_table_ITS1
+b2f3486c7ab9c6f6 target big_seq_table_ITS2
+ecc0bac10f78abca target big_seq_table_long
+d157980f4ddbc591 target big_seq_table_LSU
+3a5d5b337fc70881 target big_seq_table_short
 1167146ff9b33cc2 import calculate_consensus
-46297bcda7a8c4e0 import combine_bigmaps
+1d0c91eccf8c4a8f import combine_bigmaps
 f66512a5315c4c94 import combine_derep
 f9ba22f3b0187e9c target dada_is_057_001_ITS2
 b5f0c25dc2979f59 target dada_is_057_001_short
@@ -24,7 +30,7 @@ c29293fe3e2b71a5 target dada_pb_500_001_long
 2c789699ccafd049 target dada_pb_500_002_ITS2
 80b8f0ee50aca0fa target dada_pb_500_002_long
 e8cebbdf0e56490c target dada_pb_500_002_LSU
-ca07efa410b993fb import dadamap
+3326e5e06e8f107b import dadamap
 1a94d3baff3b6e6b target datasets
 2718a6abf73f8c4d target derep1_is057001A1
 ff0d77712117dcc1 target derep1_is057001A11
@@ -7945,6 +7951,14 @@ c54ff327ffae2c85 target filter_pb_500002H7rITS
 a560e69d700ec58b target filter_pb_500002H7rITS2
 beb8ed8d80ebc118 target filter_pb_500002H7rlong
 d126ccc7105e5b72 target filter_pb_500002H7rLSU
+a8c0f34865f116b0 target funguild_db
+8bd5e99804de4f63 target guilds_table_ITS_unite
+095fd8eb5e3e8f0b target guilds_table_ITS1_unite
+4480e7b502d048aa target guilds_table_ITS2_unite
+96f55784e834fd8e target guilds_table_long_rdp
+d5f6303f90f042b1 target guilds_table_long_unite
+1a722b56fd1f78a6 target guilds_table_LSU_rdp
+f9ca3260bf0051a8 target guilds_table_short_unite
 dce33574a92130b8 target itsx_shard
 a484d18b065bbedc target itsx_shard_gits7its4
 5bc299144d4730b5 target itsx_shard_gits7its4_10
@@ -8312,6 +8326,7 @@ c8362c3027796441 import dada2::learnErrors
 9105bd4674eeafbc import dada2::removeBimeraDenovo
 65fd467dabcf0969 import dplyr::mutate
 fe1b547ccf99ad02 import dplyr::mutate_at
+e28fc6d0dcb64b69 import dplyr::n
 7e9435a9a48561bb import dplyr::arrange
 2f8b5d3cd722f853 import dplyr::bind_cols
 b105e8acc8917d80 import dplyr::bind_rows
@@ -8337,6 +8352,8 @@ bad124194ff2dde1 import dplyr::transmute
 9fb78036d5ce1713 import methods::is
 bec9a72d94a5212c import purrr::map
 c6c098c4cf9da368 import purrr::map2
+8575a393723f4002 import purrr::map2_dfr
+3ca286b7b88c4975 import purrr::map_chr
 0c6ee7d9001ed891 import purrr::map_dfr
 60d229c534ee4deb import purrr::compact
 722042b9e470a2e6 import purrr::discard
@@ -8344,11 +8361,14 @@ c6c098c4cf9da368 import purrr::map2
 4fca0f0897a68d87 import readr::parse_number
 98a3e12ea8304c00 import readr::read_csv
 b73e8db25b9cb5a8 import readxl::read_excel
+7108090a53c56a50 import rlang::as_string
+48911c3e90a2dbb3 import rlang::exprs
 8fbb8c3cc4fc7e9a import rlang::parse_expr
 d5b757c52d0db6f9 import rlang::set_names
 86eefea1578d353d import rmarkdown::render
 a26af237bbc6ac40 import stats::na.omit
 f7a9d7705c116e01 import stringr::fixed
+ffacf475a9196064 import stringr::str_match
 25b2f6f731436c32 import stringr::str_replace
 a6a734995cf70675 import stringr::str_replace_all
 23237506d65629e2 import stringr::str_detect
@@ -16902,6 +16922,7 @@ aa3ac390d96152c8 import file sequences/trim/pb_500_002/pb_500_002-H3r.trim.fastq
 1116a18eea526acf import file sequences/trim/pb_500_002/pb_500_002-H7r.trim.fastq.gz
 73447876d07add87 import file sequences/trim/pb_500_002/pb_500_002-H4f.trim.fastq.gz
 bb858fabe187682e import file sequences/trim/pb_500_002/pb_500_002-H4r.trim.fastq.gz
+d0600987bfd9b728 import pasta.dir
 3de2ce52b8abf5e3 import platemap.sheet
 310c7a29fd02a5eb target positions_is057001A1
 96e1ab4ddad22246 target positions_is057001A11
@@ -19339,7 +19360,7 @@ f525f45fd75a273c target qstats_pb_500002H4rlong
 c363b373431f097f target qstats_pb_500002H7rITS2
 48e205bf0679e202 target qstats_pb_500002H7rlong
 35fbf9d9c2addda8 target qstats_pb_500002H7rLSU
-d69a1d7a7337ccae import raw_reads
+7d6877bf654c6caf import raw_reads
 309c6a9b3ea11674 import read_platemap
 f0f881c4fa9d7078 target region_derep_is_057_001_ITS2
 6f4f33d63ca5b846 target region_derep_is_057_001_short
@@ -27276,8 +27297,16 @@ c3fc19f78bd99087 target seq_table_pb_500_002_ITS
 01c93f4e4e4c4048 target seq_table_pb_500_002_ITS2
 184b39886d5d2d0b target seq_table_pb_500_002_long
 5cc613ef8e70c345 target seq_table_pb_500_002_LSU
+3f007e63426d2088 import seqhash
 d56b22ad73f02fc0 target split_fasta_.gits7.its4.
 3926e5716a33127d target split_fasta_.its1.lr5.
 94ca9699f46ea33e target split_fasta_join_derep_gits7its4
 84d2127021d22d91 target split_fasta_join_derep_its1lr5
-7b72ba19da332c77 import taxonomy
+3162c9bbc81f4342 target taxon_ITS_unite
+02f8f6205d23d87d target taxon_ITS1_unite
+fb2bc566d22ea2c1 target taxon_ITS2_unite
+dd95d07a21b8c5b6 target taxon_long_rdp
+14f9bf129003d6e9 target taxon_long_unite
+3017bbbc820783ae target taxon_LSU_rdp
+9b8c2c64b4e0d84f target taxon_short_unite
+3efb47e5755d88e2 import taxonomy
