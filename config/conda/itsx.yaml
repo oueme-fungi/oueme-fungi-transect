@@ -1,0 +1,7 @@
+name: itsx
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - itsx
+  - fasta-splitter

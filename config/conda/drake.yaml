@@ -7,3 +7,4 @@ dependencies:
   - r-packrat
   - r-recommended
   - zeromq
+  - itsx

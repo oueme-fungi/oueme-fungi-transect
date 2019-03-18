@@ -1,1 +1,5 @@
 *.fasta
+*.LSU.fasta.gz
+*.ITS.fasta.gz
+*.ITS2.fasta.gz
+*.ITS1.fasta.gz

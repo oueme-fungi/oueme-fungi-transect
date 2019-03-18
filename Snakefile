@@ -2,6 +2,7 @@ import pandas as pd
 import os.path
 from glob import glob
 import re
+import subprocess
 from snakemake.utils import listfiles
 
 # For testing, parse the yaml file (this is automatically done by Snakemake)
@@ -28,6 +29,19 @@ config['regions']    = '{labdir}/regions.csv'.format_map(config)
 config['platemap']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
 config['gits7_tags'] = '{labdir}/Hectors_tag_primer_plates.xlsx'.format_map(config)
 config['lr5_tags']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
+
+config['rdp_file']   = '{ref_root}/rdp.fasta.gz'.format_map(config)
+config['silva_file']   = '{ref_root}/silva.fasta.gz'.format_map(config)
+config['silva_tax_file']   = '{ref_root}/silva_tax.txt'.format_map(config)
+config['unite_file']   = '{ref_root}/unite.fasta.gz'.format_map(config)
+config['unite_patch_file']   = '{ref_root}/unite_patch.csv'.format_map(config)
+
+# Find the maximum number of cores available to a single node on SLURM,
+# or if we aren't in a SLURM environment, how many we have on the local machine.
+try:
+    maxthreads = max([int(x) for x in re.findall(r'\d+', subprocess.check_output(["sinfo", "-O", "cpus"]).decode())])
+except FileNotFoundError:
+    maxthreads = int(subprocess.check_output("nproc").decode())
 
 # load the dataset and region definitions
 datasets = pd.read_csv(config['dataset']).set_index('Seq.Run', drop = False)
@@ -287,11 +301,92 @@ def ion_find(seqrun, plate):
                      well = well))
             for well in wells]
 
+#### Reference databases ####
+
+# Process an ITS database (e.g., UNITE)
+# Split into ITS1, ITS2, and full ITS using ITSx.
+
+rule its_reference:
+    output:
+        ITS  = "{ref_root}/{{dbname}}.ITS.fasta.gz".format_map(config),
+        ITS2 = "{ref_root}/{{dbname}}.ITS2.fasta.gz".format_map(config),
+        ITS1 = "{ref_root}/{{dbname}}.ITS1.fasta.gz".format_map(config)
+    input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
+    threads: maxthreads
+    shadow: "shallow"
+    params:
+        shards = lambda wildcards, threads: max([threads // 4, 1]),
+        cpu_per_shard = lambda wildcards, threads: max([threads // max([threads // 4, 1]), 1])
+    conda: "config/conda/itsx.yaml"
+    log: "{logdir}/{{dbname}}_ITSx.log".format_map(config)
+    shell:
+        """
+        #if [ {params.shards} -eq 1 ] ; then
+        #    zcat {input} |
+        #    ITSx --complement F\
+        #         --cpu {threads}\
+        #         --summary F\
+        #         --graphical F\
+        #         --preserve T\
+        #         --positions F\
+        #         --not_found F\
+        #         --stdin T\
+        #         -o {config[ref_root]}/{wildcards.dbname} &&
+        #    gzip {config[ref_root]}/{wildcards.dbname}.full.fasta &&
+        #    gzip {config[ref_root]}/{wildcards.dbname}.ITS2.fasta &&
+        #    gzip {config[ref_root]}/{wildcards.dbname}.ITS1.fasta &&
+        #    mv -f {config[ref_root]}/{wildcards.dbname}.full.fasta.gz {output.ITS} >{log}
+        #    exit $?
+        #else
+        (   zcat {input} >temp.fasta &&
+            fasta-splitter --n-parts {params.shards}\
+                           temp.fasta &&
+            for n in {{1..{params.shards}}}; do
+             echo -o temp.part-$n -i temp.part-$n.fasta
+            done |
+                xargs -n 4 -P {params.shards} \
+                    ITSx --complement F\
+                 --cpu {threads}\
+                 --summary F\
+                 --graphical F\
+                 --preserve T\
+                 --positions F\
+                 --not-found F &&
+            cat temp.part-{{1..{params.shards}}}.full.fasta | gzip > {output.ITS} &&
+            cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip > {output.ITS1} &&
+            cat temp.part-{{1..{params.shards}}}.ITS2.fasta | gzip > {output.ITS2} ) &> {log}
+        #fi
+        """
+
+# Process an LSU reference database (e.g., RDP or Silva)
+# 1- Take only Eukaryote sequences (Silva)
+#    RDP is all Fungi, so everything in it should pass this step.
+# 2- Select only sequences with the conserved LR5 primer site, and trim everything in the 3' direction
+# 3- Select only sequences with the conserved ITS4 primer site, but don't trim the 5' end.
+#    This should select about 900bp of the 5' end of LSU, including the D1(ES5), D2(ES7), and D3(ES9) variable regions.
+#
+# Ambiguities in the sequences are from the RNA data project and Tedersoo et al 2015
+localrules: lsu_reference
+rule lsu_reference:
+    output: "{ref_root}/{{dbname}}.LSU.fasta.gz".format_map(config)
+    input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
+    threads: 2
+    conda: "config/conda/demultiplex.yaml"
+    log: "{logdir}/{{dbname}}_LSU.log".format_map(config)
+    shell:
+        """
+        zcat {input} |
+        awk '/^>/ {{ p = ($0 ~ /(Eukaryota|Fungi)/)}} p' |
+        cutadapt -a CGAAnUUUCnCUCAGGAUAGCnG --trimmed-only --report minimal -e 0.2 -m 50 - |
+        cutadapt -g CAUAUnAnUnAGnSSAGGA --trimmed-only --report minimal -e 0.2 - |
+        gzip - >{output}
+        """
+
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
 # It is very nice for handling dependencies within R.  However, it lacks the capability
-# for grouping jobs into SLURM calls, so it ends up having a lot of dead CPU time (or unneccessary usage)
-# on the cluster when there are heterogenous jobs, including many short jobs.
+# for grouping jobs into SLURM calls, so it ends up having a lot of dead CPU time (or unnecessary usage)
+# on the cluster when there are heterogeneous jobs including many short jobs.
 # therefore we cut the workflow up into chunks with simple dependency relations and dispatch them to SLURM
 # from Snakemake.
 
@@ -320,11 +415,17 @@ checkpoint drake_plan:
         "{rdir}/dada.R".format_map(config),
         "{rdir}/plate_check.R".format_map(config),
         "{rdir}/map_LSU.R".format_map(config),
+        "{rdir}/taxonomy.R".format_map(config),
         packrat  = "packrat/packrat.lock",
         dataset  = config['dataset'],
         regions  = config['regions'],
         platemap = config['platemap'],
-        script   = "{rdir}/drake.R".format_map(config)
+        script   = "{rdir}/drake.R".format_map(config),
+        rdp      = config['rdp_file'],
+        unite    = config['unite_file'],
+        unite_patch = config['unite_patch_file'],
+        silva    = config['silva_file'],
+        silva_tax= config['silva_tax_file']
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:

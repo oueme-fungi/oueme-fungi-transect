@@ -8,3 +8,4 @@ dependencies:
   - r-recommended
   - rstudio
   - zeromq
+  - defaults::qt

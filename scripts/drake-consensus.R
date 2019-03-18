@@ -14,7 +14,7 @@ setup_log("consensus")
 #### Taxonomy targets from DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-targets <- c("write_lsualn")
+targets <- c("lsualn", "cons_tax")
 
 dada_cpus <- local_cpus()
 
@@ -36,5 +36,3 @@ if (any(targets %in% od)) {
     if (interactive()) stop() else quit(status = 1)
   }
 } else cat("\n Long ASV consensus sequences are up-to-date.\n")
-
-Sys.setFileTime(longASV_file, Sys.time())

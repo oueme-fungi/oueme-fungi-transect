@@ -21,6 +21,13 @@ if (interactive()) {
   regions.file <- file.path(lab.dir, "regions.csv")
   platemap.file <- file.path(lab.dir, "Brendan_soil2.xlsx")
   platemap.sheet <- "Concentration samples"
+  rdp_file <- file.path(ref.dir, "rdp.LSU.fasta.gz")
+  silva_file <- file.path(ref.dir, "silva.LSU.fasta.gz")
+  silva_tax_file <- file.path(ref.dir, "silva_tax.txt")
+  unite_file <- file.path(ref.dir, "unite.fasta.gz")
+  unite_patch_file <- file.path(ref.dir, "unite_patch.csv")
+  rdp_patch_file <- file.path(ref.dir, "rdp_patch.csv")
+  silva_patch_file <- file.path(ref.dir, "silva_patch.csv")
   plan_file <- file.path(plan.dir, "plan.rds")
   meta1_file <- file.path(plan.dir, "meta1.rds")
   meta2_file <- file.path(plan.dir, "meta2.rds")
@@ -43,6 +50,13 @@ if (interactive()) {
   region.dir <- snakemake@config$regiondir
   filter.dir <- snakemake@config$filterdir
   ref.dir <- snakemake@config$ref_root
+  rdp_file <- snakemake@config$rdp_file
+  rdp_patch_file <- snakemake@config$rdp_patch_file
+  silva_file <- snakemake@config$silva_file
+  silva_tax_file <- snakemake@config$silva_tax_file
+  silva_patch_file <- snakemake@config$silva_patch_file
+  unite_file <- snakemake@config$unite_file
+  unite_patch_file <- snakemake@config$unite_patch_file
   rmd.dir <- snakemake@config$rmddir
   out.dir <- snakemake@config$outdir
   pasta.dir <- snakemake@config$pastadir
@@ -151,6 +165,7 @@ setup_log <- function(default) {
 source(file.path(r.dir, "combine_derep.R"))
 source(file.path(r.dir, "extract_regions.R"))
 source(file.path(r.dir, "dada.R"))
+source(file.path(r.dir, "taxonomy.R"))
 source(file.path(r.dir, "plate_check.R"))
 source(file.path(r.dir, "map_LSU.R"))
 
@@ -258,12 +273,14 @@ if (!interactive()) {
 }
 
 #### drake plan ####
+
 cat("\nbuilding plan...\n")
 tictoc::tic()
 plan <- drake_plan(
   
   datasets = readr::read_csv(file_in(!!dataset.file)),
   
+  # derep1 ----
   # dereplicate input sequences before running ITSx
   # this is done independently in parallel
   derep1 = target(
@@ -276,6 +293,7 @@ plan <- drake_plan(
                     .tag_in = step,
                     .id = FileID)),
   
+  # join_derep----
   # join the results from dereplicating into a list of unique sequences
   # and a map from the original sequences to the uniques
   join_derep = target(
@@ -283,13 +301,14 @@ plan <- drake_plan(
     transform = combine(derep1,
                         .tag_in = step,
                         .by = PrimerID)),
-  
+  # split_fasta----
   # break the list of unique files into equal sized chunks for ITSx
   split_fasta = target(
     split(join_derep$fasta, seq_along(join_derep$fasta) %% !!bigsplit + 1),
     transform = map(join_derep,
                     .tag_in = step)),
   
+  # itsx_shard----
   # find the location of LSU, 5.8S, and SSU (and this ITS1 and ITS2)
   # in the sequences from each chunk
   itsx_shard = target({
@@ -307,6 +326,7 @@ plan <- drake_plan(
                       .tag_in = step,
                       .id = PrimerID)),
   
+  # itsxtrim ----
   # combine the chunks into a master positions list.
   itsxtrim = target(
     dplyr::bind_rows(itsx_shard),
@@ -314,6 +334,7 @@ plan <- drake_plan(
                         .tag_in = step,
                         .by = PrimerID)),
   
+  # positions----
   # find the entries in the positions list which correspond to the sequences
   # in each file
   positions = target(
@@ -324,6 +345,7 @@ plan <- drake_plan(
                     .tag_in = step,
                     .id = FileID)),
   
+  # regions----
   # cut the required regions out of each sequence
   regions = target(
     extract_region(infile = file_in(!!file.path(trim.dir, Trim.File)),
@@ -335,6 +357,7 @@ plan <- drake_plan(
                     .tag_in = step,
                     .id = c(WellID, RegionID))),
   
+  # filter----
   # quality filter the sequences
   filter = target(
     {
@@ -358,6 +381,7 @@ plan <- drake_plan(
                     .tag_in = step,
                     .id = c(WellID, RegionID))),
   
+  # derep2----
   # Do a second round of dereplication on the filtered regions.
   derep2 = target({
     infile <- file_in(!!file.path(filter.dir, Filter.File))
@@ -382,11 +406,14 @@ plan <- drake_plan(
                   .tag_in = step,
                   .id = c(WellID, RegionID))),
   
+  # region_derep ----
+  # put together all the dereplicated files for each region for each plate.
   region_derep = target(
     purrr::compact(c(derep2)),
     transform = combine(derep2, .by = c(PlateID, RegionID), .tag_in = step),
   ),
   
+  # err----
   # Calibrate dada error models
   err = target({
     err.fun <- ifelse(Tech == "PacBio",
@@ -404,6 +431,7 @@ plan <- drake_plan(
     transform = map(.data = !!meta3,
                     .tag_in = step, .id = c(PlateID, RegionID))),
   
+  # dada----
   # Run dada denoising algorithm
   dada = target(
     dada2::dada(
@@ -416,28 +444,59 @@ plan <- drake_plan(
                     .tag_in = step,
                     .id = c(PlateID, RegionID))),
   
+  # dadamap----
   # Make maps from individual sequences in source files to dada ASVs
   dada_map = target(
     dadamap(region_derep, dada),
     transform = map(dada, .data = !!meta3,
                     .tag_in = step, .id = c(PlateID, RegionID))),
   
+  # seq_table----
   # Make a sample x ASV abundance matrix
   seq_table = target(
     dada2::makeSequenceTable(dada),
     transform = map(dada, .data = !!meta3, .tag_in = step, .id = c(PlateID, RegionID))),
   
+  # nochim----
   # Remove likely bimeras
   nochim = target(
     dada2::removeBimeraDenovo(seq_table, method = "consensus",
                               multithread = ignore(dada_cpus)),
     transform = map(seq_table, .data = !!meta3, .tag_in = step, .id = c(PlateID, RegionID))),
   
+  # big_seq_table ----
   # Join all the sequence tables for each region
   big_seq_table = target(
     dada2::mergeSequenceTables(tables = list(nochim)),
     transform = combine(nochim, .tag_in = step, .by = RegionID)),
   
+  # dbprep ----
+  # import the RDP, Silva, and UNITE databases, and format them for use with
+  # DECIPHER.
+  dbprep = target(
+    formatdb(db = Reference,
+             seq_file = file_in(seq_file),
+             patch_file = file_in(patch_file),
+             tax_file = file_in(tax_file),
+             maxGroupSize = 20),
+    
+    transform = map(Reference = c("rdp", "silva"),
+                    ReferenceID = !!rlang::syms(c("rdp", "silva")),
+                    seq_file = !!c(rdp_file, silva_file),
+                    patch_file = !!c(rdp_patch_file, silva_patch_file),
+                    tax_file = !!c(NA, silva_tax_file),
+                    .id = ReferenceID)),
+  # classifier----
+  # Train a DECIPHER classifier for each database.
+  classifier = target(
+    refine_classifier(dbprep$train,
+                      dbprep$taxonomy,
+                      dbprep$rank,
+                      out_root = !!file.path(ref.dir, Reference)),
+    transform = map(dbprep, .id = ReferenceID)
+  ),
+  
+  # taxon ----
   # Assign taxonomy to each ASV
   taxon = target(
     taxonomy(big_seq_table,
@@ -445,17 +504,21 @@ plan <- drake_plan(
              multithread = ignore(dada_cpus)),
     transform = map(.data = !!meta4, .tag_in = step, .id = TaxID)),
   
+  # funguild_db ----
   # Download the FUNGuild database
   funguild_db = FUNGuildR::get_funguild_db(),
   
+  # guilds_table ----
   # Assign ecological guilds to the ASVs based on taxonomy.
   guilds_table = target(
     FUNGuildR::funguild_assign(taxon, db = funguild_db),
     transform = map(taxon, TaxID, .tag_in = step, .id = TaxID)),
   
+  # platemap ----
   # Read the map between plate locations and samples
   platemap = read_platemap(file_in(!!platemap.file), platemap.sheet),
   
+  # raw ----
   # Join the raw read info (for long pacbio reads).
   raw = target(
     raw_reads(regions, 
@@ -467,6 +530,7 @@ plan <- drake_plan(
                         .id = c(SeqRunID, RegionID))
   ),
   
+  # combined ----
   # Replace raw reads which were mapped to a DADA2 ASV with the ASV,
   # and put them all in one tibble.  We'll only do this for pacbio long reads.
   combined = target(
@@ -474,6 +538,7 @@ plan <- drake_plan(
     transform = combine(dada_map, raw, .by = SeqRunID, .tag_in = step)
   ),
   
+  # conseq ----
   # Calculate consensus sequences for full ITS and LSU for each ITS2 ASV with
   # with at least 3 sequences.
   conseq = 
@@ -487,7 +552,7 @@ plan <- drake_plan(
                        calculate_consensus(ITS, seq.id, ignore(dada_cpus))),
                      LSU = as.character(
                        calculate_consensus(LSU, seq.id, ignore(dada_cpus)))),
-  
+  # conseq_filt ----
   # Remove consensus sequences which did not have a strong consensus.
   conseq_filt =
     conseq %>%
@@ -503,6 +568,7 @@ plan <- drake_plan(
     dplyr::mutate(hash = seqhash(long)) %>%
     dplyr::arrange(hash),
   
+  # taxon_LSUcons_rdp----
   # Assign taxonomy to the consensus LSU sequences.
   taxon_LSUcons_rdp =
     conseq_filt$LSU %>%
@@ -512,6 +578,7 @@ plan <- drake_plan(
              multithread = ignore(dada_cpus)) %>%
     dplyr::mutate_at("seq", stringr::str_replace_all, "T", "U"),
   
+  # cons_tax----
   # Make names which combine the ITS2 and LSU identifications to put on the tree
   # Also make hash names, because PASTA will destroy non-alphanumeric names
   cons_tax  =
@@ -523,12 +590,14 @@ plan <- drake_plan(
                      by = "LSU") %>%
     tidyr::unite("Name", Name_ITS2, Name_LSU, sep = "/"),
   
+  # long_consensus----
   # get the long amplicon consensus and convert to RNAStringSet.
   # Use the sequence hashes as the name, so that names will be robust in PASTA
   long_consensus = conseq_filt %$%
     rlang::set_names(long, hash) %>%
     Biostrings::RNAStringSet(),
   
+  # lsualn----
   # Align the LSU consensus.
   # DECIPHER has a fast progressive alignment algorthm that calculates RNA
   # secondary structure
@@ -537,6 +606,7 @@ plan <- drake_plan(
                         iterations = 10, refinements = 10,
                         processors = ignore(dada_cpus)),
   
+  # write_lsualn----
   # write the aligned consensus for PASTA.
   # also touch a file to mark that we really need to re-run PASTA.
   write_lsualn = {
@@ -545,6 +615,9 @@ plan <- drake_plan(
     Sys.setFileTime(file.path(pasta.dir, ".dopasta"), Sys.time())
   },
   
+  # read the long amplicon tree in from 
+  
+  # seq_count ----
   # Count the sequences in each fastq file
   seq_count = target(
     tibble::tibble(
@@ -557,17 +630,20 @@ plan <- drake_plan(
                                  file.path(filter.dir, meta2$Filter.File)),
                     .tag_in = step)),
   
+  # seq_counts----
   # merge all the sequence counts into one data.frame
   seq_counts = target(
     dplyr::bind_rows(seq_count),
     transform = combine(seq_count)),
 
+  # qstats----
   # calculate quality stats for the different regions
   qstats = target(
     q_stats(file_in(!!file.path(region.dir, Region.File))),
     transform = map(.data = !!meta2,
                     .tag_in = step,
                     .id = c(WellID, RegionID))),
+  #qstats_join----
   # join all the quality stats into one data.frame
   qstats_join = target(
     dplyr::bind_rows(qstats) %>%
@@ -577,6 +653,7 @@ plan <- drake_plan(
         regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.trim\\.fastq\\.gz") %>%
       dplyr::left_join(datasets),
     transform = combine(qstats)),
+  # qstats_knit----
   # knit a report about the quality stats.
   qstats_knit = {
     if (!dir.exists(!!out.dir)) dir.create(!!out.dir, recursive = TRUE)
@@ -654,3 +731,4 @@ drake_plan_file_io <- function(plan) {
   }
   return(plan)
 }
+

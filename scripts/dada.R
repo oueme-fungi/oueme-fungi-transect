@@ -23,7 +23,7 @@ join_seqs <- function(seq.tabs) {
     as.matrix
 }
 
-taxonomy <- function(seq.table, reference, multithread = FALSE) {
+taxonomy_dada <- function(seq.table, reference, multithread = FALSE) {
   assertthat::assert_that(file.exists(reference),
                           assertthat::is.readable(reference))
   # we can take a community matrix (in which case the sequences are the column
@@ -72,7 +72,7 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
                      by = "seq")
 }
 
-its_join <- function(bigmaps,
+its_join <- function(combined_map,
                      regions = c("ITS", "ITS1", "ITS2", "LSU", "long"),
                      joinregions = c("ITS1", "ITS2"),
                      maxdist = c(ITS = 20,
@@ -83,18 +83,6 @@ its_join <- function(bigmaps,
                      verbose = FALSE) {
   if (is.null(names(regions))) names(regions) <- regions
   if (is.null(names(joinregions))) names(joinregions) <- joinregions
-  combined_map <-
-    purrr::map_dfr(bigmaps, ~tibble::tibble(file = names(.), data = .)) %>%
-    tidyr::extract(
-      col = "file",
-      into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),
-      regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.qfilt\\.fastq\\.gz") %>%
-    tidyr::unnest(data) %>%
-    dplyr::group_by(seq.id) %>%
-    dplyr::filter(any(!is.na(asv.idx))) %>%
-    dplyr::mutate(seq = dplyr::coalesce(asv.seq, derep.seq)) %>%
-    dplyr::select(-derep.seq, -derep.idx, -asv.seq, -asv.idx) %>%
-    tidyr::spread(key = Region, value = seq)
   
   group_map <- combined_map %>%
     dplyr::group_by_at(regions) %>%
