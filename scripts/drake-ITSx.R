@@ -39,7 +39,7 @@ if (length(itsx_targets)) {
     itsx_parallelism <- "clustermq"
     options(clustermq.scheduler = "slurm",
             clustermq.template = "slurm_clustermq.tmpl")
-    itsx_template <- list(log_file = glue("logs/itsx-%A_%a.log"),
+    itsx_template <- list(log_file = glue::glue("logs/itsx-%A_%a.log"),
                           ncpus = itsx_cpus,
                           memory = 7*1024,
                           timeout = 1800) # the master can take a while to send everything.

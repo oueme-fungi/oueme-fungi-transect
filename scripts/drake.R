@@ -109,7 +109,7 @@ local_cpus <- function() {
   if (exists("snakemake")) {
     snakemake@threads
   } else if (is_slurm()) {
-    out <- as.integer(Sys.getenv("SLURM_CORES_PER_TASK"))
+    out <- as.integer(Sys.getenv("SLURM_JOB_CPUS_PER_NODE"))
     assertthat::assert_that(assertthat::is.count(out))
     out
   } else {

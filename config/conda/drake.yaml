@@ -1,10 +1,11 @@
 name: drake
 channels:
   - conda-forge
+  - bioconda
   - defaults
 dependencies:
   - r-base=3.4.1
   - r-packrat
   - r-recommended
   - zeromq
-  - itsx
+  - itsx=1.1b
