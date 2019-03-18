@@ -66,6 +66,39 @@ write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
 
 # Methods
 
+## Sampling
+
+## Soil Chemistry
+
+## DNA extraction, PCR, and sequencing
+
+  - lysis in field Zymo Research Xpedition kit
+  - short amplicon : gITS7 -- ITS4 (multiplexing index on gITS7)
+  - long amplicon : ITS1 -- LR5 (multiplexing index on both ends)
+  - short amplicon : same library sequenced with PacBio RS II and Ion Proton S5
+  - long amplicon : PacBio RS II
+  
+## Bioinformatics
+
+  - Two workflows for short reads:
+    - Mohammad's workflow in Pipecraft
+    - Brendan's workflow using Snakemake/Drake
+  
+  - Brendan's pipeline:
+      - Ion Torrent
+          - used demultiplexing from SciLife (standard IonXpress)
+          - primers removed with `cutadapt` [@martin2011]
+      - PacBio
+          - CCS basecalls re-done with `ccs` version ___ [@pacificbiosciences2019]
+          - demultiplexed and primers removed with `cutadapt` [@martin2011]
+      - ITS1, ITS2, ITS, LSU extracted using ITSx [@Nilsson2010, @bengtsson-palme2013]
+      - extracted regions independently quality filtered by max expected error using `dada2::filterAndTrim()`
+      - dereplicated using `dada2::derepFastq()`
+      - denoised with `dada2::dada()`
+      - de novo chimera removal using `dada2::removeBimeraDenovo()`
+      - taxonomy assigned using `dada2::assignTaxonomy()` with Unite database (ITS, ITS1, ITS2, long, short)[@nilsson2019a], RDP (LSU, long)[@cole2014], and Silva (LSU, long) databases
+## Statistics
+
 # Results
 
 # Discussion
