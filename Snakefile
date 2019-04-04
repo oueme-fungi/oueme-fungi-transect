@@ -407,12 +407,12 @@ localrules: drake_plan
 checkpoint drake_plan:
     output:
         plan        = "{plandir}/plan.rds".format_map(config),
-        preitsx_meta   = "{plandir}/preitsx_meta.rds".format_map(config),
-        region_meta = "{plandir}/region_meta.rds".format_map(config),
-        meta3       = "{plandir}/meta3.rds".format_map(config),
-        meta4       = "{plandir}/meta4.rds".format_map(config),
+        itsx_meta   = "{plandir}/itsx_meta.rds".format_map(config),
+        predada_meta = "{plandir}/predada_meta.rds".format_map(config),
+        dada_meta       = "{plandir}/dada_meta.rds".format_map(config),
+        taxonomy_meta       = "{plandir}/taxonomy_meta.rds".format_map(config),
         drakedata   = "{plandir}/drake.Rdata".format_map(config),
-        meta4csv    = "{plandir}/meta4.csv".format_map(config),
+        taxonomy_meta_csv    = "{plandir}/taxonomy_meta.csv".format_map(config),
         tids        = "{plandir}/tids.txt".format_map(config)
     input:
         demux_find('pb_500_001'),
@@ -507,8 +507,8 @@ rule DADA:
 # Function to calculate which DADA results represent each region.
 def region_inputs(wildcards):
     checkpoints.drake_plan.get()
-    meta4 = pd.read_csv(rules.drake_plan.output.meta4csv).set_index("Region")
-    PIDs = meta4.loc[[wildcards.region], 'PlateRegionID'].unique()[0].split(',')
+    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("Region")
+    PIDs = taxonomy_meta.loc[[wildcards.region], 'PlateRegionID'].unique()[0].split(',')
     return expand('.nochim_{PlateRegionID}', PlateRegionID = PIDs)
 
 # combine the dada results for each region
@@ -529,8 +529,8 @@ rule region_table:
 # calculate which sequence tables are needed for a taxonomy assignment step
 def taxon_inputs(wildcards):
     checkpoints.drake_plan.get()
-    meta4 = pd.read_csv(rules.drake_plan.output.meta4csv).set_index("TaxID")
-    regions = meta4.loc[wildcards.TaxID, 'Region'].split(sep = ",")
+    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("TaxID")
+    regions = taxonomy_meta.loc[wildcards.TaxID, 'Region'].split(sep = ",")
     return expand('.big_seq_table_{region}', region = regions)
 
 # call taxonomy and assign guilds

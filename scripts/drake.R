@@ -1,3 +1,4 @@
+# define or input file names and parameters
 if (interactive()) {
   cat("Creating drake plan in interactive session...\n")
   library(here)
@@ -29,11 +30,11 @@ if (interactive()) {
   rdp_patch_file <- file.path(ref.dir, "rdp_patch.csv")
   silva_patch_file <- file.path(ref.dir, "silva_patch.csv")
   plan_file <- file.path(plan.dir, "plan.rds")
-  meta1_file <- file.path(plan.dir, "meta1.rds")
-  meta2_file <- file.path(plan.dir, "meta2.rds")
-  meta3_file <- file.path(plan.dir, "meta3.rds")
-  meta4_file <- file.path(plan.dir, "meta4.rds")
-  meta4csv_file <- file.path(plan.dir, "meta4.csv")
+  itsx_meta_file <- file.path(plan.dir, "itsx_meta.rds")
+  predada_meta_file <- file.path(plan.dir, "predada_meta.rds")
+  dada_meta_file <- file.path(plan.dir, "dada_meta.rds")
+  taxonomy_meta_file <- file.path(plan.dir, "taxonomy_meta.rds")
+  taxonomy_meta_csv_file <- file.path(plan.dir, "taxonomy_meta.csv")
   tid_file <- file.path(plan.dir, "tids.txt")
   drakedata.file <- file.path(plan.dir, "drake.Rdata")
   bigsplit <- 80L
@@ -62,23 +63,23 @@ if (interactive()) {
   pasta.dir <- snakemake@config$pastadir
   plan.dir <- snakemake@config$plandir
   plan_file <- snakemake@output$plan
-  meta1_file <- snakemake@output$meta1
-  meta2_file <- snakemake@output$meta2
-  meta3_file <- snakemake@output$meta3
-  meta4_file <- snakemake@output$meta4
+  itsx_meta_file <- snakemake@output$itsx_meta
+  predada_meta_file <- snakemake@output$predada_meta
+  dada_meta_file <- snakemake@output$dada_meta
+  taxonomy_meta_file <- snakemake@output$taxonomy_meta
   drakedata_file <- snakemake@output$drakedata
-  meta4csv_file <- snakemake@output$meta4csv
+  taxonomy_meta_csv_file <- snakemake@output$taxonomy_meta_csv
   tids_file <- snakemake@output$tids
   prereqs <- unlist(snakemake@input)
   in.files <- stringr::str_subset(prereqs,
                          pattern = "\\.trim\\.fastq\\.gz$")
   bigsplit <- snakemake@config$bigsplit
   plan.file <- snakemake@output[["plan"]]
-  meta1.file <- snakemake@output[["meta1"]]
-  meta2.file <- snakemake@output[["meta2"]]
-  meta3.file <- snakemake@output[["meta3"]]
-  meta4.file <- snakemake@output[["meta4"]]
-  meta4.csv <- snakemake@output[["meta4.csv"]]
+  itsx_meta.file <- snakemake@output[["itsx_meta"]]
+  predada_meta.file <- snakemake@output[["predada_meta"]]
+  dada_meta.file <- snakemake@output[["dada_meta"]]
+  taxonomy_meta.file <- snakemake@output[["taxonomy_meta"]]
+  taxonomy_meta.csv <- snakemake@output[["taxonomy_meta.csv"]]
   pid.file <- snakemake@output[["pids"]]
   tid.file <- snakemake@output[["tids"]]
   drakedata.file <- snakemake@output[["drakedata"]]
@@ -113,10 +114,11 @@ regions <- read_csv(regions.file)
 
 # "meta" dataframes containing definitions for each instance of mapped targets
 
-#### meta1 ####
-# meta1 has one row per demultiplexed, primer-trimmed fastq.gz file
+#### itsx_meta ####
+# itsx_meta has one row per demultiplexed, primer-trimmed fastq.gz file
+# used in targets derep1 and positions
 # The "index" is FileID
-meta1 <- datasets %>%
+itsx_meta <- datasets %>%
   mutate(PrimerID = paste0(str_replace(Forward, "_tag.*$", ""),
                             str_replace(Reverse, "_tag.*$", "")),
          Plate = map(Runs, ~formatC(seq(.), width = 3, flag = "0"))) %>%
@@ -141,11 +143,12 @@ meta1 <- datasets %>%
   verify(file.path(trim.dir, Trim.File) %in% in.files) %>%
   mutate_at(c("join_derep", "itsxtrim", "FileID", "SeqRunID", "PrimerID"), syms)
 
-#### meta2 ####
-# meta2 has one row per region per input file
+#### predada_meta ####
+# predada_meta has one row per region per input file
+# it is used in targets regions, filter, and derep2
 # The index is WellID + RegionID
-# PlateID is defined because it will be the index for meta3
-meta2 <- meta1 %>%
+# PlateID is defined because it will be the index for dada_meta
+predada_meta <- itsx_meta %>%
   mutate_at("Regions", str_split, ",") %>%
   unnest(Region = Regions, .preserve = ends_with("ID")) %>%
   left_join(regions, by = "Region") %>%
@@ -158,24 +161,25 @@ meta2 <- meta1 %>%
 
 if (interactive()) {
   #use a subset
-  meta1 %<>%
+  itsx_meta %<>%
     group_by(Seq.Run, Plate) %>%
     mutate(filesize = file.size(file.path(trim.dir, Trim.File))) %>%
     arrange(desc(filesize), .by_group = TRUE) %>%
     dplyr::slice(1:4) %>%
     ungroup()
   
-  meta2 %<>%
-    semi_join(meta1, by = "Trim.File")
+  predada_meta %<>%
+    semi_join(itsx_meta, by = "Trim.File")
 } else {
-  saveRDS(meta1, meta1_file)
-  saveRDS(meta2, meta2_file)
+  saveRDS(itsx_meta, itsx_meta_file)
+  saveRDS(predada_meta, predada_meta_file)
 }
 
-#### meta3 ####
-# meta3 has one row per region per plate
+#### dada_meta ####
+# dada_meta has one row per region per plate
+# it is used for targets err, dada, dadamap, seq_table, and nochim
 # The index is PlateID + RegionID (Plate ID)
-meta3 <- meta2 %>%
+dada_meta <- predada_meta %>%
   select(Seq.Run, Plate, Region, PlateID, RegionID, SeqRunID) %>%
   unique() %>%
   arrange(Seq.Run, Plate, Region) %>%
@@ -184,13 +188,15 @@ meta3 <- meta2 %>%
   left_join(regions, by = "Region") %>%
   mutate_at(c("region_derep"), syms)
 if (!interactive()) {
-  saveRDS(meta3, meta3_file)
+  saveRDS(dada_meta, dada_meta_file)
 }
 
-#### meta4 ####
-# meta4 has one row per region
+#### taxonomy_meta ####
+# taxonomy_meta has one row per region
+# it is used in target taxon,
+# and mapped to target guilds_table
 # The index is TaxID (Taxonomy ID)
-meta4 <- meta3 %>%
+taxonomy_meta <- dada_meta %>%
   mutate_if(is.list, as.character) %>%
   group_by_at(names(regions)) %>%
   summarize(PlateRegionID = paste(PlateID, RegionID, sep = "_", collapse = ",")) %>%
@@ -204,15 +210,17 @@ meta4 <- meta3 %>%
   arrange(TaxID) %>%
   mutate_at(c("TaxID", "big_seq_table"), syms)
 if (!interactive()) {
-  saveRDS(meta4, meta4_file)
-  mutate_if(meta4, is.list, as.character) %>%
-  readr::write_csv(meta4csv_file)
-  readr::write_lines(meta4$TaxID, tids_file)
+  saveRDS(taxonomy_meta, taxonomy_meta_file)
+  mutate_if(taxonomy_meta, is.list, as.character) %>%
+  readr::write_csv(taxonomy_meta_csv_file)
+  readr::write_lines(taxonomy_meta$TaxID, tids_file)
 }
 
-#### meta5 ####
-# meta5 has one row per (region specific) reference database.
-meta5 <- select(meta4, Reference, Reference_File) %>%
+#### ref_meta ####
+# ref_meta has one row per (region specific) reference database.
+# it is used for target dbprep
+# and mapped to target classifier
+ref_meta <- select(taxonomy_meta, Reference, Reference_File) %>%
   unique() %>%
   mutate(RefID = rlang::syms(str_replace(Reference_File, "\\.", "_")),
          seq_file = glue("{ref.dir}/{Reference_File}.fasta.gz"),
@@ -239,7 +247,7 @@ plan <- drake_plan(
       derep = list(dada2::derepFastq(file_in(!!file.path(trim.dir, Trim.File)),
                                      qualityType = "FastqQuality",
                                      n = 1e4) %>% inset2("quals", NULL))),
-    transform = map(.data = !!select(meta1, Trim.File, FileID, PrimerID),
+    transform = map(.data = !!select(itsx_meta, Trim.File, FileID, PrimerID),
                     .tag_in = step,
                     .id = FileID)),
   
@@ -290,7 +298,7 @@ plan <- drake_plan(
   positions = target(
     dplyr::filter(join_derep$map, file == Trim.File) %>%
       dplyr::left_join(itsxtrim, by = c("newmap" = "seq")),
-    transform = map(.data = !!select(meta1, join_derep, itsxtrim, Trim.File,
+    transform = map(.data = !!select(itsx_meta, join_derep, itsxtrim, Trim.File,
                                      FileID),
                     .tag_in = step,
                     .id = FileID)),
@@ -302,7 +310,7 @@ plan <- drake_plan(
                    outfile = file_out(!!file.path(region.dir, Region.File)),
                    region = Region,
                    positions = positions),
-    transform = map(.data = !!select(meta2, Seq.Run, Trim.File, Region.File, Region,
+    transform = map(.data = !!select(predada_meta, Seq.Run, Trim.File, Region.File, Region,
                                      positions, WellID, PlateID, RegionID, SeqRunID),
                     .tag_in = step,
                     .id = c(WellID, RegionID))),
@@ -326,7 +334,7 @@ plan <- drake_plan(
       }
       return(out)
     },
-    transform = map(.data = !!select(meta2, Region.File, Filter.File,
+    transform = map(.data = !!select(predada_meta, Region.File, Filter.File,
                                      MaxLength, MinLength, MaxEE, WellID, RegionID),
                     .tag_in = step,
                     .id = c(WellID, RegionID))),
@@ -352,7 +360,7 @@ plan <- drake_plan(
     result[[Filter.File]] <- out
     result
   },
-  transform = map(.data = !!meta2,
+  transform = map(.data = !!predada_meta,
                   .tag_in = step,
                   .id = c(WellID, RegionID))),
   
@@ -378,7 +386,7 @@ plan <- drake_plan(
       pool = eval(rlang::parse_expr(Pool)),
       verbose = TRUE,
       qualityType = "FastqQuality")},
-    transform = map(.data = !!meta3,
+    transform = map(.data = !!dada_meta,
                     .tag_in = step, .id = c(PlateID, RegionID))),
   
   # dada----
@@ -390,7 +398,7 @@ plan <- drake_plan(
       HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(Homopolymer.Gap.Penalty)),
       BAND_SIZE = Band.Size,
       pool = eval(rlang::parse_expr(Pool))),
-    transform = map(err, .data = !!meta3,
+    transform = map(err, .data = !!dada_meta,
                     .tag_in = step,
                     .id = c(PlateID, RegionID))),
   
@@ -398,21 +406,21 @@ plan <- drake_plan(
   # Make maps from individual sequences in source files to dada ASVs
   dada_map = target(
     dadamap(region_derep, dada),
-    transform = map(dada, .data = !!meta3,
+    transform = map(dada, .data = !!dada_meta,
                     .tag_in = step, .id = c(PlateID, RegionID))),
   
   # seq_table----
   # Make a sample x ASV abundance matrix
   seq_table = target(
     dada2::makeSequenceTable(dada),
-    transform = map(dada, .data = !!meta3, .tag_in = step, .id = c(PlateID, RegionID))),
+    transform = map(dada, .data = !!dada_meta, .tag_in = step, .id = c(PlateID, RegionID))),
   
   # nochim----
   # Remove likely bimeras
   nochim = target(
     dada2::removeBimeraDenovo(seq_table, method = "consensus",
                               multithread = ignore(dada_cpus)),
-    transform = map(seq_table, .data = !!meta3, .tag_in = step, .id = c(PlateID, RegionID))),
+    transform = map(seq_table, .data = !!dada_meta, .tag_in = step, .id = c(PlateID, RegionID))),
   
   # big_seq_table ----
   # Join all the sequence tables for each region
@@ -430,7 +438,7 @@ plan <- drake_plan(
              tax_file = file_in(tax_file),
              maxGroupSize = 20),
     
-    transform = map(.data = !!meta5,
+    transform = map(.data = !!ref_meta,
                     .id = RefID)),
   # classifier----
   # Train a DECIPHER classifier for each database.
@@ -448,7 +456,7 @@ plan <- drake_plan(
     taxonomy(big_seq_table,
              reference = file_in(!!file.path(ref.dir, paste0(Reference, ".fasta.gz"))),
              multithread = ignore(dada_cpus)),
-    transform = map(.data = !!meta4, .tag_in = step, .id = TaxID)),
+    transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = TaxID)),
   
   # funguild_db ----
   # Download the FUNGuild database
@@ -571,9 +579,9 @@ plan <- drake_plan(
       reads = system(glue::glue("zcat {file} | grep -c '^@'", file = fq.file),
                      intern = TRUE) %>%
         as.integer),
-    transform = map(fq.file = !!c(file.path(trim.dir, meta1$Trim.File),
-                                 file.path(region.dir, meta2$Region.File),
-                                 file.path(filter.dir, meta2$Filter.File)),
+    transform = map(fq.file = !!c(file.path(trim.dir, itsx_meta$Trim.File),
+                                 file.path(region.dir, predada_meta$Region.File),
+                                 file.path(filter.dir, predada_meta$Filter.File)),
                     .tag_in = step)),
   
   # seq_counts----
@@ -586,7 +594,7 @@ plan <- drake_plan(
   # calculate quality stats for the different regions
   qstats = target(
     q_stats(file_in(!!file.path(region.dir, Region.File))),
-    transform = map(.data = !!meta2,
+    transform = map(.data = !!predada_meta,
                     .tag_in = step,
                     .id = c(WellID, RegionID))),
   #qstats_join----
@@ -614,10 +622,10 @@ tictoc::toc()
 
 if (!interactive()) saveRDS(plan, plan_file)
 
-remove(meta1)
-remove(meta2)
-remove(meta3)
-remove(meta4)
+remove(itsx_meta)
+remove(predada_meta)
+remove(dada_meta)
+remove(taxonomy_meta)
 remove(datasets)
 remove(regions)
 
