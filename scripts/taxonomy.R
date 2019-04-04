@@ -64,7 +64,8 @@ formatdb_rdp <- function(seq_file, patch_file = NULL,
   rdp_db <- Biostrings::readDNAStringSet(seq_file) %>% unique()
   
   # define the ranks.  The aim is only to search to genus level.
-  rdp_ranks <-  c("rootrank", "domain", "phylum", "class", "order", "family", "genus", "species")
+  rdp_ranks <-  c("rootrank", "domain", "phylum", "class", "order",
+                  "family", "genus", "species")
   rdp_rankpattern <- paste0(";(", paste(rdp_ranks, collapse = "|"), ")")
   
   # classification = c(12 letters)n
@@ -80,7 +81,7 @@ formatdb_rdp <- function(seq_file, patch_file = NULL,
     # if the "species" is a species, then add it
     dplyr::mutate(
       genus = stringr::str_replace(c12n, ".+;", ""),
-      c12n = ifelse(stringr::str_detect(species, paste0("^", genus, " .+")),
+      c12n = ifelse(stringr::str_starts(species, paste0(genus, " ")),
                     paste0(c12n, ";", species),
                     c12n)
     )
@@ -107,6 +108,8 @@ formatdb_rdp <- function(seq_file, patch_file = NULL,
     # remove "incertae sedis"
     dplyr::filter(stringr::str_detect(taxon, "incertae", negate = TRUE),
                   stringr::str_detect(taxon, "unclassified_", negate = TRUE),
+                  stringr::str_detect(taxon, "uncultured_", negate = TRUE),
+                  stringr::str_starts(taxon, "[A-Z]"),
                   nchar(taxon) > 0) %>%
     # assign parents
     dplyr::mutate(parent = ifelse(Rank == "rootrank",
@@ -188,7 +191,7 @@ seq_file <- file.path("reference", "silva.fasta.gz")
 patch_file <- file.path("reference", "silva_patch.csv")
 formatdb_silva <- function(tax_file, seq_file, patch_file = NULL,
                            maxGroupSize = 10, ...) {
-  silva_ranks <- c("rootrank", "domain", "major_clade", "superkingdom", "kingdom", "subkingdom", "infrakingdom", "superphylum", "phylum", "subphylum", "infraphylum", "class", "subclass", "order", "family", "subfamily", "genus")
+  silva_ranks <- c("rootrank", "domain", "major_clade", "superkingdom", "kingdom", "subkingdom", "infrakingdom", "superphylum", "phylum", "subphylum", "infraphylum", "class", "subclass", "order", "family", "subfamily", "genus", "species")
   
   silva_taxa <-
     readr::read_tsv(tax_file,
@@ -242,7 +245,8 @@ formatdb_silva <- function(tax_file, seq_file, patch_file = NULL,
       dplyr::mutate(Name = species,
                     Parent = Index,
                     Index = seq_along(Parent) + max(silva_taxa$Index),
-                    Level = Level + 1) %>%
+                    Level = Level + 1,
+                    Rank = as.character(Rank)) %>%
       dplyr::select(c12n, Name, Parent, Index, Level, Rank))
   
   if (is.finite(maxGroupSize)) {
@@ -365,11 +369,13 @@ refine_classifier <- function(trainset, taxonomy, rank, out_root,
                              rank,
                              ...)
     # look for problem sequences
+    probSeqs <- trainingSet$problemSequences$Index
     # underannotated sequences are those which are placed with high confidence
     # in a subclade of the one they are annotated in.
-    #underannot <- with(trainingSet$problemSequences,
-    #                   startsWith(Predicted, Expected))
-    probSeqs <- trainingSet$problemSequences$Index
+    # These can be safely removed, even if they are the last sequence
+    # with that annotation.
+    underannot <- with(trainingSet$problemSequences,
+                       startsWith(Predicted, Expected))
     
     if (length(probSeqs) == 0) {
       cat("No problem sequences remaining.\n")
@@ -387,14 +393,15 @@ refine_classifier <- function(trainset, taxonomy, rank, out_root,
      
     # trainingSet$problemSequences$Predicted[underannot]
     
-    readr::write_csv(trainingSet$problemSequences,#[!underannot,],
+    readr::write_csv(trainingSet$problemSequences[!underannot,],
                      paste0(out_root, i, ".csv"))
     
     probSeqsPrev <- probSeqs#[!underannot]
     
     # remove any remaining problem sequences
-    index <- which(!remove)[probSeqsPrev]
+    index <- which(!remove)[probSeqs]
     remove[index] <- TRUE # remove all problem sequences
+    index <- index[!underannot] # only re-add the ones which are not simply underannotated
     if (!allowGroupRemoval) {
       # replace any removed groups
       missing <- !(u_groups %in% taxonomy[!remove])
@@ -422,7 +429,7 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
     seq <- as.character(seq.table)
   }
   is.RNA <- stringr::str_detect(seq[1], "[Uu]")
-  seq <- if(is.RNA) Biostrings::RNAStringSet(seq) else Biostrings::DNAStringSet(seq)
+  seq <- if (is.RNA) Biostrings::RNAStringSet(seq) else Biostrings::DNAStringSet(seq)
   
   tax <- dada2::assignTaxonomy(seqs = seq, 
                                refFasta = reference,
