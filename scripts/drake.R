@@ -195,12 +195,12 @@ meta4 <- meta3 %>%
   group_by_at(names(regions)) %>%
   summarize(PlateRegionID = paste(PlateID, RegionID, sep = "_", collapse = ",")) %>%
   ungroup() %>%
-  mutate(Reference = strsplit(Reference, " *, *") %>%
+  mutate(Reference_File = strsplit(Reference, " *, *") %>%
                                 map(unlist)) %>%
-  unnest(Reference, .preserve = Region) %>%
-  mutate(TaxID = glue("{Region}_{Reference}"),
-         big_seq_table = glue("big_seq_table_{Region}"),
-         Reference.File = Reference) %>%
+  unnest(Reference_File, .preserve = Region) %>%
+  mutate(Reference = str_split_fixed(Reference_File, "\\.", 2)[,1],
+         TaxID = glue("{Region}_{Reference}"),
+         big_seq_table = glue("big_seq_table_{Region}")) %>%
   arrange(TaxID) %>%
   mutate_at(c("TaxID", "big_seq_table"), syms)
 if (!interactive()) {
@@ -209,6 +209,18 @@ if (!interactive()) {
   readr::write_csv(meta4csv_file)
   readr::write_lines(meta4$TaxID, tids_file)
 }
+
+#### meta5 ####
+# meta5 has one row per (region specific) reference database.
+meta5 <- select(meta4, Reference, Reference_File) %>%
+  unique() %>%
+  mutate(RefID = rlang::syms(str_replace(Reference_File, "\\.", "_")),
+         seq_file = glue("{ref.dir}/{Reference_File}.fasta.gz"),
+         patch_file = glue("{ref.dir}/{Reference}_patch.csv"),
+         tax_file = ifelse(Reference == "silva",
+                           glue("{ref.dir}/{Reference}_tax.txt"),
+                           NA_character_),
+         problem_root = glue("{ref.dir}/{Reference_File}_problems"))
 
 #### drake plan ####
 
@@ -418,20 +430,16 @@ plan <- drake_plan(
              tax_file = file_in(tax_file),
              maxGroupSize = 20),
     
-    transform = map(Reference = c("rdp", "silva"),
-                    ReferenceID = !!rlang::syms(c("rdp", "silva")),
-                    seq_file = !!c(rdp_file, silva_file),
-                    patch_file = !!c(rdp_patch_file, silva_patch_file),
-                    tax_file = !!c(NA, silva_tax_file),
-                    .id = ReferenceID)),
+    transform = map(.data = !!meta5,
+                    .id = RefID)),
   # classifier----
   # Train a DECIPHER classifier for each database.
   classifier = target(
     refine_classifier(dbprep$train,
                       dbprep$taxonomy,
                       dbprep$rank,
-                      out_root = !!file.path(ref.dir, Reference)),
-    transform = map(dbprep, .id = ReferenceID)
+                      out_root = problem_root),
+    transform = map(dbprep, .id = RefID)
   ),
   
   # taxon ----
