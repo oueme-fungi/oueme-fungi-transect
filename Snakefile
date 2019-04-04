@@ -420,6 +420,7 @@ checkpoint drake_plan:
         demux_find('pb_483_001'),
         demux_find('pb_483_002'),
         ion_find('is_057', '001'),
+        "{rdir}/parallel_helpers.R".format_map(config),
         "{rdir}/combine_derep.R".format_map(config),
         "{rdir}/extract_regions.R".format_map(config),
         "{rdir}/dada.R".format_map(config),
