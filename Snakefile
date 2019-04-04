@@ -406,14 +406,14 @@ rule lsu_reference:
 localrules: drake_plan
 checkpoint drake_plan:
     output:
-        plan      = "{plandir}/plan.rds".format_map(config),
-        meta1     = "{plandir}/meta1.rds".format_map(config),
-        meta2     = "{plandir}/meta2.rds".format_map(config),
-        meta3     = "{plandir}/meta3.rds".format_map(config),
-        meta4     = "{plandir}/meta4.rds".format_map(config),
-        drakedata = "{plandir}/drake.Rdata".format_map(config),
-        meta4csv  = "{plandir}/meta4.csv".format_map(config),
-        tids      = "{plandir}/tids.txt".format_map(config)
+        plan        = "{plandir}/plan.rds".format_map(config),
+        preitsx_meta   = "{plandir}/preitsx_meta.rds".format_map(config),
+        region_meta = "{plandir}/region_meta.rds".format_map(config),
+        meta3       = "{plandir}/meta3.rds".format_map(config),
+        meta4       = "{plandir}/meta4.rds".format_map(config),
+        drakedata   = "{plandir}/drake.Rdata".format_map(config),
+        meta4csv    = "{plandir}/meta4.csv".format_map(config),
+        tids        = "{plandir}/tids.txt".format_map(config)
     input:
         demux_find('pb_500_001'),
         demux_find('pb_500_002'),
@@ -451,7 +451,7 @@ rule preITSx:
         flag = touch(".preITSx")
     input:
         drakedata = rules.drake_plan.output.drakedata,
-        script    = "{rdir}/drake-preITSx.R".format_map(config)
+        script    = "{rdir}/drake-01-preITSx.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 4
     resources:
@@ -468,7 +468,7 @@ rule ITSx:
     input:
         drakedata = rules.drake_plan.output.drakedata,
         preITSx = ".preITSx",
-        script = "{rdir}/drake-ITSx.R".format_map(config)
+        script = "{rdir}/drake-02-ITSx.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
@@ -482,7 +482,7 @@ rule preDADA:
     input:
         drakedata = rules.drake_plan.output.drakedata,
         ITSx      = rules.ITSx.output.flag,
-        script = "{rdir}/drake-preDADA.R".format_map(config)
+        script = "{rdir}/drake-03-preDADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 4
     resources:
@@ -496,7 +496,7 @@ rule DADA:
     input:
         drakedata = rules.drake_plan.output.drakedata,
         preDADA   = ".preDADA",
-        script    = "{rdir}/drake-DADA.R".format_map(config)
+        script    = "{rdir}/drake-04-DADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:
@@ -518,7 +518,7 @@ rule region_table:
     input:
         drakedata = rules.drake_plan.output.drakedata,
         dada      = region_inputs,
-        script    = "{rdir}/drake-pretaxonomy.R".format_map(config)
+        script    = "{rdir}/drake-06-pretaxonomy.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
@@ -539,7 +539,7 @@ rule taxonomy:
     input:
         drakedata = rules.drake_plan.output.drakedata,
         dada      = taxon_inputs,
-        script    = "{rdir}/drake-taxonomy.R".format_map(config)
+        script    = "{rdir}/drake-07-taxonomy.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:
@@ -564,7 +564,7 @@ rule consensus:
     input:
         drakedata = rules.drake_plan.output.drakedata,
         taxon     = taxon_outputs,
-        script    = "{rdir}/drake-consensus.R".format_map(config)
+        script    = "{rdir}/drake-08-consensus.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:
@@ -612,7 +612,7 @@ rule finish:
         pasta     = rules.pasta.output.tree,
         drakedata = rules.drake_plan.output.drakedata,
         taxonomy  = taxon_outputs,
-        script    = "{rdir}/drake-finish.R".format_map(config)
+        script    = "{rdir}/drake-09-finish.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
