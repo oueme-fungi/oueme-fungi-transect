@@ -7,5 +7,7 @@ dependencies:
   - r-base=3.4.1
   - r-packrat
   - r-recommended
+  - r-openssl
+  - r-curl
   - zeromq
   - itsx=1.1b

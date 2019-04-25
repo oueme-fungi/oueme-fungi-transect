@@ -3,10 +3,11 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - r-base=3.4.1
+  - r-base>=3.5
   - r-packrat
   - r-recommended
   - r-openssl
+  - r-curl
   - rstudio
   - zeromq
   - defaults::qt
