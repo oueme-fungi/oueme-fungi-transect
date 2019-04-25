@@ -392,6 +392,16 @@ rule lsu_reference:
         gzip - >{output}
         """
 
+rule rdptrain_reference:
+    output: "{ref_root}/rdp_train.fasta.gz".format_map(config)
+    input: "{ref_root}/fungiLSU_train_012014.fa".format_map(config)
+    threads: 1
+    shell:
+        """
+        sed '/>/!y/uU/tT/' {input} |
+        gzip - > {output}
+        """
+
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
 # It is very nice for handling dependencies within R.  However, it lacks the capability
@@ -577,8 +587,8 @@ rule pasta:
     output:
         tree = "{pastadir}/pasta_raxml.tree".format_map(config)
     input:
-        consensus = rules.consensus.output.flag,
-        longasv   = rules.consensus.output.longasv
+        consensus = ancient(rules.consensus.output.flag),
+        longasv   = ancient(rules.consensus.output.longasv)
     log: "{logdir}/pasta.log".format_map(config)
     threads: 16
     resources:
@@ -603,6 +613,41 @@ rule pasta:
         ( echo "alignment unchanged, skipping PASTA and using old tree.";
           touch {output.tree} )
         """
+
+rule raxml:
+    output:
+        tree = "{datadir}/long_ASVs.tree".format_map(config)
+    input:
+        consensus = ancient(rules.consensus.output.flag),
+        longasv   = ancient(rules.consensus.output.longasv)
+    log: "{logdir}/raxml.log".format_map(config)
+    threads: 16
+    resources:
+        walltime=60*36
+
+
+
+# delimit species based on the ITS+LSU tree using a Poisson Tree Process model
+localrules: ptp
+rule ptp:
+    output:
+        psh = "{basename}.psh.txt"
+    input:
+        tree = ancient("{basename}.tree")
+    log: "{basename}.log"
+    threads: 1
+    shell:
+        """
+        mptp --tree_file {input.tree}\
+             --output_file {wildcards.basename}\
+             --mcmc 50000000\
+             --mcmc_sample 1000\
+             --mcmc_burnin 1000000\
+             --mcmc_log\
+             --seed 9999
+        mv {wildcards.basename}.9999.txt {output.psh}
+        """
+
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
 localrules: finish

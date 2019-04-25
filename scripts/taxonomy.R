@@ -4,7 +4,8 @@ patch_taxa <- function(c12n, patch_file) {
                            && file.exists(patch_file))
                           || is.null(patch_file))
   if (!is.null(patch_file)) {
-    patch <- readr::read_csv(patch_file)
+    patch <- readr::read_csv(patch_file,
+                             col_types = readr::cols(.default = readr::col_character()))
     assertthat::assert_that(assertthat::has_name(patch, "pattern"),
                             assertthat::has_name(patch, "replacement"))
     c12n <- stringi::stri_replace_all_regex(c12n,
@@ -62,6 +63,178 @@ formatdb_rdp <- function(seq_file, patch_file = NULL,
                          maxGroupSize = 10, ...) {
   # read the RDP dataset
   rdp_db <- Biostrings::readDNAStringSet(seq_file) %>% unique()
+  
+  # define the ranks.  The aim is only to search to genus level.
+  rdp_ranks <-  c("rootrank", "kingdom", "phylum", "class", "order",
+                  "family", "genus", "species")
+  rdp_rankpattern <- paste0(";(", paste(rdp_ranks, collapse = "|"), ")")
+  
+  # classification = c(12 letters)n
+  rdp_c12n <- tibble::tibble(name = names(rdp_db),
+                             seqidx = seq_along(name)) %>%
+    # parse the name string
+    tidyr::extract(name, into = c("id", "species", "c12n"),
+                   "([:alnum:]+) ([^;\\t]+)[^\\t]*\\tLineage=(.+)") %>%
+    # RDP format is "taxon;rank;taxon;rank;"  Remove the ranks.
+    dplyr::mutate_at("c12n", stringr::str_replace_all, rdp_rankpattern, "") %>%
+    # Apply "patches" to the database
+    dplyr::mutate_at("c12n", patch_taxa, patch_file) %>%
+    # if the "species" is a species, then add it
+    dplyr::mutate(
+      genus = stringr::str_replace(c12n, ".+;", ""),
+      c12n = ifelse(stringr::str_starts(species, paste0(genus, " ")),
+                    paste0(c12n, ";", species),
+                    c12n)
+    )
+  
+  # find the unique taxa and give them an index
+  rdp_taxa <-
+    dplyr::select(rdp_c12n, c12n) %>%
+    unique() %>%
+    dplyr::mutate(taxid = seq_along(c12n))
+  
+  # map the index back into the classification list
+  rdp_c12n %<>%
+    dplyr::left_join(rdp_taxa, by = c("c12n")) %>%
+    dplyr::select(-c12n)
+  
+  # break apart the lineage into ranks
+  rdp_taxa %<>%
+    dplyr::bind_cols(stringr::str_split_fixed(.$c12n, ";", length(rdp_ranks)) %>%
+                       magrittr::set_colnames(rdp_ranks) %>%
+                       tibble::as_tibble()) %>%
+    dplyr::select(-c12n) %>%
+    tidyr::gather(key = "Rank", value = "taxon", !!!rdp_ranks, factor_key = TRUE) %>%
+    dplyr::arrange(taxid, Rank) %>%
+    # remove "incertae sedis"
+    dplyr::filter(stringr::str_detect(taxon, "incertae", negate = TRUE),
+                  stringr::str_detect(taxon, "unclassified_", negate = TRUE),
+                  stringr::str_detect(taxon, "uncultured_", negate = TRUE),
+                  stringr::str_starts(taxon, "[A-Z]"),
+                  nchar(taxon) > 0) %>%
+    # assign parents
+    dplyr::mutate(parent = ifelse(Rank == "rootrank",
+                                  NA_character_,
+                                  dplyr::lag(taxon))) %>%
+    # The RDP database sometimes lists a higher taxon as the genus when the genus
+    # is unknown. Remove these.
+    dplyr::filter(!purrr::map_lgl(parent == taxon, isTRUE))
+  
+  # Put the corrected lineage back into the database
+  rdp_c12n %<>%
+    dplyr::left_join(rdp_taxa %>%
+                       dplyr::group_by(taxid) %>%
+                       dplyr::summarize(c12n = paste(taxon, collapse = ";")),
+                     by = "taxid")
+  
+  # Check that each taxon has a unique rank and parent
+  rdp_taxa %>% dplyr::group_by(taxon) %>%
+    dplyr::arrange(taxon) %>%
+    dplyr::filter(dplyr::n_distinct(Rank) > 1 | dplyr::n_distinct(parent) > 1) %>%
+    {assertthat::assert_that(nrow(.) == 0)}
+  
+  # put together the lineage (i.e., higher ranks) for each taxon.
+  # this is easy to do within each leaf taxon, because we already have them in
+  # order
+  rdp_taxa %<>%
+    dplyr::group_by(taxid) %>%
+    dplyr::mutate(c12n = purrr::accumulate(taxon, paste, sep = ";"),
+                  Level = seq_along(taxon) - 1) %>%
+    dplyr::ungroup() %>%
+    # take only the unique taxa
+    dplyr::select(-taxid) %>%
+    unique() %>%
+    # verify that we only have one of each taxon
+    assertr::assert(assertr::is_uniq, taxon)
+  
+  # sometimes we can get more information from the species name than we were given
+  # in the lineage; e.g. "uncultured Glomerales  Lineage=Root;Fungi;"
+  # If the "species" entry gives us a more specific, but non-conflicting lineage,
+  # then use it instead of the given lineage
+  rdp_c12n %<>%
+    dplyr::mutate_at("species", stringr::str_replace, "uncultured ", "") %>%
+    dplyr::left_join(dplyr::select(rdp_taxa, species = taxon, c12n),
+                     by = "species") %>%
+    dplyr::mutate(c12n = dplyr::if_else(stringr::str_detect(pattern = c12n.x,
+                                                            string = c12n.y),
+                                        c12n.y,
+                                        c12n.x,
+                                        missing = c12n.x)) %>%
+    dplyr::select(-c12n.x, -c12n.y) %>%
+    #find the rank
+    dplyr::left_join(dplyr::select(rdp_taxa, c12n, Rank), by = "c12n")
+  
+  # Format the taxon list as it is wanted for DECIPHER.
+  rdp_taxa %<>%
+    dplyr::mutate(Index = seq_along(taxon),
+                  Rank = as.character(Rank)) %>%
+    dplyr::left_join(dplyr::select(., parent = taxon, Parent = Index),
+                     by = "parent") %>%
+    dplyr::mutate_at("Parent", tidyr::replace_na, 0) %>%
+    dplyr::rename(Name = taxon)
+  
+  if (is.finite(maxGroupSize)) {
+    rdp_c12n %<>%
+      dplyr::group_by(c12n, Rank) %>%
+      dplyr::group_map(trim_group, indexcol = "seqidx",
+                       seq = rdp_db, n = maxGroupSize) %>%
+      dplyr::ungroup()
+  }
+  
+  list(train = rdp_db[rdp_c12n$seqidx],
+       taxonomy = rdp_c12n$c12n,
+       rank = rdp_taxa)
+}
+
+#### RDP training set ####
+seq_file <- file.path("reference", "rdp_train.LSU.fasta.gz")
+tax_file <- file.path("reference", "rdp_train_tax.txt")
+patch_file <- file.path("reference", "rdp_train_patch.csv")
+formatdb_rdp <- function(seq_file, patch_file = NULL,
+                         maxGroupSize = 10, ...) {
+  # read the RDP dataset
+  rdp_train_db <- Biostrings::readDNAStringSet(seq_file) %>% unique()
+  rdp_train_data <- tibble(idx = seq_along(rdp_train_db),
+                            c12n = names(rdp_train_db)) %>%
+    assertr::assert(function(x) stringr::str_detect(x, "[^\\t ]+[\\t ]+([A-Z][A-Za-z0-9 \\-_]+;){3,6}[A-Za-z0-9 \\-_]+$"),
+                    c12n) %>%
+    dplyr::mutate_at("c12n", stringr::str_replace, "[^\\t ]+[\\t ]+", "")
+  
+  # define the ranks
+  rdp_ranks <-  c("rootrank", "kingdom", "phylum", "class", "order",
+                  "family", "genus") %>%
+    lapply(taxa::taxon_rank)
+
+  # parse the classification and build a taxonomy
+  rdp_train_taxa <- rdp_train_data %>%
+    taxa::parse_tax_data(class_cols = "c12n", class_sep = ";")
+  
+  rank_idx <- rdp_train_taxa$n_supertaxa() + 1
+  
+  for (i in seq_along(rank_idx)) {
+    rdp_train_taxa$taxa[[i]]$rank <- rdp_ranks[[rank_idx[i]]]
+  }
+  
+  rdp_train_taxa <- readr::read_delim(tax_file, delim = "*",
+                                      col_names = c("ID", "Name", "Parent",
+                                                    "Level", "Rank")) %>%
+    dplyr::left_join(dplyr::select(., Parent = ID, ParentName = Name)) %>%
+    dplyr::mutate(Ancestor = Parent,
+                  c12n = paste0(Name, ";"))
+  while (!all(is.na(rdp_train_taxa$Ancestor))) {
+    rdp_train_taxa %<>%
+      dplyr::left_join(dplyr::select(., Ancestor = ID,
+                                     AncestorName = Name,
+                                     NextAncestor = Parent), by = "Ancestor") %>%
+      dplyr::mutate(c12n = paste(AncestorName, c12n, sep = ";"),
+                    Ancestor = NextAncestor) %>%
+      dplyr::select(-AncestorName, -NextAncestor)
+  }
+  
+  rdp_train_taxa %<>%
+    dplyr::mutate_at("c12n", stringr::str_replace_all,"NA;", "") %>%
+    dplyr::filter(!stringr::str_detect(Name, "incertae")) %>%
+    dplyr::mutate_at("c12n", stringr::str_replace_all, "[A-Z][a-z]+ incertae sedis;", "")
   
   # define the ranks.  The aim is only to search to genus level.
   rdp_ranks <-  c("rootrank", "domain", "phylum", "class", "order",
@@ -187,11 +360,13 @@ formatdb_rdp <- function(seq_file, patch_file = NULL,
 
 #### Silva ####
 tax_file <- file.path("reference", "silva_tax.txt")
-seq_file <- file.path("reference", "silva.fasta.gz")
+seq_file <- file.path("reference", "silva.LSU.fasta.gz")
 patch_file <- file.path("reference", "silva_patch.csv")
 formatdb_silva <- function(tax_file, seq_file, patch_file = NULL,
                            maxGroupSize = 10, ...) {
   silva_ranks <- c("rootrank", "domain", "major_clade", "superkingdom", "kingdom", "subkingdom", "infrakingdom", "superphylum", "phylum", "subphylum", "infraphylum", "class", "subclass", "order", "family", "subfamily", "genus", "species")
+  
+  silva_outranks <- c("rootrank", "kingdom", "phylum", "class", "order", "family", "genus", "species")
   
   silva_taxa <-
     readr::read_tsv(tax_file,
@@ -214,6 +389,19 @@ formatdb_silva <- function(tax_file, seq_file, patch_file = NULL,
     assertr::assert(assertr::is_uniq, Index, c12n, Name) %>%
     dplyr::mutate_at("Parent", tidyr::replace_na, 0) %>%
     dplyr::arrange(Index)
+  silva_taxa %>%
+    dplyr::select(c12n, Index) %>%
+    dplyr::mutate(Name = str_split(c12n, ";")) %>%
+    tidyr::unnest(Name) %>%
+    dplyr::filter(Name != "") %>%
+    dplyr::group_by(Index) %>%
+    dplyr::mutate(c12n = purrr::accumulate(Name, paste, sep = ";") %>%
+                    paste0(";")) %>%
+    dplyr::left_join(silva_taxa %>% select(c12n, Rank)) %>%
+    dplyr::filter(Rank %in% silva_outranks) %>%
+    dplyr::summarize(Rank = last(Rank),
+                     c12n = paste(c(Name, ""), collapse = ";")) %>%
+    View()
   
   silva_db <- Biostrings::readRNAStringSet(seq_file) %>% unique()
   
@@ -269,7 +457,26 @@ formatdb_unite <- function(seq_file, patch_file = NULL,
                            maxGroupSize = 10, ...) {
   unite_db <- Biostrings::readDNAStringSet(seq_file) %>% unique()
   
-  unite_ranks <- c("rootrank", "kingdom", "phylum", "class", "order", "family", "genus", "species")
+  unite_ranks <- c("kingdom", "phylum", "class", "order", "family", "genus", "species")
+  
+  unite_data <- tibble::tibble(idx = seq_along(unite_db),
+                               name = names(unite_db)) %>%
+    tidyr::separate(name, c("species", "accno", "sh", "type", "c12n"), sep = "\\|") %>%
+    
+    dplyr::mutate_at("c12n", patch_taxa, patch_file) %>%
+    dplyr::mutate_at("c12n",
+                     stringi::stri_replace_all_regex,
+                     "[kpcofgs]__",
+                     "",
+                     vectorize_all = TRUE) %>%
+    tidyr::separate(c12n, unite_ranks, sep = ";") %>%
+    dplyr::mutate(rootrank = "Root")
+  
+  unite_taxa <- taxa::parse_tax_data(unite_data,
+                                     class_cols = c("rootrank", unite_ranks),
+                                     named_by_rank = TRUE)
+  
+  
   unite_c12n <- tibble::tibble(name = names(unite_db),
                                seqidx = seq_along(name)) %>%
     tidyr::separate(name, c("species", "accno", "sh", "type", "c12n"), sep = "\\|") %>%

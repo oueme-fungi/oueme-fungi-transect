@@ -4,8 +4,172 @@ library(tidyverse)
 library(magrittr)
 library(Biostrings)
 library(rgbif)
-# try to combine ASVs based on co-occurence
-# problem : need to process co-occurence groups in order of reads, not by joining the first group first.??
+
+
+seq_file <- file.path("reference", "rdp_train.LSU.fasta.gz")
+
+rdp_train_names <- Biostrings::readDNAStringSet(seq_file) %>%
+  names()
+tax <-
+  rdp_train_names %>%
+  taxa::extract_tax_data(key = c(c12n = "class"),
+                         regex = "[^\\t ]+[\\t ]+(.+)",
+                         class_sep = ";",
+                         )
+
+library(taxa)
+
+sessionInfo()
+
+taxdata <-
+  c("Root;Fungi;Basidiomycota;Agaricomycetes;Hymenochaetales;Hymenochaetaceae;Fuscoporia",
+    "Root;Fungi;Basidiomycota;Microbotryomycetes;Microbotryales;Microbotryaceae;Microbotryum",
+    "Root;Fungi;Ascomycota;Dothideomycetes;Botryosphaeriales;Botryosphaeriaceae;Microdiplodia")
+
+tax <- parse_tax_data(taxdata, class_sep = ";")
+
+ranks <- lapply(c("rootrank", "kingdom", "phylum", "class", "order", "family", "genus"),
+                taxon_rank)
+
+rank_idx <- tax$n_supertaxa() + 1
+
+for (i in seq_along(rank_idx)) {
+  tax$taxa[[i]]$rank <- ranks[[rank_idx[i]]]
+}
+
+tax$taxa
+
+
+
+tax_file <- file.path("reference", "rdp_train_tax.txt")
+
+rdp_train_taxonomy2 <-
+  readr::read_delim(tax_file, delim = "*",
+                  col_names = c("ID", "Name", "Parent",
+                                "Level", "Rank")) %>%
+  taxa::parse_edge_list(taxon_id = "ID",
+                        supertaxon_id = "Parent",
+                        taxon_name = "Name",
+                        taxon_rank = "Rank")
+
+rdp_train_taxonomy$taxon_ranks() <-
+  str_count(rdp_train_taxonomy$classifications(), ";") %>%
+  factor(labels = c("rootrank", "kingdom", "phylum", "class", "order", "family", "genus"))
+
+rdp_train_taxonomy %>%
+  filter_taxa(str_detect(taxon_names, "incertae"), invert = TRUE)
+
+
+patch_file <- file.path("reference", "rdp_train_patch.csv")
+rdp_train_taxa <- readr::read_delim(tax_file, delim = "*",
+                                    col_names = c("ID", "Name", "Parent",
+                                                  "Level", "Rank")) %>%
+  dplyr::left_join(dplyr::select(., Parent = ID, ParentName = Name)) %>%
+  dplyr::mutate(Ancestor = Parent,
+                c12n = paste0(Name, ";"))
+while (!all(is.na(rdp_train_taxa$Ancestor))) {
+  rdp_train_taxa %<>%
+    dplyr::left_join(dplyr::select(., Ancestor = ID,
+                                   AncestorName = Name,
+                                   NextAncestor = Parent), by = "Ancestor") %>%
+    dplyr::mutate(c12n = paste(AncestorName, c12n, sep = ";"),
+                  Ancestor = NextAncestor) %>%
+    dplyr::select(-AncestorName, -NextAncestor)
+}
+
+# define the ranks.  The aim is only to search to genus level.
+rdp_ranks <-  c("rootrank", "domain", "phylum", "class", "order",
+                "family", "genus", "species")
+
+rdp_train_taxa %<>%
+  dplyr::mutate_at("c12n", stringr::str_replace_all,"NA;", "") %>%
+  dplyr::filter(!stringr::str_detect(Name, "incertae")) %>%
+  dplyr::mutate_at("c12n", stringr::str_replace_all, "[A-Z][a-z]+ incertae sedis;", "") %>%
+  mutate_at("Rank", factor, levels = rdp_ranks) %>%
+  mutate_at("Rank", recode, domain = "kingdom")
+DECIPHER::AlignSeqs()
+
+seq_file = file.path("reference", "unite.fasta.gz")
+patch_file = file.path("reference", "unite_patch.csv")
+unite_taxonomy <- Biostrings::readDNAStringSet(seq_file) %>% unique() %>%
+  names() %>%
+  taxa::extract_tax_data(regex = ".+\\|([^|]+)",
+                         key = "class",
+                         class_regex = "([kpcofgs])__(.+)",
+                         class_key = c("taxon_rank", "taxon_name"),
+                         class_sep = ";")
+
+unite_ranks <- c("rootrank", "kingdom", "phylum", "class", "order", "family", "genus", "species")
+unite_c12n <- tibble::tibble(name = names(unite_db),
+                             seqidx = seq_along(name)) %>%
+  tidyr::separate(name, c("species", "accno", "sh", "type", "c12n"), sep = "\\|") %>%
+  dplyr::mutate_at("c12n", ~ paste0("r__Root;", .))
+
+unite_taxa <- dplyr::select(unite_c12n, c12n) %>%
+  unique() %>%
+  dplyr::mutate(leafidx = seq_along(c12n))
+
+unite_c12n %<>% dplyr::left_join(unite_taxa, by = "c12n")
+
+unite_patch <- readr::read_csv(patch_file)
+unite_taxa %<>%
+  dplyr::mutate_at("c12n", stringi::stri_replace_all_regex,
+                   pattern = unite_patch$pattern,
+                   replacement = unite_patch$replacement,
+                   vectorize_all = FALSE) %>%
+  dplyr::mutate_at("c12n", strsplit, ";") %>%
+  tidyr::unnest(c12n) %>%
+  tidyr::separate(c12n, c("Rank", "taxon"), "__") %>%
+  dplyr::mutate_at("Rank", match.arg, unite_ranks, several.ok = TRUE) %>%
+  dplyr::mutate_at("Rank", factor, levels = unite_ranks) %>%
+  dplyr::filter(taxon != "unidentified",
+                stringr::str_detect(taxon, "_sp$", negate = TRUE),
+                stringr::str_detect(taxon, "Incertae_sedis", negate = TRUE)) %>%
+  dplyr::mutate(parent = ifelse(Rank == "rootrank",
+                                NA_character_,
+                                dplyr::lag(taxon))) %>%
+  dplyr::group_by(leafidx)
+
+unite_c12n %<>% dplyr::select(-c12n) %>%
+  dplyr::left_join(unite_taxa %>%
+                     dplyr::summarize(c12n = paste(taxon, collapse = ";"),
+                                      Rank = dplyr::last(Rank)),
+                   by = "leafidx") %>%
+  dplyr::filter(c12n != "Root") %>%
+  assertr::assert(function(x) startsWith(x, "Root;"), c12n)
+
+unite_taxa %<>%
+  dplyr::mutate(Level = seq_along(Rank) - 1) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(-leafidx) %>%
+  unique() %>%
+  assertr::assert(assertr::is_uniq, taxon)
+
+unite_taxa %<>% 
+  dplyr::mutate(Index = seq_along(taxon)) %>%
+  dplyr::rename(Name = taxon) %>%
+  dplyr::left_join(dplyr::select(., parent = Name, Parent = Index)) %>%
+  assertr::verify(!is.na(Parent) | Level == 0) %>%
+  dplyr::mutate_at("Parent", tidyr::replace_na, 0)
+
+unite_taxa %<>% 
+
+filecombine <- left_join(select(rdp_train_taxa, Name, Parent = ParentName,
+                                Rank = Rank) %>%
+                           mutate_at("Rank", factor, levels = rdp_ranks) %>%
+                           mutate_at("Rank", recode, domain = "kingdom") %>%
+                           filter(Rank != "species") %>%
+                           unique() %>%
+                           left_join(select(., Parent = Name, ParentRank = Rank)),
+                         select(unite_taxa, Name, Parent = parent,
+                                Rank = Rank) %>%
+                           filter(Rank != "species") %>%
+                           unique() %>%
+                           left_join(select(., Parent = Name, ParentRank = Rank)),
+                         by = "Name",
+                         suffix = c(".rdp", ".unite")) %>%
+  filter(is.na(Parent.unite) | !(Parent.rdp == Parent.unite & Rank.rdp == Rank.unite)) %>%
+  anti_join(select(unite_taxa, Parent.rdp = Name, ParentRank.rdp = Rank))
 
 alignedrdp <- readRNAMultipleAlignment("reference/rdp.LSU.st.gz", format = "stockholm")
 
@@ -24,6 +188,7 @@ loadd("conseq")
 
 loadd("dbprep_unite_ITS2")
 loadd("dbprep_unite_ITS")
+loadd("dbprep_silva_LSU")
 
 posttax <- function(tax, threshhold = 0.6) {
   tax$confidence <- tax$confidence/tax$confidence[1]
@@ -35,10 +200,19 @@ posttax <- function(tax, threshhold = 0.6) {
 }
 testLSU <- Biostrings::RNAStringSet(dplyr::filter(conseq, complete.cases(conseq))$LSU[1:10 + 100])
 testITS <- Biostrings::RNAStringSet(dplyr::filter(conseq, complete.cases(conseq))$ITS[1:10 + 100])
+testITS2 <- Biostrings::DNAStringSet(dplyr::filter(conseq, complete.cases(conseq))$ITS2[1:10 + 100])
+
+nrow(conseq)
+
 
 tax_silva <- DECIPHER::IdTaxa(testLSU, classifier_silva_LSU, strand = "top", processors = 3, threshold = 30)
+tax_silva2 <- DECIPHER::IdTaxa(testLSU, classifier_silva_LSU, strand = "top", processors = 3, threshold = 30, samples = 2 * L^0.47)
+tax_silva3 <- DECIPHER::IdTaxa(testLSU, classifier_silva_LSU, strand = "top", processors = 3, threshold = 30, samples = 0.5 * L^0.47)
+dbprep_silva_LSU$train %>%
+  set_names(dbprep_silva_LSU$taxonomy)
+dadatax_silva <- dada2::assignTaxonomy(testLSU, )
 tax_rdp <- DECIPHER::IdTaxa(testLSU, classifier_rdp_LSU, strand = "top", processors = 3, threshold = 50)
-tax_unite <- DECIPHER::IdTaxa(testITS, classifier_unite_ITS2, strand = "top", processors = 3, threshold = 30)
+tax_unite <- DECIPHER::IdTaxa(testITS2, classifier_unite_ITS2, strand = "top", processors = 3, threshold = 30)
 
 tax_rdp2 <- dada2::assignTaxonomy(as.character(Biostrings::DNAStringSet(testLSU)), "reference/rdp.LSU.dada2.fasta.gz")
 tax_unite2 <- dada2::assignTaxonomy(as.character(Biostrings::DNAStringSet(testITS)), "reference/unite.ITS2.fasta.gz")
@@ -50,30 +224,6 @@ unique(inocybe_rdp$c12n)
 
 penicillium_rdp <- dplyr::filter(rdp_c12n, grepl("Penicillium", c12n))
 unique(penicillium_rdp$species)
-
-silva_db <- unique(Biostrings::readRNAStringSet(silva_file))
-silva_LR5 <- Biostrings::vmatchPattern(pattern = "CGAAGUUUCCCUCAGGA", silva_db, 
-                                       max.mismatch = 2)
-whichLR5 <- XVector::elementNROWS(silva_LR5) > 0
-silva_LR5_db <- silva_db[whichLR5]
-silva_LR5 <- silva_LR5[whichLR5]
-silva_LR5_db <- Biostrings::subseq(silva_LR5_db, end = purrr::map_int(startIndex(silva_LR5), dplyr::first))
-
-dada2:::
-
-rdp_LR5 <- Biostrings::vmatchPattern(pattern = "CGAAGTTTCCCTCAGGA", rdp_db, 
-                                       max.mismatch = 2)
-whichLR5 <- XVector::elementNROWS(rdp_LR5) > 0
-rdp_LR5_db <- rdp_db[whichLR5]
-rdp_LR5 <- rdp_LR5[whichLR5]
-rdp_LR5_db <- Biostrings::subseq(rdp_LR5_db, end = purrr::map_int(startIndex(rdp_LR5), dplyr::first))
-
-
-rdp_LF402 <- Biostrings::vmatchPattern(pattern = "TGAAAT", rdp_LR5_db, 
-                                     max.mismatch = 2)
-which_LF402 <- XVector::elementNROWS(rdp_LF402) > 0
-sum(which_LF402)
-rdp_LR5_db[grepl("Inocybe", names(rdp_LR5_db))]
 
 silva_db[c(250, 389,9594, 10092,10368, 14830, 14837,15414, 15501, 21447, 22943)]
 testseq <- ape::as.DNAbin(Biostrings::DNAStringSet(silva_db[c(1291,

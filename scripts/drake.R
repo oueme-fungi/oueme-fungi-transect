@@ -37,6 +37,7 @@ if (interactive()) {
   taxonomy_meta_csv_file <- file.path(plan.dir, "taxonomy_meta.csv")
   tid_file <- file.path(plan.dir, "tids.txt")
   drakedata.file <- file.path(plan.dir, "drake.Rdata")
+  longtree_file <- file.path(pasta.dir, "pasta_raxml.tree")
   bigsplit <- 80L
 } else if (exists("snakemake")) {
   cat("Creating drake plan in snakemake session...\n")
@@ -83,6 +84,7 @@ if (interactive()) {
   pid.file <- snakemake@output[["pids"]]
   tid.file <- snakemake@output[["tids"]]
   drakedata.file <- snakemake@output[["drakedata"]]
+  longtree_file <- snakemake@output[["pasta"]][["tree"]]
   logfile <- file(snakemake@log[[1]], open = "at")
   sink(logfile)
   sink(logfile, type = "message")
@@ -569,7 +571,9 @@ plan <- drake_plan(
     Sys.setFileTime(file.path(pasta.dir, ".dopasta"), Sys.time())
   },
   
-  # read the long amplicon tree in from 
+  # longtree----
+  # read the long amplicon tree in
+  longtree = ape::read.tree(file_in(longtree_file)),
   
   # seq_count ----
   # Count the sequences in each fastq file
