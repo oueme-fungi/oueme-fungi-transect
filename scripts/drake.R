@@ -109,6 +109,7 @@ source(file.path(r.dir, "dada.R"))
 source(file.path(r.dir, "taxonomy.R"))
 source(file.path(r.dir, "plate_check.R"))
 source(file.path(r.dir, "map_LSU.R"))
+source(file.path(r.dir, "mantel.R"))
 
 # load the dataset and region definitions
 datasets <- read_csv(dataset.file)
@@ -573,7 +574,41 @@ plan <- drake_plan(
   
   # longtree----
   # read the long amplicon tree in
-  longtree = ape::read.tree(file_in(longtree_file)),
+  longtree = {
+    lt = ape::read.tree(file_in(longtree_file))
+    phyloseq::taxa_names(lt) <-
+      tibble::tibble(hash = phyloseq::taxa_names(lt)) %>%
+      dplyr::left_join(conseq_filt) %$%
+      seqhash(ITS2)
+    lt},
+  
+  physeq = assemble_physeq(platemap, datasets, relabel_seqtable(big_seq_table_ITS2), longtree),
+  
+  longphyseq = physeq %>%
+    phyloseq::prune_samples(samples = phyloseq::sample_data(.)$Dataset == "long-pacbio"
+                            & phyloseq::sample_data(.)$sample_type == "Sample"
+                            & rowSums(phyloseq::otu_table(.)) > 0),
+  
+  unif_dist = phyloseq::distance(longphyseq, "unifrac"),
+  bc_dist = phyloseq::distance(longphyseq, "bray"),
+  spatial_dist = phyloseq::sample_data(longphyseq) %>%
+    with(X + 30000 * as.integer(Site) + 100000 * as.integer(Year)) %>%
+    dist,
+  spatial_dist2 = spatial_dist + ifelse(spatial_dist > 50000, -100000, 100000),
+  unif_corr = vegan::mantel.correlog(unif_dist, spatial_dist,
+                                      break.pts = 0:13 - 0.5,
+                                      cutoff = FALSE),
+  bc_corr = vegan::mantel.correlog(bc_dist, spatial_dist,
+                                    break.pts = 0:13 - 0.5,
+                                    cutoff = FALSE),
+  
+  
+  unif_corr2 = vegan::mantel.correlog(unif_dist, spatial_dist2,
+                                       break.pts = 0:13 - 0.5,
+                                       cutoff = FALSE),
+  bc_corr2 = vegan::mantel.correlog(bc_dist, spatial_dist2,
+                                     break.pts = 0:13 - 0.5,
+                                     cutoff = FALSE),
   
   # seq_count ----
   # Count the sequences in each fastq file
