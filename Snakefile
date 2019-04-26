@@ -437,7 +437,6 @@ checkpoint drake_plan:
         "{rdir}/plate_check.R".format_map(config),
         "{rdir}/map_LSU.R".format_map(config),
         "{rdir}/taxonomy.R".format_map(config),
-        packrat  = "packrat/packrat.lock",
         dataset  = config['dataset'],
         regions  = config['regions'],
         platemap = config['platemap'],
