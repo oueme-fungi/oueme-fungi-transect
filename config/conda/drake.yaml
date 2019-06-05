@@ -25,7 +25,7 @@ dependencies:
   - bioconductor-phyloseq=1.26.0
   - bioconductor-ggtree=1.14.4
   - r-usethis=1.5.0
-  - r-dada2=1.12.0
+  - r-dada2=1.12.1
   - r-ritsx=0.0.1
   - r-funguildr=0.1
   - r-drake=7.2.0
