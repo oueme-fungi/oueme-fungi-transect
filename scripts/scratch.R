@@ -3,7 +3,6 @@ library(dplyr)
 library(tidyverse)
 library(magrittr)
 library(Biostrings)
-library(rgbif)
 
 
 seq_file <- file.path("reference", "rdp_train.LSU.fasta.gz")
@@ -733,158 +732,41 @@ assemble_physeq <- function(platemap, datasets, seqtable, tree) {
     tibble::column_to_rownames("ID") %>%
     phyloseq::sample_data()
 
-  asvtab <-  %>%
+  asvtab <- seqtable %>%
     phyloseq::otu_table(taxa_are_rows = FALSE)
+  
+  phyloseq::phyloseq(samp, asvtab, tree)
 }
       
-
-
-st <- 
-
-longtree <- ape::read.tree("data/pasta/pasta_raxml.tree")
-
-phyloseq::taxa_names(longtree) <-
-  tibble::tibble(hash = phyloseq::taxa_names(longtree)) %>%
-  dplyr::left_join(conseq_filt) %$%
-  seqhash(ITS2)
-
-physeq <- phyloseq::phyloseq(pm, st, longtree) %>%
+%>%
   phyloseq::prune_samples(samples = phyloseq::sample_data(.)$Dataset == "long-pacbio"
                           & phyloseq::sample_data(.)$Qual == ""
                           & phyloseq::sample_data(.)$sample_type == "Sample")
 
-unif_dist <- phyloseq::distance(physeq, "unifrac")
-bc_dist <- phyloseq::distance(physeq, "bray")
-spatial_dist <- phyloseq::sample_data(physeq) %>%
-  with(X + 30000 * as.integer(Site) + 100000 * as.integer(Year)) %>%
-  dist
-which(is.na(unif_dist))
-which(is.na(bc_dist))
-which(is.na(spatial_dist))
-unif_corr <- vegan::mantel.correlog(unif_dist, spatial_dist,
-                       break.pts = 0:12 + 0.5,
-                       cutoff = FALSE)
-bc_corr <- vegan::mantel.correlog(bc_dist, spatial_dist,
-                       break.pts = 0:12 + 0.5,
-                       cutoff = FALSE)
-plot(unif_corr)
-plot(bc_corr)
+st <- relabel_seqtable(big_seq_table_ITS2)
 
-bc_fit <- lm(log(Mantel.cor) ~ class.index, data = as.data.frame(bc_corr$mantel.res))
-unif_fit <- lm(log(Mantel.cor) ~ class.index, data = as.data.frame(unif_corr$mantel.res))
+loadd(longtree)
 
-as.data.frame(bc_corr$mantel.res) %>%
-  ggplot(aes(class.index, Mantel.cor)) +
-  geom_point() +
-  geom_line(aes(y = exp(predict(bc_fit)))) +
-  scale_y_continuous(limits = c(0, NA), name = "Bray-Curtis -- Spatial Distance correlation") +
-  xlab("distance (m)")
-
-as.data.frame(unif_corr$mantel.res) %>%
-  ggplot(aes(class.index, Mantel.cor)) +
-  geom_point() +
-  geom_line(aes(y = exp(predict(unif_fit)))) +
-  scale_y_continuous(limits = c(0, NA), name = "Bray-Curtis -- Spatial Distance correlation") +
-  xlab("distance (m)")
-
-# phyloseq::distanceMethodList
-  left_join(select(datasets, Dataset, Tech, Seq.Run, Forward, Reverse)) %>%
-  mutate(Primer.Pair = paste(str_replace(Forward, "_tag.*$", ""),
-                             str_replace(Reverse, "_tag.*$", ""),
-                             sep = "_")) %>%
-  select(Seq.Run, Plate, Well, Region, Primer.Pair, everything()) %>%
-  mutate_at(c("Seq.Run", "Region", "Primer.Pair"), factor) %>%
-  mutate_at("Well", factor, levels = levels(pm$Well)) %>%
-  mutate_at("Plate", factor, levels = levels(pm$Plate))
-
-
-%>%
-  tidyr::gather(key = "ASV", value = "Reads",
-         -one_of(c("Seq.Run", "Plate", "Well", "Region", "Primer.Pair", "Dataset", "Tech", "Runs", "Forward", "Reverse", "Regions", "PlateKey", "Homopolymer.Gap.Penalty", "Band.Size", "Pool"))) %>%
-  mutate_at("Reads", as.integer) %>%
-  filter(Reads > 0L)
-
-guilds <- readd(guilds_table_ITS2_unite) %>%
-  mutate(hash = map_chr(seq, digest::digest) %>% stringr::str_sub(end = 8)) %>%
-  mutate_at(c("trophicMode", "guild"), stringr::str_split, "-")
-
-ecm_taxa <- filter(guilds, map_lgl(guild, magrittr::is_in, x = "Ectomycorrhizal")) %$% hash
-
-samples_to_use <- 
-  right_join(pm, st) %>%
-    filter(!is.na(Year), Qual == "", Dataset == "short-pacbio") %>%
-    group_by(Dataset, X, Site) %>%
-    summarize(Reads = sum(Reads)) %>%
-  filter(Reads > 0) %>%
-  select(-Reads)
-
-
-testdata <- 
-  right_join(pm, st) %>%
-  filter(!is.na(Year), Qual == "") %>%
-  semi_join(samples_to_use) %>%
-  select(Site, X, ASV, Reads) %>%
-  group_by(Site, X, ASV) %>%
-  summarize(Reads = sum(Reads)) %>%
-  unite("Sample", Site, X, remove = FALSE) %>%
-  arrange(Sample)
-
-sitecounts <- testdata %>%
-  group_by(Sample, X, Site, .drop = TRUE) %>%
-  summarize(Reads = sum(Reads))
-
-library(ggplot2)
-ggplot(sitecounts, aes(x = X, y = Reads)) +
-  geom_point() +
-  facet_wrap(~Site, ncol = 1)
-
-countdist <- sitecounts %$%
-  set_names(Reads, Sample) %>%
-  log %>%
-  stats::dist()
-
-comm <- testdata %>%
-  ungroup() %>%
-  tidyr::spread(key = ASV, value = Reads, fill = 0) %>%
-  dplyr::select(-Site, -X) %>%
-  column_to_rownames("Sample") %>%
+tax_table(physeq) <- taxon_ITS2_unite %>%
+  mutate_at("seq", seqhash) %>%
+  select(-Taxonomy, -nreads) %>%
+  column_to_rownames("seq") %>%
   as.matrix() %>%
-  vegan::decostand("total")
+  phyloseq::tax_table()
 
-ecm_comm <- comm %>%
-  magrittr::extract(,ecm_taxa[ecm_taxa %in% colnames(.)]) %>%
-  vegan::decostand("total")
+treetax <- taxon_ITS2_unite %>%
+  mutate_at("seq", seqhash) %>%
+  select(-Taxonomy, -nreads)
 
-ecodist <- vegan::vegdist(comm, "bray")
-ecodist_ecm <- vegan::vegdist(ecm_comm, "bray")
+library(ggtree)
+p <- ggtree(tr = longtree) %<+% treetax
 
-spatialdist <- testdata %>%
-  ungroup() %>%
-  select(Sample, Site, X) %>%
-  unique() %>%
-  tidyr::crossing(., .) %>%
-  mutate(dist = ifelse(Site == Site1,
-                       abs(X - X1),
-                       30000)) %>%
-  select(Sample, Sample1, dist) %>%
-  tidyr::spread(key = Sample1, value = dist) %>%
-  column_to_rownames("Sample") %>%
-  as.matrix() %>%
-  as.dist()
 
-corgram <- vegan::mantel.correlog(D.eco = ecodist, D.geo = spatialdist, break.pts = 0:12 + 0.5, cutoff = FALSE)
 
-plot(corgram)
-corgram
+outgroups <- treetax %>% filter(!is.na(Kingdom), Kingdom %in% c("Alveolata", "Chromista", "Plantae"), seq %in% longtree$tip.label)
+MRCA(p, outgroups$seq)
+reroot(longtree, MRCA(p, outgroups$seq))
+ggtree(groupOTU(longtree, split(treetax$seq, treetax$Kingdom))) + aes(color = group) + scale_color_brewer(type = "qual") +
+theme(legend.position = NULL)
+p + aes(color = Kingdom) 
 
-corgram_ecm <- vegan::mantel.correlog(D.eco = ecodist_ecm, D.geo = spatialdist, break.pts = 0:12 + 0.5, cutoff = FALSE)
-
-plot(corgram_ecm)
-corgram_ecm
-
-corgram2 <- vegan::mantel.correlog(D.eco = countdist,
-                                   D.geo = spatialdist,
-                                   break.pts = 0:12 + 0.5,
-                                   cutoff = FALSE)
-plot(corgram2)
-corgram2
