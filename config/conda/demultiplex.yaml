@@ -1,0 +1,9 @@
+name: demultiplex
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - cutadapt=2.0
+  - fastx_toolkit=0.0.14
+  - python=3.6.7
+  - samtools

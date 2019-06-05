@@ -1,0 +1,395 @@
+\documentclass[10]{beamer}
+\include{pres_preamble}
+
+\title{Turnover scale of soil fungal community composition}
+\subtitle{Presentation for Anna's Group Meeting}
+\author{Brendan Furneaux}
+\date{26 April, 2019}
+
+\begin{document}
+
+\frame{\titlepage}
+
+<<setup, include=FALSE>>=
+knitr::opts_chunk$set(echo = FALSE, device = "tikz")
+library(drake)
+library(magrittr)
+library(tidyverse)
+library(ggplot2)
+library(scales)
+library(ggtree)
+library(castor)
+theme_set(theme_bw(base_size = 24) + theme(legend.direction = "vertical"))
+loadd(bc_corr, bc_corr2, unif_corr, unif_corr2, qstats_join, datasets, longtree,
+      taxon_LSUcons_rdp)
+reads <- qstats_join %>%
+  mutate_at("Region", factor,
+            levels = c("ITS2", "ITS1", "short", "ITS", "LSU", "long")) %>%
+  mutate_at("Dataset", factor,
+            levels = c("short-ion", "short-pacbio", "long-pacbio")) %>%
+  group_by(Dataset, Plate, Region)
+reads_subset <- reads %>%
+  do(if (nrow(.) > 10000) sample_n(., 10000) else .)
+reverselog_trans <- function(base = exp(1)) {
+    trans <- function(x) -log(x, base)
+    inv <- function(x) base^(-x)
+    trans_new(paste0("reverselog-", format(base)), trans, inv, 
+              log_breaks(base = base), 
+              domain = c(1e-100, Inf))
+}
+@
+
+%\begin{frame}{Outline}
+%\tableofcontents
+%\end{frame}
+
+\begin{frame}{Introduction}
+
+\begin{itemize}
+ \item Question: What is the scale of spatial (and temporal) autocorrelation in soil fungal community composition?
+  \begin{itemize}
+    \item Specifically in a tropical ECM forest.
+  \end{itemize}
+ \item Metabarcoding method comparison
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Upper Ouémé Forest Reserve}
+\framesubtitle{Permanent study plots}
+\vskip1.5em
+\begincols
+  \begincol{0.55\linewidth}
+    \begin{figure}
+      \begin{overprint}
+      \onslide<1>
+        \includegraphics{soudanian_benin}
+      \onslide<2>
+        \includegraphics{soudanian_benin_oueme}
+      \onslide<3->
+        \includegraphics{soudanian_benin_oueme_village}
+      \end{overprint}
+      \caption{Location of study sites in Bènin.}
+    \end{figure}
+  \endcol
+
+  \begincol{0.45\linewidth}
+  \begin{itemize}
+    \tightlist
+    \item<1-|alert@1> West Soudanian woodlands in central Bènin
+    \item<1-|alert@1> 10° N Latitude
+    \item<3-|alert@3> Two sites located near the villages Angaradebou and Gando
+    \item<4-|alert@4> Dominated by \emph{Isoberlinia doka} (Caesalpinoideae; ECM host)
+  \end{itemize}
+  \endcol
+\endcols
+\end{frame}
+
+
+
+\begin{frame}{Sampling}
+  \begin{itemize}
+    \item<1-|alert@1> \SI{25}{\m} transects.
+    \item<1-|alert@1> Soil samples taken every 1 m.
+    \item<2-|alert@2> $\SI{5}{\cm}\times\SI{5}{\cm}\times\SI{5}{\cm}$ sample, homogenize in plastic bag, then subsample \SI{50}{\mg}
+    \item<3-|alert@3> Lysis \& preservation in field
+    \item<4-|alert@4> Same locations in two years -- 2015 and 2016 (25 points × 2 years × 2 sites = 100 samples)
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Sequencing}
+  \framesubtitle{Which region?}
+  \small
+  \begincols
+  \begincol{0.5\linewidth}
+    \begin{block}{ITS2 (gITS7-ITS4)}
+        \begin{itemize}
+          \tightlist
+          \item Internally transcribed spacer between 5.8S and 26/28S (LSU) subunits of ribosomal RNA
+          \item Usually 250--350 bp.
+          \item ITS --- standard DNA barcode for fungi.
+          \item Relatively good species-level resolution, and good database support.
+          \item Cannot be aligned across larger taxonomic groups.
+          \item Groups with variant (or absent) 5.8S not sequenced.
+        \end{itemize}
+      \end{block}
+    \endcol
+    \begincol{0.5\linewidth}
+      \begin{block}{Full ITS + partial LSU (ITS1-LR5)}
+        \begin{itemize}
+          \tightlist
+          \item Full ITS plus the 5' end of LSU; 1500-2000 bp.
+          \item ITS -- resolution to separate closely related taxa.
+          \item LSU -- can be aligned across fungi.
+          \item Primers are more universal than gITS7.
+          \item Long amplicon with alternating variable and conserved regions --- susceptible to chimera formation and breakage.
+        \end{itemize}
+      \end{block}
+    \endcol
+  \endcols
+\end{frame}
+
+\begin{frame}{Sequencing}
+  \framesubtitle{Which platform?}
+  \begincols
+  \begincol{0.5\linewidth}
+    \begin{block}{IonTorrent}
+      \begin{itemize}
+        \tightlist
+        \item Low cost per bp.
+        \item Smaller minimum job than Illumina.
+        \item Needs less DNA than PacBio.
+        \item Bias against amplicons greater than 400 bp.
+         \item Cannot sequence long ITS+LSU amplicon.
+       \end{itemize}
+     \end{block}
+  \endcol
+  \begincol{0.5\linewidth}
+     \begin{block}{PacBio}
+        \begin{itemize}
+          \tightlist
+          \item Higher cost per bp $\implies$ fewer samples or less sequencing depth for same budget.
+          \item Requires more DNA.
+          \item Good accuracy requires multiple circular reads.
+        \end{itemize}
+      \end{block}
+  \endcol
+  \endcols
+  \centering
+
+\end{frame}
+
+\begin{frame}{Sequencing}
+  \begin{block}{The plan}
+  Three sequencing runs:
+  \begin{itemize}
+    \item Ion Proton S5, short amplicon
+    \begin{itemize}
+      \item Pool all samples on one chip
+    \end{itemize}
+    \item PacBio RSII, short amplicon
+    \begin{itemize}
+      \item Same amplicon library as IonTorrent.
+      \item Two sequencing libraries, two SMRT cells per library.
+    \end{itemize}
+    \item PacBio RSII, long amplicon
+    \begin{itemize}
+      \item Two sequencing libraries, four SMRT cells per library.
+    \end{itemize}
+  \end{itemize}
+  \end{block}
+\end{frame}
+
+\begin{frame}{Sequencing}
+  \begin{block}{What happened}
+  Three sequencing runs:
+  \begin{itemize}
+    \item \sout{IonTorrent, short amplicon}
+    \begin{itemize}
+      \item Accidentally used primers with IonTorrent adapters built in.
+      \item Lost some of the multiplexing barcodes.
+      \item Can't demultiplex the samples --- can only look at pool of all reads.
+    \end{itemize}
+    \item PacBio, short amplicon
+    \begin{itemize}
+      \item OK
+    \end{itemize}
+    \item PacBio, long amplicon
+    \begin{itemize}
+      \item OK
+    \end{itemize}
+  \end{itemize}
+  \end{block}
+\end{frame}
+
+\begin{frame}{Bioinformatics}
+  \begin{itemize}
+    \item Redo RSII circular consensus basecalling using new algorithm (Arrow).
+    \item Demultiplex and trim primers.
+    \item Cut out regions (ITS1, ITS2, full ITS, LSU) using ITSx.
+    \item Quality filter.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Expected error rate}
+\framesubtitle{After \texttt{Arrow}}
+  
+<<errorrate, fig.width = 12>>=
+ggplot(reads_subset, aes(x = erate,
+                  linetype = Dataset,
+                  group = paste(Dataset, Region),
+                  color = Region)) +
+  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
+  scale_x_continuous(name = "Expected number of errors per base",
+                     trans = reverselog_trans(10),
+                     limits = c(NA, 1e-5),
+                     oob = squish) +
+  scale_y_continuous(name = "Fraction passing") +
+  scale_color_viridis_d(option = "C") +
+  scale_linetype_discrete()
+@
+\end{frame}
+
+\begin{frame}{Bioinformatics}
+\framesubtitle{continued...}
+  \begin{itemize}
+    \item Find amplicon sequence variants (ASVs) with \texttt{dada2}.
+      \begin{itemize}
+        \item Doesn't work well on full long amplicons -- algorithm depends on having a large number of error-free reads.
+        \item Works on the smaller regions.
+      \end{itemize}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Expected total number of errors}
+\framesubtitle{After \texttt{Arrow}}
+  
+<<totalerror, fig.width = 12>>=
+ggplot(reads_subset, aes(x = eexp,
+                  linetype = Dataset,
+                  group = paste(Dataset, Region),
+                  color = Region)) +
+  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
+  scale_x_continuous(name = "Expected number of errors",
+                     trans = reverselog_trans(10),
+                     limits = c(NA, 0.1),
+                     oob = squish) +
+  scale_y_continuous(name = "Fraction passing") +
+  scale_color_viridis_d(option = "C") +
+  scale_linetype_discrete()
+@
+\end{frame}
+
+\begin{frame}{Bioinformatics}
+\framesubtitle{continued...}
+  \begin{itemize}
+    \item Find amplicon sequence variants (ASVs) with \texttt{dada2}.
+      \begin{itemize}
+        \item Doesn't work well on full long amplicons -- algorithm depends on having a large number of error-free reads.
+        \item Works on the smaller regions.
+      \end{itemize}
+    \item For each ITS2 ASV, align the whole long read and find the consensus.
+      \begin{itemize}
+        \item There were a lot of chimeras (15--25\%).
+        \item Remove "outliers" from the alignments using \texttt{odseq}.
+        \item Remaining chimeras are too few to change the consensus.
+      \end{itemize}
+    \item Align with \texttt{DECIPHER}
+      \begin{itemize}
+        \item Progressive aligner with inferred RNA secondary structure.
+      \end{itemize}
+    \item \texttt{RAxML} tree
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Taxonomy assignment}
+Both \texttt{dada2} and \texttt{DECIPHER} can do taxonomy assignment.
+\begincols
+\begincol{0.5\framewidth}
+\begin{block}{dada2}
+  \begin{itemize}
+    \item Naïve Bayesian classifier.
+    \item Uses a lot of memory.
+    \item Needs every rank to be filled (\emph{incertae sedis}, "unidentified").
+    \item Seems to put thins in places that don't match the tree.
+  \end{itemize}
+\end{block}
+\endcol
+
+\begincol{0.5\framewidth}
+\begin{block}{DECIPHER}
+  \begin{itemize}
+    \item Some kind of machine learning algorithm.
+    \item Uses less memory.
+    \item Allows uneven classification depths.
+    \item Very low bootstraps, especially for ITS.
+  \end{itemize}
+\end{block}
+\endcol
+\endcols
+
+UNITE for ITS, RDP for LSU...  But there is no large database that has both for the same specimens!
+
+I'm still working on it...
+\end{frame}
+
+\begin{frame}{Tree}
+\framesubtitle{Kingdoms}
+<<kingtree, fig.width = 12, message=FALSE>>=
+seqhash <- function(seq, len = 8) UseMethod("seqhash")
+seqhash.character <- function(seq, len = 8) {
+  h <- purrr::map_chr(seq, digest::digest)
+  stringr::str_sub(h, end = len)
+}
+seqhash.XStringSet <- function(seq, len = 8) {
+  seqhash.character(as.character(seq))
+}
+treetax <- taxon_LSUcons_rdp %>%
+  mutate_at("seq", seqhash) %>%
+  select(-Taxonomy, -nreads) 
+outgroups <- treetax %>% filter(!is.na(Kingdom), Kingdom %in% c("Alveolata", "Chromista", "Plantae"), seq %in% longtree$tip.label)
+p <- ggtree(tr = longtree)
+longtree <- reroot(longtree, MRCA(p, outgroups$seq))
+
+ggtree(groupOTU(longtree, split(treetax$seq, treetax$Kingdom))) +
+  aes(color = group) + scale_color_brewer(type = "qual", palette = "Paired") +
+  theme(legend.position = NULL)
+@
+\end{frame}
+
+\begin{frame}{Tree}
+\framesubtitle{Phyla}
+<<phytree, fig.width = 12, message=FALSE>>=
+ggtree(groupOTU(longtree, split(treetax$seq, treetax$Phylum))) +
+  aes(color = group) + scale_color_brewer(type = "qual", palette = "Paired") +
+  theme(legend.position = NULL)
+@
+\end{frame}
+
+\begin{frame}{Tree}
+\framesubtitle{Families --- Basidiomycota}
+<<basidtree, fig.width = 12, message=FALSE>>=
+basids <- treetax %>% filter(!is.na(Class),
+                             Class %in% c("Geminibasidiomycetes",
+                                         "Tremellomycetes",
+                                         "Exobasidiomycetes",
+                                         "Microbotryomycetes"),
+                             seq %in% longtree$tip.label)
+
+basidtree <- phylobase::phylo4(longtree) %>%
+  phylobase::subset(mrca = basids$seq) %>%
+  as("phylo")
+
+basids2 <- treetax %>% filter(seq %in% basidtree$tip.label)
+
+ggtree(groupOTU(basidtree, split(basids2$seq, basids2$Order)), layout = "circular") +
+  aes(color = group) +
+  scale_color_brewer(type = "qual", palette = "Paired", limits = unique(na.omit(basids2$Order))) +
+  theme(legend.position = NULL)
+@
+\end{frame}
+
+\begin{frame}{Correlogram}
+<<correlogram, fig.width = 12>>=
+bind_rows(as.data.frame(bc_corr$mantel.res) %>%
+            mutate(tdist = "same", metric = "bray"),
+          as.data.frame(bc_corr2$mantel.res) %>%
+            mutate(tdist = "diff", metric = "bray"),
+          as.data.frame(unif_corr$mantel.res) %>%
+            mutate(tdist = "same", metric = "unifrac"),
+          as.data.frame(unif_corr2$mantel.res) %>%
+            mutate(tdist = "diff", metric = "unifrac")) %>%
+  mutate(Significant = `Pr(corrected)` < 0.05) %>%
+  ggplot(aes(class.index, Mantel.cor, group = tdist, color = tdist, shape = Significant)) +
+  geom_point(size = 3) +
+  geom_line(alpha = 0.3) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.5) +
+  # geom_line(aes(y = exp(predict(bc_fit)))) +
+  scale_y_continuous(limits = c(-0.05, NA), name = "Spatial Distance correlation") +
+  scale_color_discrete(name = "Year") +
+  xlab("distance (m)") +
+  facet_wrap("metric") +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1))
+@
+\end{frame}
+
+\end{document}

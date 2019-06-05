@@ -66,6 +66,76 @@ write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
 
 # Methods
 
+## Sampling
+
+  - Ouémé Forest reserve
+  - Two locations in _Isoberlinia doka_ forest, approx. 30km apart
+  - transect: 25m, sampled at interval of 1m
+  - Sampled in May 2015 and June 2016
+  - remove coarse debris (typically very little) and take ~5cm×5cm×5cm sample
+  - homogenize by hand in ziplock bag
+  - take $\approx$ 50mg, lysis in field with Terralyzer
+  - remainder of sample dried at 40°C with electric dryer within 24-48 hours
+
+## Soil Chemistry
+
+  - Need to get methods from Nourou
+
+## DNA extraction, PCR, and sequencing
+
+  - lysis in field Zymo Research Xpedition kit
+  - short amplicon : gITS7 -- ITS4 (multiplexing index on gITS7)
+  - long amplicon : ITS1 -- LR5 (multiplexing index on both ends)
+  - short amplicon : same library sequenced with PacBio RS II and Ion Proton S5
+  - long amplicon : PacBio RS II
+  
+## Bioinformatics
+
+  - Two workflows for short reads:
+    - Mohammad's workflow in Pipecraft
+    - Brendan's workflow using Snakemake/Drake
+    
+  - Mohammad's pipeline:
+  
+  - Brendan's pipeline:
+      - Ion Torrent
+          - used demultiplexing from SciLife (standard IonXpress)
+          - primers removed with `cutadapt` [@martin2011]
+      - PacBio
+          - CCS basecalls re-done with `ccs` version ___ [@pacificbiosciences2019]
+          - demultiplexed and primers removed with `cutadapt` [@martin2011]
+      - ITS1, ITS2, ITS, LSU extracted using ITSx [@Nilsson2010; @bengtsson-palme2013]
+      - extracted regions independently quality filtered by max expected error using `dada2::filterAndTrim()`
+      - dereplicated using `dada2::derepFastq()`
+      - denoised with `dada2::dada()`
+      - de novo chimera removal using `dada2::removeBimeraDenovo()`
+      - taxonomy assigned using IDTAXA [@murali2018]
+          - UNITE version 8 [@nilsson2019a]
+              - extracted ITS1 and ITS2 using ITSx [@Nilsson2010; @bengtsson-palme2013]
+              - trained three classifiers: full ITS, ITS1, ITS2.
+          - RDP fungal LSU release 11.5 [@cole2014]
+              - chose only sequences containing conserved primer sites for ITS4 (3' side of H11; CAUAUnAnUnAGnSSAGGA) and LR5 (on H37; CGAAnUUUCnCUCAGGAUAGCnG).
+              - ambiguities based on [@cannone2002; @tedersoo2015]
+              - Trim all bases after LR5 because they are not present in our amplicons.
+          - SILVA LSU release 132 [@quast2013; @glockner2017; @yilmaz2014]
+              - filter out sequences annotates as prokaryotes, then treat as RDP.
+          - all databases
+              - select medioid sequence for each annotated species, based on minimum 5-mer distance to other sequences
+              - for sequences not annotated as species (e.g. "unidentified Basidiomycota"), randomly choose up to 20 per taxon
+              - Use up to 5 iterations of IDTAXA training, removing all "problem" sequences on each iteration, unless last member of annotated taxon.
+              - "underannotated" sequences (e.g., "unidentified Basidiomycota" confidently placed as Agaricomycetes) not protected from removal if last sequence annotated as such.
+      - ecological guild assigned using FUNGuild [@nguyen2016funguild]
+      - consensus long read and LSU region constructed for each ITS2 ASV:
+          - align reads using `DECIPHER` with RNA secondary structure calculation [@wright2015;@wright2016]
+          - remove outliers (i.e. chimeras) with `odseq` [@jehl2015]
+          - remove gap columns (>50%)
+          - take consensus (>50%) at non-gaps
+          - remove sequences with more than 3 ambiguous bases (bad consensus)
+      - initial alignment of long amplicons with DECIPHER [@wright2015;@wright2016]
+      - alignment/tree for long amplicons built iteratively with PASTA[@mirarab2014; @mirarab2014a]. Fastree tree, mafft align, OPAL merge, RaxML final tree
+          
+## Statistics
+
 # Results
 
 # Discussion

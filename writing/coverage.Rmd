@@ -1,0 +1,219 @@
+---
+title: "Coverage tests"
+author: "Brendan Furneaux"
+date: "2/22/2019"
+output: 
+  beamer_presentation: 
+    fig_caption: yes
+    keep_tex: yes
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      message = FALSE,
+                      warning = FALSE,
+                      external = FALSE,
+                      device = "tikz")
+library(magrittr)
+library(drake)
+library(ggplot2)
+library(tidyverse)
+theme_set(theme_bw(base_size = 24))
+
+bigmaps <- drake::cached() %>%
+  str_subset("dada_map_pb_500") %>%
+  map(readd, character_only = TRUE)
+
+pm <- readd(platemap) %>%
+  mutate_at("Primer.Pair", tolower) %>%
+  mutate_at(c("Year", "Site", "Qual", "Plate", "Well", "Primer.Pair"), factor)
+
+st <- readd(big_seq_table_ITS2) %>%
+  set_colnames(map_chr(colnames(.), digest::digest) %>% substr(1,8)) %>%
+  as_tibble(rownames = "file") %>%
+  tidyr::extract(
+    col = "file",
+    into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),
+    regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.qfilt\\.fastq\\.gz") %>%
+  group_by(Seq.Run, Plate, Well, Region) %>%
+  summarize_if(is.numeric, sum) %>%
+  ungroup() %>%
+  left_join(readd(datasets)) %>%
+  mutate(Primer.Pair = paste(str_replace(Forward, "_tag.*$", ""),
+                             str_replace(Reverse, "_tag.*$", ""),
+                             sep = "_")) %>%
+  select(Seq.Run, Plate, Well, Region, Primer.Pair, everything()) %>%
+  mutate_at(c("Seq.Run", "Region", "Primer.Pair"), factor) %>%
+  mutate_at("Well", factor, levels = levels(pm$Well)) %>%
+  mutate_at("Plate", factor, levels = levels(pm$Plate)) %>%
+  gather(key = "ASV", value = "Reads",
+         -one_of(c("Seq.Run", "Plate", "Well", "Region", "Primer.Pair", "Dataset", "Tech", "Runs", "Forward", "Reverse", "Regions", "PlateKey", "Homopolymer.Gap.Penalty", "Band.Size", "Pool"))) %>%
+  mutate_at("Reads", as.integer) %>%
+  filter(Reads > 0L)
+```
+
+# Accumulation curves
+
+```{r coveragesample, results='asis'}
+right_join(pm, st) %>%
+    filter(!is.na(Year), Qual == "") %>%
+    group_by(Site, X, Year, Seq.Run, ASV) %>%
+    summarize(Reads = 1) %>%
+    group_by(Site, Year, Seq.Run, ASV) %>%
+    summarize(Reads = sum(Reads)) %>%
+    spread(key = ASV, value = Reads, fill = 0L) %>%
+    group_by(Site, Year) %>%
+    group_walk(~ {cat("\n\n## Coverage by # samples | ",
+                      as.character(.y$Site),
+                      as.character(.y$Year), "\n\n")
+      column_to_rownames(.x, "Seq.Run") %>%
+                 as.matrix() %>%
+                 t %>%
+                 rbind(25, .) %>%
+                 iNEXT::iNEXT(datatype = "incidence_freq") %>%
+                 {iNEXT::ggiNEXT(.) +
+                     xlab("Number of samples") +
+                     ylab("ASV diversity") +
+                     scale_fill_discrete(limits = levels(.x[["Seq.Run"]]),
+                                         drop = FALSE) +
+                     scale_color_discrete(limits = levels(.x[["Seq.Run"]]),
+                                         drop = FALSE) +
+                     scale_shape_discrete(limits = levels(.x[["Seq.Run"]]),
+                                         drop = FALSE)} %>%
+                 plot})
+```
+
+```{r coveragereads, results='asis'}
+right_join(pm, st) %>%
+    filter(!is.na(Year), Qual == "") %>%
+    group_by(Site, Year, Seq.Run, ASV) %>%
+    summarize(Reads = sum(Reads)) %>%
+    spread(key = ASV, value = Reads, fill = 0L) %>%
+    group_by(Site, Year) %>%
+    group_walk(~ {cat("\n\n## Coverage by # reads |",
+                      as.character(.y$Site),
+                      as.character(.y$Year), "\n\n")
+      column_to_rownames(.x, "Seq.Run") %>%
+                 as.matrix() %>%
+                 t %>%
+                 iNEXT::iNEXT(datatype = "abundance") %>%
+                 {iNEXT::ggiNEXT(.) +
+                     xlab("Number of reads") +
+                     ylab("ASV diversity") +
+                     scale_fill_discrete(limits = levels(.x[["Seq.Run"]]),
+                                         drop = FALSE) +
+                     scale_color_discrete(limits = levels(.x[["Seq.Run"]]),
+                                         drop = FALSE) +
+                     scale_shape_discrete(limits = levels(.x[["Seq.Run"]]),
+                                         drop = FALSE)} %>%
+                 plot})
+```
+```{r coveragesamplereads, results='asis'}
+d <- right_join(pm, st) %>%
+    filter(!is.na(Year)) %>%
+    group_by(Site, Year, X, Qual, Seq.Run, ASV) %>%
+    summarize(Reads = sum(Reads)) %>%
+    spread(key = ASV, value = Reads, fill = 0L) %>%
+    group_by(Site, X)
+cats <- ungroup(d) %>%
+  select(Year, Seq.Run, Qual) %>%
+  unique() %>%
+  glue::glue_data("{Year}_{Seq.Run}_{Qual}")
+
+group_walk(d, 
+           ~ {cat("\n\n## Coverage by # reads |",
+                  as.character(.y$Site),
+                  "sample",
+                  as.character(.y$X),
+                  "\n\n")
+             unite(.x, "Seq.Run", Year, Seq.Run, Qual) %>%
+               column_to_rownames("Seq.Run") %>%
+               as.matrix() %>%
+               t %>%
+               iNEXT::iNEXT(datatype = "abundance") %>%
+               {iNEXT::ggiNEXT(.) +
+                   xlab("Number of reads") +
+                   ylab("ASV diversity") +
+                   scale_fill_discrete(limits = cats,
+                                       drop = FALSE) +
+                   scale_color_discrete(limits = cats,
+                                        drop = FALSE) +
+                   scale_shape_discrete(limits = cats,
+                                        drop = FALSE)} %>%
+               plot})
+```
+
+# Resampling
+
+## Read counts per site×sample×year
+
+```{r}
+right_join(pm, st) %>%
+  filter(startsWith(as.character(Seq.Run), "pb"),
+         !is.na(Year)) %>%
+  group_by(Year, Site, X, Qual, Dataset) %>%
+  summarize(Ntot = sum(Reads)) %>%
+  ggplot(aes(x = Ntot, group = Dataset, color = Dataset)) +
+  geom_line(mapping = aes(y = 1 - ..y..), stat = "ecdf") +
+  xlab("Number of reads") +
+  ylab("Fraction of samples")
+```
+
+## Read counts per site×sample
+
+```{r}
+right_join(pm, st) %>%
+  filter(startsWith(as.character(Seq.Run), "pb"),
+         !is.na(Year)) %>%
+  group_by(Site, X, Qual, Dataset) %>%
+  summarize(Ntot = sum(Reads)) %>%
+  ggplot(aes(x = Ntot, group = Dataset, color = Dataset)) +
+  geom_line(mapping = aes(y = 1 - ..y..), stat = "ecdf") +
+  xlab("Number of reads") +
+  ylab("Fraction of samples")
+```
+
+## New vs. expired buffer
+
+ - in 2016, there was not enough unexpired field lysis buffer for all samples
+ - sampled with expired buffer at all locations
+ - sampled with unexpired buffer at approx. 1/3 of all locations.
+
+## Reads: new vs. expired buffer
+
+```{r}
+right_join(pm, st) %>%
+  filter(!is.na(Year), Qual != "*") %>%
+  group_by(Dataset, Year, X, Site) %>%
+  filter("" %in% Qual & "X" %in% Qual) %>%
+  group_by(Dataset, Year, X, Site, Qual) %>%
+  summarize(Reads = sum(Reads)) %>%
+  mutate_at("Qual", forcats::fct_recode, Expired = "", New = "X") %>%
+  spread(key = Qual, value = Reads, fill = 0L) %>%
+  ggplot(aes(x = Expired, y = New, color = Dataset)) +
+  geom_point() +
+  geom_abline(slope = 1, linetype = 2, alpha = 0.5) +
+  coord_fixed() +
+  xlab("Expired buffer") +
+  ylab("New buffer")
+```
+
+## Reads: new vs expired buffer
+
+```{r}
+right_join(pm, st) %>%
+  filter(!is.na(Year), Qual != "*") %>%
+  group_by(Dataset, Year, X, Site) %>%
+  filter("" %in% Qual & "X" %in% Qual) %>%
+  group_by(Dataset, Year, X, Site, Qual) %>%
+  summarize(Reads = sum(Reads)) %>%
+  mutate_at("Qual", forcats::fct_recode, Expired = "", New = "X") %>%
+  spread(key = Qual, value = Reads, fill = 0L) %>%
+  filter(New > 20, Expired > 20) %>%
+  mutate(Ratio = New / Expired) %>%
+  ggplot(aes(y = Ratio, x = Dataset)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 1, alpha = 0.5, linetype = 2)
+```
+

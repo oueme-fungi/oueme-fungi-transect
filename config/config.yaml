@@ -1,0 +1,13 @@
+rdir: 'scripts'
+rawdir: 'raw_data'
+seqdir: 'sequences'
+datadir: 'data'
+labdir: 'config'
+rmddir: 'writing'
+outdir: 'output'
+logdir: 'logs'
+ref_root: 'reference'
+platemap_sheet: 'Concentration samples'
+bigsplit: 80
+ropt: '--no-save --no-environ --no-restore'
+rargs: '--bootstrap-packrat'
