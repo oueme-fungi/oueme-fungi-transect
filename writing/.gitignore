@@ -1,5 +1,14 @@
 *.tex
 *.pdf
+*-blx.bib
+*.log
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.aux
+*.toc
 !demultiplex_issues.tex
 *.aux
 *.log

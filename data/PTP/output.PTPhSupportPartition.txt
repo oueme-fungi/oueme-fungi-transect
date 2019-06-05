@@ -1,0 +1,958 @@
+# Most supported partition found by simple heuristic search
+Species 1 (support = 1.000)
+     b6e44721
+
+Species 2 (support = 0.699)
+     67793bcd,ff9efe4a
+
+Species 3 (support = 1.000)
+     e4e0f925
+
+Species 4 (support = 1.000)
+     5c79ea40
+
+Species 5 (support = 1.000)
+     84dfcf03
+
+Species 6 (support = 0.950)
+     40b42b47,eabafaa8
+
+Species 7 (support = 1.000)
+     8fc5eab8
+
+Species 8 (support = 1.000)
+     cca3b0d3
+
+Species 9 (support = 0.876)
+     4dcc9ab4,77d4f1be
+
+Species 10 (support = 1.000)
+     55ab9dfc
+
+Species 11 (support = 1.000)
+     c7c67075
+
+Species 12 (support = 1.000)
+     ffda1a76
+
+Species 13 (support = 1.000)
+     0010ad6a
+
+Species 14 (support = 1.000)
+     d9258cec
+
+Species 15 (support = 1.000)
+     ad89f04f
+
+Species 16 (support = 1.000)
+     16f3f5c9
+
+Species 17 (support = 1.000)
+     c158d313
+
+Species 18 (support = 1.000)
+     56b8dd05
+
+Species 19 (support = 1.000)
+     132d6f09
+
+Species 20 (support = 1.000)
+     212075c8
+
+Species 21 (support = 1.000)
+     9c7b86c6
+
+Species 22 (support = 1.000)
+     985126b1
+
+Species 23 (support = 0.761)
+     25c41b5b,e1a8b728
+
+Species 24 (support = 1.000)
+     29220ae8
+
+Species 25 (support = 0.963)
+     1ec23ac0,d74e2a4c
+
+Species 26 (support = 1.000)
+     409ed9ce
+
+Species 27 (support = 1.000)
+     83d51ed6
+
+Species 28 (support = 1.000)
+     29622e88
+
+Species 29 (support = 0.952)
+     ba66fa98,a2344586,f440d108
+
+Species 30 (support = 1.000)
+     fcf4d5fd
+
+Species 31 (support = 1.000)
+     8ec8bdaa
+
+Species 32 (support = 1.000)
+     68e0a712
+
+Species 33 (support = 1.000)
+     f466ca16
+
+Species 34 (support = 1.000)
+     bc662c8d
+
+Species 35 (support = 0.935)
+     a400f071,a6a367b9
+
+Species 36 (support = 1.000)
+     6fba5495
+
+Species 37 (support = 1.000)
+     5794165c
+
+Species 38 (support = 1.000)
+     3703a89d
+
+Species 39 (support = 0.508)
+     73e73b62,a0934e3d
+
+Species 40 (support = 1.000)
+     6645235a
+
+Species 41 (support = 1.000)
+     e4d9401a
+
+Species 42 (support = 0.807)
+     528c985a,5dfc639e,de415b0b,1e184d59,5d70762e,af40074e
+
+Species 43 (support = 1.000)
+     a5dba6b7
+
+Species 44 (support = 1.000)
+     219ac9c5
+
+Species 45 (support = 0.961)
+     295cbf94,bcbfbce1
+
+Species 46 (support = 1.000)
+     71228778
+
+Species 47 (support = 1.000)
+     20a5688c
+
+Species 48 (support = 0.981)
+     ceaad00f,d42bc228,1248ffc4
+
+Species 49 (support = 1.000)
+     22e69a2b
+
+Species 50 (support = 1.000)
+     282c8aa1
+
+Species 51 (support = 1.000)
+     f5de0efe
+
+Species 52 (support = 1.000)
+     eb59c0ac
+
+Species 53 (support = 1.000)
+     384cdc75
+
+Species 54 (support = 0.566)
+     23d74c68,355dffa4,74de7525,59a00f16,73064d28
+
+Species 55 (support = 1.000)
+     633e2377
+
+Species 56 (support = 1.000)
+     7a075027
+
+Species 57 (support = 0.837)
+     81b7e553,a2544291
+
+Species 58 (support = 1.000)
+     b69b2c6a
+
+Species 59 (support = 1.000)
+     74e52c1c
+
+Species 60 (support = 0.956)
+     5104b094,a570543d
+
+Species 61 (support = 1.000)
+     1f996fd3
+
+Species 62 (support = 1.000)
+     3d74ecbc
+
+Species 63 (support = 1.000)
+     0066aaec
+
+Species 64 (support = 0.878)
+     6016b350,18421609,4c829f34
+
+Species 65 (support = 0.987)
+     0c31b7ea,1c3e29e8
+
+Species 66 (support = 1.000)
+     a44328d0
+
+Species 67 (support = 0.655)
+     7488e5b1,995322b3
+
+Species 68 (support = 0.624)
+     87ccfbe5,ac2b321c,199ad922,e42d59a9
+
+Species 69 (support = 1.000)
+     6e585b93
+
+Species 70 (support = 1.000)
+     0ec7e61f
+
+Species 71 (support = 1.000)
+     3c207185
+
+Species 72 (support = 1.000)
+     cef0e3f7
+
+Species 73 (support = 1.000)
+     0cc0eb7f
+
+Species 74 (support = 1.000)
+     63345f46
+
+Species 75 (support = 1.000)
+     e9efc50d
+
+Species 76 (support = 0.983)
+     3bde41cc,d9f43900
+
+Species 77 (support = 1.000)
+     82a40c49
+
+Species 78 (support = 1.000)
+     d3e6d2d3
+
+Species 79 (support = 1.000)
+     1c748d47
+
+Species 80 (support = 0.788)
+     1c302e15,c50af7fb
+
+Species 81 (support = 1.000)
+     18331fba
+
+Species 82 (support = 1.000)
+     f6d7fd00
+
+Species 83 (support = 1.000)
+     715a7bbd
+
+Species 84 (support = 1.000)
+     3650a115
+
+Species 85 (support = 1.000)
+     9e566b7d
+
+Species 86 (support = 1.000)
+     880b6357
+
+Species 87 (support = 1.000)
+     29228c54
+
+Species 88 (support = 0.844)
+     3f36f9c3,57f96795
+
+Species 89 (support = 0.989)
+     5f1a8aa8,e2aad0b6
+
+Species 90 (support = 0.846)
+     62b95cd9,78cc5f9a
+
+Species 91 (support = 1.000)
+     6817051c
+
+Species 92 (support = 1.000)
+     4cab7bb2
+
+Species 93 (support = 0.165)
+     1539e9e8,db41f0f4,15120c61,b341b310
+
+Species 94 (support = 1.000)
+     91a08c8a
+
+Species 95 (support = 1.000)
+     d72ae700
+
+Species 96 (support = 1.000)
+     27caad4a
+
+Species 97 (support = 1.000)
+     abb3caeb
+
+Species 98 (support = 1.000)
+     4f23d5a1
+
+Species 99 (support = 1.000)
+     9a3141fd
+
+Species 100 (support = 1.000)
+     3df4093f
+
+Species 101 (support = 1.000)
+     ed80791f
+
+Species 102 (support = 1.000)
+     4ce9da2b
+
+Species 103 (support = 0.996)
+     5d146750
+
+Species 104 (support = 0.996)
+     fd94540c
+
+Species 105 (support = 0.998)
+     8dc3434d
+
+Species 106 (support = 1.000)
+     9186a9af
+
+Species 107 (support = 0.891)
+     0509988f,4e7245f1
+
+Species 108 (support = 1.000)
+     9524420e
+
+Species 109 (support = 0.701)
+     42d78220,db6daee1
+
+Species 110 (support = 1.000)
+     5c52307a
+
+Species 111 (support = 1.000)
+     1f68ebf1
+
+Species 112 (support = 0.859)
+     210999aa,8afbc370,acc4a6db,0d6ff4e4,e86578a1,d8764aed,46b53d07,ebcd3b38,184c4615,297fe2f2
+
+Species 113 (support = 0.857)
+     7d9ba4e5,a208bbba,c4ec1a06
+
+Species 114 (support = 1.000)
+     adb4a7e9
+
+Species 115 (support = 1.000)
+     d6f24709
+
+Species 116 (support = 1.000)
+     5921fbad
+
+Species 117 (support = 1.000)
+     6725760e
+
+Species 118 (support = 0.553)
+     44614ef9,bee78e65,fc42d500,fb89fef2,1e818c77,23dc3abd
+
+Species 119 (support = 0.896)
+     00257918,4bf98ce9,9a15b0dd
+
+Species 120 (support = 0.928)
+     debbe29f,ec9dc13c,1db11553,25f526ef
+
+Species 121 (support = 1.000)
+     6ed34811
+
+Species 122 (support = 0.834)
+     6699a9be,add23b76
+
+Species 123 (support = 1.000)
+     35eb9b9a
+
+Species 124 (support = 1.000)
+     ed07c8a0
+
+Species 125 (support = 1.000)
+     2bb49254
+
+Species 126 (support = 1.000)
+     83da7d6b
+
+Species 127 (support = 1.000)
+     02e734ff
+
+Species 128 (support = 1.000)
+     f947cbdb
+
+Species 129 (support = 1.000)
+     904c4120
+
+Species 130 (support = 1.000)
+     ad8e22ce
+
+Species 131 (support = 1.000)
+     51a9663d
+
+Species 132 (support = 0.915)
+     124a607a,d7451761,13bbe506,42b15917,2c830563,68cc8c56,ca59fb67
+
+Species 133 (support = 1.000)
+     3a70d745
+
+Species 134 (support = 1.000)
+     811e2eb8
+
+Species 135 (support = 1.000)
+     03efc2b5
+
+Species 136 (support = 0.836)
+     1dfa670d,f69b2b42
+
+Species 137 (support = 1.000)
+     cda1f11a
+
+Species 138 (support = 0.993)
+     041202ee
+
+Species 139 (support = 0.809)
+     9d2bb7e8,1a259c0e,7d9a4feb,16e2ec81,5d4a539b,c254068f
+
+Species 140 (support = 1.000)
+     c5f9a370
+
+Species 141 (support = 0.799)
+     f73e1d8e,fe673ced,c1647cab,2a8a1a74,00236c38,668c4898
+
+Species 142 (support = 1.000)
+     26d8f4a8
+
+Species 143 (support = 1.000)
+     9a262bea
+
+Species 144 (support = 0.998)
+     00c3d39c
+
+Species 145 (support = 1.000)
+     5b9b5a30
+
+Species 146 (support = 0.993)
+     09c74192
+
+Species 147 (support = 0.966)
+     990495f0,44f6f931,9648b970
+
+Species 148 (support = 0.968)
+     9462a1c5,e69e84dd
+
+Species 149 (support = 1.000)
+     3c01f30b
+
+Species 150 (support = 1.000)
+     1f1233d6
+
+Species 151 (support = 1.000)
+     bdcc40db
+
+Species 152 (support = 1.000)
+     f5d838a1
+
+Species 153 (support = 0.992)
+     03db824a
+
+Species 154 (support = 0.850)
+     7922938c,ba9536f2
+
+Species 155 (support = 0.381)
+     38fdc8ae,4877477f,ababcf08,ee1e8d83,07dc56c4,fee93c4c,81dcd518,66def95a,c25ae4f2
+
+Species 156 (support = 0.990)
+     a5962349
+
+Species 157 (support = 0.994)
+     16469ccc
+
+Species 158 (support = 0.858)
+     2394ed8d,7bd4754e
+
+Species 159 (support = 0.997)
+     cd5db133
+
+Species 160 (support = 1.000)
+     18db212d
+
+Species 161 (support = 1.000)
+     6fe5db5f
+
+Species 162 (support = 1.000)
+     5b40bd68
+
+Species 163 (support = 0.111)
+     d2f67348,ed8cf4c9,c2e4d12e,d6acb37d
+
+Species 164 (support = 0.845)
+     d7d7b162,fdf17173
+
+Species 165 (support = 1.000)
+     a389ddfb
+
+Species 166 (support = 1.000)
+     a5b4ed1f
+
+Species 167 (support = 1.000)
+     ea7e5363
+
+Species 168 (support = 0.987)
+     13e2e166
+
+Species 169 (support = 0.987)
+     dbde9eb2
+
+Species 170 (support = 0.998)
+     6cb22053
+
+Species 171 (support = 0.998)
+     6e71f5f9
+
+Species 172 (support = 1.000)
+     5e3cb327
+
+Species 173 (support = 1.000)
+     e0f2dbd9
+
+Species 174 (support = 1.000)
+     b1b06fad
+
+Species 175 (support = 1.000)
+     d8ed8794
+
+Species 176 (support = 1.000)
+     fe76ab84
+
+Species 177 (support = 0.997)
+     e5fdacb9
+
+Species 178 (support = 0.997)
+     e80de770
+
+Species 179 (support = 0.998)
+     279f42b6
+
+Species 180 (support = 0.996)
+     f404ed5f
+
+Species 181 (support = 0.996)
+     a238059b
+
+Species 182 (support = 0.996)
+     a447ff20
+
+Species 183 (support = 0.992)
+     aabd2df7
+
+Species 184 (support = 0.474)
+     02cd4901,6ac27e00
+
+Species 185 (support = 0.984)
+     b2fc188e
+
+Species 186 (support = 0.984)
+     301f2fea
+
+Species 187 (support = 0.990)
+     93414519
+
+Species 188 (support = 0.873)
+     56a6fcaf,d871bd89,9514505b,b323b419,cd366dab,118e3918,36bb6bf4,91c35354,8b5fe265,7710b366,6aade46a,124e9b26,d382dfbc,02a9494f,20c546b5
+
+Species 189 (support = 0.970)
+     6b6bff25
+
+Species 190 (support = 0.879)
+     9e44c643,8bec75dd,b8d8c1c2
+
+Species 191 (support = 1.000)
+     093be2ff
+
+Species 192 (support = 0.844)
+     3146f285,3863bbd7
+
+Species 193 (support = 0.986)
+     5417861e
+
+Species 194 (support = 0.977)
+     aff15afe
+
+Species 195 (support = 0.977)
+     7b2e4669
+
+Species 196 (support = 0.772)
+     d0c7b4a7
+
+Species 197 (support = 0.610)
+     ce1e5fcf
+
+Species 198 (support = 0.560)
+     bfb0e1ca
+
+Species 199 (support = 0.814)
+     0983aa8d,95d1f6a7,2c1d5c0d,362cc555,4cf27c5e,518dd30f,a1539198,a15c5eb2,bb361ef2,083345c9,d5b00698,d71bab58
+
+Species 200 (support = 0.973)
+     d6c6ff54
+
+Species 201 (support = 0.973)
+     f3db2c36
+
+Species 202 (support = 0.992)
+     28cd1e28
+
+Species 203 (support = 0.992)
+     2ab404e2
+
+Species 204 (support = 0.984)
+     9607ca21
+
+Species 205 (support = 0.948)
+     9f7281ba,a921d037,63a8f28b,c7f179ed,7816d92f,e146b2a9
+
+Species 206 (support = 0.998)
+     13b0bc57
+
+Species 207 (support = 0.998)
+     9df685e0
+
+Species 208 (support = 0.699)
+     501b45c9
+
+Species 209 (support = 0.518)
+     b3df8ad7
+
+Species 210 (support = 0.969)
+     5472fe24
+
+Species 211 (support = 0.969)
+     a33bb61c
+
+Species 212 (support = 0.981)
+     e493d8da
+
+Species 213 (support = 0.918)
+     2f03becc
+
+Species 214 (support = 0.918)
+     dbeb6542
+
+Species 215 (support = 0.834)
+     7363b9aa,d5b7376a
+
+Species 216 (support = 0.994)
+     cf25b054
+
+Species 217 (support = 0.891)
+     ffa0bd5d
+
+Species 218 (support = 0.546)
+     5bec3f22,8d4756a6,7d10fb0b,adfbbba4,7001ccfa,b19f1eba,aa353d25
+
+Species 219 (support = 0.704)
+     48e2d60c,d6852ae4,2fb953cc,911f1842,cc0b38bc
+
+Species 220 (support = 0.908)
+     12b75f18
+
+Species 221 (support = 0.798)
+     b5ef8885,cdfaca11,d661255e,a99d93fb
+
+Species 222 (support = 0.979)
+     684d6fa6
+
+Species 223 (support = 0.966)
+     38279dda
+
+Species 224 (support = 0.737)
+     1b9d69f8,1e83e65a
+
+Species 225 (support = 0.817)
+     75d9a000,801275f2,a4e2fef1,025ce873,dee7efad
+
+Species 226 (support = 0.565)
+     a779947a,07b259fb,dea10e07,852804d8,5c580bd5,d12bd22e,27f25ac9,70e34d59,30782875,17390083,4250fd8a,e2156a67,132144f0,8e583538,d9335741,0363dc8f,0fd1baa8,208f2694,bd0273ff,233f5d51,33bb3fdf,d7ff36d5,f3914034
+
+Species 227 (support = 0.901)
+     2ef6a1c6
+
+Species 228 (support = 0.901)
+     f8a4dc80
+
+Species 229 (support = 0.938)
+     22839c56
+
+Species 230 (support = 0.572)
+     248a7743,a7c828b6
+
+Species 231 (support = 0.866)
+     5344c51c
+
+Species 232 (support = 0.850)
+     02a3d035,a743b2c1
+
+Species 233 (support = 0.936)
+     4485fcd1
+
+Species 234 (support = 0.976)
+     8b446ada
+
+Species 235 (support = 0.852)
+     5f52ea42,7e29f15d
+
+Species 236 (support = 0.961)
+     b0c35da9
+
+Species 237 (support = 0.788)
+     54c07a31,e4b12021
+
+Species 238 (support = 0.253)
+     1b744869,15552e14,2ae59738
+
+Species 239 (support = 0.532)
+     41e6d1d5
+
+Species 240 (support = 0.981)
+     c22e9c8b
+
+Species 241 (support = 0.981)
+     c41c33b5
+
+Species 242 (support = 0.918)
+     894bce46
+
+Species 243 (support = 0.918)
+     926f98b7
+
+Species 244 (support = 0.489)
+     0c7c79f0
+
+Species 245 (support = 0.929)
+     1a0ddd78
+
+Species 246 (support = 0.832)
+     99726bbd,f980c32b
+
+Species 247 (support = 0.387)
+     de7e6ea0,09beb4fe,43b5069a
+
+Species 248 (support = 0.883)
+     72d14f76
+
+Species 249 (support = 0.883)
+     734e36a3
+
+Species 250 (support = 0.270)
+     d78d0008
+
+Species 251 (support = 0.896)
+     562df8be
+
+Species 252 (support = 0.871)
+     8d9702ca,92f274f8
+
+Species 253 (support = 0.536)
+     1da21768,6fde631f
+
+Species 254 (support = 0.586)
+     8cd3b5b7
+
+Species 255 (support = 0.979)
+     11e71f0d
+
+Species 256 (support = 0.979)
+     7e4ff5f1
+
+Species 257 (support = 0.836)
+     400578ac
+
+Species 258 (support = 0.836)
+     86883651
+
+Species 259 (support = 0.375)
+     53977a6d
+
+Species 260 (support = 0.375)
+     b09e9717
+
+Species 261 (support = 0.390)
+     679c2d37
+
+Species 262 (support = 0.765)
+     5d08d7ac,a5493ee1
+
+Species 263 (support = 0.873)
+     05d1787c,d97ef1dd
+
+Species 264 (support = 0.472)
+     9a04b18e
+
+Species 265 (support = 0.674)
+     19848244,af9149b0
+
+Species 266 (support = 0.193)
+     cfe920d6,d0e105d7,d699344c
+
+Species 267 (support = 0.848)
+     52e344e6
+
+Species 268 (support = 0.848)
+     f6aae2f7
+
+Species 269 (support = 0.764)
+     9bb2294b
+
+Species 270 (support = 0.764)
+     d7d9c247
+
+Species 271 (support = 0.704)
+     f7fd71f1
+
+Species 272 (support = 0.704)
+     6617928c
+
+Species 273 (support = 0.913)
+     5aaa4956
+
+Species 274 (support = 0.913)
+     722b235f
+
+Species 275 (support = 0.272)
+     1d6c9afb
+
+Species 276 (support = 0.272)
+     296fa491
+
+Species 277 (support = 0.184)
+     7ed1d19f
+
+Species 278 (support = 0.895)
+     1af5fc97
+
+Species 279 (support = 0.895)
+     1c845cd3
+
+Species 280 (support = 0.248)
+     d2f90f79
+
+Species 281 (support = 0.248)
+     e8fdd8f2
+
+Species 282 (support = 0.867)
+     1fc02f35
+
+Species 283 (support = 0.867)
+     c9141d0c
+
+Species 284 (support = 0.169)
+     ba03d9fc
+
+Species 285 (support = 0.134)
+     4f2a6556,c96a621c
+
+Species 286 (support = 0.057)
+     31068e0b
+
+Species 287 (support = 0.047)
+     1a5edf74,be496c89
+
+Species 288 (support = 0.554)
+     5f3e07d8,f9fd9134
+
+Species 289 (support = 0.713)
+     daeb5d94
+
+Species 290 (support = 0.513)
+     a37db942
+
+Species 291 (support = 0.714)
+     f32a9eb9
+
+Species 292 (support = 0.263)
+     8ae10351
+
+Species 293 (support = 0.263)
+     d19b8feb
+
+Species 294 (support = 0.800)
+     11a23c32
+
+Species 295 (support = 0.582)
+     7325f670,c9ebb565,36ae6c8c,8f11f648,ba20ac1e,30941b81,2e82e82f,f62a65f2
+
+Species 296 (support = 0.062)
+     305c2d53
+
+Species 297 (support = 0.062)
+     ce33129e
+
+Species 298 (support = 0.700)
+     4a3f7422
+
+Species 299 (support = 0.700)
+     d05f9661
+
+Species 300 (support = 0.776)
+     eb0ed8af
+
+Species 301 (support = 0.192)
+     e7df573e,4afc54e2,a99238e6,0539e3c1,db032500
+
+Species 302 (support = 0.472)
+     8c778316
+
+Species 303 (support = 0.472)
+     7413f971
+
+Species 304 (support = 0.795)
+     6e1534d4
+
+Species 305 (support = 0.726)
+     7cd268e5,a7fe8e8f
+
+Species 306 (support = 0.856)
+     4660c55a
+
+Species 307 (support = 0.856)
+     d04576ad
+
+Species 308 (support = 0.634)
+     4cca0e10
+
+Species 309 (support = 0.609)
+     c7e31834,ea6766b2
+
+Species 310 (support = 0.516)
+     08fa72f5
+
+Species 311 (support = 0.516)
+     c4bd9eb6
+
+Species 312 (support = 0.404)
+     ec7fc886
+
+Species 313 (support = 0.373)
+     f90dff36,fb7d0b97,30e3ce33,a92c83d4
+
+Species 314 (support = 0.074)
+     26867297
+
+Species 315 (support = 0.074)
+     91a96c15
+
+Species 316 (support = 0.643)
+     1c681666
+
+Species 317 (support = 0.473)
+     5da6901d,0ce3194d,5e6b8c71
+
+Species 318 (support = 0.824)
+     f5a3222c
+
+Species 319 (support = 0.798)
+     70117772,ed8e0d28
+
