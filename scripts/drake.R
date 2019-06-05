@@ -531,7 +531,7 @@ plan <- drake_plan(
     conseq_filt$LSU %>%
     unique() %>%
     stringr::str_replace_all("U", "T") %>%
-    taxonomy(reference = file_in("reference/rdp.fasta.gz"),
+    taxonomy(reference = file_in("reference/rdp_train.LSU.fasta.gz"),
              multithread = ignore(dada_cpus)) %>%
     dplyr::mutate_at("seq", stringr::str_replace_all, "T", "U"),
   
