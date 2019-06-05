@@ -18,6 +18,7 @@ module load texlive &&
 
 snakemake -pr --jobs $SLURM_JOB_CPUS_PER_NODE\
   --keep-going\
-  --use-conda
+  --use-conda\
+  --shadow-prefix /scratch
 
 #exit $out
