@@ -21,7 +21,7 @@ library(ggtree)
 library(castor)
 theme_set(theme_bw(base_size = 24) + theme(legend.direction = "vertical"))
 loadd(bc_corr, bc_corr2, unif_corr, unif_corr2, qstats_join, datasets, longtree,
-      taxon_ITS2_unite)
+      taxon_LSUcons_rdp)
 reads <- qstats_join %>%
   mutate_at("Region", factor,
             levels = c("ITS2", "ITS1", "short", "ITS", "LSU", "long")) %>%
@@ -323,7 +323,7 @@ seqhash.character <- function(seq, len = 8) {
 seqhash.XStringSet <- function(seq, len = 8) {
   seqhash.character(as.character(seq))
 }
-treetax <- taxon_ITS2_unite %>%
+treetax <- taxon_LSUcons_rdp %>%
   mutate_at("seq", seqhash) %>%
   select(-Taxonomy, -nreads) 
 outgroups <- treetax %>% filter(!is.na(Kingdom), Kingdom %in% c("Alveolata", "Chromista", "Plantae"), seq %in% longtree$tip.label)
