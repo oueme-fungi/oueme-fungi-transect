@@ -16,7 +16,7 @@ predada_targets <- stringr::str_subset(od, "^derep2_")
 if (length(predada_targets)) {
   cat("\n Making pre-dada targets (loop)...\n")
   tictoc::tic()
-  drake::make(plan,
+  dconfig <- drake::drake_config(plan,
        parallelism = "loop",
        jobs_preprocess = local_cpus(),
        retries = 2,
@@ -25,8 +25,10 @@ if (length(predada_targets)) {
        cache_log_file = TRUE,
        targets = predada_targets
   )
+  dod <- drake::outdated(dconfig)
+  drake::make(config = dconfig)
   tictoc::toc()
-  if (length(drake::failed())) {
+  if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 } else cat("\n Pre-DADA2 targets are up-to-date. \n")

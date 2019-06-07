@@ -15,7 +15,7 @@ setup_log("taxonomy-refs")
 if (any(targets %in% od)) {
   cat("\n Making pre-taxonomy targets (loop)...\n")
   tictoc::tic()
-  drake::make(plan,
+  dconfig <- drake::config(plan,
        parallelism = "loop",
        jobs_preprocess = local_cpus(),
        retries = 2,
@@ -24,8 +24,10 @@ if (any(targets %in% od)) {
        cache_log_file = TRUE,
        targets = pretaxon_targets
   )
+  dod <- drake::outdated(dconfig)
+  drake::make(config = dconfig)
   tictoc::toc()
-  if (length(drake::failed())) {
+  if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 } else cat("\n Pre-taxonomy targets are up-to-date. \n")

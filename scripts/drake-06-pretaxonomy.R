@@ -15,7 +15,7 @@ setup_log("pretaxonomy")
 if (target %in% od) {
   cat("\n Making pre-taxonomy targets (loop)...\n")
   tictoc::tic()
-  drake::make(plan,
+  dconfig <- drake::drake_config(plan,
        parallelism = "loop",
        jobs_preprocess = local_cpus(),
        retries = 2,
@@ -25,8 +25,10 @@ if (target %in% od) {
        targets = target
 
   )
+  dod <- drake::outdated(dconfig)
+  drake::make(config = dconfig)
   tictoc::toc()
-  if (length(drake::failed())) {
+  if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 } else cat("\n Pre-taxonomy targets are up-to-date. \n")

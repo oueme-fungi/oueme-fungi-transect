@@ -54,7 +54,7 @@ if (length(itsx_targets)) {
     cat("\n Making itsx_shard (local with ", itsx_jobs, "worker(s))...\n")
   }
   tictoc::tic()
-  drake::make(plan,
+  dconfig <- drake::drake_config(plan,
        parallelism = itsx_parallelism,
        template = itsx_template,
        jobs = itsx_jobs,
@@ -64,8 +64,11 @@ if (length(itsx_targets)) {
        cache_log_file = TRUE,
        targets = itsx_targets
   )
+  
+  dod <- drake::outdated(dconfig)
+  drake::make(config = dconfig)
   tictoc::toc()
-  if (length(drake::failed())) {
+  if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 } else cat("\n ITSx targets are up-to-date. \n")

@@ -16,7 +16,7 @@ if (length(od)) {
   cat("\n Making all remaining targets (loop)...\n")
   tictoc::tic()
   future::plan(strategy = "multiprocess")
-  drake::make(plan,
+  dconfig <- drake::drake(plan,
        parallelism = "loop",
        jobs_preprocess = local_cpus(),
        retries = 2,
@@ -25,8 +25,10 @@ if (length(od)) {
        caching = "worker",
        cache_log_file = TRUE
   )
+  dod <- drake::outdated(dconfig)
+  drake::make(config = dconfig)
   tictoc::toc()
-  if (length(drake::failed())) {
+  if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 }

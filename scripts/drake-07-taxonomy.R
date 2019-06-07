@@ -18,7 +18,7 @@ dada_cpus <- local_cpus()
 if (target %in% od) {
   cat("\n Making", target, " with", dada_cpus, "cores...\n")
   tictoc::tic()
-  drake::make(plan,
+  dconfig <- drake::drake_config(plan,
        parallelism = "loop",
        jobs_preprocess = dada_cpus,
        retries = 1,
@@ -28,8 +28,10 @@ if (target %in% od) {
        cache_log_file = TRUE,
        targets = target
   )
+  dod <- drake::outdated(dconfig)
+  drake::make(config = dconfig)
   tictoc::toc()
-  if (length(drake::failed())) {
+  if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 } else cat("\n Target", target, "is up-to-date.\n")
