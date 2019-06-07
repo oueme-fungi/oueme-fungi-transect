@@ -17,7 +17,7 @@ dada_cpus <- local_cpus()
 if (target %in% od) {
   cat("\n Making", target, " with", dada_cpus, "cores...\n")
   tictoc::tic()
-  dconfig <- drake::config(plan,
+  dconfig <- drake::drake_config(plan,
        parallelism = "loop",
        jobs_preprocess = dada_cpus,
        retries = 1,

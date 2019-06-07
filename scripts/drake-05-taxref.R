@@ -15,7 +15,7 @@ setup_log("taxonomy-refs")
 if (any(targets %in% od)) {
   cat("\n Making pre-taxonomy targets (loop)...\n")
   tictoc::tic()
-  dconfig <- drake::config(plan,
+  dconfig <- drake::drake_config(plan,
        parallelism = "loop",
        jobs_preprocess = local_cpus(),
        retries = 2,

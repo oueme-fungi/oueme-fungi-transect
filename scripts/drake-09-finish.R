@@ -16,7 +16,7 @@ if (length(od)) {
   cat("\n Making all remaining targets (loop)...\n")
   tictoc::tic()
   future::plan(strategy = "multiprocess")
-  dconfig <- drake::drake(plan,
+  dconfig <- drake::drake_config(plan,
        parallelism = "loop",
        jobs_preprocess = local_cpus(),
        retries = 2,
