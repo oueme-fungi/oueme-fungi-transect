@@ -33,7 +33,7 @@ if (length(preitsx_targets)) {
   drake::make(config = dconfig)
   
   tictoc::toc()
-  if (any(dod %in% drake::failed()))) {
+  if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 } else cat("\n All pre-itsx targets are up-to-date.\n")
