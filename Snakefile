@@ -72,7 +72,7 @@ datasets2 = (datasets.join(pd.DataFrame({"Plate" : datasets2}))
 # endpoint target
 localrules: all
 rule all:
-    input: ".drake_finish"
+    input: "{outdir}/tech_compare.pdf".format_map(config), ".drake_finish"
 
 # endpoint target: convert all pacbio movies to Sequel format
 localrules: convertmovies
@@ -560,10 +560,27 @@ rule cluster:
               --sizein\
               --id 0.97\
               --uc {output.uc}\
-              --otutabout {output.otutable}
-              --threads 8
+              --otutabout {output.otutable}\
+              --threads 8\
               --log {log}
       """
+
+localrules: tech_compare
+rule tech_compare:
+  output: "{outdir}/tech_compare.pdf".format_map(config)
+  input:
+      rmd   = "{rmddir}/tech_compare.Rmd".format_map(config),
+      clust = "{clusterdir}/ITS2.table".format_map(config)
+  conda: "config/conda/drake.yaml"
+  threads: 1
+  resources:
+      walltime = 5
+  log: "{logdir}/tech_compare.log".format_map(config)
+  shell:
+    """
+      mkdir -p {config[outdir]} &&
+      R -e 'getwd(); outfile <- file.path(getwd(), "{output}"); print(outfile); rmarkdown::render("{input.rmd}", output_file = outfile)' &>{log}
+    """
 
 # calculate which sequence tables are needed for a taxonomy assignment step
 def taxon_inputs(wildcards):

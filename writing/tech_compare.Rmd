@@ -1,0 +1,63 @@
+---
+title: "Read quality check"
+output:
+  beamer_presentation:
+    latex_engine: xelatex
+---
+
+```{r setup, include = FALSE}
+library(magrittr)
+library(tidyverse)
+library(here)
+library(glue)
+library(Biostrings)
+library(ShortRead)
+library(ggplot2)
+library("scales")
+library(drake)
+knitr::opts_chunk$set(echo = FALSE, device = "tikz")
+theme_set(theme_bw(base_size = 24) + theme(legend.direction = "vertical"))
+```
+
+# Read number from PacBio vs. IonTorrent ASV-OTUs (ITS2)
+
+```{r}
+otu <- read_tsv(here("data/clusters/ITS2.table"),
+                col_types = "ciii") %>% select(is_057, pb_500) %>%
+  filter(rowSums(.) > 0)
+otu %>%
+  mutate(is_057 = ifelse(is_057 == 0, 0.6, is_057),
+         pb_500 = ifelse(pb_500 == 0, 0.6, pb_500)) %>%
+  ggplot(aes(x = is_057, y = pb_500)) +
+  geom_point() +
+  scale_x_log10() +
+  scale_y_log10() +
+  xlab("Ion Torrent Reads") +
+  ylab("PacBio Reads")
+```
+
+# IonTorrent ITS2 ASV-OTUs: coverage by PacBio long reads
+```{r}
+otu %>%
+  arrange(desc(is_057)) %>%
+  filter(is_057 > 0) %>%
+  ggplot(aes(y = is_057, x = seq_along(is_057), fill = pb_500 > 0)) +
+  geom_col(width = 1) +
+  xlab("OTUs") +
+  ylab("reads") +
+  scale_fill_discrete(name = "PacBio")
+```
+`r otu %>% filter(is_057 > 0) %>% {formatC(sum(.$pb_500 > 0) / length(.$is_057)*100, digits = 1, flag = "0", format = "f")}`% of IonTorrent OTUs also include at least one PacBio ASV.
+
+# PacBio ITS2 ASV-OTUs: coverage by Ion Torrent
+```{r}
+otu %>%
+  arrange(desc(pb_500)) %>%
+  filter(pb_500 > 0) %>%
+  ggplot(aes(y = pb_500, x = seq_along(pb_500), fill = is_057 > 0)) +
+  geom_col(width = 1) +
+  xlab("OTUs") +
+  ylab("reads") +
+  scale_fill_discrete(name = "Ion Torrent")
+```
+`r otu %>% filter(pb_500 > 0) %>% {formatC(sum(.$is_057 > 0) / length(.$pb_500)*100, digits = 1, flag = "0", format = "f")}`% of PacBio OTUs also include at least one IonTorrent ASV
