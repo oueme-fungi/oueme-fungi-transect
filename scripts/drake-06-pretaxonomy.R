@@ -5,7 +5,7 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-target <- get_target(default = "big_seq_table_ITS2")
+target <- get_target(default = "big_fasta_ITS2")
 library(magrittr)
 library(backports)
 setup_log("pretaxonomy")

@@ -1,0 +1,6 @@
+name: vsearch
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - vsearch

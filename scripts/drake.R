@@ -10,6 +10,7 @@ if (interactive()) {
   trim.dir <- file.path(seq.dir, "trim")
   region.dir <- file.path(seq.dir, "regions")
   filter.dir <- file.path(seq.dir, "filter")
+  cluster.dir <- file.path(data.dir, "clusters")
   pasta.dir <- file.path(data.dir, "pasta")
   plan.dir <- file.path(data.dir, "plan")
   ref.dir <- here("reference")
@@ -61,6 +62,7 @@ if (interactive()) {
   unite_patch_file <- snakemake@config$unite_patch_file
   rmd.dir <- snakemake@config$rmddir
   out.dir <- snakemake@config$outdir
+  cluster.dir <- snakemake@config$clusterdir
   pasta.dir <- snakemake@config$pastadir
   plan.dir <- snakemake@config$plandir
   plan_file <- snakemake@output$plan
@@ -194,8 +196,18 @@ if (!interactive()) {
   saveRDS(dada_meta, dada_meta_file)
 }
 
+#### region_meta ####
+# region_meta has one row per region
+# it is used in target big_fasta.
+# the index is RegionID
+region_meta <- regions %>%
+  select(RegionID = Region) %>%
+  mutate(big_seq_table = glue("big_seq_table_{RegionID}"),
+         big_fasta_file = glue("{cluster.dir}/{RegionID}.fasta.gz")) %>%
+  mutate_at(c("RegionID", "big_seq_table"), syms)
+
 #### taxonomy_meta ####
-# taxonomy_meta has one row per region
+# taxonomy_meta has one row per region and reference DB
 # it is used in target taxon,
 # and mapped to target guilds_table
 # The index is TaxID (Taxonomy ID)
@@ -430,6 +442,14 @@ plan <- drake_plan(
   big_seq_table = target(
     dada2::mergeSequenceTables(tables = list(nochim)),
     transform = combine(nochim, .tag_in = step, .by = RegionID)),
+  
+  # big_fasta ----
+  # write the ITS2 big_seq_table as a fasta file so that it can be clustered by
+  # VSEARCH.
+  big_fasta = target(
+    write_big_fasta(big_seq_table,
+                    file_out(!!big_fasta_file)),
+    transform = map(.data = !!region_meta, .id = RegionID)),
   
   # dbprep ----
   # import the RDP, Silva, and UNITE databases, and format them for use with

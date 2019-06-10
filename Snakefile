@@ -13,16 +13,17 @@ configfile: "config/config.yaml"
 
 # single part directory names are given in config.yaml
 # this puts together the ones which are composed of previous values
-config['moviedir']  = "{seqdir}/rawmovie".format_map(config)
-config['ccsdir']    = "{seqdir}/ccs".format_map(config)
-config['fastqdir']  = "{seqdir}/rawfastq".format_map(config)
-config['demuxdir']  = "{seqdir}/demux".format_map(config)
-config['trimdir']   = "{seqdir}/trim".format_map(config)
-config['regiondir'] = "{seqdir}/regions".format_map(config)
-config['filterdir'] = "{seqdir}/filter".format_map(config)
-config['pastadir']  = "{datadir}/pasta".format_map(config)
-config['plandir']   = "{datadir}/plan".format_map(config)
-config['tagdir']    = "{labdir}/tags".format_map(config)
+config['moviedir']   = "{seqdir}/rawmovie".format_map(config)
+config['ccsdir']     = "{seqdir}/ccs".format_map(config)
+config['fastqdir']   = "{seqdir}/rawfastq".format_map(config)
+config['demuxdir']   = "{seqdir}/demux".format_map(config)
+config['trimdir']    = "{seqdir}/trim".format_map(config)
+config['regiondir']  = "{seqdir}/regions".format_map(config)
+config['filterdir']  = "{seqdir}/filter".format_map(config)
+config['clusterdir'] = "{datadir}/clusters".format_map(config)
+config['pastadir']   = "{datadir}/pasta".format_map(config)
+config['plandir']    = "{datadir}/plan".format_map(config)
+config['tagdir']     = "{labdir}/tags".format_map(config)
 
 config['dataset']    = '{labdir}/datasets.csv'.format_map(config)
 config['regions']    = '{labdir}/regions.csv'.format_map(config)
@@ -524,7 +525,9 @@ def region_inputs(wildcards):
 # combine the dada results for each region
 localrules: region_table
 rule region_table:
-    output: touch(".big_seq_table_{region}")
+    output:
+        touch(".big_fasta_{region}"),
+        bigfasta = "{datadir}/clusters/{{region}}.fasta.gz".format_map(config)
     input:
         drakedata = rules.drake_plan.output.drakedata,
         dada      = region_inputs,
@@ -535,6 +538,32 @@ rule region_table:
         walltime = 10
     log: "{logdir}/pretaxonomy_{{region}}.log".format_map(config)
     script: "{input.script}"
+
+localrules: cluster
+rule cluster:
+    output:
+        biom     = "{clusterdir}/{{region}}.biom".format_map(config),
+        uc       = "{clusterdir}/{{region}}.uc".format_map(config),
+        otutable = "{clusterdir}/{{region}}.table".format_map(config)
+    input:
+        "{clusterdir}/{{region}}.fasta.gz".format_map(config)
+    conda: "config/conda/vsearch.yaml"
+    threads: 8
+    resources:
+        walltime = 60
+    log: "{logdir}/cluster_{{region}}.log".format_map(config)
+    shell:
+      """
+      vsearch --cluster_smallmem {input}\
+              --usersort\
+              --biomout {output.biom}\
+              --sizein\
+              --id 0.97\
+              --uc {output.uc}\
+              --otutabout {output.otutable}
+              --threads 8
+              --log {log}
+      """
 
 # calculate which sequence tables are needed for a taxonomy assignment step
 def taxon_inputs(wildcards):

@@ -168,3 +168,24 @@ its_join <- function(combined_map,
   }
   return(group_map)
 }
+
+write_big_fasta <- function(big_seq_table, filename) {
+  if (!dir.exists(dirname(filename))) dir.create(dirname(filename))
+  tibble::as_tibble(big_seq_table, rownames = "filename") %>%
+    tidyr::gather(key = "seq", value = "size", -1) %>%
+    dplyr::filter(size >= 1) %>%
+    tidyr::extract(col = "filename", into = c("tech", "run", "plate", "well", "region", "dir"), regex = "([a-z]+)_(\\d+)_(\\d+)-([A-H]1?[0-9])([fr]?)-([:alnum:]+).+") %>%
+    dplyr::left_join(
+      dplyr::group_by(., tech, run) %>%
+        dplyr::summarize(total = sum(size)),
+      by = c("tech", "run")) %>%
+    dplyr::group_by(tech, run, seq, total) %>%
+    dplyr::summarize(size = sum(size)) %>%
+    
+    dplyr::mutate(f = size/total,
+                  hash = seqhash(seq),
+                  header = glue::glue("{hash};size={size};sample={tech}_{run};")) %>%
+    dplyr::arrange(desc(f)) %$%
+    Biostrings::DNAStringSet(magrittr::set_names(seq, header)) %T>%
+    Biostrings::writeXStringSet(filepath = filename, compress = "gzip")
+}
