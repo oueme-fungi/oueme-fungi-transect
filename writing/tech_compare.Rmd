@@ -15,6 +15,8 @@ library(ShortRead)
 library(ggplot2)
 library("scales")
 library(drake)
+
+source(here("scripts/map_LSU.R"))
 knitr::opts_chunk$set(echo = FALSE, device = "tikz")
 theme_set(theme_bw(base_size = 24) + theme(legend.direction = "vertical"))
 ```
@@ -35,14 +37,21 @@ asv_table <- big_seq_table_ITS2 %>%
   tidyr::spread(key = seq.run, value = reads, fill = 0)
 
 asv_table %>% 
-  mutate(is_057 = ifelse(is_057 == 0, 0.6, is_057),
-                    pb_500 = ifelse(pb_500 == 0, 0.6, pb_500)) %>%
+  filter(is_057 > 0, pb_500 > 0) %>%
   ggplot(aes(x = is_057, y = pb_500)) +
-  geom_point() +
+  geom_point(alpha = 0.2) +
   scale_x_log10() +
   scale_y_log10() +
   xlab("Ion Torrent Reads") +
-  ylab("PacBio Reads")
+  ylab("PacBio Reads") +
+  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
+           data = asv_table %>% filter(is_057 == 0)) +
+  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
+           data = asv_table %>% filter(pb_500 == 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
+                    mean(log10(is_057[is_057 >= 1])), slope = 1),
+              linetype = 2L, alpha = 0.5)
 
 ```
 
@@ -55,14 +64,21 @@ otu <- read_tsv(here("data/clusters/ITS2.table"),
                 col_types = "ciii") %>% select(is_057, pb_500) %>%
   filter(rowSums(.) > 0)
 otu %>%
-  mutate(is_057 = ifelse(is_057 == 0, 0.6, is_057),
-         pb_500 = ifelse(pb_500 == 0, 0.6, pb_500)) %>%
+  filter(is_057 > 0, pb_500 > 0) %>%
   ggplot(aes(x = is_057, y = pb_500)) +
-  geom_point() +
+  geom_point(alpha = 0.2) +
   scale_x_log10() +
   scale_y_log10() +
   xlab("Ion Torrent Reads") +
-  ylab("PacBio Reads")
+  ylab("PacBio Reads") +
+  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
+           data = otu %>% filter(is_057 == 0)) +
+  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
+           data = otu %>% filter(pb_500 == 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
+                    mean(log10(is_057[is_057 >= 1])), slope = 1),
+              linetype = 2L, alpha = 0.5)
 ```
 
 # IonTorrent ITS2 ASVs: coverage by long PacBio
@@ -119,4 +135,81 @@ otu %>%
   scale_fill_discrete(name = "Ion Torrent") +
   scale_y_continuous(sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
 ```
-`r otu %>% filter(pb_500 > 0) %>% {formatC(sum(.$is_057 > 0) / length(.$pb_500)*100, digits = 1, flag = "0", format = "f")}`% of PacBio OTUs (`r otu %>% {formatC(sum(.$pb_500[.$is_057 > 0]) / sum(.$pb_500) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one IonTorrent ASV
+`r otu %>% filter(pb_500 > 0) %>% {formatC(sum(.$is_057 > 0) / length(.$pb_500)*100, digits = 1, flag = "0", format = "f")}`% of PacBio OTUs (`r otu %>% {formatC(sum(.$pb_500[.$is_057 > 0]) / sum(.$pb_500) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one IonTorrent ASV.
+
+# ASV sample coverage
+```{r}
+asv_samps <- big_seq_table_ITS2 %>%
+  tibble::as_tibble(rownames = "filename") %>%
+  tidyr::gather(key = "seq", value = "reads", -1) %>%
+  tidyr::extract(col = "filename",
+                 into = c("seq.run", "plate", "well", "dir", "region"),
+                 regex = "([a-z]+_\\d+)_(\\d+)-([A-H]1?[0-9])([fr]?)-([:alnum:]+).+") %>%
+  dplyr::filter(reads >= 1, seq.run %in% c("pb_500", "is_057")) %>%
+  dplyr::group_by(seq.run, well, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  dplyr::ungroup()
+
+asv_samp_plot <- asv_samps %>%
+  dplyr::group_by(seq.run, seq) %>%
+  dplyr::summarize(sample = n_distinct(well)) %>%
+  tidyr::spread(key = seq.run, value = sample, fill = 0)
+
+asv_samp_plot %>%
+  filter(is_057 > 0, pb_500 > 0) %>%
+  ggplot(aes(x = is_057, y = pb_500)) +
+  geom_point(alpha = 0.2) +
+  scale_x_log10() +
+  scale_y_log10() +
+  xlab("Ion Torrent wells") +
+  ylab("PacBio wells") +
+  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
+           data = asv_samp_plot %>% filter(is_057 == 0)) +
+  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
+           data = asv_samp_plot %>% filter(pb_500 == 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_500)) -
+                    mean(log10(is_057)), slope = 1),
+              linetype = 2L, alpha = 0.5)
+  
+  
+```
+
+# OTU Sample coverage
+
+```{r}
+otumap = read_tsv(here("data/clusters/ITS2.uc"),
+                  col_names = c("Type", "ID", "Length", "Identity", "Strand",
+                                "X1", "X2", "Align", "Query", "Target"),
+                  col_types = "cccccccccc") %>%
+  dplyr::select(otu = ID, seq = Query) %>%
+  dplyr::mutate_at("seq", stringr::str_remove_all, ";.+") %>%
+  unique()
+
+otu_samps <- asv_samps %>%
+  dplyr::mutate_at("seq", seqhash) %>%
+  dplyr::left_join(otumap, by = "seq")
+
+otu_samp_plot <- otu_samps %>%
+  dplyr::group_by(seq.run, otu) %>%
+  dplyr::summarize(sample = n_distinct(well)) %>%
+  tidyr::spread(key = seq.run, value = sample, fill = 0)
+
+otu_samp_plot %>%
+  filter(is_057 > 0, pb_500 > 0) %>%
+  ggplot(aes(x = is_057, y = pb_500)) +
+  geom_point(alpha = 0.2) +
+  scale_x_log10() +
+  scale_y_log10() +
+  xlab("Ion Torrent wells") +
+  ylab("PacBio wells") +
+  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
+           data = otu_samp_plot %>% filter(is_057 == 0)) +
+  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
+           data = otu_samp_plot %>% filter(pb_500 == 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_500)) -
+                    mean(log10(is_057)), slope = 1),
+              linetype = 2L, alpha = 0.5)
+```
+
