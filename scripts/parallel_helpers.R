@@ -34,7 +34,7 @@ get_target <- function(default) {
   if (interactive()) {
     return(default)
   } else if (exists("snakemake")) {
-    return(sub("^.", "", snakemake@output))
+    return(sub("^.", "", snakemake@output[1]))
   } else {
     return(sub("^.", "", Sys.getenv("TARGETLIST")))
   }
