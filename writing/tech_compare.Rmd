@@ -65,7 +65,7 @@ otu %>%
   ylab("PacBio Reads")
 ```
 
-# IonTorrent ITS2 ASVs: coverage by PacBio long reads
+# IonTorrent ITS2 ASVs: coverage by long PacBio
 ```{r}
 asv_table %>%
   arrange(desc(is_057)) %>%
@@ -79,7 +79,7 @@ asv_table %>%
 ```
 `r asv_table %>% filter(is_057 > 0) %>% {formatC(sum(.$pb_500 > 0) / length(.$is_057)*100, digits = 1, flag = "0", format = "f")}`% of IonTorrent ASVs (`r asv_table %>% {formatC(sum(.$is_057[.$pb_500 > 0]) / sum(.$is_057) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one PacBio read.
 
-# IonTorrent ITS2 ASV-OTUs: coverage by PacBio long reads
+# IonTorrent ITS2 ASV-OTUs: coverage by long PacBio
 ```{r}
 otu %>%
   arrange(desc(is_057)) %>%
