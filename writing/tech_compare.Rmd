@@ -19,6 +19,35 @@ knitr::opts_chunk$set(echo = FALSE, device = "tikz")
 theme_set(theme_bw(base_size = 24) + theme(legend.direction = "vertical"))
 ```
 
+# Read number from PacBio vs. IonTorrent ASVs (ITS2)
+```{r}
+loadd(big_seq_table_ITS2)
+asv_table <- big_seq_table_ITS2 %>%
+  tibble::as_tibble(rownames = "filename") %>%
+  tidyr::gather(key = "seq", value = "reads", -1) %>%
+  dplyr::filter(reads >= 1) %>%
+  tidyr::extract(col = "filename",
+                 into = c("seq.run", "plate", "well", "dir", "region"),
+                 regex = "([a-z]+_\\d+)_(\\d+)-([A-H]1?[0-9])([fr]?)-([:alnum:]+).+") %>%
+  dplyr::filter(seq.run %in% c("is_057", "pb_500")) %>%
+  dplyr::group_by(seq.run, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  tidyr::spread(key = seq.run, value = reads, fill = 0)
+
+asv_table %>% 
+  mutate(is_057 = ifelse(is_057 == 0, 0.6, is_057),
+                    pb_500 = ifelse(pb_500 == 0, 0.6, pb_500)) %>%
+  ggplot(aes(x = is_057, y = pb_500)) +
+  geom_point() +
+  scale_x_log10() +
+  scale_y_log10() +
+  xlab("Ion Torrent Reads") +
+  ylab("PacBio Reads")
+
+```
+
+
+
 # Read number from PacBio vs. IonTorrent ASV-OTUs (ITS2)
 
 ```{r}
@@ -36,6 +65,20 @@ otu %>%
   ylab("PacBio Reads")
 ```
 
+# IonTorrent ITS2 ASVs: coverage by PacBio long reads
+```{r}
+asv_table %>%
+  arrange(desc(is_057)) %>%
+  filter(is_057 > 0) %>%
+  ggplot(aes(y = is_057, x = seq_along(is_057), fill = pb_500 > 0)) +
+  geom_col(width = 1) +
+  xlab("ASVs") +
+  ylab("reads") +
+  scale_fill_discrete(name = "PacBio") +
+  scale_y_continuous(sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
+```
+`r asv_table %>% filter(is_057 > 0) %>% {formatC(sum(.$pb_500 > 0) / length(.$is_057)*100, digits = 1, flag = "0", format = "f")}`% of IonTorrent ASVs (`r asv_table %>% {formatC(sum(.$is_057[.$pb_500 > 0]) / sum(.$is_057) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one PacBio read.
+
 # IonTorrent ITS2 ASV-OTUs: coverage by PacBio long reads
 ```{r}
 otu %>%
@@ -45,9 +88,24 @@ otu %>%
   geom_col(width = 1) +
   xlab("OTUs") +
   ylab("reads") +
-  scale_fill_discrete(name = "PacBio")
+  scale_fill_discrete(name = "PacBio") +
+  scale_y_continuous(sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
 ```
-`r otu %>% filter(is_057 > 0) %>% {formatC(sum(.$pb_500 > 0) / length(.$is_057)*100, digits = 1, flag = "0", format = "f")}`% of IonTorrent OTUs also include at least one PacBio ASV.
+`r otu %>% filter(is_057 > 0) %>% {formatC(sum(.$pb_500 > 0) / length(.$is_057)*100, digits = 1, flag = "0", format = "f")}`% of IonTorrent OTUs (`r otu %>% {formatC(sum(.$is_057[.$pb_500 > 0]) / sum(.$is_057) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one PacBio ASV.
+
+# PacBio ITS2 ASVs: coverage by Ion Torrent
+```{r}
+asv_table %>%
+  arrange(desc(pb_500)) %>%
+  filter(pb_500 > 0) %>%
+  ggplot(aes(y = pb_500, x = seq_along(pb_500), fill = is_057 > 0)) +
+  geom_col(width = 1) +
+  xlab("ASVs") +
+  ylab("reads") +
+  scale_fill_discrete(name = "Ion Torrent") +
+  scale_y_continuous(sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
+```
+`r asv_table %>% filter(pb_500 > 0) %>% {formatC(sum(.$is_057 > 0) / length(.$pb_500)*100, digits = 1, flag = "0", format = "f")}`% of PacBio ASVs (`r asv_table %>% {formatC(sum(.$pb_500[.$is_057 > 0]) / sum(.$pb_500) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one IonTorrent read
 
 # PacBio ITS2 ASV-OTUs: coverage by Ion Torrent
 ```{r}
@@ -58,6 +116,7 @@ otu %>%
   geom_col(width = 1) +
   xlab("OTUs") +
   ylab("reads") +
-  scale_fill_discrete(name = "Ion Torrent")
+  scale_fill_discrete(name = "Ion Torrent") +
+  scale_y_continuous(sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
 ```
-`r otu %>% filter(pb_500 > 0) %>% {formatC(sum(.$is_057 > 0) / length(.$pb_500)*100, digits = 1, flag = "0", format = "f")}`% of PacBio OTUs also include at least one IonTorrent ASV
+`r otu %>% filter(pb_500 > 0) %>% {formatC(sum(.$is_057 > 0) / length(.$pb_500)*100, digits = 1, flag = "0", format = "f")}`% of PacBio OTUs (`r otu %>% {formatC(sum(.$pb_500[.$is_057 > 0]) / sum(.$pb_500) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one IonTorrent ASV
