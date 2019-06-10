@@ -1,5 +1,7 @@
 ---
-title: "Read quality check"
+title: "Comparison of ASVs and OTUs between PacBio and Ion Torrent"
+author: "Brendan Furneaux"
+date: "10 June 2019"
 output:
   beamer_presentation:
     latex_engine: xelatex
@@ -213,3 +215,14 @@ otu_samp_plot %>%
               linetype = 2L, alpha = 0.5)
 ```
 
+# Costs going forward
+
+ - SciLife still has the short amplicon libraries for Ion Torrent
+ - Alternative 1: So we can resequence them on two Ion Torent S5 530 chips and demultiplex
+   - Cost (my best guess) $2 \text{ runs} \times 14000 \frac{\text{sek}}{\text{run}} = 28000 \text{ sek}$
+ - Alternative 2: Pool these two libraries (total ~150 samples) with ITS2 library from spatial paper (same primers, ~100 samples), sequence on one Illumina MiSeq 2×300bp lane (~18M read pairs)
+   - Compare total community recovered from PacBio, Ion Torrent, and Illumina on the transect samples
+   - Cost (best guess) $3 \text{ libraries} \times 1000 \frac{\text{sek}}{\text{ library}} + 1 \text{ run} \times 17000 \frac{\text{sek}}{\text{run}} = 20000 \text{ sek}$
+ - Alternative 3: Forget the libraries from the transect paper and sequence a long amplicon library for the spatial paper on Sequel
+    - We currently have 18 pools of 5 samples each. But not demultiplexed yet!
+    - Cost - ask Anna about Peter's sequencing cost.
