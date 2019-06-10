@@ -394,11 +394,12 @@ rule lsu_reference:
 
 rule rdptrain_reference:
     output: "{ref_root}/rdp_train.fasta.gz".format_map(config)
-    input: "{ref_root}/fungiLSU_train_012014.fa".format_map(config)
+    input: "{ref_root}/RDP/TrainingSet/fungiLSU_train_012014.fa.gz".format_map(config)
     threads: 1
     shell:
         """
-        sed '/>/!y/uU/tT/' {input} |
+        zcat {input} |
+        sed '/>/!y/uU/tT/' |
         gzip - > {output}
         """
 
