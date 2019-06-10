@@ -173,8 +173,7 @@ asv_samp_plot %>%
   geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
            data = asv_samp_plot %>% filter(pb_500 == 0)) +
   stat_smooth(method = "loess", formula = y ~ x) +
-  geom_abline(aes(intercept = mean(log10(pb_500)) -
-                    mean(log10(is_057)), slope = 1),
+  geom_abline(aes(intercept = 0, slope = 1),
               linetype = 2L, alpha = 0.5)
   
   
@@ -213,8 +212,7 @@ otu_samp_plot %>%
   geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
            data = otu_samp_plot %>% filter(pb_500 == 0)) +
   stat_smooth(method = "loess", formula = y ~ x) +
-  geom_abline(aes(intercept = mean(log10(pb_500)) -
-                    mean(log10(is_057)), slope = 1),
+  geom_abline(aes(intercept = 0, slope = 1),
               linetype = 2L, alpha = 0.5)
 ```
 
