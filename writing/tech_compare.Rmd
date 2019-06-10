@@ -93,7 +93,7 @@ asv_table %>%
   xlab("ASVs") +
   ylab("reads") +
   scale_fill_discrete(name = "PacBio") +
-  scale_y_continuous(sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
+  scale_y_continuous(trans = log10_trans(), sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
 ```
 `r asv_table %>% filter(is_057 > 0) %>% {formatC(sum(.$pb_500 > 0) / length(.$is_057)*100, digits = 1, flag = "0", format = "f")}`% of IonTorrent ASVs (`r asv_table %>% {formatC(sum(.$is_057[.$pb_500 > 0]) / sum(.$is_057) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one PacBio read.
 
@@ -107,7 +107,8 @@ otu %>%
   xlab("OTUs") +
   ylab("reads") +
   scale_fill_discrete(name = "PacBio") +
-  scale_y_continuous(sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
+  scale_y_continuous(trans = log10_trans(),
+                     sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
 ```
 `r otu %>% filter(is_057 > 0) %>% {formatC(sum(.$pb_500 > 0) / length(.$is_057)*100, digits = 1, flag = "0", format = "f")}`% of IonTorrent OTUs (`r otu %>% {formatC(sum(.$is_057[.$pb_500 > 0]) / sum(.$is_057) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one PacBio ASV.
 
@@ -121,7 +122,8 @@ asv_table %>%
   xlab("ASVs") +
   ylab("reads") +
   scale_fill_discrete(name = "Ion Torrent") +
-  scale_y_continuous(sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
+  scale_y_continuous(trans = log10_trans(),
+                     sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
 ```
 `r asv_table %>% filter(pb_500 > 0) %>% {formatC(sum(.$is_057 > 0) / length(.$pb_500)*100, digits = 1, flag = "0", format = "f")}`% of PacBio ASVs (`r asv_table %>% {formatC(sum(.$pb_500[.$is_057 > 0]) / sum(.$pb_500) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one IonTorrent read
 
@@ -135,7 +137,8 @@ otu %>%
   xlab("OTUs") +
   ylab("reads") +
   scale_fill_discrete(name = "Ion Torrent") +
-  scale_y_continuous(sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
+  scale_y_continuous(trans = log10_trans(),
+                     sec.axis = sec_axis(~ ./sum(.), name = "frac. of comm."))
 ```
 `r otu %>% filter(pb_500 > 0) %>% {formatC(sum(.$is_057 > 0) / length(.$pb_500)*100, digits = 1, flag = "0", format = "f")}`% of PacBio OTUs (`r otu %>% {formatC(sum(.$pb_500[.$is_057 > 0]) / sum(.$pb_500) * 100, digits = 1, flag = "0", format = "f")}`% of reads) also include at least one IonTorrent ASV.
 
