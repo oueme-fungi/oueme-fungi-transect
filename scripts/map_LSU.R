@@ -1,11 +1,11 @@
 # hash a set of sequences
-seqhash <- function(seq, len = 8) UseMethod("seqhash")
-seqhash.character <- function(seq, len = 8) {
-  h <- purrr::map_chr(seq, digest::digest)
+seqhash <- function(seq, algo = "xxhash32", len = 8) UseMethod("seqhash")
+seqhash.character <- function(seq, algo = "xxhash32", len = 8) {
+  h <- purrr::map_chr(seq, digest::digest, algo = algo)
   stringr::str_sub(h, end = len)
 }
-seqhash.XStringSet <- function(seq, len = 8) {
-  seqhash.character(as.character(seq))
+seqhash.XStringSet <- function(seq, algo = "xxhash32", len = 8) {
+  seqhash.character(as.character(seq), algo = algo, len = len)
 }
 
 
