@@ -57,3 +57,20 @@ setup_log <- function(default) {
   sink(logfile, split = TRUE)
   sink(logfile, type = "message")
 }
+
+#### combine drake targets with their names ####
+drake_combine <- function(...) UseMethod("drake_combine")  
+
+drake_combine.default <- function(...) {
+   list <- list(...)
+   names(list) <- as.character(match.call(expand.dots = FALSE)$...)
+   list
+}
+
+#### return the argument's name as a string ####
+name_to_string <- function(x) deparse(substitute(x))
+
+#### Get the name of the current Conda environment ####
+get_conda_env <- function() {
+   Sys.getenv("CONDA_PREFIX")
+}

@@ -76,25 +76,25 @@ revcomp <- function(s)
 # read the dataset definitions
 dataset <- read_csv(dataset.file) %>%
   mutate(
-    tagfile.name = file.path(tags.dir, paste0(Seq.Run, ".fasta")),
-    PlateKey = map(file.path(lab.dir, PlateKey), read_csv),
-    Forward = tags[Forward],
-    Reverse = tags[Reverse],
+    tagfile_name = file.path(tags.dir, paste0(seq_run, ".fasta")),
+    plate_key = map(file.path(lab.dir, plate_key), read_csv),
+    forward = tags[forward],
+    reverse = tags[reverse],
     out.fasta = pmap(
-      list(PlateKey, Forward, Reverse),
-      function(PlateKey, Forward, Reverse)
-        crossing(select(Forward, tag.fwd = name, seq.fwd = object),
-                 select(Reverse, tag.rev = name, seq.rev = object)) %>%
-        mutate_at("seq.rev", revcomp) %>%
-        left_join(select(PlateKey, starts_with("tag"), well)) %>%
+      list(plate_key, forward, reverse),
+      function(plate_key, forward, reverse)
+        crossing(select(forward, tag_fwd = name, seq_fwd = object),
+                 select(reverse, tag_rev = name, seq_rev = object)) %>%
+        mutate_at("seq_rev", revcomp) %>%
+        left_join(select(plate_key, starts_with("tag"), well)) %>%
         transmute(name = replace_na(well, "unnamed"),
-                  object = paste0(seq.fwd, "...", seq.rev))
+                  object = paste0(seq_fwd, "...", seq_rev))
     ))
 # Write the outputs
 pwalk(dataset,
-      function(tagfile.name, out.fasta, ...) {
+      function(tagfile_name, out.fasta, ...) {
         write.fasta(sequences = as.list(out.fasta$object),
                     names = out.fasta$name,
-                    file.out = tagfile.name,
+                    file.out = tagfile_name,
                     as.string = TRUE)
       })

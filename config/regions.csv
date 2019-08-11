@@ -1,7 +1,14 @@
-Region,MaxEE,MinLength,MaxLength,Reference
-ITS1,3,50,500,unite.ITS1
-ITS2,3,50,500,unite.ITS2
-LSU,3,500,2999,rdp_train.LSU
-short,3,50,2999,unite.ITS2
-long,3,500,2999,"unite.ITS, rdp_train.LSU"
-ITS,3,100,1500,unite.ITS
+region,range,region_start,region_end,max_ee,min_length,max_length,min_length_post,max_length_post,reference
+ITS1,,ITS1,ITS1,3,50,500,,,unite.ITS1
+ITS2,,ITS2,ITS2,3,50,500,,,unite.ITS2
+LSU,,LSU,LSU,3,500,2999,,,rdp_train.LSU
+short,,full,full,3,50,2999,,,unite.ITS2
+long_solo,,full,full,3,500,2999,,,"unite.ITS, rdp_train.LSU"
+long_quart,1,full,full,3,500,1205,500,1199,"unite.ITS, rdp_train.LSU"
+long_quart,2,full,full,3,1195,1505,1200,1499,"unite.ITS, rdp_train.LSU"
+long_quart,3,full,full,3,1495,1805,1500,1799,"unite.ITS, rdp_train.LSU"
+long_quart,4,full,full,3,1795,2999,1800,2999,"unite.ITS, rdp_train.LSU"
+long_trio,1,full,full,3,500,1205,500,1199,"unite.ITS, rdp_train.LSU"
+long_trio,2,full,full,3,1195,1805,1200,1799,"unite.ITS, rdp_train.LSU"
+long_trio,3,full,full,3,1795,2999,1800,2999,"unite.ITS, rdp_train.LSU"
+ITS,,ITS1,ITS2,3,100,1500,,,unite.ITS
