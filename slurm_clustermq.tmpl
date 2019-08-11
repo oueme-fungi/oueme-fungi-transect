@@ -8,6 +8,8 @@
 #SBATCH --array=1-{{ n_jobs }}
 #SBATCH --cpus-per-task={{ ncpus | 1 }}
 #SBATCH --time={{ minutes | 6:00:00 }}
+#SBATCH -C usage_mail
+#SBATCH --mail-type=ALL
 
 ## texlive from conda isn't functional
 module load texlive
