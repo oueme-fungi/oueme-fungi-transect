@@ -1,19 +1,3 @@
-dadamap <- function(derep, asv) {
-	loadNamespace("dada2")
-  purrr::map2(derep, asv,
-       function(derep, asv) {
-         m <- tibble::tibble(seq.id = names(derep$map),
-                             derep.idx = derep$map,
-                             derep.seq = names(derep$uniques)[derep.idx])
-         
-         dplyr::left_join(m,
-                          tibble::tibble(
-                            asv.idx = asv$map,
-                            derep.idx = seq_along(asv.idx),
-                            asv.seq = asv$sequence[asv.idx]))
-       })
-}
-
 join_seqs <- function(seq.tabs) {
   purrr::map(seq.tabs, as.data.frame) %>%
     purrr::map(tibble::rownames_to_column, "file") %>%

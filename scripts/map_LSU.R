@@ -1,12 +1,4 @@
-# hash a set of sequences
-seqhash <- function(seq, algo = "xxhash32", len = 8) UseMethod("seqhash")
-seqhash.character <- function(seq, algo = "xxhash32", len = 8) {
-  h <- purrr::map_chr(seq, digest::digest, algo = algo)
-  stringr::str_sub(h, end = len)
-}
-seqhash.XStringSet <- function(seq, algo = "xxhash32", len = 8) {
-  seqhash.character(as.character(seq), algo = algo, len = len)
-}
+
 
 
 # Take a list of \code{ShortReadQ} and return the reads, ids, and expected error
@@ -37,22 +29,6 @@ raw_reads <- function(..., filenames, max_ee = Inf) {
               dplyr::filter(ee <= max_ee) %>%
               dplyr::select(-ee)
           })
-}
-
-
-combine_bigmaps <- function(dadamap, rawdata) {
-  purrr::map_dfr(dadamap, ~tibble::tibble(file = names(.), data = .)) %>%
-    tidyr::extract(
-      col = "file",
-      into = c("Seq.Run", "Plate", "Well", "Direction", "Region"),
-      regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.qfilt\\.fastq\\.gz") %>%
-    tidyr::unnest(data) %>%
-    dplyr::full_join(rawdata) %>%
-    dplyr::group_by(seq.id) %>%
-    dplyr::filter(any(!is.na(asv.idx))) %>%
-    dplyr::mutate(seq = dplyr::coalesce(asv.seq, derep.seq, seq)) %>%
-    dplyr::select(-derep.seq, -derep.idx, -asv.seq, -asv.idx) %>%
-    tidyr::spread(key = Region, value = seq)
 }
 
 calculate_consensus <- function(seq, names, ncpus = 1) {
