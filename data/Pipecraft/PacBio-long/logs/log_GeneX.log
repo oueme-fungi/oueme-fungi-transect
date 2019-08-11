@@ -1,0 +1,119 @@
+Script started on Fri Mar 29 10:03:21 2019
+### Gene extraction ###
+
+When using the incorporated tools, please cite as follows:
+ITS Extractor - Bengtsson-Palme J., et al., 2013. Improved software detection and extraction of ITS1 and ITS2 from ribosomal ITS sequences of fungi and other eukaryotes for analysis of environmental sequencing data. Methods in Ecology and Evolution 4, 914-919.
+Copyright (C) 2012-2014 Johan Bengtsson-Palme et al.
+microbiology.se/software/itsx/
+
+V-Xtractor - Hartmann M., et al., 2010. V-Xtractor: An open-source, high-throughput software tool to identify and extract hypervariable regions of small subunit (16 S/18 S) ribosomal RNA gene sequences. Journal of Microbiological Methods 83, 250-253.
+Copyright (C) Hartmann et al. 2010
+www.microbiome.ch/Tools.html
+
+Metaxa2 - Bengtsson-Palme J., et al., 2015. Metaxa2: improved identification and taxonomic classification of small and large subunit rRNA in metagenomic data. Molecular Ecology Resources 15, 1403-1414.
+Copyright (C) 2011-2016 Johan Bengtsson-Palme et al.
+microbiology.se/software/metaxa2/
+
+mothur - Schloss, P.D., et al., 2009. Introducing mothur: Open-Source, Platform-Independent, Community-Supported Software for Describing and Comparing Microbial Communities. Applied and Environmental Microbiology 75, 7537-7541.
+www.mothur.org
+____________________________________________________
+
+### Make unique seqs prior to extraction ###
+
+mothur > unique.seqs(fasta=/shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.fasta)
+1000	994
+2000	1991
+3000	2991
+4000	3984
+5000	4983
+6000	5980
+7000	6977
+8000	7975
+8234	8208
+
+Output File Names: 
+/shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.names
+/shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.unique.fasta
+
+### ITSx 1.0.11 ###
+# Extracting ITS #
+
+region(s) = all
+Organism group(s) = all
+CPUs = 4
+
+Submitting /shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.unique.fasta to ITSx
+...
+ 
+ITSx -i /shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.unique.fasta --save_regions all -t all --cpu 4 -o ITSx_out --complement F --graphical F --preserve T
+
+ITSx -- Identifies ITS sequences and extracts the ITS region
+Version: 1.0.11
+-----------------------------------------------------------------
+Fri Mar 29 10:03:24 2019 : Preparing HMM database (should be quick)...
+Fri Mar 29 10:03:24 2019 : Checking and handling input sequence data (should not take long)...
+Fri Mar 29 10:03:25 2019 : Doing paralellised comparison to HMM database (this may take a long while)...
+    Fri Mar 29 10:07:20 2019 : Bryophyta analysis of main strand finished.
+    Fri Mar 29 10:08:29 2019 : Bacillariophyta analysis of main strand finished.
+    Fri Mar 29 10:09:33 2019 : Amoebozoa analysis of main strand finished.
+    Fri Mar 29 10:12:05 2019 : Euglenozoa analysis of main strand finished.
+    Fri Mar 29 10:19:29 2019 : Rhodophyta analysis of main strand finished.
+    Fri Mar 29 10:21:26 2019 : Phaeophyceae analysis of main strand finished.
+    Fri Mar 29 10:25:29 2019 : Chlorophyta analysis of main strand finished.
+    Fri Mar 29 10:27:30 2019 : Alveolates analysis of main strand finished.
+    Fri Mar 29 10:32:46 2019 : Marchantiophyta analysis of main strand finished.
+    Fri Mar 29 10:36:11 2019 : Haptophyceae analysis of main strand finished.
+    Fri Mar 29 10:38:42 2019 : Raphidophyceae analysis of main strand finished.
+    Fri Mar 29 10:47:26 2019 : Oomycota analysis of main strand finished.
+    Fri Mar 29 10:50:15 2019 : Synurophyceae analysis of main strand finished.
+    Fri Mar 29 10:50:27 2019 : Rhizaria analysis of main strand finished.
+    Fri Mar 29 10:52:10 2019 : Eustigmatophyceae analysis of main strand finished.
+    Fri Mar 29 11:37:34 2019 : Tracheophyta analysis of main strand finished.
+    Fri Mar 29 11:43:01 2019 : Metazoa analysis of main strand finished.
+    Fri Mar 29 11:43:19 2019 : Fungi analysis of main strand finished.
+    Fri Mar 29 11:43:19 2019 : All processes finished.
+Fri Mar 29 11:43:19 2019 : Parallel HMM-scan finished.
+Fri Mar 29 11:43:19 2019 : Analysing results of HMM-scan (this might take quite some time)...
+Fri Mar 29 11:43:29 2019 : Extraction finished!
+-----------------------------------------------------------------
+Thank you for using ITSx!
+Please report bugs or unsupported lineages to itsx@microbiology.se
+
+# Deunique sequences (sequences were uniqued prior to ITSx)
+
+mothur > deunique.seqs(fasta=ITSx_out.ITS1.fasta, name=/shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.names )
+
+Output File Names: 
+ITSx_out.ITS1.redundant.fasta
+
+mothur > deunique.seqs(fasta=ITSx_out.5_8S.fasta, name=/shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.names )
+
+Output File Names: 
+ITSx_out.5_8S.redundant.fasta
+
+mothur > deunique.seqs(fasta=ITSx_out.ITS2.fasta, name=/shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.names )
+
+Output File Names: 
+ITSx_out.ITS2.redundant.fasta
+
+mothur > deunique.seqs(fasta=ITSx_out.LSU.fasta, name=/shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.names )
+
+Output File Names: 
+ITSx_out.LSU.redundant.fasta
+
+# Merging ITSx outputs ITS1 + 5.8S + ITS2 to obtain FULL ITS region
+ # Compare with original ITSx output (ITSx_out.full.redundant.fasta)
+  # if SSU or LSU has only few base pairs, ITSx does not detect those regions and does not include those in the full ITS output
+
+# done -> output = Full_ITS.fasta
+
+##########################
+DONE
+#############################
+ITSx finished
+################################
+Output = ITSx_out.*.redundant.fasta
+###################################
+You may close this window now!
+
+Script done on Fri Mar 29 11:43:33 2019

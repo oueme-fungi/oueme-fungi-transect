@@ -1,0 +1,85 @@
+Script started on Fri Jun  8 11:43:52 2018
+### DEMULTILPEXING ###
+
+When using the incorporated tools, please cite as follows:
+
+mothur (v1.36.1) - Schloss, P.D., et al., 2009. Introducing mothur: Open-Source, Platform-Independent, Community-Supported Software for Describing and Comparing Microbial Communities. Applied and Environmental Microbiology 75, 7537-7541.
+www.mothur.org
+
+OBITools (v1.2.9) - Boyer F., Mercier C., Bonin A., et al., 2016. OBITOOLS: a UNIX-inspired software package for DNA metabarcoding. Molecular Ecology Resources 16, 176-182.
+Distributed under the CeCILL free software licence version 2
+metabarcoding.org//obitools/doc/index.html
+
+vsearch (v1.11.1) - github.com/torognes/vsearch
+Copyright (C) 2014-2015, Torbjorn Rognes, Frederic Mahe and Tomas Flouri.
+
+Fastx Toolkit (v0.0.14) - hannonlab.cshl.edu/fastx_toolkit
+Distributed under the Affero GPL (AGPL) version 3 by the Free Software Foundation
+
+fqgrep (v0.4.4) - github.com/indraniel/fqgrep
+Copyright (c) 2011-2016, Indraniel Das
+________________________________________________
+
+Working directory = /shared/Shared_folder/Metagenomics/africa/500-2
+
+Input=/shared/Shared_folder/Metagenomics/africa/500-2/Demultiplexed_rc.fasta
+   #Input fasta contains 1870 sequences
+oligos=/shared/Shared_folder/Metagenomics/africa/500-2/oligo5.txt
+
+# Renaming sequence headers ...
+
+Renamed sequence headers to Seq1, Seq2, ...
+
+### Demultiplexing with mothur ###
+
+bdiffs=0
+
+mothur > trim.seqs(fasta=r_Demultiplexed_rc.fasta, oligos=/shared/Shared_folder/Metagenomics/africa/500-2/oligo5.txt, bdiffs=0, processors=4)
+
+Using 4 processors.
+467
+
+mothur > trim.seqs(fasta=r_Demultiplexed_rc.fasta, oligos=/shared/Shared_folder/Metagenomics/africa/500-2/oligo5.txt, bdiffs=0, processors=4)
+
+Using 4 processors.
+467
+
+mothur > trim.seqs(fasta=r_Demultiplexed_rc.fasta, oligos=/shared/Shared_folder/Metagenomics/africa/500-2/oligo5.txt, bdiffs=0, processors=4)
+
+Using 4 processors.
+468
+
+mothur > trim.seqs(fasta=r_Demultiplexed_rc.fasta, oligos=/shared/Shared_folder/Metagenomics/africa/500-2/oligo5.txt, bdiffs=0, processors=4)
+
+Using 4 processors.
+468
+Appending files from process 878
+Appending files from process 879
+Appending files from process 880
+
+Group count: 
+LR5-13	13
+LR5-14	2
+LR5-16	3
+LR5-18	3
+LR5-19	1
+LR5-20	1
+Total of all groups is 23
+
+Output File Names: 
+r_Demultiplexed_rc.trim.fasta
+r_Demultiplexed_rc.scrap.fasta
+r_Demultiplexed_rc.groups
+
+##########################
+DONE
+############################
+Demultiplexing finished
+##############################
+output fasta = Demultiplexed.fasta, contains 23 sequences
+output groups = Demultiplexed.groups
+unidentified = unidentified.fasta
+################################
+You may close this window now!
+
+Script done on Fri Jun  8 11:43:53 2018

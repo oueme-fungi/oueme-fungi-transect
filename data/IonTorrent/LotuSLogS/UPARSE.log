@@ -1,8 +1,0 @@
-usearch v10.0.240_i86linux32, 4.0Gb RAM (65.8Gb total), 40 cores
-/gpfs/hpchome/bahram/LOTUS/usearch10 -cluster_otus myTorrent/tmpFiles//derep.fas -otus myTorrent/tmpFiles//tmp_otu.fa -log myTorrent/LotuSLogS//UPARSE.log -uparseout myTorrent/tmpFiles//finalOTU.uc 
-Started Wed Jul 25 17:47:55 2018
-4064884 mallocs, 3980633 frees
-
-Finished Wed Jul 25 17:59:48 2018
-Elapsed time 11:53
-Max memory 74Mb

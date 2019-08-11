@@ -1,0 +1,46 @@
+Script started on Fri Jul 27 09:15:53 2018
+### BLAST ###
+
+When using the incorporated tools, please cite as follows:
+
+blastn - Camacho, C., et al., 2009. BLAST plus: architecture and applications. BMC Bioinformatics 10.
+www.ncbi.nlm.nih.gov/books/NBK279690/
+
+mothur - Schloss, P.D., et al., 2009. Introducing mothur: Open-Source, Platform-Independent, Community-Supported Software for Describing and Comparing Microbial Communities. Applied and Environmental Microbiology 75, 7537-7541.
+www.mothur.org
+________________________________________________
+
+Working directory=/shared/Shared_folder/Metagenomics/africa/Combined_pacbio
+
+Representative sequences = /shared/Shared_folder/Metagenomics/africa/Combined_pacbio/vsearch_centroids.fasta
+
+### BLAST ###
+
+task = blastn
+strands = plus
+threads = 1
+e value = 10.0
+word size = 11
+reward = 2
+penalty = -3
+gap open = 5
+Run BLAST databases = Together (no. of databases = 1)
+gap extend = 2
+
+# RUN BLAST with one database
+blastn -strand plus -num_threads 1 -query /shared/Shared_folder/Metagenomics/africa/Combined_pacbio/vsearch_centroids.fasta -db /shared/Shared_folder/Metagenomics/africa/Combined_pacbio/UNITE_public_01.12.2017.fasta.DB -out 10BestHits.xml -task blastn -max_target_seqs 10 -evalue=10.0 -word_size=11 -reward=2 -penalty=-3 -gapopen=5 -gapextend=2 -outfmt=5
+
+# Parsing BLAST results
+...
+
+##########################
+DONE
+############################
+BLAST finished
+##############################
+output = BLAST_1st_best_hit.txt
+         BLAST_10_best_hits.txt
+################################
+You may close this window now!
+
+Script done on Fri Jul 27 09:33:10 2018

@@ -1,0 +1,112 @@
+Script started on Sat Mar 30 01:24:39 2019
+### CLUSTERING ###
+
+When using the incorporated tools, please cite as follows:
+
+mothur (v1.36.1) - Schloss, P.D., et al., 2009. Introducing mothur: Open-Source, Platform-Independent, Community-Supported Software for Describing and Comparing Microbial Communities. Applied and Environmental Microbiology 75, 7537-7541.
+www.mothur.org
+
+vsearch (v1.11.1) - github.com/torognes/vsearch
+Copyright (C) 2014-2015, Torbjorn Rognes, Frederic Mahe and Tomas Flouri.
+
+CD-HIT (v4.6) - Fu, L., et al., 2012. CD-HIT: accelerated for clustering the next-generation sequencing data. Bioinformatics 28, 3150-3152.
+weizhongli-lab.org/cd-hit/
+
+swarm (v2.1.8) - Mahe, F., et al., 2015. Swarm v2: highly-scalable and high-resolution amplicon clustering. PeerJ 3:e1420 doi.org/10.7717/peerj.1420
+Copyright (C) 2012-2016 Torbjorn Rognes and Frederic Mahe
+Distributed under the GNU AFFERO GENERAL PUBLIC LICENSE version 3 by the Free Software Foundation
+github.com/torognes/swarm
+________________________________________________
+
+Working directory = /shared/Shared_folder/Metagenomics/africa/2019
+Input = /shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.unique.fasta
+Groups file = /shared/Shared_folder/Metagenomics/africa/2019/long_pacbio.groups
+
+Threshold = 0.97
+Minimum seq length = 10
+Minimum cluster size = 2
+LCutoff = 0.0
+Memory = 400
+Threads = 1
+Storing = 0
+Algorithm = 0
+
+### Clustering with CDHIT ###
+================================================================
+Program: CD-HIT, V4.6 (+OpenMP), Oct 21 2013, 16:36:23
+Command: cdhit-est -i
+         /shared/Shared_folder/Metagenomics/africa/2019/Filtered_ChimerasDenovoRef.unique.fasta
+         -c 0.97 -M 400 -d 0 -l 10 -T 1 -B 0 -g 0 -s 0.0 -o
+         Clusters_CDHIT
+
+Started: Sat Mar 30 01:24:39 2019
+================================================================
+                            Output                              
+----------------------------------------------------------------
+total seq: 8208
+longest and shortest : 2285 and 462
+Total letters: 11400335
+Sequences have been sorted
+
+Approximated minimal memory consumption:
+Sequence        : 12M
+Buffer          : 1 X 12M = 12M
+Table           : 1 X 16M = 16M
+Miscellaneous   : 4M
+Total           : 46M
+
+Table limit with the given memory limit:
+Max number of representatives: 227384
+Max number of word counting entries: 44149158
+
+comparing sequences from          0  to       8208
+........
+     8208  finished       1519  clusters
+
+Apprixmated maximum memory consumption: 62M
+writing new database
+writing clustering information
+program completed !
+
+Total CPU time 6.50
+
+#Converting CDHIT cluster format (may take a while)
+
+# Keeping only clusters that contain >=2 sequences
+gawk NF>=2 < Clusters.cluster > Clusters.MinSize2.cluster
+
+# Removed 922 clusters that had less than 2 sequences (922 seqs removed)
+# Kept 597 clusters with 7286 sequences (Clusters.MinSize2.cluster)
+
+# Selecting CD-HIT representative seqs for Clusters.MinSize2.cluster
+gawk {if (NF<2) print } Clusters.cluster > Seqs_to_remove.names
+
+mothur > remove.seqs(fasta=RepSeqs_CDHIT.temp, accnos=Seqs_to_remove.names)
+Removed 922 sequences from your fasta file.
+
+Output File Names: 
+RepSeqs_CDHIT.pick.temp
+
+# Making OTU table
+
+mothur > make.shared(list=mothur_with_count.list, group=Final.groups)
+0.03
+
+Output File Names: 
+mothur_with_count.shared
+
+##########################
+DONE
+#############################
+Clustering finished
+################################
+Output clusters = Clusters.MinSize2.cluster
+Output clusters = Clusters_sort.cluster
+CD-HIT formatted cluster = Clusters_CDHIT.clstr
+CD-HIT representative seqs = RepSeqs_CDHIT.MinSize2.fasta
+CD-HIT representative seqs = RepSeqs_CDHIT.fasta
+OTU table = OTU_table.txt
+###################################
+You may close this window now!
+
+Script done on Sat Mar 30 01:24:49 2019
