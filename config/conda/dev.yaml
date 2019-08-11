@@ -8,7 +8,7 @@ dependencies:
   - r-base=3.5.1
   - r-tidyverse=1.2.1
   - r-here=0.1
-  - r-clustermq=0.8.7
+  - r-clustermq=0.8.8
   - r-tidyxl=1.0.4
   - r-glue=1.3.1
   - r-bookdown=0.9
@@ -27,11 +27,15 @@ dependencies:
   - r-usethis=1.5.0
   - bioconductor-ggtree=1.14.4
   - r-dada2=1.12.1
+  - r-tzara=0.0.2
   - r-ritsx=0.0.1
   - r-funguildr=0.1
-  - r-drake=7.2.0
+  - r-drake=7.4.0
   - r-assertr=1.0.0
   - r-tikzdevice=0.12
   - r-inext=2.0.19
   - rstudio
+  - r-roxygen2
+  - r-devtools
+  - r-pryr
   - defaults::qt
