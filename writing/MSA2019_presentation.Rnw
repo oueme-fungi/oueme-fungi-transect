@@ -5,6 +5,7 @@
 \author{\mbox{\textbf{Brendan Furneaux}\inst{1}} \and \mbox{Mohammad Bahram\inst{2}} \and \mbox{Nourou Yorou\inst{3}} \and \mbox{Anna Rosling\inst{1}} \and \mbox{Martin Ryberg\inst{1}}}
 \institute{\inst{1}Uppsala University \and \inst{2}Swedish University of Agricultural Sciences \and \inst{3}University of Parakou}
 \date{13 August, 2019}
+\logo{\includegraphics[width=2.5cm]{Uppsala_University_logo}}
 
 \begin{document}
 
@@ -157,78 +158,78 @@ reverselog_trans <- function(base = exp(1)) {
   \endcols
 \end{frame}
 
-\begin{frame}{Sequencing}
-  \framesubtitle{Which platform?}
-  \begincols
-  \begincol{0.5\linewidth}
-    \begin{block}{IonTorrent}
-      \begin{itemize}
-        \tightlist
-        \item Low cost per bp.
-        \item Smaller minimum job than Illumina.
-        \item Needs less DNA than PacBio.
-        \item Bias against amplicons greater than 400 bp.
-         \item Cannot sequence long ITS+LSU amplicon.
-       \end{itemize}
-     \end{block}
-  \endcol
-  \begincol{0.5\linewidth}
-     \begin{block}{PacBio}
-        \begin{itemize}
-          \tightlist
-          \item Higher cost per bp $\implies$ fewer samples or less sequencing depth for same budget.
-          \item Requires more DNA.
-          \item Good accuracy requires multiple circular reads.
-        \end{itemize}
-      \end{block}
-  \endcol
-  \endcols
-  \centering
-
-\end{frame}
-
-\begin{frame}{Sequencing}
-  \begin{block}{The plan}
-  Three sequencing runs:
-  \begin{itemize}
-    \item Ion Proton S5, short amplicon
-    \begin{itemize}
-      \item Pool all samples on one chip
-    \end{itemize}
-    \item PacBio RSII, short amplicon
-    \begin{itemize}
-      \item Same amplicon library as IonTorrent.
-      \item Two sequencing libraries, two SMRT cells per library.
-    \end{itemize}
-    \item PacBio RSII, long amplicon
-    \begin{itemize}
-      \item Two sequencing libraries, four SMRT cells per library.
-    \end{itemize}
-  \end{itemize}
-  \end{block}
-\end{frame}
-
-\begin{frame}{Sequencing}
-  \begin{block}{What happened}
-  Three sequencing runs:
-  \begin{itemize}
-    \item \sout{IonTorrent, short amplicon}
-    \begin{itemize}
-      \item Accidentally used primers with IonTorrent adapters built in.
-      \item Lost some of the multiplexing barcodes.
-      \item Can't demultiplex the samples --- can only look at pool of all reads.
-    \end{itemize}
-    \item PacBio, short amplicon
-    \begin{itemize}
-      \item OK
-    \end{itemize}
-    \item PacBio, long amplicon
-    \begin{itemize}
-      \item OK
-    \end{itemize}
-  \end{itemize}
-  \end{block}
-\end{frame}
+% \begin{frame}{Sequencing}
+%   \framesubtitle{Which platform?}
+%   \begincols
+%   \begincol{0.5\linewidth}
+%     \begin{block}{IonTorrent}
+%       \begin{itemize}
+%         \tightlist
+%         \item Low cost per bp.
+%         \item Smaller minimum job than Illumina.
+%         \item Needs less DNA than PacBio.
+%         \item Bias against amplicons greater than 400 bp.
+%          \item Cannot sequence long ITS+LSU amplicon.
+%        \end{itemize}
+%      \end{block}
+%   \endcol
+%   \begincol{0.5\linewidth}
+%      \begin{block}{PacBio}
+%         \begin{itemize}
+%           \tightlist
+%           \item Higher cost per bp $\implies$ fewer samples or less sequencing depth for same budget.
+%           \item Requires more DNA.
+%           \item Good accuracy requires multiple circular reads.
+%         \end{itemize}
+%       \end{block}
+%   \endcol
+%   \endcols
+%   \centering
+% 
+% \end{frame}
+% 
+% \begin{frame}{Sequencing}
+%   \begin{block}{The plan}
+%   Three sequencing runs:
+%   \begin{itemize}
+%     \item Ion Proton S5, short amplicon
+%     \begin{itemize}
+%       \item Pool all samples on one chip
+%     \end{itemize}
+%     \item PacBio RSII, short amplicon
+%     \begin{itemize}
+%       \item Same amplicon library as IonTorrent.
+%       \item Two sequencing libraries, two SMRT cells per library.
+%     \end{itemize}
+%     \item PacBio RSII, long amplicon
+%     \begin{itemize}
+%       \item Two sequencing libraries, four SMRT cells per library.
+%     \end{itemize}
+%   \end{itemize}
+%   \end{block}
+% \end{frame}
+% 
+% \begin{frame}{Sequencing}
+%   \begin{block}{What happened}
+%   Three sequencing runs:
+%   \begin{itemize}
+%     \item \sout{IonTorrent, short amplicon}
+%     \begin{itemize}
+%       \item Accidentally used primers with IonTorrent adapters built in.
+%       \item Lost some of the multiplexing barcodes.
+%       \item Can't demultiplex the samples --- can only look at pool of all reads.
+%     \end{itemize}
+%     \item PacBio, short amplicon
+%     \begin{itemize}
+%       \item OK
+%     \end{itemize}
+%     \item PacBio, long amplicon
+%     \begin{itemize}
+%       \item OK
+%     \end{itemize}
+%   \end{itemize}
+%   \end{block}
+% \end{frame}
 
 \begin{frame}{Bioinformatics}
   \begin{itemize}
@@ -242,20 +243,20 @@ reverselog_trans <- function(base = exp(1)) {
 \begin{frame}{Expected error rate}
 \framesubtitle{After \texttt{Arrow}}
   
-<<errorrate, fig.width = 12>>=
-ggplot(reads_subset, aes(x = erate,
-                  linetype = Dataset,
-                  group = paste(Dataset, Region),
-                  color = Region)) +
-  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
-  scale_x_continuous(name = "Expected number of errors per base",
-                     trans = reverselog_trans(10),
-                     limits = c(NA, 1e-5),
-                     oob = squish) +
-  scale_y_continuous(name = "Fraction passing") +
-  scale_color_viridis_d(option = "C") +
-  scale_linetype_discrete()
-@
+% <<errorrate, fig.width = 12>>=
+% ggplot(reads_subset, aes(x = erate,
+%                   linetype = Dataset,
+%                   group = paste(Dataset, Region),
+%                   color = Region)) +
+%   geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
+%   scale_x_continuous(name = "Expected number of errors per base",
+%                      trans = reverselog_trans(10),
+%                      limits = c(NA, 1e-5),
+%                      oob = squish) +
+%   scale_y_continuous(name = "Fraction passing") +
+%   scale_color_viridis_d(option = "C") +
+%   scale_linetype_discrete()
+% @
 \end{frame}
 
 \begin{frame}{Bioinformatics}
@@ -272,20 +273,20 @@ ggplot(reads_subset, aes(x = erate,
 \begin{frame}{Expected total number of errors}
 \framesubtitle{After \texttt{Arrow}}
   
-<<totalerror, fig.width = 12>>=
-ggplot(reads_subset, aes(x = eexp,
-                  linetype = Dataset,
-                  group = paste(Dataset, Region),
-                  color = Region)) +
-  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
-  scale_x_continuous(name = "Expected number of errors",
-                     trans = reverselog_trans(10),
-                     limits = c(NA, 0.1),
-                     oob = squish) +
-  scale_y_continuous(name = "Fraction passing") +
-  scale_color_viridis_d(option = "C") +
-  scale_linetype_discrete()
-@
+% <<totalerror, fig.width = 12>>=
+% ggplot(reads_subset, aes(x = eexp,
+%                   linetype = Dataset,
+%                   group = paste(Dataset, Region),
+%                   color = Region)) +
+%   geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
+%   scale_x_continuous(name = "Expected number of errors",
+%                      trans = reverselog_trans(10),
+%                      limits = c(NA, 0.1),
+%                      oob = squish) +
+%   scale_y_continuous(name = "Fraction passing") +
+%   scale_color_viridis_d(option = "C") +
+%   scale_linetype_discrete()
+% @
 \end{frame}
 
 \begin{frame}{Bioinformatics}
