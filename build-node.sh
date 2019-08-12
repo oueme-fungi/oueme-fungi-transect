@@ -19,6 +19,7 @@ module load texlive &&
 snakemake -pr --jobs $SLURM_JOB_CPUS_PER_NODE\
   --keep-going\
   --use-conda\
-  --shadow-prefix /scratch
+  --shadow-prefix /scratch\
+  output/tech_compare.pdf
 
 #exit $out
