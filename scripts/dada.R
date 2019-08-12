@@ -160,15 +160,15 @@ write_big_fasta <- function(big_seq_table, filename) {
     dplyr::filter(size >= 1) %>%
     tidyr::extract(col = "filename", into = c("tech", "run", "plate", "well", "region", "dir"), regex = "([a-z]+)_(\\d+)_(\\d+)-([A-H]1?[0-9])([fr]?)-([:alnum:]+).+") %>%
     dplyr::left_join(
-      dplyr::group_by(., tech, run) %>%
+      dplyr::group_by(., tech, run, plate, well) %>%
         dplyr::summarize(total = sum(size)),
-      by = c("tech", "run")) %>%
-    dplyr::group_by(tech, run, seq, total) %>%
+      by = c("tech", "run", "plate", "well")) %>%
+    dplyr::group_by(tech, run, plate, well, seq, total) %>%
     dplyr::summarize(size = sum(size)) %>%
     
     dplyr::mutate(f = size/total,
-                  hash = seqhash(seq),
-                  header = glue::glue("{hash};size={size};sample={tech}_{run};")) %>%
+                  hash = tzara::seqhash(seq),
+                  header = glue::glue("{hash};size={size};sample={tech}_{run}_{plate}{well};")) %>%
     dplyr::arrange(desc(f)) %$%
     Biostrings::DNAStringSet(magrittr::set_names(seq, header)) %T>%
     Biostrings::writeXStringSet(filepath = filename, compress = "gzip")

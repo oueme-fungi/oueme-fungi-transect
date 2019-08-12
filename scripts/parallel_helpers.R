@@ -70,6 +70,17 @@ drake_combine.default <- function(...) {
 #### return the argument's name as a string ####
 name_to_string <- function(x) deparse(substitute(x))
 
+#### undo conversion of values to symbols ####
+# transform = combine() in drake will convert columns which are not intended to
+# be symbols into symbols, e.g. the value 3L is converted to `3L` and "yes" is
+# converted to `"yes"`.  This function converts them back.
+symbols_to_values <- function(...) {
+  s <- rlang::ensyms(...)
+  s <- purrr::map_chr(s, rlang::as_string)
+  s <- purrr::map(s, ~parse(text = .))
+  purrr::map_chr(s, eval)
+}
+
 #### Get the name of the current Conda environment ####
 get_conda_env <- function() {
    Sys.getenv("CONDA_PREFIX")

@@ -142,7 +142,7 @@ itsx_meta <- datasets %>%
          file_ID = glue("{seq_run}{plate}{well}{direction}") %>%
            str_replace_all("[:punct:]", ""),
          positions = make.names(glue("positions_{file_ID}")),
-         derep = make.names(glue("derep_{file_ID}")),
+         derep = make.names(glue("derep1_{file_ID}")),
          join_derep = make.names(glue("join_derep_{primer_ID}")),
          join_derep_map = make.names(glue("join_derep_map_{primer_ID}")),
          itsxtrim = make.names(glue("itsxtrim_{primer_ID}"))) %T>%
@@ -534,10 +534,10 @@ plan <- drake_plan(
   # raw ----
   # Join the raw read info (for long pacbio reads).
   raw = target(
-    raw_reads(regions, 
-              filenames = purrr::map_chr(rlang::exprs(regions), rlang::as_string),
-              max_ee = 3),
-    transform = combine(regions, seq_run, region,
+    tzara::summarize_sread(list(regions),
+                           name = !!symbols_to_values(filter_file),
+                           max_ee = !!eval(parse(text = unique(symbols_to_values(max_ee))))),
+    transform = combine(regions, filter_file, max_ee, seq_run, region,
                         .by = c(seq_run_ID, region_ID),
                         .tag_in = step,
                         .id = c(seq_run_ID, region_ID))
@@ -547,7 +547,8 @@ plan <- drake_plan(
   # Replace raw reads which were mapped to a DADA2 ASV with the ASV,
   # and put them all in one tibble.  We'll only do this for pacbio long reads.
   combined = target(
-    combine_bigmaps(list(dada_map), dplyr::bind_rows(raw)),
+    tzara::combine_bigmaps(purrr::imap_dfr(c(dada_map), ~mutate(.x, name = .y)),
+                           dplyr::bind_rows(raw)),
     transform = combine(dada_map, raw, .by = seq_run_ID, .tag_in = step)
   ),
   
