@@ -4,9 +4,6 @@ from glob import glob
 import re
 import subprocess
 from snakemake.utils import listfiles
-from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
-
-HTTP = HTTPRemoteProvider()
 
 # For testing, parse the yaml file (this is automatically done by Snakemake)
 #import yaml
@@ -24,31 +21,21 @@ config['trimdir']    = "{seqdir}/trim".format_map(config)
 config['regiondir']  = "{seqdir}/regions".format_map(config)
 config['filterdir']  = "{seqdir}/filter".format_map(config)
 config['clusterdir'] = "{datadir}/clusters".format_map(config)
-config['locarnadir'] = "{datadir}/mlocarna".format_map(config)
 config['pastadir']   = "{datadir}/pasta".format_map(config)
 config['plandir']    = "{datadir}/plan".format_map(config)
 config['tagdir']     = "{labdir}/tags".format_map(config)
 
 config['dataset']    = '{labdir}/datasets.csv'.format_map(config)
 config['regions']    = '{labdir}/regions.csv'.format_map(config)
-config['methods']    = '{labdir}/taxonomy_methods.csv'.format_map(config)
 config['platemap']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
 config['gits7_tags'] = '{labdir}/Hectors_tag_primer_plates.xlsx'.format_map(config)
 config['lr5_tags']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
 
-config['cm_5_8S'] = '{ref_root}/RF00002.cm'.format_map(config)
-config['cm_32S']  = '{ref_root}/fungi_32S_LR5.cm'.format_map(config)
-
-config['cmaln_long']   = "{locarnadir}/long_cmalign.aln".format_map(config),
-config['guide_tree']   = "{locarnadir}/32S_guide.tree".format_map(config),
-config['mlocarna_pp_dir'] = "{locarnadir}/consensus_pp".format_map(config)
-config['mlocarna_dir'] = "{locarnadir}/consensus".format_map(config)
-config['makelocarna']  = "{rdir}/snakemakelocarna.sh".format_map(config)
-config['makelocarna_profile'] = "{configdir}/snakemakelocarnaUPPMAX".format_map(config)
-config['makelocarna_conda'] = "{condadir}/snakemakelocarna.yaml".format_map(config)
-config['mlocarna_aln'] = "{mlocarna_dir}/results/result.stk".format_map(config)
-config['raxml_locarna_dir']    = "{datadir}/raxml/locarna".format_map(config)
-config['raxml_decipher_dir']    = "{datadir}/raxml/decipher".format_map(config)
+config['rdp_file']   = '{ref_root}/rdp.fasta.gz'.format_map(config)
+config['silva_file']   = '{ref_root}/silva.fasta.gz'.format_map(config)
+config['silva_tax_file']   = '{ref_root}/silva_tax.txt'.format_map(config)
+config['unite_file']   = '{ref_root}/unite.fasta.gz'.format_map(config)
+config['unite_patch_file']   = '{ref_root}/unite_patch.csv'.format_map(config)
 
 # Find the maximum number of cores available to a single node on SLURM,
 # or if we aren't in a SLURM environment, how many we have on the local machine.
@@ -218,7 +205,7 @@ checkpoint pacbio_demux:
            -m 1\\
            --trimmed-only\\
            -o {params.rpattern}\\
-           - 2>{log} 
+           - 2>{log} is:open 
          """
 
 # Return a closure which calls checkpoints.pacbio_demux.get() to indicate to Snakemake that this rule is
@@ -262,7 +249,7 @@ rule pacbio_singledemux:
             sample=${{sample%[fr].trim.fastq.gz}} &&
             echo $sample &&
             zcat $file |
-            sed '/@/ s/@.*/&;sample:'${{sample}}'/' |I made an LSU alignment in MUSCLE
+            sed '/@/ s/@.*/&;sample:'${{sample}}'/' |
             gzip - >>{output.fastq}
         done &&
         zcat {output.fastq} | sed -nr '/^@/s/^@([^;]+;sample:(.+))/\1\t\2/ p' >{output.key}
@@ -282,7 +269,7 @@ def ion_platekey(seqrun):
 
 # Find the demultiplexed .bam file (named by barcode index) which corresponds to a particular sample (named by well)
 def find_ion_bam(wildcards):
-    # load the relevant platekey 
+    # load the relevant platekey is:open 
     platekey = ion_platekey(wildcards.seqrun)
     # find the id which corresponds to the desired
     num = platekey.loc[lambda x: x['well'] == wildcards.well, 'id'].get_values()[0]
@@ -354,61 +341,7 @@ def ion_find(seqrun, plate):
 
 #### Reference databases ####
 
-# Download the Unite database
-localrules: unite_download
-rule unite_download:
-    output: "{ref_root}/unite.raw.fasta.gz".format_map(config)
-    input: 
-      zip = HTTP.remote(config['unite_url'], allow_redirects = True, keep_local = True)
-    shadow: "shallow"
-    shell:
-        """
-        echo {config[unite_md5]} {input} |
-        md5sum -c - &&
-        mkdir -p $(dirname {output}) &&
-        unzip {input} &&
-        gzip -c {config[unite_filename]} > {output}
-        """
-
-# Download the RDP fungal LSU training set
-localrules: rdp_download
-rule rdp_download:
-    output:
-        fasta = "{ref_root}/rdp_train.raw.fasta.gz".format_map(config),
-        taxa  = "{ref_root}/rdp_train.taxa.txt".format_map(config)
-    input:
-      zip = HTTP.remote(config['rdp_url'], allow_redirects = True, keep_local = True)
-    shadow: "shallow"
-    shell:
-        """
-        echo {config[rdp_md5]} {input.zip} |
-        md5sum -c - &&
-        mkdir -p $(dirname {output.fasta}) &&
-        unzip {input.zip} &&
-        gzip -c {config[rdp_filename]} > {output.fasta} &&
-        mv {config[rdp_taxa]} {output.taxa}
-        """
-
-# Download the Warcup fungal ITS training set
-localrules: warcup_download
-rule warcup_download:
-    output:
-        fasta = "{ref_root}/warcup.fasta.gz".format_map(config),
-        taxa  = "{ref_root}/warcup.taxa.txt".format_map(config)
-    input:
-      zip = HTTP.remote(config['warcup_url'], allow_redirects = True, keep_local = True)
-    shadow: "shallow"
-    shell:
-        """
-        echo {config[warcup_md5]} {input} |
-        md5sum -c - &&
-        mkdir -p $(dirname {output.fasta}) &&
-        unzip {input} &&
-        gzip -c {config[warcup_filename]} > {output.fasta} &&
-        mv {config[warcup_taxa]} {output.taxa}
-        """
-
-# Process an ITS database (e.g., UNITE)
+# Process an ITS database (e.g., UNITE) is:open 
 # Split into ITS1, ITS2 using ITSx.
 
 rule itsx_reference:
@@ -418,8 +351,6 @@ rule itsx_reference:
     input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
     threads: maxthreads
     shadow: "shallow"
-    resources:
-        walltime = 120
     params:
         shards = lambda wildcards, threads: max([threads // 4, 1]),
         cpu_per_shard = lambda wildcards, threads: max([threads // max([threads // 4, 1]), 1])
@@ -427,7 +358,23 @@ rule itsx_reference:
     log: "{logdir}/{{dbname}}_ITSx.log".format_map(config)
     shell:
         """
-        
+        #if [ {params.shards} -eq 1 ] ; then
+        #    zcat {input} |
+        #    ITSx --complement F\
+        #         --cpu {threads}\
+        #         --summary F\
+        #         --graphical F\
+        #         --preserve T\
+        #         --positions F\
+        #         --not_found F\
+        #         --stdin T\
+        #         -o {config[ref_root]}/{wildcards.dbname} &&
+        #    gzip {config[ref_root]}/{wildcards.dbname}.full.fasta &&
+        #    gzip {config[ref_root]}/{wildcards.dbname}.ITS2.fasta &&
+        #    gzip {config[ref_root]}/{wildcards.dbname}.ITS1.fasta &&
+        #    mv -f {config[ref_root]}/{wildcards.dbname}.full.fasta.gz {output.ITS} >{log}
+        #    exit $?
+        #else
         (   zcat {input} >temp.fasta &&
             fasta-splitter --n-parts {params.shards}\
                            temp.fasta &&
@@ -436,37 +383,33 @@ rule itsx_reference:
             done |
                 xargs -n 4 -P {params.shards} \
                     ITSx --complement F\
-                 --cpu {params.cpu_per_shard}\
+                 --cpu {threads}\
                  --summary F\
                  --graphical F\
                  --preserve T\
                  --positions F\
                  --not-found F\
-                 --fasta F
-            echo "xargs exited with value $?"
-            echo "combining ITS1 files:" &&
-            ls -l *.ITS1.fasta &&
-            cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip - > {output.ITS1} &&
-            echo "combining ITS2 files:" &&
-            ls -l *.ITS2.fasta &&
-            cat temp.part-{{1..{params.shards}}}.ITS2.fasta | gzip - > {output.ITS2} ) &> {log}
+                 --fasta F &&
+            cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip > {output.ITS1} &&
+            cat temp.part-{{1..{params.shards}}}.ITS2.fasta | gzip > {output.ITS2} ) &> {log}
+        #fi
         """
 
 # Assume the entire database is ITS.
-# UNITE also includes part of LSU in some sequences; this will be helpful when IDing long amplicons
-localrules: its_reference
 rule its_reference:
     output: "{ref_root}/{{dbname}}.ITS.fasta.gz".format_map(config)
     input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
-    params:
-      fullinput = lambda wildcards, input: os.path.abspath(input[0]),
-      fulloutput = lambda wildcards, output: os.path.abspath(output[0])
     threads: 1
     log: "{logdir}/{{dbname}}_ITS.log".format_map(config)
-    shell: "rm -f {output} && cd $(dirname {input}) && ln -s $(basename {input}) $(basename {output})"
+    shell: "rm -f {output} && ln -s {input} {output}"
 
 # Process an LSU reference database (e.g., RDP or Silva)
-# At the moment this doesn't do anything
+# 1- Take only Eukaryote sequences (Silva)
+#    RDP is all Fungi, so everything in it should pass this step.
+# 2- Select only sequences with the conserved LR5 primer site, and trim everything in the 3' direction
+# 3- Select only sequences with the conserved ITS4 primer site, but don't trim the 5' end.
+#    This should select about 900bp of the 5' end of LSU, including the D1(ES5), D2(ES7), and D3(ES9) variable regions.
+#
 # Ambiguities in the sequences are from the RNA data project and Tedersoo et al 2015
 localrules: lsu_reference
 rule lsu_reference:
@@ -477,53 +420,23 @@ rule lsu_reference:
     log: "{logdir}/{{dbname}}_LSU.log".format_map(config)
     shell:
         """
-        ln -sr {input} {output}
+        zcat {input} |
+        awk '/^>/ {{ p = ($0 ~ /(Eukaryota|Fungi)/)}} p' |
+        cutadapt -a CGAAnUUUCnCUCAGGAUAGCnG --trimmed-only --report minimal -e 0.2 -m 50 - |
+        cutadapt -g CAUAUnAnUnAGnSSAGGA --trimmed-only --report minimal -e 0.2 - |
+        gzip - >{output}
         """
 
-# Eukarya classification system proposed by Tedersoo
-localrules: tedersoo_classification
-rule tedersoo_classification:
-    output: "{ref_root}/Tedersoo_Eukarya_classification.xlsx".format_map(config)
-    input: HTTP.remote(config['tedersoo_url'], allow_redirects = True)
-    shadow: "shallow"
+rule rdptrain_reference:
+    output: "{ref_root}/rdp_train.fasta.gz".format_map(config)
+    input: "{ref_root}/RDP/TrainingSet/fungiLSU_train_012014.fa.gz".format_map(config)
+    threads: 1
     shell:
         """
-        echo {config[tedersoo_md5]} {input} |
-        md5sum -c - &&
-        mv {input} {output}
+        zcat {input} |
+        sed '/>/!y/uU/tT/' |
+        gzip - > {output}
         """
-
-# generate taxonomy translation files
-# These are files of sed commands that will translate the headers of the fasta
-# files to the formats required by each database, as well as translating all
-# the taxonomy to the Tedersoo system
-localrules: translate_references
-rule translate_references:
-  output:
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['warcup', 'unite'],
-               region = ['ITS'],
-               method = ['sintax', 'dada2']),
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['rdp_train'],
-               region = ['LSU'],
-               method = ['sintax', 'dada2'])
-  input:
-    expand("{ref_root}/{dbname}.{type}",
-           ref_root = config['ref_root'],
-           dbname = ['rdp_train', 'warcup', 'unite'],
-           type = ['fasta.gz', 'pre.sed']),
-    "{rdir}/taxonomy.R".format_map(config),
-    tedersoo = rules.tedersoo_classification.output,
-    regions = config['regions'],
-    script = "{rdir}/make_taxonomy.R".format_map(config)
-  resources:
-    walltime = 60
-  conda: "config/conda/drake.yaml"
-  log: "{logdir}/translate_references.log".format_map(config)
-  script: "{rdir}/make_taxonomy.R".format_map(config)
 
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
@@ -553,23 +466,18 @@ checkpoint drake_plan:
         demux_find('pb_483_001'),
         demux_find('pb_483_002'),
         ion_find('is_057', '001'),
-        "{rdir}/dada.R".format_map(config),
-        "{rdir}/extract_regions.R".format_map(config),
-        "{rdir}/inferrnal.R".format_map(config),
-        "{rdir}/locarrna.R".format_map(config),
-        "{rdir}/lsux.R".format_map(config),
-        "{rdir}/mantel.R".format_map(config),
         "{rdir}/parallel_helpers.R".format_map(config),
+        "{rdir}/extract_regions.R".format_map(config),
+        "{rdir}/dada.R".format_map(config),
         "{rdir}/plate_check.R".format_map(config),
-        "{rdir}/raxml.R".format_map(config),
+        "{rdir}/map_LSU.R".format_map(config),
         "{rdir}/taxonomy.R".format_map(config),
-        "{rdir}/utils.R".format_map(config),
         dataset  = config['dataset'],
         regions  = config['regions'],
-        methods  = config['methods'],
-        cm_5_8S  = config['cm_5_8S'],
-        cm_32S   = config['cm_32S'],
         platemap = config['platemap'],
+        rdp      = config['rdp_file'],
+        unite    = config['unite_file'],
+        unite_patch = config['unite_patch_file'],
         script = "{rdir}/drake.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
@@ -604,7 +512,7 @@ rule ITSx:
         preITSx = ".preITSx",
         script = "{rdir}/drake-02-ITSx.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: maxthreads
+    threads: 1
     resources:
         walltime=360
     log: "{logdir}/ITSx.log".format_map(config)
@@ -618,7 +526,7 @@ rule preDADA:
         ITSx      = rules.ITSx.output.flag,
         script    = "{rdir}/drake-03-preDADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: maxthreads
+    threads: 4
     resources:
         walltime=120
     log: "{logdir}/preDADA.log".format_map(config)
@@ -626,43 +534,41 @@ rule preDADA:
 
 # Dereplicate, denoise, and remove chimeras for each region/plate combination
 rule DADA:
-    output: touch(".DADA")
+    output: touch(".nochim_{RID}")
     input:
         drakedata = rules.drake_plan.output.drakedata,
         preDADA   = ".preDADA",
         script    = "{rdir}/drake-04-DADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: maxthreads
+    threads: 8
     resources:
         walltime = 120
-    log: "{logdir}/DADA.log".format_map(config)
+    log: "{logdir}/DADA_{{RID}}.log".format_map(config)
     script: "{rdir}/drake-04-DADA.R".format_map(config)
-
-
-regions_table = datasets.assign(regions=datasets.regions.str.split(',')).explode('regions')
 
 # Function to calculate which DADA results represent each region.
 def region_inputs(wildcards):
     checkpoints.drake_plan.get()
-    region_meta = regions_table.loc[regions_table.regions == wildcards.region]
-    return expand('.nochim_{seq_run}_{region}', zip, seq_run = region_meta.seq_run, region = region_meta.regions)
+    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("region")
+    PIDs = taxonomy_meta.loc[[wildcards.region], 'plate_region_ID'].unique()[0].split(',')
+    return expand('.nochim_{plate_region_ID}', plate_region_ID = PIDs)
 
 # combine the dada results for each region
 localrules: region_table
 rule region_table:
     output:
-        touch(".preconsensus")#,
-        #bigfasta = "{datadir}/clusters/{{region}}.fasta.gz".format_map(config)
+        touch(".big_fasta_{region}"),
+        bigfasta = "{datadir}/clusters/{{region}}.fasta.gz".format_map(config)
     input:
         drakedata = rules.drake_plan.output.drakedata,
-        dada      = ".DADA",
-        script = "{rdir}/drake-06-preconsensus.R".format_map(config)
+        dada      = region_inputs,
+        script = "{rdir}/drake-06-pretaxonomy.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: maxthreads
+    threads: 1
     resources:
-        walltime = 60
-    log: "{logdir}/preconsensus.log".format_map(config)
-    script: "{rdir}/drake-06-preconsensus.R".format_map(config)
+        walltime = 10
+    log: "{logdir}/pretaxonomy_{{region}}.log".format_map(config)
+    script: "{rdir}/drake-06-pretaxonomy.R".format_map(config)
 
 localrules: cluster
 rule cluster:
@@ -686,7 +592,7 @@ rule cluster:
               --id 0.97\
               --uc {output.uc}\
               --otutabout {output.otutable}\
-              --threads {threads}\
+              --threads 8\
               --log {log}
       """
 
@@ -707,42 +613,115 @@ rule tech_compare:
       R -e 'getwd(); outfile <- file.path(getwd(), "{output}"); print(outfile); rmarkdown::render("{input.rmd}", output_file = outfile)' &>{log}
     """
 
-consensus_table = regions_table.loc[regions_table.seq_run == "pb_500"]
+# calculate which sequence tables are needed for a taxonomy assignment step
+def taxon_inputs(wildcards):
+    checkpoints.drake_plan.get()
+    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
+    regions = taxonomy_meta.loc[wildcards.tax_ID, 'region'].split(sep = ",")
+    return expand('.big_fasta_{region}', region = regions)
+
+# call taxonomy and assign guilds
+rule taxonomy:
+    output: touch(".guilds_table_{tax_ID}")
+    input:
+        drakedata = rules.drake_plan.output.drakedata,
+        dada      = taxon_inputs
+    conda: "config/conda/drake.yaml"
+    threads: 8
+    resources:
+        walltime = 240
+    log: "{logdir}/taxonomy_{{tax_ID}}.log".format_map(config)
+    script: "{rdir}/drake-07-taxonomy.R".format_map(config)
+
+# calculate all the taxonomy outputs which should be calculated
+def taxon_outputs(wildcards):
+    checkpoints.drake_plan.get()
+    file = open(rules.drake_plan.output.tids, mode = 'r')
+    tax_IDs = file.read().splitlines()
+    file.close()
+    return expand(".guilds_table_{tax_ID}", tax_ID = tax_IDs)
 
 # Calculate a consensus LSU and long amplicon (ITS1--LR5) for each ITS2 ASV,
 # and build a guide tree based on LSU
 rule consensus:
     output:
-        flag    = touch(".consensus")
+        flag    = touch(".consensus"),
+        longasv = "{pastadir}/long_ASVs.fasta".format_map(config)
     input:
-        ".DADA",
-        ".preconsensus",
-        rules.translate_references.output,
         drakedata = rules.drake_plan.output.drakedata,
-        script = "{rdir}/drake-07-consensus.R".format_map(config)
+        taxon     = taxon_outputs
     conda: "config/conda/drake.yaml"
-    threads: maxthreads
+    threads: 8
     resources:
         walltime = 240
     log: "{logdir}/consensus.log".format_map(config)
-    script: "{rdir}/drake-07-consensus.R".format_map(config)
+    script: "{rdir}/drake-08-consensus.R".format_map(config)
+
+# Build a progressive tree using PASTA, with the LSU tree as guide
+rule pasta:
+    output:
+        tree = "{pastadir}/pasta_raxml.tree".format_map(config)
+    input:
+        consensus = ancient(rules.consensus.output.flag),
+        longasv   = ancient(rules.consensus.output.longasv)
+    log: "{logdir}/pasta.log".format_map(config)
+    threads: 16
+    resources:
+        walltime=60
+    conda: "config/conda/pasta.yaml"
+    shell:
+        """
+        mkdir -p {config[pastadir]} &&
+        cd {config[pastadir]} &&
+        [ -e .dopasta ] &&
+        rm -f *postraxtree_tree.tre &&
+        PASTA_TOOLS_DEVDIR=$CONDA_PREFIX/bin/ \
+        run_pasta.py \
+        -j ITS_LSU \
+        --input {input.longasv} \
+        --aligned \
+        --datatype rna \
+        --raxml-search-after \
+        --num-cpus={threads} &&
+        mv {config[pastadir]}/*postraxtree_tree.tre {output.tree} &&
+        rm -f {config[pastadir]}/.dopasta &> {log} ||
+        ( echo "alignment unchanged, skipping PASTA and using old tree.";
+          touch {output.tree} )
+        """
 
 rule raxml:
     output:
-        touch(".raxml")
+        tree = "{datadir}/long_ASVs.tree".format_map(config)
     input:
-        ".consensus",
-        makelocarna = config['makelocarna'],
-        cmaln_long = config['cmaln_long'],
-        guide_tree = config['guide_tree'],
-        drakedata = "{plandir}/drake.Rdata".format_map(config),
-        script = "{rdir}/drake-09-raxml.R".format_map(config)
+        consensus = ancient(rules.consensus.output.flag),
+        longasv   = ancient(rules.consensus.output.longasv)
     log: "{logdir}/raxml.log".format_map(config)
-    conda: "config/conda/drake.yaml"
-    threads: maxthreads
+    threads: 16
     resources:
-        walltime=60*96
-    script: "{rdir}/drake-09-raxml.R".format_map(config)
+        walltime=60*36
+
+
+
+# delimit species based on the ITS+LSU tree using a Poisson Tree Process model
+localrules: ptp
+rule ptp:
+    output:
+        psh = "{basename}.psh.txt"
+    input:
+        tree = ancient("{basename}.tree")
+    log: "{basename}.log"
+    threads: 1
+    shell:
+        """
+        mptp --tree_file {input.tree}\
+             --output_file {wildcards.basename}\
+             --mcmc 50000000\
+             --mcmc_sample 1000\
+             --mcmc_burnin 1000000\
+             --mcmc_log\
+             --seed 9999
+        mv {wildcards.basename}.9999.txt {output.psh}
+        """
 
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
@@ -750,9 +729,9 @@ localrules: finish
 rule finish:
     output: touch(".drake_finish")
     input:
-#        pasta     = rules.pasta.output.tree,
+        pasta     = rules.pasta.output.tree,
         drakedata = rules.drake_plan.output.drakedata,
-        raxml  = ".raxml"
+        taxonomy  = taxon_outputs
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
