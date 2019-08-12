@@ -148,6 +148,7 @@ itsx_meta <- datasets %>%
          itsxtrim = make.names(glue("itsxtrim_{primer_ID}"))) %T>%
   {cat("finished fourth mutate...\n")} %>%
   filter(file.exists(file.path(trim_dir, trim_file))) %>%
+  filter(normalizePath(file.path(trim_dir, trim_file)) %in% normalizePath(in_files)) %>%
   filter(file.size(file.path(trim_dir, trim_file)) > 40) %>%
   verify(file.path(trim_dir, trim_file) %in% in_files) %>%
   mutate_at(c("join_derep", "join_derep_map", "itsxtrim", "file_ID", "seq_run_ID", "primer_ID"), syms)
