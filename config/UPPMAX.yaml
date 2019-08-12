@@ -2,3 +2,5 @@ __default__:
   account: "snic2018-3-181"
   time: "24:00:00"
   n: 1
+  C: "usage_mail"
+  mail-type: "ALL"
