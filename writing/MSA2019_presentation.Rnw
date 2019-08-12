@@ -1,9 +1,9 @@
 \documentclass[10]{beamer}
 \include{pres_preamble}
 
-\title{Comparison of long and short amplicon metabarcoding to determination of fungal species diversity and spatial turnover in an ectomycorrhizal West African woodland}
-\subtitle{Presentation for Anna's Group Meeting}
-\author{Brendan Furneaux, Mohammad Bahram, Nourou Yorou, Anna Rosling, Martin Ryberg}
+\title{Comparison of long and short amplicon metabarcoding for determination of fungal species diversity and spatial turnover in an ectomycorrhizal West African woodland}
+\author{\mbox{\textbf{Brendan Furneaux}\inst{1}} \and \mbox{Mohammad Bahram\inst{2}} \and \mbox{Nourou Yorou\inst{3}} \and \mbox{Anna Rosling\inst{1}} \and \mbox{Martin Ryberg\inst{1}}}
+\institute{\inst{1}Uppsala University \and \inst{2}Swedish University of Agricultural Sciences \and \inst{3}University of Parakou}
 \date{13 August, 2019}
 
 \begin{document}
@@ -39,33 +39,33 @@ reverselog_trans <- function(base = exp(1)) {
 }
 @
 
-# Metabarcoding
-
-  - Cloning + Sanger -> 454 -> Illumina
-  - For fungi, usually ITS2
-      - short
-      - intraspecific variation in most groups
-      - good database support (Unite 8.0 - 817 130 fungal sequences)
-      - ITS is "official barcode for fungi" \cite{schoch2012}
-      - fungal specific primers
-  - problems
-      - not alignable
-      - cannot place unknown sequences
-      - variant 5.8S
-      - variable length
-  
-  - LSU (26S/28S)
-      - alternating highly conserved domains and variable regions
-      - widely used for phylogenies
-      - universal primers
-      - less variable length
-      - more conserved than ITS
-      - not as good database support (RDP 11 fungal LSU - 125 525, Silva 132 LSU 907 382 of which )
-  - SSU (18S)
-      - alternating highly conserved and variable regions
-      - more conserved than LSU
-      - used for barcoding prokaryotes and "protists"
-      - good database support (Silva SSU), but not as good for fungi
+% # Metabarcoding
+% 
+%   - Cloning + Sanger -> 454 -> Illumina
+%   - For fungi, usually ITS2
+%       - short
+%       - intraspecific variation in most groups
+%       - good database support (Unite 8.0 - 817 130 fungal sequences)
+%       - ITS is "official barcode for fungi" \cite{schoch2012}
+%       - fungal specific primers
+%   - problems
+%       - not alignable
+%       - cannot place unknown sequences
+%       - variant 5.8S
+%       - variable length
+%   
+%   - LSU (26S/28S)
+%       - alternating highly conserved domains and variable regions
+%       - widely used for phylogenies
+%       - universal primers
+%       - less variable length
+%       - more conserved than ITS
+%       - not as good database support (RDP 11 fungal LSU - 125 525, Silva 132 LSU 907 382 of which )
+%   - SSU (18S)
+%       - alternating highly conserved and variable regions
+%       - more conserved than LSU
+%       - used for barcoding prokaryotes and "protists"
+%       - good database support (Silva SSU), but not as good for fungi
 
 
 %\begin{frame}{Outline}
