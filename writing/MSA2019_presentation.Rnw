@@ -1,7 +1,8 @@
 \documentclass[10]{beamer}
 \include{pres_preamble}
 
-\title{Comparison of long and short amplicon metabarcoding for determination of fungal species diversity and spatial turnover in an ectomycorrhizal West African woodland}
+\title{Comparison of long and short amplicon metabarcoding for determination of fungal species diversity and spatial turnover}
+\subtitle{in an ectomycorrhizal West African woodland}
 \author{\mbox{\textbf{Brendan Furneaux}\inst{1}} \and \mbox{Mohammad Bahram\inst{2}} \and \mbox{Nourou Yorou\inst{3}} \and \mbox{Anna Rosling\inst{1}} \and \mbox{Martin Ryberg\inst{1}}}
 \institute{\inst{1}Uppsala University \and \inst{2}Swedish University of Agricultural Sciences \and \inst{3}University of Parakou}
 \date{13 August, 2019}
@@ -11,8 +12,10 @@
 
 \frame{\titlepage}
 
+\logo{}
+
 <<setup, include=FALSE>>=
-knitr::opts_chunk$set(echo = FALSE, device = "tikz")
+knitr::opts_chunk$set(echo = FALSE, device = "tikz", cache = TRUE)
 library(drake)
 library(magrittr)
 library(tidyverse)
@@ -233,30 +236,31 @@ reverselog_trans <- function(base = exp(1)) {
 
 \begin{frame}{Bioinformatics}
   \begin{itemize}
-    \item Redo RSII circular consensus basecalling using new algorithm (Arrow).
+    \item Redo RSII circular consensus basecalling using Sequel algorithm (Arrow).
     \item Demultiplex and trim primers.
     \item Cut out regions (ITS1, ITS2, full ITS, LSU) using ITSx.
-    \item Quality filter.
+    \item Quality filter - up to 3 expected errors.
   \end{itemize}
 \end{frame}
 
 \begin{frame}{Expected error rate}
 \framesubtitle{After \texttt{Arrow}}
   
-% <<errorrate, fig.width = 12>>=
-% ggplot(reads_subset, aes(x = erate,
-%                   linetype = Dataset,
-%                   group = paste(Dataset, Region),
-%                   color = Region)) +
-%   geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
-%   scale_x_continuous(name = "Expected number of errors per base",
-%                      trans = reverselog_trans(10),
-%                      limits = c(NA, 1e-5),
-%                      oob = squish) +
-%   scale_y_continuous(name = "Fraction passing") +
-%   scale_color_viridis_d(option = "C") +
-%   scale_linetype_discrete()
-% @
+<<errorrate, fig.width = 12, cache.check = reads_subset>>=
+filter(reads_subset, Tech == "PacBio") %>%
+  ggplot(aes(x = eexp,
+             group = paste(Dataset, Region),
+             color = Dataset)) +
+  geom_line(aes(y = 1 - ..y..), stat = "ecdf", size = 1) +
+  scale_x_continuous(name = "Expected number of errors",
+                     trans = reverselog_trans(10),
+                     limits = c(NA, 1e-5),
+                     oob = squish) +
+  facet_wrap(~Region, ncol = 2, strip.position = "right") +
+  scale_y_continuous(name = "Fraction passing") +
+  # scale_color_viridis_d(option = "C") +
+  geom_vline(aes(xintercept = 3), linetype = 2)
+@
 \end{frame}
 
 \begin{frame}{Bioinformatics}
@@ -273,20 +277,20 @@ reverselog_trans <- function(base = exp(1)) {
 \begin{frame}{Expected total number of errors}
 \framesubtitle{After \texttt{Arrow}}
   
-% <<totalerror, fig.width = 12>>=
-% ggplot(reads_subset, aes(x = eexp,
-%                   linetype = Dataset,
-%                   group = paste(Dataset, Region),
-%                   color = Region)) +
-%   geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
-%   scale_x_continuous(name = "Expected number of errors",
-%                      trans = reverselog_trans(10),
-%                      limits = c(NA, 0.1),
-%                      oob = squish) +
-%   scale_y_continuous(name = "Fraction passing") +
-%   scale_color_viridis_d(option = "C") +
-%   scale_linetype_discrete()
-% @
+<<length, fig.width = 12, cache.check = reads_subset>>=
+filter(reads_subset, Tech == "PacBio", eexp <= 3) %>%
+  ggplot(aes(x = length,
+             group = paste(Dataset, Region),
+             color = Dataset, fill = Dataset)) +
+  geom_area(stat = "density", size = 1, alpha = 0.5) +
+  scale_x_log10(name = "Length (bp)",
+                limits = c(50, NA),
+                oob = squish) +
+  facet_wrap(~Region, ncol = 2, strip.position = "right", scales = "free_y") +
+  scale_y_continuous(name = "Fraction passing") +
+  # scale_color_viridis_d(option = "C") +
+  geom_vline(aes(xintercept = 3), linetype = 2)
+@
 \end{frame}
 
 \begin{frame}{Bioinformatics}
@@ -411,7 +415,7 @@ bind_rows(as.data.frame(bc_corr$mantel.res) %>%
   mutate(Significant = `Pr(corrected)` < 0.05) %>%
   ggplot(aes(class.index, Mantel.cor, group = tdist, color = tdist, shape = Significant)) +
   geom_point(size = 3) +
-  geom_line(alpha = 0.3) +
+  geom_line(alpha = 0.3, size = 1.5) +
   geom_hline(yintercept = 0, linetype = 2, alpha = 0.5) +
   # geom_line(aes(y = exp(predict(bc_fit)))) +
   scale_y_continuous(limits = c(-0.05, NA), name = "Spatial Distance correlation") +
