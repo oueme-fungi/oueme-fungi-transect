@@ -686,7 +686,6 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
               label = seqinr::getName(.))}
   } else {
     seqfile <- tempfile("seq", fileext = "fasta")
-    args <- c("--sintax", seqfile)
     on.exit(file.remove(seqfile))
     if (methods::is(seq, "XStringSet")) {
       Biostrings::writeXStringSet(seq, seqfile)
@@ -709,11 +708,12 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
                             seq = as.character(seq, use.names = FALSE))
     }
   }
+  args <- c("--sintax", seqfile)
+  
   if (assertthat::is.string(db) && file.exists(db)) {
     dbfile <- db
   } else {
     dbfile <- tempfile("db", fileext = "fasta")
-    args <- c(args, "--db", dbfile)
     on.exit(file.remove(dbfile))
     
     if (methods::is(db, "XStringSet")) {
@@ -731,14 +731,15 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
       Biostrings::writeXStringSet(db, dbfile)
     }
   }
+  args <- c(args, "--db", dbfile)
   tablefile <- tempfile("table", fileext = "tsv")
   args <- c(args, "--tabbedout", tablefile)
   on.exit(file.remove(tablefile))
   
   if (!missing(sintax_cutoff)) args <- c(args, "--sintax_cutoff", sintax_cutoff)
-  if (!missing(multicore)) {
-    if (isFALSE(multicore)) multicore <- 1
-    args <- c(args, "--threads", multicore)
+  if (!missing(multithread)) {
+    if (isFALSE(multithread)) multithread <- 1
+    args <- c(args, "--threads", multithread)
   }
   system2("vsearch", args = args)
   # vsearch outputs an extra tab when it cannot place the sequence
@@ -775,10 +776,10 @@ sintax_format <- function(tax) {
     dplyr::mutate_at("Taxonomy", sub, pattern = "([^;]+);\\1", replacement = "\\1")
   
   if ("species" %in% names(tax)) {
-    tax <- dplyr::mutate(tax, taxon_name = paste0(taxon_name, ifelse(is.na(species),
+    tax <- dplyr::mutate(tax, name = paste0(name, ifelse(is.na(species),
                                                                      "_sp", "")))
   } else {
-    tax <- dplyr::mutate(tax, taxon_name = paste0(taxon_name, "_sp"))
+    tax <- dplyr::mutate(tax, name = paste0(name, "_sp"))
   }
   tax
 }
