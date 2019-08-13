@@ -358,23 +358,7 @@ rule itsx_reference:
     log: "{logdir}/{{dbname}}_ITSx.log".format_map(config)
     shell:
         """
-        #if [ {params.shards} -eq 1 ] ; then
-        #    zcat {input} |
-        #    ITSx --complement F\
-        #         --cpu {threads}\
-        #         --summary F\
-        #         --graphical F\
-        #         --preserve T\
-        #         --positions F\
-        #         --not_found F\
-        #         --stdin T\
-        #         -o {config[ref_root]}/{wildcards.dbname} &&
-        #    gzip {config[ref_root]}/{wildcards.dbname}.full.fasta &&
-        #    gzip {config[ref_root]}/{wildcards.dbname}.ITS2.fasta &&
-        #    gzip {config[ref_root]}/{wildcards.dbname}.ITS1.fasta &&
-        #    mv -f {config[ref_root]}/{wildcards.dbname}.full.fasta.gz {output.ITS} >{log}
-        #    exit $?
-        #else
+        
         (   zcat {input} >temp.fasta &&
             fasta-splitter --n-parts {params.shards}\
                            temp.fasta &&
@@ -392,7 +376,6 @@ rule itsx_reference:
                  --fasta F &&
             cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip > {output.ITS1} &&
             cat temp.part-{{1..{params.shards}}}.ITS2.fasta | gzip > {output.ITS2} ) &> {log}
-        #fi
         """
 
 # Assume the entire database is ITS.
@@ -437,6 +420,34 @@ rule rdptrain_reference:
         sed '/>/!y/uU/tT/' |
         gzip - > {output}
         """
+
+# Format the RDP database for VSEARCH
+rule rdptrain_vsearch_reference:
+    output: "{ref_root}/rdp_train.{{region}}.vsearch.fasta.gz".format_map(config)
+    input: "{ref_root}/rdp_train.{{region}}.fasta.gz".format_map(config)
+    threads: 1
+    shell:
+        """
+        zcat {input} |
+        sed -r '/>/ s/>([^\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+)/>\1;tax=k:\2,p:\3,c:\4,o:\5,f:\6,s:\7/' |
+        gzip - >{output}
+        """
+
+# Format the Unite database for VSEARCH
+rule unite_vsearch_reference:
+    output: "{ref_root}/unite.{{region}}.vsearch.fasta.gz".format_map(config)
+    input: "{ref_root}/unite.{{region}}.fasta.gz".format_map(config)
+    threads: 1
+    shell:
+        """
+        zcat {input} |
+        sed -r '/^>/ {{ s/k__/;tax=k__/;
+                       s/;?([kpcofgs])__/,\\1:/g;
+                       s/=,k/=k/;
+                       s/>(.+)(;.+,s:).*/>\\1\\2\\1/ }}' |
+        gzip - >{output}
+        """
+    
 
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
