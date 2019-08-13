@@ -652,9 +652,6 @@ plan <- drake_plan(
                             & (phyloseq::sample_data(.)$Qual == "X" | phyloseq::sample_data(.)$Year == "2015")
                             & rowSums(phyloseq::otu_table(.)) > 0),
   
-  shortphyseq = physeq %>%
-    phyl
-  
   unif_dist = phyloseq::distance(longphyseq, "unifrac"),
   bc_dist = phyloseq::distance(longphyseq, "bray"),
   spatial_dist = phyloseq::sample_data(longphyseq) %>%
