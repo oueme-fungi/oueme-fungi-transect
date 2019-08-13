@@ -515,7 +515,7 @@ plan <- drake_plan(
   # Assign taxonomy to each ASV
   taxon = target(
     colnames(big_seq_table) %>%
-      sintax(db = file_in(!!file.path(ref_dir, paste0(reference_file, ".vsearch.fasta.gz"))),
+      sintax(db = file_in(reference_file),
              sintax_cutoff = 0.9,
              multithread = ignore(dada_cpus)) %>%
       sintax_format(),
