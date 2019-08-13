@@ -3,4 +3,5 @@
 *.ITS.fasta.gz
 *.ITS2.fasta.gz
 *.ITS1.fasta.gz
+*.vsearch.fasta.gz
 *_problems*.csv

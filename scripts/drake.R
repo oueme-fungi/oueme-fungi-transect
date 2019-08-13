@@ -231,6 +231,7 @@ taxonomy_meta <- dada_meta %>%
                                 map(unlist)) %>%
   unnest(reference_file, .preserve = region) %>%
   mutate(reference = str_split_fixed(reference_file, "\\.", 2)[,1],
+         reference_file = glue("{ref_dir}/{reference_file}.vsearch.fasta.gz"),
          tax_ID = glue("{region}_{reference}"),
          big_seq_table = glue("big_seq_table_{region}")) %>%
   arrange(tax_ID) %>%
@@ -513,9 +514,11 @@ plan <- drake_plan(
   # taxon ----
   # Assign taxonomy to each ASV
   taxon = target(
-    taxonomy(big_seq_table,
-             reference = file_in(!!file.path(ref_dir, paste0(reference, ".fasta.gz"))),
-             multithread = ignore(dada_cpus)),
+    colnames(big_seq_table) %>%
+      sintax(db = file_in(!!file.path(ref_dir, paste0(reference_file, ".vsearch.fasta.gz"))),
+             sintax_cutoff = 0.9,
+             multithread = ignore(dada_cpus)) %>%
+      sintax_format(),
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID)),
   
   # funguild_db ----
@@ -589,8 +592,9 @@ plan <- drake_plan(
     conseq_filt$LSU %>%
     unique() %>%
     stringr::str_replace_all("U", "T") %>%
-    taxonomy(reference = file_in("reference/rdp_train.LSU.fasta.gz"),
-             multithread = ignore(dada_cpus)) %>%
+    sintax(db = file_in("reference/rdp_train.LSU.fasta.gz"),
+           sintax_cutoff = 0.9,
+           multithread = ignore(dada_cpus)) %>%
     dplyr::mutate_at("seq", stringr::str_replace_all, "T", "U"),
   
   # cons_tax----
@@ -598,12 +602,12 @@ plan <- drake_plan(
   # Also make hash names, because PASTA will destroy non-alphanumeric names
   cons_tax  =
     conseq_filt %>%
-    dplyr::left_join(dplyr::select(taxon_ITS2_unite, ITS2 = seq, Name),
+    dplyr::left_join(dplyr::select(taxon_ITS2_unite, ITS2 = seq, name),
                      by = "ITS2") %>%
-    dplyr::left_join(dplyr::select(taxon_LSUcons_rdp, LSU = seq, Name),
+    dplyr::left_join(dplyr::select(taxon_LSUcons_rdp, LSU = seq, name),
                      suffix = c("_ITS2", "_LSU"),
                      by = "LSU") %>%
-    tidyr::unite("Name", Name_ITS2, Name_LSU, sep = "/"),
+    tidyr::unite("name", name_ITS2, name_LSU, sep = "/"),
   
   # long_consensus----
   # get the long amplicon consensus and convert to RNAStringSet.

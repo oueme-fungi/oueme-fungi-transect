@@ -34,3 +34,4 @@ dependencies:
   - r-tikzdevice=0.12
   - r-inext=2.0.19
   - itsx=1.1b
+  - vsearch=2.9.1

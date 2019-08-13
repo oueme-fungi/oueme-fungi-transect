@@ -636,7 +636,7 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
     seq <- as.character(seq.table)
   }
   is.RNA <- stringr::str_detect(seq[1], "[Uu]")
-  seq <- if (is.RNA) Biostrings::RNAStringSet(seq) else Biostrings::DNAStringSet(seq)
+  # seq <- if (is.RNA) Biostrings::RNAStringSet(seq) else Biostrings::DNAStringSet(seq)
   
   tax <- dada2::assignTaxonomy(seqs = seq, 
                                refFasta = reference,
@@ -673,4 +673,112 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
     dplyr::left_join(tibble::tibble(seq = seq,
                                     nreads = nreads),
                      by = "seq")
+}
+
+sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
+  args <- character()
+  if (assertthat::is.string(seq) && file.exists(seq)) {
+    seqfile <- seq
+    seq <- seqinr::read.fasta(
+      file = seqfile,
+      as.string = TRUE) %>%
+      {tibble(seq = unlist(seqinr::getSequence(., as.string = TRUE)),
+              label = seqinr::getName(.))}
+  } else {
+    seqfile <- tempfile("seq", fileext = "fasta")
+    args <- c("--sintax", seqfile)
+    on.exit(file.remove(seqfile))
+    if (methods::is(seq, "XStringSet")) {
+      Biostrings::writeXStringSet(seq, seqfile)
+      seq <- tibble::tibble(seq = as.character(seq, use.names = FALSE),
+                            label = names(seq))
+    } else if (methods::is(seq, "ShortRead")) {
+      ShortRead::writeFasta(seq, seqfile)
+      seq <- tibble::tibble(seq = as.character(seq@sread, use.names = FALSE),
+                            label = as.character(seq@id, use.names = FALSE))
+    } else if (is.character(seq)) {
+      if (is.null(names(seq))) names(seq) <- tzara::seqhash(seq)
+      is.RNA <- stringr::str_detect(seq[1], "[Uu]")
+      if (is.RNA) {
+        seq <- Biostrings::RNAStringSet(seq)
+      } else {
+        seq <- Biostrings::DNAStringSet(seq)
+      }
+      Biostrings::writeXStringSet(seq, seqfile)
+      seq <- tibble::tibble(seq = as.character(seq, use.names = FALSE),
+                            label = names(seq))
+    }
+  }
+  if (assertthat::is.string(db) && file.exists(db)) {
+    dbfile <- db
+  } else {
+    dbfile <- tempfile("db", fileext = "fasta")
+    args <- c(args, "--db", dbfile)
+    on.exit(file.remove(dbfile))
+    
+    if (methods::is(db, "XStringSet")) {
+      Biostrings::writeXStringSet(db, dbfile)
+    } else if (methods::is(db, "ShortRead")) {
+      ShortRead::writeFasta(db, dbfile)
+    } else if (is.character(db)) {
+      if (is.null(names(db))) stop("Taxonomy database given as character vector must be named.")
+      is.RNA <- stringr::str_detect(db[1], "[Uu]")
+      if (is.RNA) {
+        db <- Biostrings::RNAStringSet(db)
+      } else {
+        db <- Biostrings::DNAStringSet(db)
+      }
+      Biostrings::writeXStringSet(db, dbfile)
+    }
+  }
+  tablefile <- tempfile("table", fileext = "tsv")
+  args <- c(args, "--tabbedout", tablefile)
+  on.exit(file.remove(tablefile))
+  
+  if (!missing(sintax_cutoff)) args <- c(args, "--sintax_cutoff", sintax_cutoff)
+  if (!missing(multicore)) {
+    if (isFALSE(multicore)) multicore <- 1
+    args <- c(args, "--threads", multicore)
+  }
+  system2("vsearch", args = args)
+  # vsearch outputs an extra tab when it cannot place the sequence
+  system2("sed", args = c("--in-place", "s/\\t\\t\\t\\t/\\t\\t\\t/", tablefile))
+  readr::read_tsv(tablefile,
+                  col_names = c("label", "hit", "strand", "c12n"),
+                  col_types = "cccc") %>%
+    dplyr::left_join(seq, ., by = "label")
+}
+
+sintax_format <- function(tax) {
+  tax <- dplyr::mutate_at(tax, "c12n", sub, pattern = "(,?[dkpcofgs]:unidentified)+$", replacement = "") %>%
+    dplyr::mutate(name = sub(c12n, pattern = ".*,?[dkpcofgs]:", replacement = "")) %>%
+    tidyr::separate_rows(c12n, sep = ",") %>%
+    dplyr::mutate_at("c12n", dplyr::na_if, "") %>%
+    tidyr::separate(c12n, into = c("rank", "taxon"), sep = ":") %>%
+    dplyr::mutate_at("taxon", dplyr::na_if, "unidentified") %>%
+    dplyr::mutate_at("rank", factor,
+                     levels = c("d", "k", "p", "c", "o", "f", "g", "s"),
+                     labels = c("domain", "kingdom",
+                                "phylum", "class", "order", "family",
+                                "genus", "species")) %>%
+    tidyr::spread(key = "rank", value = "taxon") %>%
+    dplyr::select(-`<NA>`) %>%
+    dplyr::mutate_at("name", rlang::`%|%`, "unknown") %>%
+    tidyr::unite(col = "Taxonomy",
+                 dplyr::one_of("domain", "kingdom", "phylum", "class", "order",
+                               "family", "genus", "species"),
+                 sep = ";",
+                 remove = FALSE) %>%
+    dplyr::mutate_at("Taxonomy", sub, pattern = "(;?NA)+", replacement = "") %>%
+    dplyr::mutate_at("Taxonomy", sub, pattern = "[|].*", replacement = "") %>%
+    dplyr::mutate_at("Taxonomy", sub, pattern = "_sp^", replacement = "") %>%
+    dplyr::mutate_at("Taxonomy", sub, pattern = "([^;]+);\\1", replacement = "\\1")
+  
+  if ("species" %in% names(tax)) {
+    tax <- dplyr::mutate(tax, taxon_name = paste0(taxon_name, ifelse(is.na(species),
+                                                                     "_sp", "")))
+  } else {
+    tax <- dplyr::mutate(tax, taxon_name = paste0(taxon_name, "_sp"))
+  }
+  tax
 }

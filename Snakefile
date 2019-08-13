@@ -382,9 +382,12 @@ rule itsx_reference:
 rule its_reference:
     output: "{ref_root}/{{dbname}}.ITS.fasta.gz".format_map(config)
     input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
+    params:
+      fullinput = lambda wildcards, input: os.path.abspath(input[0]),
+      fulloutput = lambda wildcards, output: os.path.abspath(output[0])
     threads: 1
     log: "{logdir}/{{dbname}}_ITS.log".format_map(config)
-    shell: "rm -f {output} && ln -s {input} {output}"
+    shell: "rm -f {output} && ln -s {params.fullinput} {params.fulloutput}"
 
 # Process an LSU reference database (e.g., RDP or Silva)
 # 1- Take only Eukaryote sequences (Silva)
@@ -628,20 +631,32 @@ rule tech_compare:
 def taxon_inputs(wildcards):
     checkpoints.drake_plan.get()
     taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
-    regions = taxonomy_meta.loc[wildcards.tax_ID, 'region'].split(sep = ",")
+    tax_ID = "{region}_{reference}".format_map(wildcards)
+    regions = taxonomy_meta.loc[tax_ID, 'region'].split(sep = ",")
     return expand('.big_fasta_{region}', region = regions)
+
+def taxon_reference(wildcards):
+    checkpoints.drake_plan.get()
+    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
+    tax_ID = "{region}_{reference}".format_map(wildcards)
+    return expand("{ref_root}/{ref_file}.vsearch.fasta.gz",
+                  ref_root = config['ref_root'],
+                  ref_file = taxonomy_meta.loc[tax_ID, 'reference_file'])
 
 # call taxonomy and assign guilds
 rule taxonomy:
-    output: touch(".guilds_table_{tax_ID}")
+    output: touch(".guilds_table_{region}_{reference}")
+    wildcard_constraints:
+        region = "[a-zA-Z0-9]+"
     input:
         drakedata = rules.drake_plan.output.drakedata,
-        dada      = taxon_inputs
+        dada      = taxon_inputs,
+        reference = taxon_reference
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:
         walltime = 240
-    log: "{logdir}/taxonomy_{{tax_ID}}.log".format_map(config)
+    log: "{logdir}/taxonomy_{{region}}_{{reference}}.log".format_map(config)
     script: "{rdir}/drake-07-taxonomy.R".format_map(config)
 
 # calculate all the taxonomy outputs which should be calculated
