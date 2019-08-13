@@ -705,8 +705,8 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
         seq <- Biostrings::DNAStringSet(seq)
       }
       Biostrings::writeXStringSet(seq, seqfile)
-      seq <- tibble::tibble(seq = as.character(seq, use.names = FALSE),
-                            label = names(seq))
+      seq <- tibble::tibble(label = names(seq),
+                            seq = as.character(seq, use.names = FALSE))
     }
   }
   if (assertthat::is.string(db) && file.exists(db)) {
