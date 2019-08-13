@@ -1,9 +1,7 @@
 ﻿\begin{tikzpicture}[scale=0.5]
  \draw (25.01,0) -- node[below=0.5cm]{\Large \bfseries ITS1} (28.61,0)  (30.13,0) -- node[below=0.5cm]{\Large\bfseries ITS2} (32.51,0);
 %SSU
-\draw[line width = 10pt, dashed] (16,0) -- (17,0);
  \draw[line width=10pt] (7.01,0) -- node[above=0.7cm]{\Large \bfseries SSU} (25.00,0) (28.62, 0) -- node[above=0.5cm]{\Large\bfseries 5.8S} (30.12,0) (32.52,0) -- node[above=0.7cm]{\Large \bfseries LSU} (66.47,0);
-\draw[line width = 10pt, dashed] (34,0) -- (35,0);
 
 \draw[line width= 10pt, white!25!gray] (7.55,0) -- node[above,black](V1){V1} (7.96,0);
 \draw[line width= 10pt, white!25!gray] (8.28,0) -- node[below,black](V2){V2} (8.38,0);
