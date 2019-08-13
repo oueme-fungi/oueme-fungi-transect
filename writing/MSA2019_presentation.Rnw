@@ -47,11 +47,40 @@ reverselog_trans <- function(base = exp(1)) {
 \framesubtitle{rDNA regions}
 \includegraphics[width=\linewidth]{rDNA}
 
-\begin{tabular}{p{0.3\linewidht}p{0.3\linewidth}p{0.3\linewidth}}
+\vfill
+
+\tiny
+\begin{tabular}{p{0.3\linewidth}p{0.3\linewidth}p{0.3\linewidth}}
 SSU & ITS & LSU \\ \midrule
-highly conserved w/variable regions & variable (5.8S conserved) & conserved w/variable regions \\
-used for prokaryotes and all eukaryotes & official barcode for fungi & mostly used for fungi, early phylogenetics \\
+highly conserved w/variable regions & variable (5.8S conserved) & conserved w/variable regions \\[1en] 
+used for prokaryotes and all eukaryotes & official barcode for fungi & mostly used for fungi, early phylogenetics \\[1en]
 \end{tabular}
+
+\vfill
+
+\begincols
+  \begincol{0.3\linewidth}
+    \begin{block}{Silva 132}
+      2M seqs\\
+      700k "Ref NR 99" (clusters)\\
+      16k fungi, 60k other eukaryotes, 625k prokaryotes
+    \end{block}
+  \endcol
+  \begincol{0.3\linewidth}
+    \begin{block}{Unite 8.0}
+      800k seqs \\
+      120k "species hypotheses" (clusters)\\
+      70k fungi, 40k plants, 10k other euk \\
+      some sequences include LSU
+    \end{block}
+  \endcol
+  \begincol{0.3\linewidth}
+    \begin{block}{RDP 11 fungal LSU}
+      11k seqs\\
+      8k fungi, 3k other euk
+    \end{block}
+  \endcol
+\endcols
 
 \end{frame}
 
