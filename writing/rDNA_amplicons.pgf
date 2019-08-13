@@ -1,0 +1,23 @@
+﻿\begin{tikzpicture}[scale=1]
+ \draw (18.05,0) -- node[below]{ITS1} (20.15,0)  (21.71,0) -- node[below]{ITS2} (23.64,0);
+%SSU
+\draw[line width = 10pt, dashed] (16,0) -- (17,0);
+ \draw[line width=10pt] (17,0) -- node[below]{SSU} (18.05,0) (20.15, 0) -- node[below]{5.8S} (21.71,0) (23.64,0) -- node[below]{LSU} (34,0);
+\draw[line width = 10pt, dashed] (34,0) -- (35,0);
+
+\draw[line width = 10pt, red] (17.77,0) -- (17.95,0);
+\draw[line width=1pt, |->,red] (17.77,0.4) -- node [above] (ITS1) {ITS1}(18.77,0.4);
+\draw[line width = 10pt, red] (20.99,0) -- (21.17,0);
+\draw[line width=1pt, |->,red] (20.99,0.4) -- node [above] (gITS7) {gITS7}(21.99,0.4);
+
+\draw[line width = 10pt, blue] (24.01,0) -- (24.21,0);
+\draw[line width=1pt, |->,blue] (24.21,0.4) -- node [above] (ITS4) {ITS4}(23.21,0.4);
+\draw[line width= 10pt, white!25!gray] (24.68,0) -- node[above,black](D1){D1} (26.30,0);
+\draw[line width= 10pt, white!25!gray] (27.92,0) -- node[above,black](D2){D2} (30.32,0);
+\draw[line width = 10pt, blue] (33.45,0) -- (33.61,0);
+\draw[line width=1pt, |->,blue] (33.61,0.4) -- node [above] (LR5) {LR5}(32.61,0.4);
+
+\draw[line width=2pt, dashed, green!50!black, |-|] (20.99,1.5) -- node[above, align=center]{short amplicon $\approx 300$bp} (24.21,1.5) ;
+\draw[line width=2pt, dashed, green!50!black, |-|] (17.77,-1.0) -- node[below]{long amplicon $\approx 1550  $bp} (33.61,-1.0) ;
+
+\end{tikzpicture}

@@ -43,6 +43,18 @@ reverselog_trans <- function(base = exp(1)) {
 }
 @
 
+\begin{frame}{Metabarcoding}
+\framesubtitle{rDNA regions}
+\includegraphics[width=\linewidth]{rDNA}
+
+\begin{tabular}{p{0.3\linewidht}p{0.3\linewidth}p{0.3\linewidth}}
+SSU & ITS & LSU \\ \midrule
+highly conserved w/variable regions & variable (5.8S conserved) & conserved w/variable regions \\
+used for prokaryotes and all eukaryotes & official barcode for fungi & mostly used for fungi, early phylogenetics \\
+\end{tabular}
+
+\end{frame}
+
 % # Metabarcoding
 % 
 %   - Cloning + Sanger -> 454 -> Illumina
@@ -132,6 +144,8 @@ reverselog_trans <- function(base = exp(1)) {
 \begin{frame}{Sequencing}
   \framesubtitle{Which region?}
   \small
+  \includegraphics[width=\linewidth]{rDNA_amplicons}
+  
   \begincols
   \begincol{0.5\linewidth}
     \begin{block}{ITS2 (gITS7-ITS4)}

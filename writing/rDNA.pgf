@@ -1,0 +1,34 @@
+﻿\begin{tikzpicture}[scale=0.5]
+ \draw (25.01,0) -- node[below=0.5cm]{\Large \bfseries ITS1} (28.61,0)  (30.13,0) -- node[below=0.5cm]{\Large\bfseries ITS2} (32.51,0);
+%SSU
+\draw[line width = 10pt, dashed] (16,0) -- (17,0);
+ \draw[line width=10pt] (7.01,0) -- node[above=0.7cm]{\Large \bfseries SSU} (25.00,0) (28.62, 0) -- node[above=0.5cm]{\Large\bfseries 5.8S} (30.12,0) (32.52,0) -- node[above=0.7cm]{\Large \bfseries LSU} (66.47,0);
+\draw[line width = 10pt, dashed] (34,0) -- (35,0);
+
+\draw[line width= 10pt, white!25!gray] (7.55,0) -- node[above,black](V1){V1} (7.96,0);
+\draw[line width= 10pt, white!25!gray] (8.28,0) -- node[below,black](V2){V2} (8.38,0);
+\draw[line width= 10pt, white!25!gray] (8.76,0) -- node[above,black](V3){V3} (9.88,0);
+\draw[line width= 10pt, white!25!gray] (11.75,0) -- node[below,black](V4){V4} (12.45,0);
+\draw[line width= 10pt, white!25!gray] (13.34,0) -- node[above,black](V5){V5} (15.65,0);
+\draw[line width= 10pt, white!25!gray] (17.38,0) -- node[below,black](V6){V6} (17.93,0);
+\draw[line width= 10pt, white!25!gray] (19.16,0) -- node[above,black](V7){V7} (19.65,0);
+\draw[line width= 10pt, white!25!gray] (20.46,0) -- node[below,black](V8){V8} (20.79,0);
+\draw[line width= 10pt, white!25!gray] (21.81,0) -- node[above,black](V9){V9} (22.26,0);
+\draw[line width= 10pt, white!25!gray] (23.70,0) -- node[below,black](V10){V10} (24.31,0);
+
+\draw[line width= 10pt, white!25!gray] (33.58,0) -- node[above,black](D1){D1} (35.15,0);
+\draw[line width= 10pt, white!25!gray] (36.76,0) -- node[below,black](D2){D2} (38.86,0);
+\draw[line width= 10pt, white!25!gray] (39.27,0) -- node[above,black](D3){D3} (40.38,0);
+\draw[line width= 10pt, white!25!gray] (42.29,0) -- node[below,black](D4){D4} (42.35,0);
+\draw[line width= 10pt, white!25!gray] (43.17,0) -- node[above,black](D5){D5} (43.54,0);
+\draw[line width= 10pt, white!25!gray] (45.90,0) -- node[below,black](D6){D6} (46.16,0);
+\draw[line width= 10pt, white!25!gray] (48.08,0) -- node[above,black](D7a){D7a} (48.34,0);
+\draw[line width= 10pt, white!25!gray] (48.78,0) -- node[below,black](D7b){D7b} (48.99,0);
+\draw[line width= 10pt, white!25!gray] (51.90,0) -- node[above,black](D8){D8} (53.60,0);
+\draw[line width= 10pt, white!25!gray] (57.20,0) -- node[below,black](D9){D9} (57.27,0);
+\draw[line width= 10pt, white!25!gray] (57.64,0) -- node[above,black](D10){D10} (58.47,0);
+\draw[line width= 10pt, white!25!gray] (62.46,0) -- node[below,black](D11){D11} (62.47,0);
+\draw[line width= 10pt, white!25!gray] (64.03,0) -- node[above,black](D12){D12} (65.44
+,0);
+
+\end{tikzpicture}
