@@ -639,9 +639,7 @@ def taxon_reference(wildcards):
     checkpoints.drake_plan.get()
     taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
     tax_ID = "{region}_{reference}".format_map(wildcards)
-    return expand("{ref_root}/{ref_file}.vsearch.fasta.gz",
-                  ref_root = config['ref_root'],
-                  ref_file = taxonomy_meta.loc[tax_ID, 'reference_file'])
+    return taxonomy_meta.loc[tax_ID, 'reference_file']
 
 # call taxonomy and assign guilds
 rule taxonomy:
