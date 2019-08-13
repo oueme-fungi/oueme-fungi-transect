@@ -43,75 +43,106 @@ reverselog_trans <- function(base = exp(1)) {
 }
 @
 
-\begin{frame}{Metabarcoding}
+\setbeamersize{text margin left=5mm,text margin right=5mm} 
+
+\begin{frame}{rDNA Regions and Databases}
 \framesubtitle{rDNA regions}
+\vskip -1ex
+
 \includegraphics[width=\linewidth]{rDNA}
 
 \vfill
 
-\tiny
-\begin{tabular}{p{0.3\linewidth}p{0.3\linewidth}p{0.3\linewidth}}
-SSU & ITS & LSU \\ \midrule
-highly conserved w/variable regions & variable (5.8S conserved) & conserved w/variable regions \\[1en] 
-used for prokaryotes and all eukaryotes & official barcode for fungi & mostly used for fungi, early phylogenetics \\[1en]
-\end{tabular}
+\begin{overprint}
+\onslide<1>
+\small
+\begin{tabulary}{\linewidth}{r|L|L|L}
+& SSU (16S/18S) & ITS & LSU (23S/26S/28S) \\ \midrule
+Variation &
+  Highly conserved w/variable regions &
+  Variable (5.8S conserved) &
+  Conserved w/variable regions \\ \noalign{\smallskip}
+Uses & 
+  Prokaryota, broad Eukaryota &
+  Official barcode for Fungi &
+  Phylogenetics \\ \noalign{\smallskip}
+Alignable &
+  Yes &
+  No &
+  Yes \\ \noalign{\smallskip}
+Databases &
+  Silva, RDP (Prokaryotes only) &
+  Unite, Warcup &
+  Silva, RDP (Fungi) \\ 
+\end{tabulary}
 
-\vfill
-
-\begincols
+\onslide<2>
+\begin{columns}[t]
   \begincol{0.3\linewidth}
-    \begin{block}{Silva 132}
-      2M seqs\\
-      700k "Ref NR 99" (clusters)\\
-      16k fungi, 60k other eukaryotes, 625k prokaryotes
+    \begin{block}{Silva 132 (2017)}
+      \small
+      \textbf{SSU Ref:}
+      \begin{itemize}
+        \footnotesize
+        \tightlist
+        \item 2M seqs
+        \item 700k "Ref NR 99" (clusters)
+        \item 16k Fungi, 60k other Eukaryota, 625k Prokaryota
+      \end{itemize}
+      \textbf{LSU Ref:}
+      \begin{itemize}
+        \footnotesize
+        \tightlist
+        \item 200k seqs
+        \item 5k Fungi, 24k other Eukaryota, 170k Prokaryota
+      \end{itemize}
     \end{block}
   \endcol
   \begincol{0.3\linewidth}
-    \begin{block}{Unite 8.0}
-      800k seqs \\
-      120k "species hypotheses" (clusters)\\
-      70k fungi, 40k plants, 10k other euk \\
-      some sequences include LSU
+    \begin{block}{Unite 8.0 (2019)}
+    \small
+    \textbf{ITS:}
+      \begin{itemize}
+        \footnotesize
+        \tightlist
+        \item 800k seqs
+        \item 120k "species hypotheses" (clusters)
+        \item 70k Fungi, 40k plants, 10k other Eukaryota
+        \itemsome sequences include LSU
+      \end{itemize}
     \end{block}
   \endcol
   \begincol{0.3\linewidth}
-    \begin{block}{RDP 11 fungal LSU}
-      11k seqs\\
-      8k fungi, 3k other euk
+    \small
+    \begin{block}{RDP 11 (2016)}
+      \small
+      \textbf{Fungal LSU training set:}\\
+      \begin{itemize}
+        \footnotesize
+        \tightlist
+        \item 11k seqs
+        \item 8k Fungi, 3k other Eukaryota
+        \item annotated to genus
+      \end{itemize}
+      \textbf{SSU dataset:}
+      \begin{itemize}
+        \footnotesize
+        \tightlist
+        \item Prokaryotes only
+      \end{itemize}
+      \textbf{Warcup Fungal ITS training set:}
+      \begin{itemize}
+        \footnotesize
+        \tightlist
+        \item 18k seqs
+        \item all Fungi
+      \end{itemize}
     \end{block}
   \endcol
-\endcols
-
+\end{columns}
+\center The three databases don't use the same taxonomy!
+\end{overprint}
 \end{frame}
-
-% # Metabarcoding
-% 
-%   - Cloning + Sanger -> 454 -> Illumina
-%   - For fungi, usually ITS2
-%       - short
-%       - intraspecific variation in most groups
-%       - good database support (Unite 8.0 - 817 130 fungal sequences)
-%       - ITS is "official barcode for fungi" \cite{schoch2012}
-%       - fungal specific primers
-%   - problems
-%       - not alignable
-%       - cannot place unknown sequences
-%       - variant 5.8S
-%       - variable length
-%   
-%   - LSU (26S/28S)
-%       - alternating highly conserved domains and variable regions
-%       - widely used for phylogenies
-%       - universal primers
-%       - less variable length
-%       - more conserved than ITS
-%       - not as good database support (RDP 11 fungal LSU - 125 525, Silva 132 LSU 907 382 of which )
-%   - SSU (18S)
-%       - alternating highly conserved and variable regions
-%       - more conserved than LSU
-%       - used for barcoding prokaryotes and "protists"
-%       - good database support (Silva SSU), but not as good for fungi
-
 
 %\begin{frame}{Outline}
 %\tableofcontents
@@ -128,8 +159,7 @@ used for prokaryotes and all eukaryotes & official barcode for fungi & mostly us
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Upper Ouémé Forest Reserve}
-\framesubtitle{Permanent study plots}
+\begin{frame}{Study site}
 \vskip1.5em
 \begincols
   \begincol{0.55\linewidth}
@@ -139,8 +169,6 @@ used for prokaryotes and all eukaryotes & official barcode for fungi & mostly us
         \includegraphics{soudanian_benin}
       \onslide<2>
         \includegraphics{soudanian_benin_oueme}
-      \onslide<3->
-        \includegraphics{soudanian_benin_oueme_village}
       \end{overprint}
       \caption{Location of study sites in Bènin.}
     \end{figure}
@@ -149,16 +177,25 @@ used for prokaryotes and all eukaryotes & official barcode for fungi & mostly us
   \begincol{0.45\linewidth}
   \begin{itemize}
     \tightlist
-    \item<1-|alert@1> West Soudanian woodlands in central Bènin
-    \item<1-|alert@1> 10° N Latitude
-    \item<3-|alert@3> Two sites located near the villages Angaradebou and Gando
-    \item<4-|alert@4> Dominated by \emph{Isoberlinia doka} (Caesalpinoideae; ECM host)
+    \item West Soudanian woodlands in central Bènin
+    \item 10° N Latitude
+    \item Two sites 30km apart
+    \item Dominated by \emph{Isoberlinia doka} (Caesalpinoideae; ECM host)
+    \item Many AM trees and shrubs, plus three more ECM.
+    \item Fire \& termites
   \end{itemize}
   \endcol
 \endcols
 \end{frame}
 
-
+\begin{frame}{Soudanian Woodlands}
+  \begin{overprint}
+    \onslide<1>
+      \includegraphics{Foret_Oueme_wide}
+    \onslide<2>
+      \includegraphics{woodland}
+  \end{overprint}
+\end{frame}
 
 \begin{frame}{Sampling}
   \begin{itemize}
@@ -193,9 +230,9 @@ used for prokaryotes and all eukaryotes & official barcode for fungi & mostly us
       \begin{block}{Full ITS + partial LSU (ITS1-LR5)}
         \begin{itemize}
           \tightlist
-          \item Full ITS plus the 5' end of LSU; 1500-2000 bp.
+          \item Full ITS plus the 5' end of LSU; 1000-2000 bp.
           \item ITS -- resolution to separate closely related taxa.
-          \item LSU -- can be aligned across fungi.
+          \item LSU -- can be aligned across Fungi.
           \item Primers are more universal than gITS7.
           \item Long amplicon with alternating variable and conserved regions --- susceptible to chimera formation and breakage.
         \end{itemize}
