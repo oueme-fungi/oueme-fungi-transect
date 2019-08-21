@@ -27,11 +27,11 @@ dependencies:
   - r-usethis=1.5.0
   - bioconductor-ggtree=1.14.4
   - r-dada2=1.12.1
-  - r-tzara=0.0.2
+  - r-tzara=0.0.3
   - r-ritsx=0.0.1
   - r-funguildr=0.1
-  - r-drake=7.4.0
-  - r-assertr=1.0.0
+  - r-drake=7.6.1
+  - r-assertr=2.6
   - r-tikzdevice=0.12
   - r-inext=2.0.19
   - rstudio
