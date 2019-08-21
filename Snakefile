@@ -583,8 +583,8 @@ def region_inputs(wildcards):
 localrules: region_table
 rule region_table:
     output:
-        touch(".big_fasta_{region}"),
-        bigfasta = "{datadir}/clusters/{{region}}.fasta.gz".format_map(config)
+        touch(".big_fasta_{region}")#,
+        #bigfasta = "{datadir}/clusters/{{region}}.fasta.gz".format_map(config)
     input:
         drakedata = rules.drake_plan.output.drakedata,
         dada      = region_inputs,

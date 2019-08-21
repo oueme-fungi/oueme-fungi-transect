@@ -173,3 +173,11 @@ write_big_fasta <- function(big_seq_table, filename) {
     Biostrings::DNAStringSet(magrittr::set_names(seq, header)) %T>%
     Biostrings::writeXStringSet(filepath = filename, compress = "gzip")
 }
+
+combine_bigmaps <- function(dadamap, rawdata, key = "Region") {
+  dplyr::full_join(dadamap, rawdata) %>%
+    dplyr::group_by(seq.id) %>%
+    dplyr::filter(any(!is.na(dada.idx))) %>%
+    dplyr::mutate(seq = dplyr::coalesce(dada.seq, derep.seq, seq)) %>%
+    dplyr::select(-derep.seq, -derep.idx, -dada.seq, -dada.idx)
+}

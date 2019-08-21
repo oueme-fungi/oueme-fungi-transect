@@ -16,7 +16,8 @@ setup_log("pretaxonomy")
 
 #### pre-taxonomy ####
 # single-threaded targets after dada2, before taxonomy.
-if (target %in% od || !all(file.exists(outputs))) {
+if (target %in% od #|| !all(file.exists(outputs))
+    ) {
   cat("\n Making pre-taxonomy targets (loop)...\n")
   tictoc::tic()
   dconfig <- drake::drake_config(plan,

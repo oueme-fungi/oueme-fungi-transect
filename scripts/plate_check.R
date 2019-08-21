@@ -14,62 +14,64 @@ read_platemap <- function(filename, sheet, skip = 2) {
                             col_names = TRUE, .name_repair = "minimal")
   # the data is not "tidy"; we have groups of columns for the different
   # primer pairs.  Find the cells which define the primer pairs.
-  primer.pair <- cells %>%
+  primer_pair <- cells %>%
     dplyr::filter(row < header_line,
            stringr::str_detect(character, "ITS")) %>%
     # parse out the primer names
     dplyr::select(col, character) %>%
-    tidyr::extract(character, c("Forward", "Reverse"),
+    tidyr::extract(character, c("forward", "reverse"),
                    regex = "^([:alnum:]+) ?and ?([:alnum:]+).*") %>%
-    tidyr::unite(Primer.Pair, Forward, Reverse, remove = FALSE) %>%
+    tidyr::unite(primer_pair, forward, reverse, remove = FALSE) %>%
     # find the columns they refer to
-    dplyr::mutate(col.end = dplyr::lead(col) - 1,
-                  col.end = tidyr::replace_na(col.end, ncol(raw))) %>%
+    dplyr::mutate(col_end = dplyr::lead(col) - 1,
+                  col_end = tidyr::replace_na(col_end, ncol(raw))) %>%
     dplyr::rowwise()
   # Get the data which applies to all primer pairs.
-  out_all <- raw[1:(min(primer.pair$col) - 1)]
+  out_all <- raw[1:(min(primer_pair$col) - 1)]
   # tidy the whole thing
-  dplyr::do(primer.pair,
+  dplyr::do(primer_pair,
      dplyr::bind_cols(out_all,
-               Primer.Pair = rep(.$Primer.Pair, nrow(raw)),
-               raw[(.$col):(.$col.end)])) %>%
+               primer_pair = rep(.$primer_pair, nrow(raw)),
+               raw[(.$col):(.$col_end)])) %>%
     # get rid of empty columns
     purrr::discard(~all(is.na(.))) %>%
     # make nice names
-    dplyr::rename(Comment = V1,
-           Well = row,
-           DNA.Conc = "Conc. (ng/µl)",
-           DNA.Tot = DNA,
-           PCR.Conc = "ng/µl",
-           PCR.Tot = "Total ng (39 µl)",
-           Pool.Vol = "µl Product") %>%
+    dplyr::rename(comment = V1,
+           well = row,
+           dna_conc = "Conc. (ng/µl)",
+           dna_tot = DNA,
+           pcr_conc = "ng/µl",
+           pcr_tot = "Total ng (39 µl)",
+           pool_vol = "µl Product",
+           year = "Year",
+           plate = "Plate") %>%
     dplyr::select(-"gITS7 ITS4", -"No.") %>%
     # Sample name is actually three pieces of information
-    tidyr::extract("Sample", c("Site", "X", "Qual"),
+    tidyr::extract("Sample", c("site", "x", "qual"),
                    "(V1P[13]|T[12])[ -][ST](\\d+)(\\D*)$") %>%
-    dplyr::mutate_at("X", as.integer) %>%
+    dplyr::mutate_at("x", as.integer) %>%
     # Sites were recorded differently in the two years
-    dplyr::mutate(Site = dplyr::case_when(Site == "V1P1" ~ "Ang",
-                                          Site == "V1P3" ~ "Gan",
-                                          Site == "T1" ~ "Gan",
-                                          Site == "T2" ~ "Ang",
+    dplyr::mutate(site = dplyr::case_when(site == "V1P1" ~ "Ang",
+                                          site == "V1P3" ~ "Gan",
+                                          site == "T1" ~ "Gan",
+                                          site == "T2" ~ "Ang",
                                           TRUE ~ NA_character_)) %>%
     # For some site/years, coordinates were measured from the edge of
     # the plot rather than numbered from 1--25 
-    dplyr::group_by(Year, Site) %>%
-    dplyr::mutate(X = X - if (!any(is.na(X)) && max(X) > 25) 12 else 0) %>%
+    dplyr::group_by(year, site) %>%
+    dplyr::mutate(x = x - if (!any(is.na(x)) && max(x) > 25) 12 else 0) %>%
     dplyr::ungroup() %>%
     # Well is also two pieces of information
-    tidyr::extract("Well", c("Row", "Column"),
+    tidyr::extract("well", c("row", "column"),
                    "([A-H])(\\d+)", remove = FALSE) %>%
-    dplyr::mutate_at("Row", factor, levels = LETTERS[1:8]) %>%
-    dplyr::mutate_at(c("Column", "Row"), as.integer) %>%
+    dplyr::mutate_at("row", factor, levels = LETTERS[1:8]) %>%
+    dplyr::mutate_at(c("column", "row"), as.integer) %>%
     # The comment column tells us about blanks and controls.
     dplyr::mutate(sample_type =
-                    factor(Comment,
+                    factor(comment,
                            levels = c("Blank", "Pos", "Pos. Kontroll")) %>%
                     forcats::fct_collapse(Blank = "Blank",
                                           Pos = c("Pos", "Pos. Kontroll")) %>%
                     forcats::fct_explicit_na("Sample")) %>%
-    dplyr::mutate_at("Plate", formatC, width = 3, flag = "0")
+    dplyr::mutate_at("plate", formatC, width = 3, flag = "0")
 }

@@ -19,6 +19,7 @@ if (interactive()) {
   in_files <- list.files(path = trim_dir,
                          pattern = "\\.trim\\.fastq\\.gz$",
                          full.names = TRUE, recursive = TRUE)
+  in_files <- in_files[!grepl("is_057", in_files)]
   dataset_file <- file.path(lab_dir, "datasets.csv")
   regions_file <- file.path(lab_dir, "regions.csv")
   platemap_file <- file.path(lab_dir, "Brendan_soil2.xlsx")
@@ -551,7 +552,7 @@ plan <- drake_plan(
   # Replace raw reads which were mapped to a DADA2 ASV with the ASV,
   # and put them all in one tibble.  We'll only do this for pacbio long reads.
   combined = target(
-    tzara::combine_bigmaps(purrr::imap_dfr(c(dada_map), ~mutate(.x, name = .y)),
+    combine_bigmaps(dplyr::bind_rows(dada_map),
                            dplyr::bind_rows(raw)),
     transform = combine(dada_map, raw, .by = seq_run_ID, .tag_in = step)
   ),
@@ -561,6 +562,8 @@ plan <- drake_plan(
   # with at least 3 sequences.
   conseq = 
     combined_pb_500 %>%
+    tidyr::extract(name, c("seq_run", "plate", "well", "direction", "region"), "([pi][sb]_\\d{3})_(\\d{3})-([A-H]\\d{1,2})([fr])-(.+)\\.qfilt\\.fastq\\.gz") %>%
+    tidyr::spread(key = "region", value = "seq") %>%
     dplyr::group_by(ITS2) %>%
     dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
     dplyr::summarize(nreads = dplyr::n(),
@@ -644,34 +647,51 @@ plan <- drake_plan(
       seqhash(ITS2)
     lt},
   
-  physeq = assemble_physeq(platemap, datasets, relabel_seqtable(big_seq_table_ITS2), longtree),
+  physeq = assemble_physeq(platemap, datasets, relabel_seqtable(big_seq_table_ITS2)),#, longtree),
   
   longphyseq = physeq %>%
-    phyloseq::prune_samples(samples = phyloseq::sample_data(.)$Dataset == "long-pacbio"
+    phyloseq::prune_samples(samples = phyloseq::sample_data(.)$dataset == "long-pacbio"
                             & phyloseq::sample_data(.)$sample_type == "Sample"
-                            & (phyloseq::sample_data(.)$Qual == "X" | phyloseq::sample_data(.)$Year == "2015")
+                            & (phyloseq::sample_data(.)$qual == "X" | phyloseq::sample_data(.)$year == "2015")
+                            & rowSums(phyloseq::otu_table(.)) > 0),
+  
+  shortphyseq = physeq %>%
+    phyloseq::prune_samples(samples = phyloseq::sample_data(.)$dataset == "short-pacbio"
+                            & phyloseq::sample_data(.)$sample_type == "Sample"
+                            & (phyloseq::sample_data(.)$qual == "X" | phyloseq::sample_data(.)$year == "2015")
                             & rowSums(phyloseq::otu_table(.)) > 0),
   
   unif_dist = phyloseq::distance(longphyseq, "unifrac"),
-  bc_dist = phyloseq::distance(longphyseq, "bray"),
-  spatial_dist = phyloseq::sample_data(longphyseq) %>%
-    with(X + 30000 * as.integer(Site) + 100000 * as.integer(Year)) %>%
+  bc_dist_long = phyloseq::distance(longphyseq, "bray"),
+  bc_dist_short = phyloseq::distance(shortphyseq, "bray"),
+  spatial_dist_long = phyloseq::sample_data(longphyseq) %>%
+    with(x + 30000 * as.integer(site) + 100000 * as.integer(year)) %>%
     dist,
-  spatial_dist2 = spatial_dist + ifelse(spatial_dist > 50000, -100000, 100000),
+  spatial_dist_long2 = spatial_dist_long + ifelse(spatial_dist_long > 50000, -100000, 100000),
+  spatial_dist_short = phyloseq::sample_data(shortphyseq) %>%
+    with(x + 30000 * as.integer(site) + 100000 * as.integer(year)) %>%
+    dist,
+  spatial_dist_short2 = spatial_dist_short + ifelse(spatial_dist_short > 50000, -100000, 100000),
   unif_corr = vegan::mantel.correlog(unif_dist, spatial_dist,
                                       break.pts = 0:13 - 0.5,
                                       cutoff = FALSE),
-  bc_corr = vegan::mantel.correlog(bc_dist, spatial_dist,
+  bc_corr_long = vegan::mantel.correlog(bc_dist_long, spatial_dist_long,
                                     break.pts = 0:13 - 0.5,
                                     cutoff = FALSE),
+  bc_corr_short = vegan::mantel.correlog(bc_dist_short, spatial_dist_short,
+                                        break.pts = 0:13 - 0.5,
+                                        cutoff = FALSE),
   
   
   unif_corr2 = vegan::mantel.correlog(unif_dist, spatial_dist2,
                                        break.pts = 0:13 - 0.5,
                                        cutoff = FALSE),
-  bc_corr2 = vegan::mantel.correlog(bc_dist, spatial_dist2,
+  bc_corr_long2 = vegan::mantel.correlog(bc_dist_long, spatial_dist_long2,
                                      break.pts = 0:13 - 0.5,
                                      cutoff = FALSE),
+  bc_corr_short2 = vegan::mantel.correlog(bc_dist_short, spatial_dist_short2,
+                                         break.pts = 0:13 - 0.5,
+                                         cutoff = FALSE),
   
   # seq_count ----
   # Count the sequences in each fastq file
