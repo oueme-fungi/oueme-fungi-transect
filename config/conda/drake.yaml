@@ -30,6 +30,7 @@ dependencies:
   - r-ritsx=0.0.1
   - r-funguildr=0.1
   - r-drake=7.6.1
+  - r-fst=0.9.0
   - r-assertr=2.6
   - r-tikzdevice=0.12
   - r-inext=2.0.19

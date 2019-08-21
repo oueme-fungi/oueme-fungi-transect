@@ -299,7 +299,8 @@ plan <- drake_plan(
     transform = map(join_derep, .id = primer_ID)),
   join_derep_map = target(
     join_derep$map,
-    transform = map(join_derep, .id = primer_ID)),
+    transform = map(join_derep, .id = primer_ID),
+    format = "fst"),
   
   # split_fasta----
   # break the list of unique files into equal sized chunks for ITSx
@@ -324,7 +325,8 @@ plan <- drake_plan(
     transform = cross(split_fasta,
                       shard = !!(1:bigsplit),
                       .tag_in = step,
-                      .id = primer_ID)),
+                      .id = primer_ID),
+    format = "fst"),
   
   # itsxtrim ----
   # combine the chunks into a master positions list.
@@ -332,7 +334,8 @@ plan <- drake_plan(
     dplyr::bind_rows(itsx_shard),
     transform = combine(itsx_shard,
                         .tag_in = step,
-                        .by = primer_ID)),
+                        .by = primer_ID),
+    format = "fst"),
   
   # positions----
   # find the entries in the positions list which correspond to the sequences
@@ -344,7 +347,8 @@ plan <- drake_plan(
     transform = map(.data = !!select(itsx_meta, derep, join_derep_map, itsxtrim, trim_file,
                                      file_ID),
                     .tag_in = step,
-                    .id = file_ID)),
+                    .id = file_ID),
+    format = "fst"),
                   
   # regions----
   # cut the required regions out of each sequence
@@ -520,7 +524,8 @@ plan <- drake_plan(
              sintax_cutoff = 0.9,
              multithread = ignore(dada_cpus)) %>%
       sintax_format(),
-    transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID)),
+    transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
+    format = "fst"),
   
   # funguild_db ----
   # Download the FUNGuild database
@@ -530,11 +535,14 @@ plan <- drake_plan(
   # Assign ecological guilds to the ASVs based on taxonomy.
   guilds_table = target(
     FUNGuildR::funguild_assign(taxon, db = funguild_db),
-    transform = map(taxon, tax_ID, .tag_in = step, .id = tax_ID)),
+    transform = map(taxon, tax_ID, .tag_in = step, .id = tax_ID),
+    format = "fst"),
   
   # platemap ----
   # Read the map between plate locations and samples
-  platemap = read_platemap(file_in(!!platemap_file), platemap_sheet),
+  platemap = target(
+    read_platemap(file_in(!!platemap_file), platemap_sheet),
+    format = "fst"),
   
   # raw ----
   # Join the raw read info (for long pacbio reads).
@@ -545,7 +553,8 @@ plan <- drake_plan(
     transform = combine(regions, filter_file, max_ee, seq_run, region,
                         .by = c(seq_run_ID, region_ID),
                         .tag_in = step,
-                        .id = c(seq_run_ID, region_ID))
+                        .id = c(seq_run_ID, region_ID)),
+    format = "fst"
   ),
   
   # combined ----
@@ -554,13 +563,14 @@ plan <- drake_plan(
   combined = target(
     combine_bigmaps(dplyr::bind_rows(dada_map),
                            dplyr::bind_rows(raw)),
-    transform = combine(dada_map, raw, .by = seq_run_ID, .tag_in = step)
+    transform = combine(dada_map, raw, .by = seq_run_ID, .tag_in = step),
+    format = "fst"
   ),
   
   # conseq ----
   # Calculate consensus sequences for full ITS and LSU for each ITS2 ASV with
   # with at least 3 sequences.
-  conseq = 
+  conseq = target(
     combined_pb_500 %>%
     tidyr::extract(name, c("seq_run", "plate", "well", "direction", "region"), "([pi][sb]_\\d{3})_(\\d{3})-([A-H]\\d{1,2})([fr])-(.+)\\.qfilt\\.fastq\\.gz") %>%
     tidyr::spread(key = "region", value = "seq") %>%
@@ -573,44 +583,49 @@ plan <- drake_plan(
                        calculate_consensus(ITS, seq.id, ignore(dada_cpus))),
                      LSU = as.character(
                        calculate_consensus(LSU, seq.id, ignore(dada_cpus)))),
+    format = "fst"),
+  
   # conseq_filt ----
   # Remove consensus sequences which did not have a strong consensus.
-  conseq_filt =
+  conseq_filt = target(
     conseq %>%
-    dplyr::filter(complete.cases(.)) %>%
-    dplyr::mutate(
-      qlong = Biostrings::RNAStringSet(long) %>%
-        Biostrings::letterFrequency(., "MRWSYKVHDBN"),
-      qITS = Biostrings::RNAStringSet(ITS) %>%
-        Biostrings::letterFrequency(., "MRWSYKVHDBN"),
-      qLSU = Biostrings::RNAStringSet(LSU) %>%
-        Biostrings::letterFrequency(., "MRWSYKVHDBN")) %>%
-    dplyr::filter(qITS < 3, qLSU < 3, qlong < 3) %>%
-    dplyr::mutate(hash = seqhash(long)) %>%
-    dplyr::arrange(hash),
+      dplyr::filter(complete.cases(.)) %>%
+      dplyr::mutate(
+        qlong = Biostrings::RNAStringSet(long) %>%
+          Biostrings::letterFrequency(., "MRWSYKVHDBN"),
+        qITS = Biostrings::RNAStringSet(ITS) %>%
+          Biostrings::letterFrequency(., "MRWSYKVHDBN"),
+        qLSU = Biostrings::RNAStringSet(LSU) %>%
+          Biostrings::letterFrequency(., "MRWSYKVHDBN")) %>%
+      dplyr::filter(qITS < 3, qLSU < 3, qlong < 3) %>%
+      dplyr::mutate(hash = seqhash(long)) %>%
+      dplyr::arrange(hash),
+    format = "fst"),
   
   # taxon_LSUcons_rdp----
   # Assign taxonomy to the consensus LSU sequences.
-  taxon_LSUcons_rdp =
+  taxon_LSUcons_rdp = target(
     conseq_filt$LSU %>%
-    unique() %>%
-    stringr::str_replace_all("U", "T") %>%
-    sintax(db = file_in("reference/rdp_train.LSU.fasta.gz"),
-           sintax_cutoff = 0.9,
-           multithread = ignore(dada_cpus)) %>%
-    dplyr::mutate_at("seq", stringr::str_replace_all, "T", "U"),
+      unique() %>%
+      stringr::str_replace_all("U", "T") %>%
+      sintax(db = file_in("reference/rdp_train.LSU.fasta.gz"),
+             sintax_cutoff = 0.9,
+             multithread = ignore(dada_cpus)) %>%
+      dplyr::mutate_at("seq", stringr::str_replace_all, "T", "U"),
+    format = "fst"),
   
   # cons_tax----
   # Make names which combine the ITS2 and LSU identifications to put on the tree
   # Also make hash names, because PASTA will destroy non-alphanumeric names
-  cons_tax  =
+  cons_tax  = target(
     conseq_filt %>%
-    dplyr::left_join(dplyr::select(taxon_ITS2_unite, ITS2 = seq, name),
-                     by = "ITS2") %>%
-    dplyr::left_join(dplyr::select(taxon_LSUcons_rdp, LSU = seq, name),
-                     suffix = c("_ITS2", "_LSU"),
-                     by = "LSU") %>%
-    tidyr::unite("name", name_ITS2, name_LSU, sep = "/"),
+      dplyr::left_join(dplyr::select(taxon_ITS2_unite, ITS2 = seq, name),
+                       by = "ITS2") %>%
+      dplyr::left_join(dplyr::select(taxon_LSUcons_rdp, LSU = seq, name),
+                       suffix = c("_ITS2", "_LSU"),
+                       by = "LSU") %>%
+      tidyr::unite("name", name_ITS2, name_LSU, sep = "/"),
+    format = "fst"),
   
   # long_consensus----
   # get the long amplicon consensus and convert to RNAStringSet.
@@ -704,13 +719,15 @@ plan <- drake_plan(
     transform = map(fq_file = !!c(file.path(trim_dir, itsx_meta$trim_file),
                                  file.path(region_dir, predada_meta$region_file),
                                  file.path(filter_dir, predada_meta$filter_file)),
-                    .tag_in = step)),
+                    .tag_in = step),
+    format = "fst"),
   
   # seq_counts----
   # merge all the sequence counts into one data.frame
   seq_counts = target(
     dplyr::bind_rows(seq_count),
-    transform = combine(seq_count)),
+    transform = combine(seq_count),
+    format = "fst"),
 
   # qstats----
   # calculate quality stats for the different regions
@@ -718,7 +735,8 @@ plan <- drake_plan(
     q_stats(file_in(!!file.path(region_dir, region_file))),
     transform = map(.data = !!predada_meta,
                     .tag_in = step,
-                    .id = c(well_ID, region_ID))),
+                    .id = c(well_ID, region_ID)),
+    format = "fst"),
   #qstats_join----
   # join all the quality stats into one data.frame
   qstats_join = target(
@@ -728,7 +746,8 @@ plan <- drake_plan(
         into = c("seq_run", "plate", "well", "direction", "region"),
         regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.trim\\.fastq\\.gz") %>%
       dplyr::left_join(datasets),
-    transform = combine(qstats)),
+    transform = combine(qstats),
+    format = "fst"),
   # qstats_knit----
   # knit a report about the quality stats.
   qstats_knit = {
