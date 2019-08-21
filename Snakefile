@@ -432,7 +432,19 @@ rule rdptrain_vsearch_reference:
     shell:
         """
         zcat {input} |
-        sed -r '/>/ s/>([^\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+)/>\1;tax=k:\2,p:\3,c:\4,o:\5,f:\6,s:\7/' |
+        sed -r '/>/ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+)/>\\1;tax=k:\\2,p:\\3,c:\\4,o:\\5,f:\\6,g:\\7/' |
+        gzip - >{output}
+        """
+
+# Format the Warcup database for VSEARCH
+rule warcup_vsearch_reference:
+    output: "{ref_root}/warcup.{{region}}.vsearch.fasta.gz".format_map(config)
+    input: "{ref_root}/warcup.{{region}}.fasta.gz".format_map(config)
+    threads: 1
+    shell:
+        """
+        zcat {input} |
+        sed -r '/>/ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);/>\\1;tax=k:\\2,p:\\3,c:\\5,o:\\7,f:\\8,g:\\9,s:/' |
         gzip - >{output}
         """
 
