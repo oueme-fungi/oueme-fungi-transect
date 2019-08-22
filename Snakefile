@@ -374,8 +374,8 @@ rule itsx_reference:
                  --positions F\
                  --not-found F\
                  --fasta F &&
-            cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip > {output.ITS1} &&
-            cat temp.part-{{1..{params.shards}}}.ITS2.fasta | gzip > {output.ITS2} ) &> {log}
+            cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip - > {output.ITS1} &&
+            cat temp.part-{{1..{params.shards}}}.ITS2.fasta | gzip - > {output.ITS2} ) &> {log}
         """
 
 # Assume the entire database is ITS.
@@ -408,8 +408,19 @@ rule lsu_reference:
         """
         zcat {input} |
         awk '/^>/ {{ p = ($0 ~ /(Eukaryota|Fungi)/)}} p' |
-        cutadapt -a CGAAnUUUCnCUCAGGAUAGCnG --trimmed-only --report minimal -e 0.2 -m 50 - |
-        cutadapt -g CAUAUnAnUnAGnSSAGGA --trimmed-only --report minimal -e 0.2 - |
+        cutadapt -a CGAAnUUUCnCUCAGGAUAGCnG \
+                 --trimmed-only \
+                 --format=fasta \
+                 --report minimal \
+                 -e 0.2 \
+                 -m 50 \
+                 - |
+        cutadapt -g CAUAUnAnUnAGnSSAGGA \
+                 --trimmed-only \
+                 --format=fasta \
+                 --report minimal \
+                 -e 0.2 \
+                 - |
         gzip - >{output}
         """
 
