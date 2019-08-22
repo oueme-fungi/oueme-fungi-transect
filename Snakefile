@@ -367,7 +367,7 @@ rule itsx_reference:
             done |
                 xargs -n 4 -P {params.shards} \
                     ITSx --complement F\
-                 --cpu {threads}\
+                 --cpu {params.cpu_per_shard}\
                  --summary F\
                  --graphical F\
                  --preserve T\
