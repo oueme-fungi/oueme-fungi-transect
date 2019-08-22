@@ -407,21 +407,21 @@ rule lsu_reference:
     shell:
         """
         zcat {input} |
-        awk '/^>/ {{ p = ($0 ~ /(Eukaryota|Fungi)/)}} p' |
-        cutadapt -a CGAAnUUUCnCUCAGGAUAGCnG \
-                 --trimmed-only \
-                 --format=fasta \
-                 --report minimal \
-                 -e 0.2 \
-                 -m 50 \
-                 - |
-        cutadapt -g CAUAUnAnUnAGnSSAGGA \
-                 --trimmed-only \
-                 --format=fasta \
-                 --report minimal \
-                 -e 0.2 \
-                 - |
-        gzip - >{output}
+        #awk '/^>/ {{ p = ($0 ~ /(Eukaryota|Fungi)/)}} p' |
+        #cutadapt -a CGAAnUUUCnCUCAGGAUAGCnG \
+        #         --trimmed-only \
+        #         --format=fasta \
+        #         --report minimal \
+        #         -e 0.2 \
+        #         -m 50 \
+        #         - |
+        #cutadapt -g CAUAUnAnUnAGnSSAGGA \
+        #         --trimmed-only \
+        #         --format=fasta \
+        #         --report minimal \
+        #         -e 0.2 \
+        #         - |
+        #gzip - >{output}
         """
 
 rule rdptrain_reference:
