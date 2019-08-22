@@ -446,7 +446,7 @@ plan <- drake_plan(
       HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(hgp)),
       BAND_SIZE = band_size,
       pool = eval(rlang::parse_expr(pool))),
-    transform = map(err, .data = !!dada_meta,
+    transform = map(err,
                     .tag_in = step,
                     .id = c(plate_ID, range_ID))),
   
@@ -455,7 +455,7 @@ plan <- drake_plan(
   # (for each size range, if multiple)
   dada_map = target(
     tzara::dadamap(region_derep, dada),
-    transform = map(dada, .data = !!dada_meta,
+    transform = map(dada,
                     .tag_in = step, .id = c(plate_ID, range_ID))),
   
   # seq_table----
@@ -465,7 +465,7 @@ plan <- drake_plan(
     dada2::makeSequenceTable(dada) %>%
       magrittr::extract(,nchar(colnames(.)) >= min_length_post &
                           nchar(colnames(.)) <= max_length_post),
-    transform = map(dada, .data = !!dada_meta, .tag_in = step, .id = c(plate_ID, range_ID))),
+    transform = map(dada, .tag_in = step, .id = c(plate_ID, range_ID))),
   
   # nochim----
   # Remove likely bimeras
