@@ -1,4 +1,4 @@
-restart-times: 3
+restart-times: 1
 jobscript: "slurm-jobscript.sh"
 cluster: "config/UPPMAX/slurm-submit.py --dependency \"afterok:{dependencies}\""
 cluster-status: "slurm-status.py"
