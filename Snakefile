@@ -374,7 +374,11 @@ rule itsx_reference:
                  --positions F\
                  --not-found F\
                  --fasta F &&
+            echo "combining ITS1 files:" &&
+            ls -l *.ITS1.fasta &&
             cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip - > {output.ITS1} &&
+            echo "combining ITS2 files:" &&
+            ls -l *.ITS2.fasta &&
             cat temp.part-{{1..{params.shards}}}.ITS2.fasta | gzip - > {output.ITS2} ) &> {log}
         """
 
@@ -421,7 +425,7 @@ rule lsu_reference:
         #         --report minimal \
         #         -e 0.2 \
         #         - |
-        #gzip - >{output}
+        gzip - >{output}
         """
 
 rule rdptrain_reference:
