@@ -373,7 +373,8 @@ rule itsx_reference:
                  --preserve T\
                  --positions F\
                  --not-found F\
-                 --fasta F &&
+                 --fasta F
+            echo "xargs exited with value $?"
             echo "combining ITS1 files:" &&
             ls -l *.ITS1.fasta &&
             cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip - > {output.ITS1} &&
