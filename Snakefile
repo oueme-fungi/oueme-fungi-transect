@@ -351,6 +351,8 @@ rule itsx_reference:
     input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
     threads: maxthreads
     shadow: "shallow"
+    resources:
+        walltime = 30
     params:
         shards = lambda wildcards, threads: max([threads // 4, 1]),
         cpu_per_shard = lambda wildcards, threads: max([threads // max([threads // 4, 1]), 1])
