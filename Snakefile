@@ -346,6 +346,7 @@ def ion_find(seqrun, plate):
 
 # Download the Unite database
 # This can be used as-is by the DADA2 classifier, and will be used to generate a database for SINTAX.
+localrules: unite_download
 rule unite_download:
     output: "{ref_root}/unite.fasta.gz".format_map(config)
     input: HTTP.remote(config['unite_url'], allow_redirects = True)
@@ -360,6 +361,7 @@ rule unite_download:
         """
 
 # Download the Unite classifier for IDTAXA
+localrules: unite_idtaxa_download
 rule unite_idtaxa_download:
     output: "{ref_root}/unite.idtaxa.Rdata".format_map(config)
     input: HTTP.remote(config['unite_idtaxa_url'], allow_redirects = True)
@@ -373,6 +375,7 @@ rule unite_idtaxa_download:
 
 # Download the RDP fungal LSU training set
 # This will be used to generate databases for SINTAX and DADA2.
+localrules: rdp_download
 rule rdp_download:
     output:
         fasta = "{ref_root}/rdp_train.fasta.gz".format_map(config),
@@ -392,6 +395,7 @@ rule rdp_download:
         """
 
 # Download the RDP classifier for IDTAXA
+localrules: rdp_idtaxa_download
 rule rdp_idtaxa_download:
     output: "{ref_root}/rdp_train.idtaxa.Rdata".format_map(config)
     input: HTTP.remote(config['rdp_idtaxa_url'], allow_redirects = True)
@@ -405,6 +409,7 @@ rule rdp_idtaxa_download:
 
 # Download the Warcup fungal ITS training set
 # This will be used to generate databases for SINTAX and DADA2
+localrules: warcup_download
 rule warcup_download:
     output:
         fasta = "{ref_root}/warcup.fasta.gz".format_map(config),
@@ -422,6 +427,7 @@ rule warcup_download:
         """
 
 # Download the Warcup classifier for IDTAXA
+localrules: warcup_idtaxa_download
 rule warcup_idtaxa_download:
     output: "{ref_root}/warcup.idtaxa.Rdata".format_map(config)
     input: HTTP.remote(config['warcup_idtaxa_url'], allow_redirects = True)
@@ -478,6 +484,7 @@ rule itsx_reference:
         """
 
 # Assume the entire database is ITS.
+localrules: its_reference
 rule its_reference:
     output: "{ref_root}/{{dbname}}.ITS.fasta.gz".format_map(config)
     input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
@@ -504,6 +511,7 @@ rule lsu_reference:
         """
 
 # format the RDP training set and Warcup reference databases for use in DADA2
+localrules: rdp_dada_reference
 rule rdp_dada_reference:
     output: "{ref_root}/{{dbname}}.{{region}}.dada2.fasta.gz".format_map(config)
     input:
@@ -515,10 +523,11 @@ rule rdp_dada_reference:
         dbname = "(rdp_train|warcup)"
     shell:
         """
-        Rscript -e 'library(dada2); makeTaxonomyFasta_RDP("{input.fasta}", "{input.taxa}", "{output}", compress = TRUE)'
+        Rscript -e 'dada2:::makeTaxonomyFasta_RDP("{input.fasta}", "{input.taxa}", "{output}", compress = TRUE)'
         """
 
 # dada2 can use the UNITE database as-is
+localrules: unite_dada_reference
 rule unite_dada_reference:
     output: "{ref_root}/unite.{{region}}.dada2.fasta.gz".format_map(config)
     input: "{ref_root}/unite.{{region}}.fasta.gz".format_map(config)
@@ -530,6 +539,7 @@ rule unite_dada_reference:
         """
 
 # Format the RDP database for VSEARCH
+localrules: rdptrain_vsearch_reference
 rule rdptrain_vsearch_reference:
     output: "{ref_root}/rdp_train.{{region}}.vsearch.fasta.gz".format_map(config)
     input: "{ref_root}/rdp_train.{{region}}.fasta.gz".format_map(config)
@@ -542,6 +552,7 @@ rule rdptrain_vsearch_reference:
         """
 
 # Format the Warcup database for VSEARCH
+localrules: warcup_vsearch_reference
 rule warcup_vsearch_reference:
     output: "{ref_root}/warcup.{{region}}.vsearch.fasta.gz".format_map(config)
     input: "{ref_root}/warcup.{{region}}.fasta.gz".format_map(config)
@@ -554,6 +565,7 @@ rule warcup_vsearch_reference:
         """
 
 # Format the Unite database for VSEARCH
+localrules: unite_vsearch_reference
 rule unite_vsearch_reference:
     output: "{ref_root}/unite.{{region}}.vsearch.fasta.gz".format_map(config)
     input: "{ref_root}/unite.{{region}}.fasta.gz".format_map(config)
@@ -569,6 +581,7 @@ rule unite_vsearch_reference:
         """
 
 # generate all the references
+localrules: all_references
 rule all_references:
     input:
         expand("{ref_root}/{db}.{region}.{method}.fasta.gz", ref_root = config['ref_root'],
