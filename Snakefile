@@ -450,7 +450,7 @@ rule itsx_reference:
     threads: maxthreads
     shadow: "shallow"
     resources:
-        walltime = 30
+        walltime = 120
     params:
         shards = lambda wildcards, threads: max([threads // 4, 1]),
         cpu_per_shard = lambda wildcards, threads: max([threads // max([threads // 4, 1]), 1])
