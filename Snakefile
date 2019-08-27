@@ -348,7 +348,7 @@ def ion_find(seqrun, plate):
 # This can be used as-is by the DADA2 classifier, and will be used to generate a database for SINTAX.
 rule unite_download:
     output: "{ref_root}/unite.fasta.gz".format_map(config)
-    input: HTTP.remote(config['unite_url'])
+    input: HTTP.remote(config['unite_url'], allow_redirects = True)
     shadow: "shallow"
     shell:
         """
@@ -362,7 +362,7 @@ rule unite_download:
 # Download the Unite classifier for IDTAXA
 rule unite_idtaxa_download:
     output: "{ref_root}/unite.idtaxa.Rdata".format_map(config)
-    input: HTTP.remote(config['unite_idtaxa_url'])
+    input: HTTP.remote(config['unite_idtaxa_url'], allow_redirects = True)
     shell:
         """
         echo {config[unite_idtaxa_md5]} {input} |
@@ -377,7 +377,7 @@ rule rdp_download:
     output:
         fasta = "{ref_root}/rdp_train.fasta.gz".format_map(config),
         taxa  = "{ref_root}/rdp_train.taxa.txt".format_map(config)
-    input: HTTP.remote(config['rdp_url'])
+    input: HTTP.remote(config['rdp_url'], allow_redirects = True)
     shadow: "shallow"
     shell:
         """
@@ -394,7 +394,7 @@ rule rdp_download:
 # Download the RDP classifier for IDTAXA
 rule rdp_idtaxa_download:
     output: "{ref_root}/rdp_train.idtaxa.Rdata".format_map(config)
-    input: HTTP.remote(config['rdp_idtaxa_url'])
+    input: HTTP.remote(config['rdp_idtaxa_url'], allow_redirects = True)
     shell:
         """
         echo {config[rdp_idtaxa_md5]} {input} |
@@ -409,7 +409,7 @@ rule warcup_download:
     output:
         fasta = "{ref_root}/warcup.fasta.gz".format_map(config),
         taxa  = "{ref_root}/warcup.taxa.txt".format_map(config)
-    input: HTTP.remote(config['warcup_url'])
+    input: HTTP.remote(config['warcup_url'], allow_redirects = True)
     shadow: "shallow"
     shell:
         """
@@ -424,7 +424,7 @@ rule warcup_download:
 # Download the Warcup classifier for IDTAXA
 rule warcup_idtaxa_download:
     output: "{ref_root}/warcup.idtaxa.Rdata".format_map(config)
-    input: HTTP.remote(config['warcup_idtaxa_url'])
+    input: HTTP.remote(config['warcup_idtaxa_url'], allow_redirects = True)
     shell:
         """
         echo {config[warcup_idtaxa_md5]} {input} |
