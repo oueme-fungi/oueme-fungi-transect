@@ -4,6 +4,9 @@ from glob import glob
 import re
 import subprocess
 from snakemake.utils import listfiles
+from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
+
+HTTP = HTTPRemoteProvider()
 
 # For testing, parse the yaml file (this is automatically done by Snakemake)
 #import yaml
@@ -249,7 +252,7 @@ rule pacbio_singledemux:
             sample=${{sample%[fr].trim.fastq.gz}} &&
             echo $sample &&
             zcat $file |
-            sed '/@/ s/@.*/&;sample:'${{sample}}'/' |
+            sed '/@/ s/@.*/&;sample:'${{sample}}'/' |I made an LSU alignment in MUSCLE
             gzip - >>{output.fastq}
         done &&
         zcat {output.fastq} | sed -nr '/^@/s/^@([^;]+;sample:(.+))/\1\t\2/ p' >{output.key}
@@ -341,6 +344,95 @@ def ion_find(seqrun, plate):
 
 #### Reference databases ####
 
+# Download the Unite database
+# This can be used as-is by the DADA2 classifier, and will be used to generate a database for SINTAX.
+rule unite_download:
+    output: "{ref_root}/unite.fasta.gz".format_map(config)
+    input: HTTP.remote(config['unite_url'])
+    shadow: "shallow"
+    shell:
+        """
+        echo {config[unite_md5]} {input} |
+        md5sum -c - &&
+        mkdir -p $(dirname {output}) &&
+        unzip {input} &&
+        gzip -c {config[unite_filename]} > {output}
+        """
+
+# Download the Unite classifier for IDTAXA
+rule unite_idtaxa_download:
+    output: "{ref_root}/unite.idtaxa.Rdata".format_map(config)
+    input: HTTP.remote(config['unite_idtaxa_url'])
+    shell:
+        """
+        echo {config[unite_idtaxa_md5]} {input} |
+        md5sum -c - &&
+        mkdir -p $(dirname {output}) &&
+        mv {input} {output}
+        """
+
+# Download the RDP fungal LSU training set
+# This will be used to generate databases for SINTAX and DADA2.
+rule rdp_download:
+    output:
+        fasta = "{ref_root}/rdp_train.fasta.gz".format_map(config),
+        taxa  = "{ref_root}/rdp_train.taxa.txt".format_map(config)
+    input: HTTP.remote(config['rdp_url'])
+    shadow: "shallow"
+    shell:
+        """
+        echo {config[rdp_md5]} {input} |
+        md5sum -c - &&
+        mkdir -p $(dirname {output.fasta}) &&
+        unzip {input} &&
+        cat {config[rdp_filename]} |
+            sed '/^>/!y/uU/tT/' |
+            gzip -c - > {output.fasta} &&
+        mv {config[rdp_taxa]} {output.taxa}
+        """
+
+# Download the RDP classifier for IDTAXA
+rule rdp_idtaxa_download:
+    output: "{ref_root}/rdp_train.idtaxa.Rdata".format_map(config)
+    input: HTTP.remote(config['rdp_idtaxa_url'])
+    shell:
+        """
+        echo {config[rdp_idtaxa_md5]} {input} |
+        md5sum -c - &&
+        mkdir -p $(dirname {output}) &&
+        mv {input} {output}
+        """
+
+# Download the Warcup fungal ITS training set
+# This will be used to generate databases for SINTAX and DADA2
+rule warcup_download:
+    output:
+        fasta = "{ref_root}/warcup.fasta.gz".format_map(config),
+        taxa  = "{ref_root}/warcup.taxa.txt".format_map(config)
+    input: HTTP.remote(config['warcup_url'])
+    shadow: "shallow"
+    shell:
+        """
+        echo {config[warcup_md5]} {input} |
+        md5sum -c - &&
+        mkdir -p $(dirname {output.fasta}) &&
+        unzip {input} &&
+        gzip -c {config[warcup_filename]} > {output.fasta} &&
+        mv {config[warcup_taxa]} {output.taxa}
+        """
+
+# Download the Warcup classifier for IDTAXA
+rule warcup_idtaxa_download:
+    output: "{ref_root}/warcup.idtaxa.Rdata".format_map(config)
+    input: HTTP.remote(config['warcup_idtaxa_url'])
+    shell:
+        """
+        echo {config[warcup_idtaxa_md5]} {input} |
+        md5sum -c - &&
+        mkdir -p $(dirname {output}) &&
+        mv {input} {output}
+        """
+
 # Process an ITS database (e.g., UNITE) is:open 
 # Split into ITS1, ITS2 using ITSx.
 
@@ -397,12 +489,7 @@ rule its_reference:
     shell: "rm -f {output} && ln -s {params.fullinput} {params.fulloutput}"
 
 # Process an LSU reference database (e.g., RDP or Silva)
-# 1- Take only Eukaryote sequences (Silva)
-#    RDP is all Fungi, so everything in it should pass this step.
-# 2- Select only sequences with the conserved LR5 primer site, and trim everything in the 3' direction
-# 3- Select only sequences with the conserved ITS4 primer site, but don't trim the 5' end.
-#    This should select about 900bp of the 5' end of LSU, including the D1(ES5), D2(ES7), and D3(ES9) variable regions.
-#
+# At the moment this doesn't do anything
 # Ambiguities in the sequences are from the RNA data project and Tedersoo et al 2015
 localrules: lsu_reference
 rule lsu_reference:
@@ -413,33 +500,33 @@ rule lsu_reference:
     log: "{logdir}/{{dbname}}_LSU.log".format_map(config)
     shell:
         """
-        zcat {input} |
-        #awk '/^>/ {{ p = ($0 ~ /(Eukaryota|Fungi)/)}} p' |
-        #cutadapt -a CGAAnUUUCnCUCAGGAUAGCnG \
-        #         --trimmed-only \
-        #         --format=fasta \
-        #         --report minimal \
-        #         -e 0.2 \
-        #         -m 50 \
-        #         - |
-        #cutadapt -g CAUAUnAnUnAGnSSAGGA \
-        #         --trimmed-only \
-        #         --format=fasta \
-        #         --report minimal \
-        #         -e 0.2 \
-        #         - |
-        gzip - >{output}
+        ln -s {input} {output}
         """
 
-rule rdptrain_reference:
-    output: "{ref_root}/rdp_train.fasta.gz".format_map(config)
-    input: "{ref_root}/RDP/TrainingSet/fungiLSU_train_012014.fa.gz".format_map(config)
+# format the RDP training set and Warcup reference databases for use in DADA2
+rule rdp_dada_reference:
+    output: "{ref_root}/{{dbname}}.{{region}}.dada2.fasta.gz".format_map(config)
+    input:
+         fasta = "{ref_root}/{{dbname}}.{{region}}.fasta.gz".format_map(config),
+         taxa  = "{ref_root}/{{dbname}}.taxa.txt".format_map(config)
     threads: 1
+    conda: "config/conda/drake.yaml"
+    wildcard_constraints:
+        dbname = "(rdp_train|warcup)"
     shell:
         """
-        zcat {input} |
-        sed '/>/!y/uU/tT/' |
-        gzip - > {output}
+        Rscript -e 'library(dada2); makeTaxonomyFasta_RDP("{input.fasta}", "{input.taxa}", "{output}", compress = TRUE)'
+        """
+
+# dada2 can use the UNITE database as-is
+rule unite_dada_reference:
+    output: "{ref_root}/unite.{{region}}.dada2.fasta.gz".format_map(config)
+    input: "{ref_root}/unite.{{region}}.fasta.gz".format_map(config)
+    threads: 1
+    conda: "config/conda/drake.yaml"
+    shell:
+        """
+        ln -sr $(basename {input}) {output}
         """
 
 # Format the RDP database for VSEARCH
@@ -480,7 +567,20 @@ rule unite_vsearch_reference:
                        s/>(.+)(;.+,s:).*/>\\1\\2\\1/ }}' |
         gzip - >{output}
         """
-    
+
+# generate all the references
+rule all_references:
+    input:
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz", ref_root = config['ref_root'],
+                                                             db = ['warcup', 'unite'],
+                                                             region = ['ITS', 'ITS1', 'ITS2'],
+                                                             method = ['vsearch', 'dada2']),
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz", ref_root = config['ref_root'],
+                                                             db = ['rdp_train'],
+                                                             region = ['LSU'],
+                                                             method = ['vsearch', 'dada2']),
+        expand("{ref_root}/{db}.idtaxa.Rdata", ref_root = config['ref_root'],
+                                               db = ['unite', 'warcup', 'rdp_train'])
 
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
