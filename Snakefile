@@ -548,6 +548,7 @@ rule rdptrain_sintax_reference:
         """
         zcat {input} |
         sed -r '/>/ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+)/>\\1;tax=k:\\2,p:\\3,c:\\4,o:\\5,f:\\6,g:\\7/' |
+        sed '/^>/!y/acgt/ACGT/' |
         gzip - >{output}
         """
 
@@ -561,6 +562,7 @@ rule warcup_sintax_reference:
         """
         zcat {input} |
         sed -r '/>/ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);/>\\1;tax=k:\\2,p:\\3,c:\\5,o:\\7,f:\\8,g:\\9,s:/' |
+        sed '/^>/!y/acgt/ACGT/' |
         gzip - >{output}
         """
 
@@ -577,6 +579,7 @@ rule unite_sintax_reference:
                        s/;?([kpcofgs])__/,\\1:/g;
                        s/=,k/=k/;
                        s/>(.+)(;.+,s:).*/>\\1\\2\\1/ }}' |
+        sed '/^>/!y/acgt/ACGT/' |
         gzip - >{output}
         """
 
