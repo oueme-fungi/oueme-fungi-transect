@@ -507,7 +507,7 @@ rule lsu_reference:
     log: "{logdir}/{{dbname}}_LSU.log".format_map(config)
     shell:
         """
-        ln -s {input} {output}
+        ln -sr {input} {output}
         """
 
 # format the RDP training set and Warcup reference databases for use in DADA2
@@ -535,13 +535,13 @@ rule unite_dada_reference:
     conda: "config/conda/drake.yaml"
     shell:
         """
-        ln -sr $(basename {input}) {output}
+        ln -sr {input} {output}
         """
 
-# Format the RDP database for VSEARCH
-localrules: rdptrain_vsearch_reference
-rule rdptrain_vsearch_reference:
-    output: "{ref_root}/rdp_train.{{region}}.vsearch.fasta.gz".format_map(config)
+# Format the RDP database for SINTAX
+localrules: rdptrain_sintax_reference
+rule rdptrain_sintax_reference:
+    output: "{ref_root}/rdp_train.{{region}}.sintax.fasta.gz".format_map(config)
     input: "{ref_root}/rdp_train.{{region}}.fasta.gz".format_map(config)
     threads: 1
     shell:
@@ -551,10 +551,10 @@ rule rdptrain_vsearch_reference:
         gzip - >{output}
         """
 
-# Format the Warcup database for VSEARCH
-localrules: warcup_vsearch_reference
-rule warcup_vsearch_reference:
-    output: "{ref_root}/warcup.{{region}}.vsearch.fasta.gz".format_map(config)
+# Format the Warcup database for SINTAX
+localrules: warcup_sintax_reference
+rule warcup_sintax_reference:
+    output: "{ref_root}/warcup.{{region}}.sintax.fasta.gz".format_map(config)
     input: "{ref_root}/warcup.{{region}}.fasta.gz".format_map(config)
     threads: 1
     shell:
@@ -564,10 +564,10 @@ rule warcup_vsearch_reference:
         gzip - >{output}
         """
 
-# Format the Unite database for VSEARCH
-localrules: unite_vsearch_reference
-rule unite_vsearch_reference:
-    output: "{ref_root}/unite.{{region}}.vsearch.fasta.gz".format_map(config)
+# Format the Unite database for SINTAX
+localrules: unite_sintax_reference
+rule unite_sintax_reference:
+    output: "{ref_root}/unite.{{region}}.sintax.fasta.gz".format_map(config)
     input: "{ref_root}/unite.{{region}}.fasta.gz".format_map(config)
     threads: 1
     shell:
@@ -587,7 +587,7 @@ rule all_references:
         expand("{ref_root}/{db}.{region}.{method}.fasta.gz", ref_root = config['ref_root'],
                                                              db = ['warcup', 'unite'],
                                                              region = ['ITS', 'ITS1', 'ITS2'],
-                                                             method = ['vsearch', 'dada2']),
+                                                             method = ['sintax', 'dada2']),
         expand("{ref_root}/{db}.{region}.{method}.fasta.gz", ref_root = config['ref_root'],
                                                              db = ['rdp_train'],
                                                              region = ['LSU'],
