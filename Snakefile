@@ -527,12 +527,15 @@ rule rdp_dada_reference:
          fasta = "{ref_root}/{{dbname}}.{{region}}.fasta.gz".format_map(config),
          taxa  = "{ref_root}/{{dbname}}.taxa.txt".format_map(config)
     threads: 1
-    conda: "config/conda/drake.yaml"
     wildcard_constraints:
         dbname = "(rdp_train|warcup)"
     shell:
         """
-        Rscript -e 'dada2:::makeTaxonomyFasta_RDP("{input.fasta}", "{input.taxa}", "{output}", compress = TRUE)'
+        zcat {input.fasta} |
+        sed '/^>/ {{ s/.*Root;/>/;
+                     s/ /_/g;
+                     s/\\r//g }}' |
+        gzip -c - >{output}
         """
 
 # dada2 can use the UNITE database as-is
@@ -556,8 +559,10 @@ rule rdptrain_sintax_reference:
     shell:
         """
         zcat {input} |
-        sed -r '/>/ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+)/>\\1;tax=k:\\2,p:\\3,c:\\4,o:\\5,f:\\6,g:\\7/' |
-        sed '/^>/!y/acgt/ACGT/' |
+        sed -r '/>/ {{ s/\\s+Root/\\tRoot/;
+                       s/>([^\\t]+)\\t+Root;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+)/>\\1;tax=k:\\2,p:\\3,c:\\4,o:\\5,f:\\6,g:\\7/;
+                       s/ /_/g }};
+                /^>/!y/acgt/ACGT/' |
         gzip - >{output}
         """
 
@@ -570,8 +575,10 @@ rule warcup_sintax_reference:
     shell:
         """
         zcat {input} |
-        sed -r '/>/ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);/>\\1;tax=k:\\2,p:\\3,c:\\5,o:\\7,f:\\8,g:\\9,s:/' |
-        sed '/^>/!y/acgt/ACGT/' |
+        sed -r '/>/ {{ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);/>\\1;tax=k:\\2,p:\\3,c:\\5,o:\\7,f:\\8,g:\\9,s:/;
+                       s/ /_/g;
+                       s/\\r//g }};
+                /^>/! y/acgt/ACGT/' |
         gzip - >{output}
         """
 
@@ -587,7 +594,8 @@ rule unite_sintax_reference:
         sed -r '/^>/ {{ s/k__/;tax=k__/;
                        s/;?([kpcofgs])__/,\\1:/g;
                        s/=,k/=k/;
-                       s/>(.+)(;.+,s:).*/>\\1\\2\\1/ }}' |
+                       s/>(.+)(;.+,s:).*/>\\1\\2\\1/;
+                       s/ /_/g }}' |
         sed '/^>/!y/acgt/ACGT/' |
         gzip - >{output}
         """
