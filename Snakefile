@@ -611,7 +611,7 @@ rule all_references:
         expand("{ref_root}/{db}.{region}.{method}.fasta.gz", ref_root = config['ref_root'],
                                                              db = ['rdp_train'],
                                                              region = ['LSU'],
-                                                             method = ['vsearch', 'dada2']),
+                                                             method = ['sintax', 'dada2']),
         expand("{ref_root}/{db}.idtaxa.Rdata", ref_root = config['ref_root'],
                                                db = ['unite', 'warcup', 'rdp_train'])
 
