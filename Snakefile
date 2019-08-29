@@ -375,6 +375,9 @@ rule unite_idtaxa_download:
 
 # Download the RDP fungal LSU training set
 # This will be used to generate databases for SINTAX and DADA2.
+# both require a consistent classification depth
+# to achieve this we add more "incertae sedis" to the ends of incomplete
+# classifications.
 localrules: rdp_download
 rule rdp_download:
     output:
@@ -389,7 +392,13 @@ rule rdp_download:
         mkdir -p $(dirname {output.fasta}) &&
         unzip {input} &&
         cat {config[rdp_filename]} |
-            sed '/^>/!y/uU/tT/' |
+            sed -r '/^>/!y/uU/tT/;
+                    /^>/ {{ s/Root(;[^;]+)$/&\\1 incertae sedis/;
+                            s/Root(;[^;]+)(;[^;]+)$/&\\2 incertae sedis/;
+                            s/Root(;[^;]+){{2}}(;[^;]+)$/&\\2 incertae sedis/;
+                            s/Root(;[^;]+){{3}}(;[^;]+)$/&\\2 incertae sedis/;
+                            s/Root(;[^;]+){{4}}(;[^;]+)$/&\\2 incertae sedis/;
+                            s/( incertae sedis)+/ incertae sedis/g }}' |
             gzip -c - > {output.fasta} &&
         mv {config[rdp_taxa]} {output.taxa}
         """
