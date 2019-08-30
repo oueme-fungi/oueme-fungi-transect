@@ -349,7 +349,8 @@ def ion_find(seqrun, plate):
 localrules: unite_download
 rule unite_download:
     output: "{ref_root}/unite.fasta.gz".format_map(config)
-    input: HTTP.remote(config['unite_url'], allow_redirects = True)
+    input: 
+      zip = HTTP.remote(config['unite_url'], allow_redirects = True, keep_local = True)
     shadow: "shallow"
     shell:
         """
@@ -360,60 +361,28 @@ rule unite_download:
         gzip -c {config[unite_filename]} > {output}
         """
 
-# Download the Unite classifier for IDTAXA
-localrules: unite_idtaxa_download
-rule unite_idtaxa_download:
-    output: "{ref_root}/unite.idtaxa.Rdata".format_map(config)
-    input: HTTP.remote(config['unite_idtaxa_url'], allow_redirects = True)
-    shell:
-        """
-        echo {config[unite_idtaxa_md5]} {input} |
-        md5sum -c - &&
-        mkdir -p $(dirname {output}) &&
-        mv {input} {output}
-        """
-
 # Download the RDP fungal LSU training set
 # This will be used to generate databases for SINTAX and DADA2.
 # both require a consistent classification depth
-# to achieve this we add more "incertae sedis" to the ends of incomplete
+# to achieve this we add more "unknown X" to the ends of incomplete
 # classifications.
+# see references/rdp_train.sed for more info
 localrules: rdp_download
 rule rdp_download:
     output:
         fasta = "{ref_root}/rdp_train.fasta.gz".format_map(config),
         taxa  = "{ref_root}/rdp_train.taxa.txt".format_map(config)
-    input: HTTP.remote(config['rdp_url'], allow_redirects = True)
+    input:
+      zip = HTTP.remote(config['rdp_url'], allow_redirects = True, keep_local = True)
     shadow: "shallow"
     shell:
         """
-        echo {config[rdp_md5]} {input} |
+        echo {config[rdp_md5]} {input.zip} |
         md5sum -c - &&
         mkdir -p $(dirname {output.fasta}) &&
-        unzip {input} &&
-        cat {config[rdp_filename]} |
-            sed -r '/^>/!y/uU/tT/;
-                    /^>/ {{ s/Root(;[^;]+)$/&\\1 incertae sedis/;
-                            s/Root(;[^;]+)(;[^;]+)$/&\\2 incertae sedis/;
-                            s/Root(;[^;]+){{2}}(;[^;]+)$/&\\2 incertae sedis/;
-                            s/Root(;[^;]+){{3}}(;[^;]+)$/&\\2 incertae sedis/;
-                            s/Root(;[^;]+){{4}}(;[^;]+)$/&\\2 incertae sedis/;
-                            s/( incertae sedis)+/ incertae sedis/g }}' |
-            gzip -c - > {output.fasta} &&
+        unzip {input.zip} &&
+        gzip -c {config[rdp_filename]} > {output.fasta} &&
         mv {config[rdp_taxa]} {output.taxa}
-        """
-
-# Download the RDP classifier for IDTAXA
-localrules: rdp_idtaxa_download
-rule rdp_idtaxa_download:
-    output: "{ref_root}/rdp_train.idtaxa.Rdata".format_map(config)
-    input: HTTP.remote(config['rdp_idtaxa_url'], allow_redirects = True)
-    shell:
-        """
-        echo {config[rdp_idtaxa_md5]} {input} |
-        md5sum -c - &&
-        mkdir -p $(dirname {output}) &&
-        mv {input} {output}
         """
 
 # Download the Warcup fungal ITS training set
@@ -423,7 +392,8 @@ rule warcup_download:
     output:
         fasta = "{ref_root}/warcup.fasta.gz".format_map(config),
         taxa  = "{ref_root}/warcup.taxa.txt".format_map(config)
-    input: HTTP.remote(config['warcup_url'], allow_redirects = True)
+    input:
+      zip = HTTP.remote(config['warcup_url'], allow_redirects = True, keep_local = True)
     shadow: "shallow"
     shell:
         """
@@ -435,20 +405,7 @@ rule warcup_download:
         mv {config[warcup_taxa]} {output.taxa}
         """
 
-# Download the Warcup classifier for IDTAXA
-localrules: warcup_idtaxa_download
-rule warcup_idtaxa_download:
-    output: "{ref_root}/warcup.idtaxa.Rdata".format_map(config)
-    input: HTTP.remote(config['warcup_idtaxa_url'], allow_redirects = True)
-    shell:
-        """
-        echo {config[warcup_idtaxa_md5]} {input} |
-        md5sum -c - &&
-        mkdir -p $(dirname {output}) &&
-        mv {input} {output}
-        """
-
-# Process an ITS database (e.g., UNITE) is:open 
+# Process an ITS database (e.g., UNITE)
 # Split into ITS1, ITS2 using ITSx.
 
 rule itsx_reference:
@@ -520,45 +477,60 @@ rule lsu_reference:
         """
 
 # format the RDP training set and Warcup reference databases for use in DADA2
+# This removes the subphylum, subclass, and species data from Warcup.
 localrules: rdp_dada_reference
 rule rdp_dada_reference:
     output: "{ref_root}/{{dbname}}.{{region}}.dada2.fasta.gz".format_map(config)
     input:
          fasta = "{ref_root}/{{dbname}}.{{region}}.fasta.gz".format_map(config),
-         taxa  = "{ref_root}/{{dbname}}.taxa.txt".format_map(config)
+         taxa  = "{ref_root}/{{dbname}}.taxa.txt".format_map(config),
+         replace = "{ref_root}/{{dbname}}.sed".format_map(config)
     threads: 1
     wildcard_constraints:
         dbname = "(rdp_train|warcup)"
     shell:
         """
         zcat {input.fasta} |
-        sed '/^>/ {{ s/.*Root;/>/;
-                     s/ /_/g;
-                     s/\\r//g }}' |
+        sed -rf {input.replace} |
+        sed -r '/^>/ {{ s/.*Root;/>/;
+                        s/(>[^;]+;[^;]+;)[^;]+;([^;]+;)[^;]+;([^;]+;[^;]+;[^;]+);[^;]+/\\1\\2\\3/;
+                        s/ /_/g;
+                        s/\\r//g }}' |
         gzip -c - >{output}
         """
 
 # dada2 can use the UNITE database as-is
+# however we still need to make some replacements
+# see unite.sed
+# and also remove species information.
 localrules: unite_dada_reference
 rule unite_dada_reference:
     output: "{ref_root}/unite.{{region}}.dada2.fasta.gz".format_map(config)
-    input: "{ref_root}/unite.{{region}}.fasta.gz".format_map(config)
+    input: 
+      fasta = "{ref_root}/unite.{{region}}.fasta.gz".format_map(config),
+      replace = "{ref_root}/unite.sed".format_map(config)
     threads: 1
     conda: "config/conda/drake.yaml"
     shell:
         """
-        ln -sr {input} {output}
+        zcat {input.fasta} |
+        sed 's/s__.*//' |
+        sed -rf {input.replace} |
+        gzip -c - >{output}
         """
 
-# Format the RDP database for SINTAX
+# Format the RDP database for SINTAX (and IDTAXA)
 localrules: rdptrain_sintax_reference
 rule rdptrain_sintax_reference:
     output: "{ref_root}/rdp_train.{{region}}.sintax.fasta.gz".format_map(config)
-    input: "{ref_root}/rdp_train.{{region}}.fasta.gz".format_map(config)
+    input:
+      fasta = "{ref_root}/rdp_train.{{region}}.fasta.gz".format_map(config),
+      replace = "{ref_root}/rdp_train.sed".format_map(config)
     threads: 1
     shell:
         """
-        zcat {input} |
+        zcat {input.fasta} |
+        sed -rf {input.replace} |
         sed -r '/>/ {{ s/\\s+Root/\\tRoot/;
                        s/>([^\\t]+)\\t+Root;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+)/>\\1;tax=k:\\2,p:\\3,c:\\4,o:\\5,f:\\6,g:\\7/;
                        s/ /_/g }};
@@ -566,16 +538,19 @@ rule rdptrain_sintax_reference:
         gzip - >{output}
         """
 
-# Format the Warcup database for SINTAX
+# Format the Warcup database for SINTAX (and IDTAXA)
 localrules: warcup_sintax_reference
 rule warcup_sintax_reference:
     output: "{ref_root}/warcup.{{region}}.sintax.fasta.gz".format_map(config)
-    input: "{ref_root}/warcup.{{region}}.fasta.gz".format_map(config)
+    input: 
+      fasta = "{ref_root}/warcup.{{region}}.fasta.gz".format_map(config),
+      replace = "{ref_root}/warcup.sed".format_map(config)
     threads: 1
     shell:
         """
-        zcat {input} |
-        sed -r '/>/ {{ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);/>\\1;tax=k:\\2,p:\\3,c:\\5,o:\\7,f:\\8,g:\\9,s:/;
+        zcat {input.fasta} |
+        sed -rf {input.replace} |
+        sed -r '/>/ {{ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);[^;]+/>\\1;tax=k:\\2,p:\\3,c:\\5,o:\\7,f:\\8,g:\\9/;
                        s/ /_/g;
                        s/\\r//g }};
                 /^>/! y/acgt/ACGT/' |
@@ -593,6 +568,7 @@ rule unite_sintax_reference:
         zcat {input} |
         sed -r '/^>/ {{ s/k__/;tax=k__/;
                        s/;?([kpcofgs])__/,\\1:/g;
+                       s/,s:.*//;
                        s/=,k/=k/;
                        s/>(.+)(;.+,s:).*/>\\1\\2\\1/;
                        s/ /_/g }}' |
@@ -611,9 +587,7 @@ rule all_references:
         expand("{ref_root}/{db}.{region}.{method}.fasta.gz", ref_root = config['ref_root'],
                                                              db = ['rdp_train'],
                                                              region = ['LSU'],
-                                                             method = ['sintax', 'dada2']),
-        expand("{ref_root}/{db}.idtaxa.Rdata", ref_root = config['ref_root'],
-                                               db = ['unite', 'warcup', 'rdp_train'])
+                                                             method = ['sintax', 'dada2'])
 
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
