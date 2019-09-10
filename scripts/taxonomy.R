@@ -1,3 +1,140 @@
+read_header <- function(header_file, patch_file, format) {
+  switch(format,
+    rdp = read_header_rdp(header_file, patch_file),
+    unite = read_header_unite(header_file, patch_file),
+    stop("unknown reference database format: ", format)
+  )
+}
+
+read_header_rdp <- function(header_file, patch_file) {
+  header_file <- if (is.character(header_file)) {
+    Biostrings::readDNAStringSet(header_file) 
+  } else {
+    header_file
+  }
+  header_file %>%
+    names() %>%
+    patch_taxonomy(patch_file) %>%
+    stringr::str_match("(gi\\|\\d+\\|e?[gm]b\\|)?([A-Z]+_?[0-9]+)[.\\d|-]*[:space:]+Root;(.+)") %>%
+    {tibble::tibble(index = 1:nrow(.),
+                    accno = .[,3],
+                    classifications = .[,4])}
+}
+
+read_header_unite <- function(header_file, patch_file) {
+  header_file <- if (is.character(header_file)) {
+    Biostrings::readDNAStringSet(header_file) 
+  } else {
+    header_file
+  }
+  header_file %>%
+    names() %>%
+    patch_taxonomy(patch_file) %>%
+    stringr::str_match("[^|]\\|([A-Z]+_?[0-9]+)\\|[^|]+\\|re[pf]s(_singleton)?\\|(([kpcofgs]__[-\\w.]+;?){7})") %>%
+    {tibble::tibble(index = 1:nrow(.),
+                    accno = .[,2],
+                    classifications = .[,4])} %>%
+    dplyr::mutate_at("classifications",
+                     stringr::str_replace_all,
+                     "[kpcofgs]__", "") %>%
+    dplyr::mutate_at("classifications", stringr::str_replace_all,
+                     ";unidentified", "")
+}
+
+replace_header <- function(in_fasta, out_fasta, new_header,
+                           in_format, out_format, 
+                           patch_file) {
+  fasta <- Biostrings::readDNAStringSet(in_fasta)
+  old_header <- read_header(fasta, patch_file, in_format)
+  assertthat::assert_that(all(old_header$accno %in% new_header$accno))
+  new_header <- dplyr::select(old_header, accno) %>%
+    dplyr::left_join(new_header, by = "accno")
+  
+  write_taxonomy(taxonomy = new_header, fasta = fasta, outfile = out_fasta,
+                 format = out_format)
+}
+
+
+accno_c12n_table <- function(tax_data) {
+  dplyr::left_join(tibble::tibble(accno = tax_data$data$query_data,
+                                  taxon_ids = names(tax_data$data$query_data)),
+                   tax_data$get_data_frame(c("taxon_ids", "classifications")),
+                   by = "taxon_ids")
+}
+
+reduce_ncbi_taxonomy <- function(taxonomy, taxa, ranks, keytaxa) {
+  dplyr::filter(taxa, !ncbi_rank %in% ranks,
+                !ncbi_name %in% keytaxa) %$%
+  dplyr::mutate_at(taxonomy, "classifications",
+                   stringi::stri_replace_all_fixed,
+                   pattern = paste0(ncbi_name, ";"),
+                   replacement = "",
+                   vectorize_all = FALSE) %>%
+  dplyr::mutate_at("classifications", stringr::str_replace_all, ";$", "")
+}
+
+reduce_taxonomy <- function(taxonomy) {
+    # take only the first capitalized word at each taxonomic level
+    stringr::str_replace_all(taxonomy,
+                         "(^|;)[^A-Z;]*([A-Z][a-z]+)[^;]*",
+                         "\\1\\2") %>%
+    # remove repeated taxa (due to removed incertae sedis or species epithet)
+    stringr::str_replace_all("([A-Z][a-z]+)(;\\1)+(;|$)", "\\1\\3")
+}
+
+translate_taxonomy <- function(taxonomy, c12n, reference) {
+  c12n <- c12n %>%
+    dplyr::mutate(n_supertaxa = stringr::str_count(classifications, ";")) %>%
+    dplyr::group_split(n_supertaxa)
+  
+  for (i in seq_along(c12n)) {
+    replacements <- c12n[[i]] %>%
+      dplyr::select(taxon_names, classifications) %>%
+      dplyr::inner_join(reference, by = "taxon_names",
+                        suffix = c("_src", "_ref")) %>%
+      dplyr::group_by(classifications_src) %>%
+      dplyr::mutate(mismatch = all(classifications_src != classifications_ref)) %>%
+      dplyr::filter(mismatch) %>%
+      dplyr::mutate(dist = stringdist::stringdist(classifications_src,
+                                                  classifications_ref)) %>%
+      dplyr::arrange(dist, .by_group = TRUE) %>%
+      dplyr::summarize(classifications_ref = dplyr::first(classifications_ref)) %>%
+      dplyr::mutate_at("classifications_src", paste0, "(;|$)") %>%
+      dplyr::mutate_at("classifications_ref", paste0, "$1")
+    if (nrow(replacements)) {
+      taxonomy$classifications <-
+        stringi::stri_replace_all_regex(taxonomy$classifications,
+                                        replacements$classifications_src,
+                                        replacements$classifications_ref,
+                                        vectorize_all = FALSE)
+      for (j in seq_along(c12n)) {
+        if (j < i) next
+        c12n[[j]]$classifications <-
+          stringi::stri_replace_all_regex(c12n[[j]]$classifications,
+                                          replacements$classifications_src,
+                                          replacements$classifications_ref,
+                                          vectorize_all = FALSE)
+      }
+    }
+  }
+  taxonomy
+}
+
+patch_taxonomy <- function(taxonomy, patch_file) {
+  assertthat::assert_that((assertthat::is.string(patch_file)
+                           && file.exists(patch_file))
+                          || is.null(patch_file))
+  if (is.null(patch_file)) return(taxonomy)
+  
+  replace <- readLines(patch_file) %>%
+    stringr::str_subset("^s/") %>%
+    stringr::str_match("s/(.+)/(.+)/g?")
+  if (nrow(replace) == 0) return(taxonomy)
+  for (n in 1:nrow(replace)) {
+    taxonomy <- gsub(replace[n, 2], replace[n,3], taxonomy)
+  }
+  taxonomy
+}
 
 patch_taxa <- function(c12n, patch_file) {
   assertthat::assert_that((assertthat::is.string(patch_file)
@@ -14,6 +151,162 @@ patch_taxa <- function(c12n, patch_file) {
                                             vectorize_all = FALSE)
   }
   return(c12n)
+}
+
+# Removes unnecessary ranks from taxonomy, ensures intermediate missing ranks are "incertae sedis" and trailing missing ranks are "unidentified"
+
+regularize_taxonomy <- function(taxonomy, rank_in,
+                                rank_out = c("kingdom", "phylum", "class",
+                                             "order", "family", "genus"),
+                                sep = ";") {
+  taxonomy <-
+    stringr::str_split_fixed(taxonomy,
+                             n = length(rank_in),
+                             pattern = sep) %>%
+    set_colnames(rank_in) %>%
+    tibble::as_tibble() %>%
+    dplyr::select(!!!rank_out) %>%
+    dplyr::mutate_all(gsub, pattern = ".+[Ii]ncertae[_ ]sedis", replacement = "") %>%
+    dplyr::mutate_all(dplyr::na_if, "")
+  for (i in 1:(length(rank_out) - 2)) {
+    taxonomy[[i + 1]] <- dplyr::coalesce(taxonomy[[i + 1]],
+                                         paste0(taxonomy[[i]],
+                                                "_Incertae_sedis"))
+  }
+  taxonomy <-
+    dplyr::mutate_all(taxonomy,
+                      stringr::str_replace,
+                      "(_Incertae_sedis)+",
+                      "_Incertae_sedis")
+  for (i in (length(rank_out) - 1):2) {
+    taxonomy[[i]] <- ifelse(is.na(taxonomy[[i + 1]]) &
+                              endsWith(taxonomy[[1]], "_Incertae_sedis"),
+                            NA_character_,
+                            taxonomy[[i]])
+  }
+  for (i in 1:(length(rank_out) - 1)) {
+    taxonomy[[i + 1]] <- dplyr::coalesce(taxonomy[[i + 1]],
+                                         paste("unidentified",
+                                               taxonomy[[i]],
+                                               sep = "_"))
+  }
+  taxonomy %>%
+    dplyr::mutate_all(stringr::str_replace,
+                      "(unidentified_)+",
+                      "unidentified_") %>%
+    purrr::pmap_chr(paste, sep = ";")
+}
+
+read_taxonomy_unite <- function(file) {
+  readLines(file) %>%
+  stringr::str_subset("^>") %>%
+  stringr::str_extract("k__.+") %>%
+  stringr::str_replace("s__.+", "") %>%
+  stringr::str_replace_all("[kpcofgs]__", "") %>%
+  stringr::str_replace("(;unidentified)+$", "") %>%
+  unique()
+}
+
+read_taxonomy_rdp <- function(file) {
+  
+}
+
+write_taxonomy <- function(taxonomy, fasta, outfile, format) {
+  switch(format,
+    dada2 = write_taxonomy_dada2(taxonomy, fasta, outfile),
+    sintax = write_taxonomy_sintax(taxonomy, fasta, outfile),
+    stop("unknown taxonomy format: ", format)
+  )
+}
+
+write_taxonomy_dada2 <- function(taxonomy, fasta, outfile) {
+  if (is.character(fasta)) {
+    fasta <- Biostrings::readDNAStringSet(fasta)
+  }
+  fasta <- fasta[!is.na(taxonomy$classifications)]
+  
+  taxonomy %>%
+    dplyr::filter(!is.na(classifications)) %$%
+    set_names(fasta, classifications) %>%
+    Biostrings::writeXStringSet(outfile, compress = endsWith(outfile, ".gz"))
+}
+
+write_taxonomy_sintax <- function(taxonomy, fasta, outfile) {
+  if (is.character(fasta)) {
+    fasta <- Biostrings::readDNAStringSet(fasta)
+  }
+  fasta <- fasta[!is.na(taxonomy$classifications)]
+  
+  taxonomy %>%
+    dplyr::filter(!is.na(classifications)) %>%
+    dplyr::mutate_at("classifications", stringr::str_replace,
+                     "([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+)",
+                     "tax=k:\\1,p:\\2,c:\\3,o:\\4,f:\\5,g:\\6") %$%
+    set_names(fasta, classifications) %>%
+    Biostrings::writeXStringSet(outfile, compress = endsWith(outfile, ".gz"))
+}
+
+read_classification_tedersoo <- function(file) {
+    readxl::read_xlsx(file) %>%
+    dplyr::select(-subdomain) %>%
+    # Remove duplicate taxa within one kingdom
+    # Unless noted otherwise the choice of which to remove is based on
+    # Index Fungorum (for Fungi) or GBIF (for other organisms)
+    dplyr::filter(
+      !(genus == "Rhodotorula" & family == "unspecified"),
+      !(genus == "Verticillium" & family == "unspecified")#,
+      # !(genus == "Automolus" & class == "Insecta"),
+      # !(genus == "Clania" & order = "Lepidoptera"),
+      # !(genus == "Euxinia" & class == "Malacostraca"),
+      # !(genus == "Keijia" & class == "Arachnida"),
+      # !(genus == "Napo" & order == "Hymenoptera"),
+      # !(genus == "Oxyacanthus" & order == "Amphipoda"),
+      # !(genus == "")
+    ) %>%
+    # dplyr::mutate(
+    #   genus = ifelse((genus == "Eutrapela" & order = "Coleoptera"),
+    #                  "Chromomoea",
+    #                  genus) %>%
+    #     ifelse((genus == "Ichthyophaga" & phylum = "Platyhelminthes"),
+    #            "Piscinquilinus",
+    #            genus)
+    # )
+    dplyr::mutate_all(dplyr::na_if, "unspecified") %>%
+    dplyr::mutate(
+      kingdom = dplyr::coalesce(kingdom, 
+                                "Eukaryota_reg_Incertae_sedis"),
+      subkingdom = dplyr::coalesce(subkingdom, 
+                                   paste0(kingdom, "_subreg_Incertae_sedis")),
+      phylum = dplyr::coalesce(phylum, 
+                               paste0(subkingdom, "_phy_Incertae_sedis")),
+      subphylum = dplyr::coalesce(subphylum, 
+                                  paste0(phylum, "_subphy_Incertae_sedis")),
+      class = dplyr::coalesce(class, 
+                              paste0(subphylum, "_cl_Incertae_sedis")),
+      order = dplyr::coalesce(order, 
+                              paste0(class, "_ord_Incertae_sedis")),
+      family = dplyr::coalesce(family, 
+                               paste0(order, "_fam_Incertae_sedis"))
+    ) %>%
+    dplyr::mutate_all(sub,
+                      pattern = "(_(sub)?(reg|phy|cl|ord)_Incertae_sedis)+(_(sub)?(reg|phy|cl|ord|fam)_Incertae_sedis$)",
+                      replacement = "\\4") %>%
+    # The subphylum of Variosea is sometimes missing.
+    # The main text says that it should be in Mycetozoa
+    dplyr::mutate(subphylum = ifelse(class == "Variosea",
+                                     "Mycetozoa",
+                                     subphylum),
+                  # Craniata is a phylum;
+                  # Craniatea is a class in Brachiopoda
+                  class = ifelse(class == "Craniata",
+                                 "Craniatea",
+                                 class)) %>%
+    unique() %>%
+    taxa::parse_tax_data(class_cols = 1:8,
+                         named_by_rank = TRUE) %>%
+    taxa::get_data_frame(c("taxon_names", "classifications")) %>%
+    dplyr::filter(!stringr::str_detect(taxon_names, "[Ii]ncertae[_ ]sedis"))
+  
 }
 
 # take only up to n sequences from each group.
@@ -49,7 +342,7 @@ formatdb <- function(db = c("unite", "rdp", "silva"),
   db = match.arg(db)
   switch(db,
          rdp = formatdb_rdp(seq_file = seq_file,
-                                patch_file = patch_file, ...),
+                            patch_file = patch_file, ...),
          silva = formatdb_silva(seq_file = seq_file,
                                 patch_file = patch_file, ...),
          unite = formatdb_unite(seq_file = seq_file,
@@ -195,7 +488,7 @@ formatdb_rdp <- function(seq_file, patch_file = NULL,
   # read the RDP dataset
   rdp_train_db <- Biostrings::readDNAStringSet(seq_file) %>% unique()
   rdp_train_data <- tibble(idx = seq_along(rdp_train_db),
-                            c12n = names(rdp_train_db)) %>%
+                           c12n = names(rdp_train_db)) %>%
     assertr::assert(function(x) stringr::str_detect(x, "[^\\t ]+[\\t ]+([A-Z][A-Za-z0-9 \\-_]+;){3,6}[A-Za-z0-9 \\-_]+$"),
                     c12n) %>%
     dplyr::mutate_at("c12n", stringr::str_replace, "[^\\t ]+[\\t ]+", "")
@@ -204,7 +497,7 @@ formatdb_rdp <- function(seq_file, patch_file = NULL,
   rdp_ranks <-  c("rootrank", "kingdom", "phylum", "class", "order",
                   "family", "genus") %>%
     lapply(taxa::taxon_rank)
-
+  
   # parse the classification and build a taxonomy
   rdp_train_taxa <- rdp_train_data %>%
     taxa::parse_tax_data(class_cols = "c12n", class_sep = ";")
@@ -423,8 +716,8 @@ formatdb_silva <- function(tax_file, seq_file, patch_file = NULL,
                                 paste0(c12n, species, ";"),
                                 c12n),
                   Rank = dplyr::if_else(is_species,
-                                factor("species", levels = silva_ranks),
-                                Rank))
+                                        factor("species", levels = silva_ranks),
+                                        Rank))
   
   silva_taxa %<>% dplyr::bind_rows(
     dplyr::filter(silva_c12n, is_species) %>%
@@ -572,9 +865,9 @@ refine_classifier <- function(trainset, taxonomy, rank, out_root,
     
     # train the classifier
     trainingSet <- DECIPHER::LearnTaxa(trainset[!remove],
-                             taxonomy[!remove],
-                             rank,
-                             ...)
+                                       taxonomy[!remove],
+                                       rank,
+                                       ...)
     # look for problem sequences
     probSeqs <- trainingSet$problemSequences$Index
     # underannotated sequences are those which are placed with high confidence
@@ -597,7 +890,7 @@ refine_classifier <- function(trainset, taxonomy, rank, out_root,
     
     # accept the new annotations for the underannotated sequences.
     #taxonomy[!remove][probSeqs][underannot] <-
-     
+    
     # trainingSet$problemSequences$Predicted[underannot]
     
     readr::write_csv(trainingSet$problemSequences[!underannot,],
@@ -689,12 +982,12 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
     on.exit(file.remove(seqfile))
     if (methods::is(seq, "XStringSet")) {
       Biostrings::writeXStringSet(seq, seqfile)
-      seq <- tibble::tibble(seq = as.character(seq, use.names = FALSE),
-                            label = names(seq))
+      seq <- tibble::tibble(label = names(seq),
+                            seq = as.character(seq, use.names = FALSE))
     } else if (methods::is(seq, "ShortRead")) {
       ShortRead::writeFasta(seq, seqfile)
-      seq <- tibble::tibble(seq = as.character(seq@sread, use.names = FALSE),
-                            label = as.character(seq@id, use.names = FALSE))
+      seq <- tibble::tibble(label = as.character(seq@id, use.names = FALSE),
+                            seq = as.character(seq@sread, use.names = FALSE))
     } else if (is.character(seq)) {
       if (is.null(names(seq))) names(seq) <- tzara::seqhash(seq)
       is.RNA <- stringr::str_detect(seq[1], "[Uu]")
@@ -713,7 +1006,7 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
   if (assertthat::is.string(db) && file.exists(db)) {
     dbfile <- db
   } else {
-    dbfile <- tempfile("db", fileext = "fasta")
+    dbfile <- tempfile("db", fileext = ".fasta")
     on.exit(file.remove(dbfile))
     
     if (methods::is(db, "XStringSet")) {
@@ -732,7 +1025,7 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
     }
   }
   args <- c(args, "--db", dbfile)
-  tablefile <- tempfile("table", fileext = "tsv")
+  tablefile <- tempfile("table", fileext = ".tsv")
   args <- c(args, "--tabbedout", tablefile)
   on.exit(file.remove(tablefile))
   
@@ -742,12 +1035,21 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
     args <- c(args, "--threads", multithread)
   }
   system2("vsearch", args = args)
-  # vsearch outputs an extra tab when it cannot place the sequence
-  system2("sed", args = c("--in-place", "s/\\t\\t\\t\\t/\\t\\t\\t/", tablefile))
-  readr::read_tsv(tablefile,
-                  col_names = c("label", "hit", "strand", "c12n"),
-                  col_types = "cccc") %>%
-    dplyr::left_join(seq, ., by = "label")
+  if (missing(sintax_cutoff)) {
+    # vsearch outputs an extra tab when it cannot place the sequence
+    system2("sed", args = c("--in-place", "'s/\\t\\t\\t/\\t\\t/'", tablefile))
+    readr::read_tsv(tablefile,
+                    col_names = c("label", "hit", "strand"),
+                    col_types = "ccc") %>%
+      dplyr::left_join(seq, ., by = "label")
+  } else {
+    # vsearch outputs an extra tab when it cannot place the sequence
+    system2("sed", args = c("--in-place", "'s/\\t\\t\\t\\t/\\t\\t\\t/'", tablefile))
+    readr::read_tsv(tablefile,
+                    col_names = c("label", "hit", "strand", "c12n"),
+                    col_types = "cccc") %>%
+      dplyr::left_join(seq, ., by = "label")
+  }
 }
 
 sintax_format <- function(tax) {
@@ -777,9 +1079,128 @@ sintax_format <- function(tax) {
   
   if ("species" %in% names(tax)) {
     tax <- dplyr::mutate(tax, name = paste0(name, ifelse(is.na(species),
-                                                                     "_sp", "")))
+                                                         "_sp", "")))
   } else {
     tax <- dplyr::mutate(tax, name = paste0(name, "_sp"))
   }
   tax
+}
+
+taxtable <- function(tax, ...) {
+  if (methods::is(tax, "Taxa") && methods::is(tax, "Test")) {
+    taxtable_idtaxa(tax, ...)
+  } else if (is.list(tax) && "tax" %in% names(tax) && "boot" %in% names(tax)) {
+    taxtable_dada2(tax, ...)
+  } else if (is.data.frame(tax) && all(rlang::has_name(tax, c("label", "hit")))) {
+    taxtable_sintax(tax, ...)
+  } else {
+    stop("Unknown taxonomy table format.")
+  }
+}
+
+taxtable_sintax <- function(tax, min_confidence = 0, ...) {
+  tidyr::separate_rows(tax, hit, sep = ",") %>%
+    dplyr::mutate_at("hit", dplyr::na_if, "") %>%
+    tidyr::extract(hit, into = c("rank", "taxon", "confidence"),
+                   regex = "([dkpcofgs]):([^(]+)\\(([01]\\.\\d+)\\)") %>%
+    dplyr::mutate_at("taxon", dplyr::na_if, "unidentified") %>%
+    dplyr::mutate_at("taxon", gsub, pattern = "Incertae",
+                     replacement = "incertae") %>%
+    dplyr::mutate_at("confidence", as.numeric) %>%
+    dplyr::mutate_at("rank", factor,
+                     levels = c("d", "k", "p", "c", "o", "f", "g", "s"),
+                     labels = c("domain", "kingdom",
+                                "phylum", "class", "order", "family",
+                                "genus", "species")) %>%
+    dplyr::select(label, rank, taxon, confidence) %>%
+    dplyr::filter(confidence >= min_confidence, !is.na(taxon))
+}
+
+taxtable_idtaxa <- function(tax, min_confidence = 0, ...) {
+  purrr::imap_dfr(tax, ~tibble::tibble(label = .y,
+                                       rank = factor(.x$rank,
+                                                     levels = c("rootrank",
+                                                                "domain",
+                                                                "kingdom",
+                                                                "phylum",
+                                                                "class",
+                                                                "order",
+                                                                "family",
+                                                                "genus",
+                                                                "species")),
+                                       taxon = gsub(" ", "_", .x$taxon),
+                                       confidence = .x$confidence / 100)) %>%
+    dplyr::mutate_at("taxon", gsub, pattern = "Incertae", replacement = "incertae") %>%
+    dplyr::filter(rank != "rootrank", !startsWith(taxon, "unclassified_"),
+                  confidence >= min_confidence) %>%
+    dplyr::mutate_at("rank", factor, levels = c("domain",
+                                                "phylum",
+                                                "class",
+                                                "order",
+                                                "family",
+                                                "genus",
+                                                "species"),
+                     labels = c("kingdom",
+                                "phylum",
+                                "class",
+                                "order",
+                                "family",
+                                "genus",
+                                "species"))
+}
+
+taxtable_dada2 <- function(tax, names = rownames(tax$tax),
+                           min_confidence = 0, ...) {
+  taxa <- tax$tax %>% magrittr::set_rownames(names) %>%
+    tibble::as_tibble(rownames = "label") %>%
+    tidyr::gather(key = "rank", value = "taxon", -1)
+  conf <- (tax$boot / 100) %>% magrittr::set_rownames(names) %>%
+    tibble::as_tibble(rownames = "label") %>%
+    tidyr::gather(key = "rank", value = "confidence", -1)
+  dplyr::full_join(taxa, conf, by = c("label", "rank")) %>%
+    dplyr::arrange(label) %>%
+    dplyr::mutate_at("taxon", gsub, pattern = "Incertae", replacement = "incertae") %>%
+    dplyr::filter(!is.na(taxon), confidence >= min_confidence) %>%
+    dplyr::mutate_at("rank", tolower)
+}
+
+# fits an IDTAXA model to a fasta file with [UV]SEARCH/SINTAX-style taxonomy
+# info
+fit_idtaxa <- function(fasta) {
+  seqdata <- Biostrings::readDNAStringSet(fasta)
+  taxonomy <- names(seqdata)
+  
+  #IDTAXA does not need intermediate/trailing placeholder nodes
+  taxonomy <- gsub("[dkpcofgs]:unidentified[^,]+,?", "", taxonomy)
+  taxonomy <- gsub("[dkpcofgs]:[^,]+incertae_sedis[^,;]*,?", "", taxonomy)
+  
+  #it does need a root node
+  taxonomy <- gsub(".*tax=", "r:Root,", taxonomy)
+  taxonomy <- gsub(";.*", "", taxonomy)
+  
+  taxdata <- taxa::parse_tax_data(taxonomy,
+                                  class_sep = ",",
+                                  class_regex = "([rdkpcofgs]):(.+)",
+                                  class_key = c("taxon_rank", "taxon_name"))
+  edgelist <- taxdata$edge_list
+  ranklist <- c("rootrank", "domain", "kingdom", "phylum", "class", "order",
+                "family", "genus", "species")
+  ranks <- data.frame(Index = taxdata$taxon_indexes()[edgelist$to],
+                      Name = taxdata$taxon_names()[edgelist$to],
+                      Parent = taxdata$taxon_indexes()[edgelist$from],
+                      Level = taxdata$n_supertaxa()[edgelist$to],
+                      Rank = match.arg(taxdata$taxon_ranks()[edgelist$to],
+                                       ranklist,
+                                       several.ok = TRUE),
+                      stringsAsFactors = FALSE)
+  ranks$Parent[is.na(ranks$Parent)] <- 0
+  
+  taxonomy <- gsub("[rdkpcofgs]:", "", taxonomy)
+  taxonomy <- gsub(",", ";", taxonomy)
+  
+  trainSet <- DECIPHER::LearnTaxa(train = seqdata,
+                                  taxonomy = taxonomy,
+                                  rank = ranks,
+                                  verbose = TRUE)
+  
 }

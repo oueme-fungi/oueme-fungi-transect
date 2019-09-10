@@ -348,7 +348,7 @@ def ion_find(seqrun, plate):
 # This can be used as-is by the DADA2 classifier, and will be used to generate a database for SINTAX.
 localrules: unite_download
 rule unite_download:
-    output: "{ref_root}/unite.fasta.gz".format_map(config)
+    output: "{ref_root}/unite.raw.fasta.gz".format_map(config)
     input: 
       zip = HTTP.remote(config['unite_url'], allow_redirects = True, keep_local = True)
     shadow: "shallow"
@@ -370,7 +370,7 @@ rule unite_download:
 localrules: rdp_download
 rule rdp_download:
     output:
-        fasta = "{ref_root}/rdp_train.fasta.gz".format_map(config),
+        fasta = "{ref_root}/rdp_train.raw.fasta.gz".format_map(config),
         taxa  = "{ref_root}/rdp_train.taxa.txt".format_map(config)
     input:
       zip = HTTP.remote(config['rdp_url'], allow_redirects = True, keep_local = True)
@@ -476,118 +476,64 @@ rule lsu_reference:
         ln -sr {input} {output}
         """
 
-# format the RDP training set and Warcup reference databases for use in DADA2
-# This removes the subphylum, subclass, and species data from Warcup.
-localrules: rdp_dada_reference
-rule rdp_dada_reference:
-    output: "{ref_root}/{{dbname}}.{{region}}.dada2.fasta.gz".format_map(config)
-    input:
-         fasta = "{ref_root}/{{dbname}}.{{region}}.fasta.gz".format_map(config),
-         taxa  = "{ref_root}/{{dbname}}.taxa.txt".format_map(config),
-         replace = "{ref_root}/{{dbname}}.sed".format_map(config)
-    threads: 1
-    wildcard_constraints:
-        dbname = "(rdp_train|warcup)"
+# Eukarya classification system proposed by Tedersoo
+localrules: tedersoo_classification
+rule tedersoo_classification:
+    output: "{ref_root}/Tedersoo_Eukarya_classification.xlsx".format_map(config)
+    input: HTTP.remote(config['tedersoo_url'], allow_redirects = True)
+    shadow: "shallow"
     shell:
         """
-        zcat {input.fasta} |
-        sed -rf {input.replace} |
-        sed -r '/^>/ {{ s/.*Root;/>/;
-                        s/(>[^;]+;[^;]+;)[^;]+;([^;]+;)[^;]+;([^;]+;[^;]+;[^;]+);[^;]+/\\1\\2\\3/;
-                        s/ /_/g;
-                        s/\\r//g }}' |
-        gzip -c - >{output}
+        echo {config[tedersoo_md5]} {input} |
+        md5sum -c - &&
+        mv {input} {output}
         """
 
-# dada2 can use the UNITE database as-is
-# however we still need to make some replacements
-# see unite.sed
-# and also remove species information.
-localrules: unite_dada_reference
-rule unite_dada_reference:
-    output: "{ref_root}/unite.{{region}}.dada2.fasta.gz".format_map(config)
-    input: 
-      fasta = "{ref_root}/unite.{{region}}.fasta.gz".format_map(config),
-      replace = "{ref_root}/unite.sed".format_map(config)
-    threads: 1
-    conda: "config/conda/drake.yaml"
-    shell:
-        """
-        zcat {input.fasta} |
-        sed 's/s__.*//' |
-        sed -rf {input.replace} |
-        gzip -c - >{output}
-        """
-
-# Format the RDP database for SINTAX (and IDTAXA)
-localrules: rdptrain_sintax_reference
-rule rdptrain_sintax_reference:
-    output: "{ref_root}/rdp_train.{{region}}.sintax.fasta.gz".format_map(config)
-    input:
-      fasta = "{ref_root}/rdp_train.{{region}}.fasta.gz".format_map(config),
-      replace = "{ref_root}/rdp_train.sed".format_map(config)
-    threads: 1
-    shell:
-        """
-        zcat {input.fasta} |
-        sed -rf {input.replace} |
-        sed -r '/>/ {{ s/\\s+Root/\\tRoot/;
-                       s/>([^\\t]+)\\t+Root;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+)/>\\1;tax=k:\\2,p:\\3,c:\\4,o:\\5,f:\\6,g:\\7/;
-                       s/ /_/g }};
-                /^>/!y/acgt/ACGT/' |
-        gzip - >{output}
-        """
-
-# Format the Warcup database for SINTAX (and IDTAXA)
-localrules: warcup_sintax_reference
-rule warcup_sintax_reference:
-    output: "{ref_root}/warcup.{{region}}.sintax.fasta.gz".format_map(config)
-    input: 
-      fasta = "{ref_root}/warcup.{{region}}.fasta.gz".format_map(config),
-      replace = "{ref_root}/warcup.sed".format_map(config)
-    threads: 1
-    shell:
-        """
-        zcat {input.fasta} |
-        sed -rf {input.replace} |
-        sed -r '/>/ {{ s/>([^\\t]+)\tRoot;([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);([^;]+);[^;]+/>\\1;tax=k:\\2,p:\\3,c:\\5,o:\\7,f:\\8,g:\\9/;
-                       s/ /_/g;
-                       s/\\r//g }};
-                /^>/! y/acgt/ACGT/' |
-        gzip - >{output}
-        """
-
-# Format the Unite database for SINTAX
-localrules: unite_sintax_reference
-rule unite_sintax_reference:
-    output: "{ref_root}/unite.{{region}}.sintax.fasta.gz".format_map(config)
-    input: "{ref_root}/unite.{{region}}.fasta.gz".format_map(config)
-    threads: 1
-    shell:
-        """
-        zcat {input} |
-        sed -r '/^>/ {{ s/k__/;tax=k__/;
-                       s/;?([kpcofgs])__/,\\1:/g;
-                       s/,s:.*//;
-                       s/=,k/=k/;
-                       s/>(.+)(;.+,s:).*/>\\1\\2\\1/;
-                       s/ /_/g }}' |
-        sed '/^>/!y/acgt/ACGT/' |
-        gzip - >{output}
-        """
+# generate taxonomy translation files
+# These are files of sed commands that will translate the headers of the fasta
+# files to the formats required by each database, as well as translating all
+# the taxonomy to the Tedersoo system
+localrules: translate_references
+rule translate_references:
+  output:
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['warcup', 'unite'],
+               region = ['ITS', 'ITS1', 'ITS2'],
+               method = ['sintax', 'dada2']),
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['rdp_train'],
+               region = ['LSU'],
+               method = ['sintax', 'dada2'])
+  input:
+    expand("{ref_root}/{dbname}.{type}",
+           ref_root = config['ref_root'],
+           dbname = ['rdp_train', 'warcup', 'unite'],
+           type = ['fasta.gz', 'pre.sed']),
+    "{rdir}/taxonomy.R".format_map(config),
+    tedersoo = rules.tedersoo_classification.output,
+    regions = config['regions'],
+    script = "{rdir}/make_taxonomy.R".format_map(config)
+  conda: "config/conda/drake.yaml"
+  log: "{logdir}/translate_references.log".format_map(config)
+  script: "{rdir}/make_taxonomy.R".format_map(config)
 
 # generate all the references
 localrules: all_references
 rule all_references:
     input:
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz", ref_root = config['ref_root'],
-                                                             db = ['warcup', 'unite'],
-                                                             region = ['ITS', 'ITS1', 'ITS2'],
-                                                             method = ['sintax', 'dada2']),
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz", ref_root = config['ref_root'],
-                                                             db = ['rdp_train'],
-                                                             region = ['LSU'],
-                                                             method = ['sintax', 'dada2'])
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['warcup', 'unite'],
+               region = ['ITS', 'ITS1', 'ITS2'],
+               method = ['sintax', 'dada2']),
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['rdp_train'],
+               region = ['LSU'],
+               method = ['sintax', 'dada2']),
+        rules.tedersoo_classification.output
 
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
