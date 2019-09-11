@@ -340,13 +340,12 @@ formatdb <- function(db = c("unite", "rdp", "silva"),
                      maxGroupSize = 10,
                      ...) {
   db = match.arg(db)
-  switch(db,
-         rdp = formatdb_rdp(seq_file = seq_file,
-                            patch_file = patch_file, ...),
-         silva = formatdb_silva(seq_file = seq_file,
-                                patch_file = patch_file, ...),
-         unite = formatdb_unite(seq_file = seq_file,
-                                patch_file = patch_file, ...))
+  f <- switch(db,
+         rdp = formatdb_rdp,
+         silva = formatdb_silva,
+         unite = formatdb_unite,
+         stop("unknown database format: ", db))
+  f(seq_file = seq_file, patch_file = patch_file, ...)
 }
 
 #### RDP ####
@@ -916,7 +915,7 @@ refine_classifier <- function(trainset, taxonomy, rank, out_root,
   return(trainingSet)
 }
 
-taxonomy <- function(seq.table, reference, multithread = FALSE) {
+taxonomy <- function(seq.table, reference, method, multithread = FALSE, ...) {
   assertthat::assert_that(file.exists(reference),
                           assertthat::is.readable(reference))
   # we can take a community matrix (in which case the sequences are the column
@@ -931,44 +930,30 @@ taxonomy <- function(seq.table, reference, multithread = FALSE) {
   is.RNA <- stringr::str_detect(seq[1], "[Uu]")
   # seq <- if (is.RNA) Biostrings::RNAStringSet(seq) else Biostrings::DNAStringSet(seq)
   
-  tax <- dada2::assignTaxonomy(seqs = seq, 
-                               refFasta = reference,
-                               multithread = multithread) %>%
-    tibble::as_tibble(rownames = "seq") %>%
-    # remove taxon rank prefixed from Unite reference
-    dplyr::mutate_at(dplyr::vars(-seq), stringr::str_replace, "^[kpcofgs]__", "") %>%
-    dplyr::mutate(
-      # add Species to RDP reference
-      Species = if ("Species" %in% names(.)) Species else NA_character_,
-      Species = ifelse(is.na(Genus) | is.na(Species),
-                       NA_character_,
-                       paste(Genus, Species)),
-      # Put the whole classification in one field for FUNGuild
-      Taxonomy = paste(Kingdom, Phylum, Class, Order, Family, Genus, Species,
-                       sep = ";") %>%
-        stringr::str_replace_all(stringr::fixed(";NA"), ""),
-      # Use the finest classification available as a short "name" for trees
-      Name = dplyr::coalesce(Species, Genus, Family, Order, Class,
-                             Phylum, Kingdom, "unknown") %>%
-        stringr::str_replace_all("\\s", "_")) %>%
-    # If there are duplicate names, number them.
-    dplyr::group_by(Name) %>%
-    dplyr::mutate(newname = if (dplyr::n() > 1) {
-      paste(Name, seq_along(Name), sep = "_")
-    } else {
-      Name
-    }) %>%
-    dplyr::ungroup() %>%
-    dplyr::select(-Name) %>%
-    dplyr::rename(Name = newname) %>%
-    
-    # add in the reads if we had them.
-    dplyr::left_join(tibble::tibble(seq = seq,
-                                    nreads = nreads),
-                     by = "seq")
+  switch(method,
+         dada2 = taxonomy_dada2,
+         sintax = taxonomy_sintax,
+         idtaxa = taxonomy_idtaxa,
+         stop("unknown taxonomy assignment method: ", method)
+  )
+  f(seq = seq, reference = reference, multithread = multithread, ...)
 }
 
-sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
+taxonomy_dada2 <- function(seq, reference, multithread = FALSE, threshold = 50, 
+                           tryRC = FALSE,
+                           outputBootstraps = TRUE,
+                           verbose = TRUE, ...) {
+  dada2::assignTaxonomy(seqs = seq,
+                        refFasta = reference,
+                        tryRC = tryRC,
+                        outputBootstraps = outputBootstraps,
+                        multithread = multithread,
+                        verbose = verbose,
+                        minBoot = threshold,
+                        ...)
+}
+
+taxonomy_sintax <- function(seq, reference, min_confidence = NULL, multithread = FALSE, ...) {
   args <- character()
   if (assertthat::is.string(seq) && file.exists(seq)) {
     seqfile <- seq
@@ -1003,25 +988,25 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
   }
   args <- c("--sintax", seqfile)
   
-  if (assertthat::is.string(db) && file.exists(db)) {
-    dbfile <- db
+  if (assertthat::is.string(reference) && file.exists(reference)) {
+    dbfile <- reference
   } else {
     dbfile <- tempfile("db", fileext = ".fasta")
     on.exit(file.remove(dbfile))
     
-    if (methods::is(db, "XStringSet")) {
-      Biostrings::writeXStringSet(db, dbfile)
-    } else if (methods::is(db, "ShortRead")) {
-      ShortRead::writeFasta(db, dbfile)
-    } else if (is.character(db)) {
-      if (is.null(names(db))) stop("Taxonomy database given as character vector must be named.")
-      is.RNA <- stringr::str_detect(db[1], "[Uu]")
+    if (methods::is(reference, "XStringSet")) {
+      Biostrings::writeXStringSet(reference, dbfile)
+    } else if (methods::is(reference, "ShortRead")) {
+      ShortRead::writeFasta(reference, dbfile)
+    } else if (is.character(reference)) {
+      if (is.null(names(reference))) stop("Taxonomy database given as character vector must be named.")
+      is.RNA <- stringr::str_detect(reference[1], "[Uu]")
       if (is.RNA) {
-        db <- Biostrings::RNAStringSet(db)
+        reference <- Biostrings::RNAStringSet(reference)
       } else {
-        db <- Biostrings::DNAStringSet(db)
+        reference <- Biostrings::DNAStringSet(reference)
       }
-      Biostrings::writeXStringSet(db, dbfile)
+      Biostrings::writeXStringSet(reference, dbfile)
     }
   }
   args <- c(args, "--db", dbfile)
@@ -1029,13 +1014,13 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
   args <- c(args, "--tabbedout", tablefile)
   on.exit(file.remove(tablefile))
   
-  if (!missing(sintax_cutoff)) args <- c(args, "--sintax_cutoff", sintax_cutoff)
+  if (!missing(min_confidence)) args <- c(args, "--sintax_cutoff", min_confidence)
   if (!missing(multithread)) {
     if (isFALSE(multithread)) multithread <- 1
     args <- c(args, "--threads", multithread)
   }
   system2("vsearch", args = args)
-  if (missing(sintax_cutoff)) {
+  if (missing(min_confidence)) {
     # vsearch outputs an extra tab when it cannot place the sequence
     system2("sed", args = c("--in-place", "'s/\\t\\t\\t/\\t\\t/'", tablefile))
     readr::read_tsv(tablefile,
@@ -1050,6 +1035,17 @@ sintax <- function(seq, db, sintax_cutoff = NULL, multithread = FALSE) {
                     col_types = "cccc") %>%
       dplyr::left_join(seq, ., by = "label")
   }
+}
+
+taxonomy_idtaxa <- function(seq, reference, multithread = FALSE, strand = "top", min_confidence = 40, ...) {
+  if (isTRUE(multithread)) multithread <- NULL
+  if (isFALSE(multithread)) multithread <- 1
+  DECIPHER::IdTaxa(test = seq,
+                   trainingSet = reference,
+                   strand = strand,
+                   processors = multithread,
+                   threshold = min_confidence,
+                   ...)
 }
 
 sintax_format <- function(tax) {

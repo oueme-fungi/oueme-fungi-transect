@@ -30,15 +30,10 @@ config['tagdir']     = "{labdir}/tags".format_map(config)
 
 config['dataset']    = '{labdir}/datasets.csv'.format_map(config)
 config['regions']    = '{labdir}/regions.csv'.format_map(config)
+config['methods']    = '{labdir}/taxonomy_methods.csv'.format_map(config)
 config['platemap']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
 config['gits7_tags'] = '{labdir}/Hectors_tag_primer_plates.xlsx'.format_map(config)
 config['lr5_tags']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
-
-config['rdp_file']   = '{ref_root}/rdp.fasta.gz'.format_map(config)
-config['silva_file']   = '{ref_root}/silva.fasta.gz'.format_map(config)
-config['silva_tax_file']   = '{ref_root}/silva_tax.txt'.format_map(config)
-config['unite_file']   = '{ref_root}/unite.fasta.gz'.format_map(config)
-config['unite_patch_file']   = '{ref_root}/unite_patch.csv'.format_map(config)
 
 # Find the maximum number of cores available to a single node on SLURM,
 # or if we aren't in a SLURM environment, how many we have on the local machine.

@@ -22,6 +22,7 @@ if (interactive()) {
   in_files <- in_files[!grepl("is_057", in_files)]
   dataset_file <- file.path(lab_dir, "datasets.csv")
   regions_file <- file.path(lab_dir, "regions.csv")
+  methods_file <- file.path(lab_dir, "taxonomy_methods.csv")
   platemap_file <- file.path(lab_dir, "Brendan_soil2.xlsx")
   platemap_sheet <- "Concentration samples"
   rdp_file <- file.path(ref_dir, "rdp.LSU.fasta.gz")
@@ -44,6 +45,7 @@ if (interactive()) {
   r_dir <- snakemake@config$rdir
   dataset_file <- snakemake@input$dataset
   regions_file <- snakemake@input$regions
+  methods_file <- snakemake@input$methods_file
   platemap_file <- snakemake@input$platemap
   platemap_sheet <- snakemake@config$platemap_sheet
   target <- sub("^.", "", snakemake@output)
@@ -70,7 +72,7 @@ if (interactive()) {
   tids_file <- snakemake@output$tids
   prereqs <- unlist(snakemake@input)
   in_files <- stringr::str_subset(prereqs,
-                         pattern = "\\.trim\\.fastq\\.gz$")
+                                  pattern = "\\.trim\\.fastq\\.gz$")
   bigsplit <- snakemake@config$bigsplit
   plan_file <- snakemake@output[["plan"]]
   itsx_meta_file <- snakemake@output[["itsx_meta"]]
@@ -114,6 +116,7 @@ regions <- read_csv(regions_file, col_types = "cccciiiiic") %>%
   mutate_at("range", replace_na, "") %>%
   mutate(min_length_post = coalesce(min_length_post, min_length),
          max_length_post = coalesce(max_length_post, max_length))
+methods <- read_csv(methods_file, col_types = "ci")
 
 # "meta" dataframes containing definitions for each instance of mapped targets
 
@@ -126,16 +129,16 @@ itsx_meta <- datasets %>%
   mutate(primer_ID = paste0(str_replace(forward, "_tag.*$", ""),
                             str_replace(reverse, "_tag.*$", "")),
          plate = map(runs, ~formatC(seq(.), width = 3, flag = "0"))) %T>%
-  {cat("finished first mutate...\n")} %>%
+         {cat("finished first mutate...\n")} %>%
   unnest(plate) %>%
   mutate(direction = if_else(tech == "PacBio",
                              list(c("f", "r")),
                              list(""))) %T>%
-  {cat("finished second mutate...\n")} %>%
+                             {cat("finished second mutate...\n")} %>%
   unnest(direction) %>%
   mutate(well = list(tidyr::crossing(Row = LETTERS[1:8], Col = 1:12) %>%
                        transmute(well = paste0(Row, Col)))) %T>%
-  {cat("finished third mutate...\n")} %>%
+                       {cat("finished third mutate...\n")} %>%
   unnest(well) %>%
   mutate(trim_file = glue("{seq_run}_{plate}/{seq_run}_{plate}-{well}{direction}.trim.fastq.gz"),
          seq_run_ID = seq_run,
@@ -147,7 +150,7 @@ itsx_meta <- datasets %>%
          join_derep = make.names(glue("join_derep_{primer_ID}")),
          join_derep_map = make.names(glue("join_derep_map_{primer_ID}")),
          itsxtrim = make.names(glue("itsxtrim_{primer_ID}"))) %T>%
-  {cat("finished fourth mutate...\n")} %>%
+         {cat("finished fourth mutate...\n")} %>%
   filter(file.exists(file.path(trim_dir, trim_file))) %>%
   filter(normalizePath(file.path(trim_dir, trim_file)) %in% normalizePath(in_files)) %>%
   filter(file.size(file.path(trim_dir, trim_file)) > 40) %>%
@@ -228,19 +231,19 @@ taxonomy_meta <- dada_meta %>%
   group_by_at(names(regions)) %>%
   summarize(plate_region_ID = paste(plate_ID, region_ID, sep = "_", collapse = ",")) %>%
   ungroup() %>%
-  mutate(reference_file = strsplit(reference, " *, *") %>%
-                                map(unlist)) %>%
-  unnest(reference_file, .preserve = region) %>%
-  mutate(reference = str_split_fixed(reference_file, "\\.", 2)[,1],
-         reference_file = glue("{ref_dir}/{reference_file}.vsearch.fasta.gz"),
-         tax_ID = glue("{region}_{reference}"),
+  separate_rows(reference, sep = " *, *") %>%
+  separate(reference, c("reference", "refregion"), sep = "\\.") %>%
+  crossing(methods) %>%
+  mutate(reference_file = glue("{ref_dir}/{reference}.{refregion}.{method}.fasta.gz"),
+         refdb = glue("refdb_{method}_{reference}_{refregion}"),
+         tax_ID = glue("{region}_{reference}_{refregion}_{method}"),
          big_seq_table = glue("big_seq_table_{region}")) %>%
   arrange(tax_ID) %>%
-  mutate_at(c("tax_ID", "big_seq_table"), syms)
+  mutate_at(c("tax_ID", "big_seq_table", "refdb"), syms)
 if (!interactive()) {
   saveRDS(taxonomy_meta, taxonomy_meta_file)
   mutate_if(taxonomy_meta, is.list, as.character) %>%
-  readr::write_csv(taxonomy_meta_csv_file)
+    readr::write_csv(taxonomy_meta_csv_file)
   readr::write_lines(taxonomy_meta$tax_ID, tids_file)
 }
 
@@ -249,23 +252,15 @@ if (!interactive()) {
 # it is used for target dbprep
 # and mapped to target classifier
 cat("Making ref_meta.\n")
-ref_meta <- select(taxonomy_meta, reference, reference_file) %>%
+ref_meta <- select(taxonomy_meta, reference, refregion, method, reference_file) %>%
   unique() %>%
-  mutate(ref_ID = rlang::syms(str_replace(reference_file, "\\.", "_")),
-         seq_file = glue("{ref_dir}/{reference_file}.fasta.gz"),
-         patch_file = glue("{ref_dir}/{reference}_patch.csv"),
-         tax_file = ifelse(reference == "silva",
-                           glue("{ref_dir}/{reference}_tax.txt"),
-                           NA_character_),
-         problem_root = glue("{ref_dir}/{reference_file}_problems"))
+  mutate(ref_ID = rlang::syms(glue("{reference}_{refregion}")))
 
 #### drake plan ####
 
 cat("\nbuilding plan...\n")
 tictoc::tic()
 plan <- drake_plan(
-  
-  datasets = readr::read_csv(file_in(!!dataset_file)),
   
   # derep1 ----
   # dereplicate input sequences before running ITSx
@@ -321,12 +316,12 @@ plan <- drake_plan(
                 fasta = FALSE, summary = FALSE, graphical = FALSE,
                 save_regions = "none", not_found = FALSE,
                 complement = FALSE, cpu = ignore(itsx_cpus))[["positions"]]
-    },
-    transform = cross(split_fasta,
-                      shard = !!(1:bigsplit),
-                      .tag_in = step,
-                      .id = primer_ID),
-    format = "fst"),
+  },
+  transform = cross(split_fasta,
+                    shard = !!(1:bigsplit),
+                    .tag_in = step,
+                    .id = primer_ID),
+  format = "fst"),
   
   # itsxtrim ----
   # combine the chunks into a master positions list.
@@ -349,7 +344,7 @@ plan <- drake_plan(
                     .tag_in = step,
                     .id = file_ID),
     format = "fst"),
-                  
+  
   # regions----
   # cut the required regions out of each sequence
   regions = target(
@@ -359,9 +354,9 @@ plan <- drake_plan(
                           region2 = region_end,
                           positions = positions),
     transform = map(.data = !!unique(select(predada_meta, seq_run, trim_file,
-                                     region_file, region, region_start, region_end,
-                                     positions,
-                                     well_ID, plate_ID, region_ID, seq_run_ID)),
+                                            region_file, region, region_start, region_end,
+                                            positions,
+                                            well_ID, plate_ID, region_ID, seq_run_ID)),
                     .tag_in = step,
                     .id = c(well_ID, region_ID))),
   
@@ -494,36 +489,35 @@ plan <- drake_plan(
                     file_out(!!big_fasta_file)),
     transform = map(.data = !!region_meta, .id = region_ID)),
   
+  
   # dbprep ----
   # import the RDP, Silva, and UNITE databases, and format them for use with
   # DECIPHER.
-  dbprep = target(
-    formatdb(db = reference,
-             seq_file = file_in(seq_file),
-             patch_file = file_in(patch_file),
-             tax_file = file_in(tax_file),
-             maxGroupSize = 20),
-    
-    transform = map(.data = !!ref_meta,
+  refdb_dada2 = target(
+    file_in(reference_file),
+    transform = map(.data = !!filter(ref_meta, method == "dada2"),
+                    .tag_out = refdb,
                     .id = ref_ID)),
-  # classifier----
-  # Train a DECIPHER classifier for each database.
-  classifier = target(
-    refine_classifier(dbprep$train,
-                      dbprep$taxonomy,
-                      dbprep$rank,
-                      out_root = problem_root),
-    transform = map(dbprep, .id = ref_ID)
-  ),
+  
+  
+  refdb_sintax = target(
+    file_in(reference_file),
+    transform = map(.data = !!filter(ref_meta, method == "sintax"),
+                    .tag_out = refdb,
+                    .id = ref_ID)),
+  
+  refdb_idtaxa = target(
+    fit_idtaxa(file_in(reference_file)),
+    transform = map(.data = !!filter(ref_meta, method == "idtaxa"),
+                    .tag_out = refdb,
+                    .id = ref_ID)),
   
   # taxon ----
   # Assign taxonomy to each ASV
   taxon = target(
     colnames(big_seq_table) %>%
-      sintax(db = file_in(reference_file),
-             sintax_cutoff = 0.9,
-             multithread = ignore(dada_cpus)) %>%
-      sintax_format(),
+      taxonomy(reference = refdb, method = method, multithread = ignore(dada_cpus)) %>%
+      taxtable(),
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
     format = "fst"),
   
@@ -562,7 +556,7 @@ plan <- drake_plan(
   # and put them all in one tibble.  We'll only do this for pacbio long reads.
   combined = target(
     combine_bigmaps(dplyr::bind_rows(dada_map),
-                           dplyr::bind_rows(raw)),
+                    dplyr::bind_rows(raw)),
     transform = combine(dada_map, raw, .by = seq_run_ID, .tag_in = step),
     format = "fst"
   ),
@@ -570,25 +564,27 @@ plan <- drake_plan(
   # conseq ----
   # Calculate consensus sequences for full ITS and LSU for each ITS2 ASV with
   # with at least 3 sequences.
-  conseq = target(
+  preconseq = target(
     combined_pb_500 %>%
-    tidyr::extract(name, c("seq_run", "plate", "well", "direction", "region"), "([pi][sb]_\\d{3})_(\\d{3})-([A-H]\\d{1,2})([fr])-(.+)\\.qfilt\\.fastq\\.gz") %>%
-    tidyr::spread(key = "region", value = "seq") %>%
-    dplyr::group_by(ITS2) %>%
-    dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
-    dplyr::summarize(nreads = dplyr::n(),
-                     long = as.character(
-                       calculate_consensus(long, seq.id, ignore(dada_cpus))),
-                     ITS = as.character(
-                       calculate_consensus(ITS, seq.id, ignore(dada_cpus))),
-                     LSU = as.character(
-                       calculate_consensus(LSU, seq.id, ignore(dada_cpus)))),
+      tidyr::extract(name, c("seq_run", "plate", "well", "direction", "region"), "([pi][sb]_\\d{3})_(\\d{3})-([A-H]\\d{1,2})([fr])-(.+)\\.qfilt\\.fastq\\.gz") %>%
+      tidyr::spread(key = "region", value = "seq") %>%
+      dplyr::group_by(ITS2) %>%
+      dplyr::filter(!is.na(ITS2), dplyr::n() >= 3)),
+  
+  conseq = target(
+    preconseq %>%
+      dplyr::summarize(
+        nreads = dplyr::n(),
+        !! region := as.character(
+          calculate_consensus(.data[[region]], seq.id, ignore(dada_cpus)))),
+    transform = map(region = !!c("long", "ITS", "ITS1", "LSU"), .id = region),
     format = "fst"),
   
   # conseq_filt ----
   # Remove consensus sequences which did not have a strong consensus.
   conseq_filt = target(
-    conseq %>%
+    list(conseq) %>%
+      purrr::reduce(dplyr::full_join, by = c("ITS2", "nreads")) %>%
       dplyr::filter(complete.cases(.)) %>%
       dplyr::mutate(
         qlong = Biostrings::RNAStringSet(long) %>%
@@ -598,8 +594,9 @@ plan <- drake_plan(
         qLSU = Biostrings::RNAStringSet(LSU) %>%
           Biostrings::letterFrequency(., "MRWSYKVHDBN")) %>%
       dplyr::filter(qITS < 3, qLSU < 3, qlong < 3) %>%
-      dplyr::mutate(hash = seqhash(long)) %>%
+      dplyr::mutate(hash = tzara::seqhash(long)) %>%
       dplyr::arrange(hash),
+    transform = combine(conseq),
     format = "fst"),
   
   # taxon_LSUcons_rdp----
@@ -633,13 +630,20 @@ plan <- drake_plan(
   long_consensus = conseq_filt %$%
     rlang::set_names(long, hash) %>%
     Biostrings::RNAStringSet(),
+  lsu_consensus = conseq_filt %$%
+    rlang::set_names(LSU, hash) %>%
+    Biostrings::RNAStringSet(),
   
   # lsualn----
   # Align the LSU consensus.
-  # DECIPHER has a fast progressive alignment algorthm that calculates RNA
+  # DECIPHER has a fast progressive alignment algorithm that calculates RNA
   # secondary structure
-  lsualn =
+  longaln =
     DECIPHER::AlignSeqs(long_consensus,
+                        iterations = 10, refinements = 10,
+                        processors = ignore(dada_cpus)),
+  lsualn =
+    DECIPHER::AlignSeqs(lsu_consensus,
                         iterations = 10, refinements = 10,
                         processors = ignore(dada_cpus)),
   
@@ -688,25 +692,25 @@ plan <- drake_plan(
     dist,
   spatial_dist_short2 = spatial_dist_short + ifelse(spatial_dist_short > 50000, -100000, 100000),
   unif_corr = vegan::mantel.correlog(unif_dist, spatial_dist,
-                                      break.pts = 0:13 - 0.5,
-                                      cutoff = FALSE),
+                                     break.pts = 0:13 - 0.5,
+                                     cutoff = FALSE),
   bc_corr_long = vegan::mantel.correlog(bc_dist_long, spatial_dist_long,
-                                    break.pts = 0:13 - 0.5,
-                                    cutoff = FALSE),
-  bc_corr_short = vegan::mantel.correlog(bc_dist_short, spatial_dist_short,
                                         break.pts = 0:13 - 0.5,
                                         cutoff = FALSE),
+  bc_corr_short = vegan::mantel.correlog(bc_dist_short, spatial_dist_short,
+                                         break.pts = 0:13 - 0.5,
+                                         cutoff = FALSE),
   
   
   unif_corr2 = vegan::mantel.correlog(unif_dist, spatial_dist2,
-                                       break.pts = 0:13 - 0.5,
-                                       cutoff = FALSE),
+                                      break.pts = 0:13 - 0.5,
+                                      cutoff = FALSE),
   bc_corr_long2 = vegan::mantel.correlog(bc_dist_long, spatial_dist_long2,
-                                     break.pts = 0:13 - 0.5,
-                                     cutoff = FALSE),
-  bc_corr_short2 = vegan::mantel.correlog(bc_dist_short, spatial_dist_short2,
                                          break.pts = 0:13 - 0.5,
                                          cutoff = FALSE),
+  bc_corr_short2 = vegan::mantel.correlog(bc_dist_short, spatial_dist_short2,
+                                          break.pts = 0:13 - 0.5,
+                                          cutoff = FALSE),
   
   # seq_count ----
   # Count the sequences in each fastq file
@@ -717,8 +721,8 @@ plan <- drake_plan(
                      intern = TRUE) %>%
         as.integer),
     transform = map(fq_file = !!c(file.path(trim_dir, itsx_meta$trim_file),
-                                 file.path(region_dir, predada_meta$region_file),
-                                 file.path(filter_dir, predada_meta$filter_file)),
+                                  file.path(region_dir, predada_meta$region_file),
+                                  file.path(filter_dir, predada_meta$filter_file)),
                     .tag_in = step),
     format = "fst"),
   
@@ -728,7 +732,7 @@ plan <- drake_plan(
     dplyr::bind_rows(seq_count),
     transform = combine(seq_count),
     format = "fst"),
-
+  
   # qstats----
   # calculate quality stats for the different regions
   qstats = target(
