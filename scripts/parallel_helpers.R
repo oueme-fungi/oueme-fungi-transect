@@ -51,11 +51,11 @@ get_logfile <- function(default) {
   }
 }
 
+
 #### Start logging ####
 setup_log <- function(default) {
   logfile <- get_logfile(default)
-  sink(logfile, split = TRUE)
-  sink(logfile, type = "message")
+  flog.appender(appender.tee(logfile))
 }
 
 #### combine drake targets with their names ####

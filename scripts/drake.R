@@ -1,6 +1,7 @@
 # define or input file names and parameters
+library(futile.logger)
 if (interactive()) {
-  cat("Creating drake plan in interactive session...\n")
+  flog.info("Creating drake plan in interactive session...")
   library(here)
   base_dir <- here()
   r_dir <- here("scripts")
@@ -40,12 +41,12 @@ if (interactive()) {
   longtree_file <- file.path(pasta_dir, "pasta_raxml.tree")
   bigsplit <- 80L
 } else if (exists("snakemake")) {
-  cat("Creating drake plan in snakemake session...\n")
+  flog.info("Creating drake plan in snakemake session...")
   snakemake@source(".Rprofile", echo = FALSE)
   r_dir <- snakemake@config$rdir
   dataset_file <- snakemake@input$dataset
   regions_file <- snakemake@input$regions
-  methods_file <- snakemake@input$methods_file
+  methods_file <- snakemake@input$methods
   platemap_file <- snakemake@input$platemap
   platemap_sheet <- snakemake@config$platemap_sheet
   target <- sub("^.", "", snakemake@output)
@@ -108,14 +109,17 @@ source(file.path(r_dir, "plate_check.R"))
 source(file.path(r_dir, "map_LSU.R"))
 source(file.path(r_dir, "mantel.R"))
 
+setup_log("drakeplan")
+
 # load the dataset and region definitions
-cat("Loading datasets file.\n")
+flog.info("Loading datasets file.")
 datasets <- read_csv(dataset_file, col_types = "cccicccccic")
-cat("Loading regions file.\n")
+flog.info("Loading regions file.\n")
 regions <- read_csv(regions_file, col_types = "cccciiiiic") %>%
   mutate_at("range", replace_na, "") %>%
   mutate(min_length_post = coalesce(min_length_post, min_length),
          max_length_post = coalesce(max_length_post, max_length))
+flog.info("Loading taxonomic assignment methods file.")
 methods <- read_csv(methods_file, col_types = "ci")
 
 # "meta" dataframes containing definitions for each instance of mapped targets
@@ -124,21 +128,21 @@ methods <- read_csv(methods_file, col_types = "ci")
 # itsx_meta has one row per demultiplexed, primer-trimmed fastq.gz file
 # used in targets derep1 and positions
 # The "index" is file_ID
-cat("Making itsx_meta.\n")
+flog.info("Making itsx_meta.")
 itsx_meta <- datasets %>%
   mutate(primer_ID = paste0(str_replace(forward, "_tag.*$", ""),
                             str_replace(reverse, "_tag.*$", "")),
          plate = map(runs, ~formatC(seq(.), width = 3, flag = "0"))) %T>%
-         {cat("finished first mutate...\n")} %>%
+         {flog.info("finished first mutate...")} %>%
   unnest(plate) %>%
   mutate(direction = if_else(tech == "PacBio",
                              list(c("f", "r")),
                              list(""))) %T>%
-                             {cat("finished second mutate...\n")} %>%
+                             {flog.info("finished second mutate...")} %>%
   unnest(direction) %>%
   mutate(well = list(tidyr::crossing(Row = LETTERS[1:8], Col = 1:12) %>%
                        transmute(well = paste0(Row, Col)))) %T>%
-                       {cat("finished third mutate...\n")} %>%
+                       {flog.info("finished third mutate...")} %>%
   unnest(well) %>%
   mutate(trim_file = glue("{seq_run}_{plate}/{seq_run}_{plate}-{well}{direction}.trim.fastq.gz"),
          seq_run_ID = seq_run,
@@ -150,7 +154,7 @@ itsx_meta <- datasets %>%
          join_derep = make.names(glue("join_derep_{primer_ID}")),
          join_derep_map = make.names(glue("join_derep_map_{primer_ID}")),
          itsxtrim = make.names(glue("itsxtrim_{primer_ID}"))) %T>%
-         {cat("finished fourth mutate...\n")} %>%
+         {flog.info("finished fourth mutate...")} %>%
   filter(file.exists(file.path(trim_dir, trim_file))) %>%
   filter(normalizePath(file.path(trim_dir, trim_file)) %in% normalizePath(in_files)) %>%
   filter(file.size(file.path(trim_dir, trim_file)) > 40) %>%
@@ -162,7 +166,7 @@ itsx_meta <- datasets %>%
 # it is used in targets regions, filter, and derep2
 # The index is well_ID + region_ID
 # plate_ID is defined because it will be the index for dada_meta
-cat("Making predada_meta.\n")
+flog.info("Making predada_meta.")
 predada_meta <- itsx_meta %>%
   mutate_at("regions", str_split, ",") %>%
   unnest(region = regions, .preserve = ends_with("_ID")) %>%
@@ -195,7 +199,7 @@ if (interactive()) {
 # dada_meta has one row per region per plate
 # it is used for targets err, dada, dadamap, seq_table, and nochim
 # The index is plate_ID + region_ID (plate_ID)
-cat("Making dada_meta.\n")
+flog.info("Making dada_meta.")
 dada_meta <- predada_meta %>%
   select(seq_run, plate, region, range, plate_ID, region_ID, range_ID, seq_run_ID) %>%
   unique() %>%
@@ -212,7 +216,7 @@ if (!interactive()) {
 # region_meta has one row per region
 # it is used in target big_fasta.
 # the index is region_ID
-cat("Making region_meta.\n")
+flog.info("Making region_meta.")
 region_meta <- regions %>%
   select(region_ID = region) %>%
   mutate(big_seq_table = glue("big_seq_table_{region_ID}"),
@@ -225,7 +229,7 @@ region_meta <- regions %>%
 # it is used in target taxon,
 # and mapped to target guilds_table
 # The index is tax_ID (Taxonomy ID)
-cat("Making taxonomy_meta.\n")
+flog.info("Making taxonomy_meta.")
 taxonomy_meta <- dada_meta %>%
   mutate_if(is.list, as.character) %>%
   group_by_at(names(regions)) %>%
@@ -251,14 +255,14 @@ if (!interactive()) {
 # ref_meta has one row per (region specific) reference database.
 # it is used for target dbprep
 # and mapped to target classifier
-cat("Making ref_meta.\n")
+flog.info("Making ref_meta.")
 ref_meta <- select(taxonomy_meta, reference, refregion, method, reference_file) %>%
   unique() %>%
   mutate(ref_ID = rlang::syms(glue("{reference}_{refregion}")))
 
 #### drake plan ####
 
-cat("\nbuilding plan...\n")
+flog.info("\nbuilding plan...")
 tictoc::tic()
 plan <- drake_plan(
   
@@ -300,8 +304,9 @@ plan <- drake_plan(
   # split_fasta----
   # break the list of unique files into equal sized chunks for ITSx
   split_fasta = target(
-    split(join_derep$fasta, seq_along(join_derep$fasta) %% !!bigsplit + 1),
+    split(join_derep_fasta, seq_along(join_derep_fasta) %% !!bigsplit + 1),
     transform = map(join_derep,
+                    .id = primer_ID,
                     .tag_in = step)),
   
   # itsx_shard----
@@ -771,10 +776,9 @@ remove(itsx_meta)
 remove(predada_meta)
 remove(dada_meta)
 remove(taxonomy_meta)
-remove(datasets)
 remove(regions)
 
-cat("\nCalculating outdated targets...\n")
+flog.info("\nCalculating outdated targets...")
 tictoc::tic()
 dconfig <- drake_config(plan, jobs_preprocess = local_cpus())
 od <- outdated(dconfig)

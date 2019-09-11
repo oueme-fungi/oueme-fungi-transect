@@ -566,6 +566,7 @@ checkpoint drake_plan:
         "{rdir}/taxonomy.R".format_map(config),
         dataset  = config['dataset'],
         regions  = config['regions'],
+        methods  = config['methods'],
         platemap = config['platemap'],
         script = "{rdir}/drake.R".format_map(config)
     conda: "config/conda/drake.yaml"
