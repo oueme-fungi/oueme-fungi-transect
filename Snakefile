@@ -567,9 +567,6 @@ checkpoint drake_plan:
         dataset  = config['dataset'],
         regions  = config['regions'],
         platemap = config['platemap'],
-        rdp      = config['rdp_file'],
-        unite    = config['unite_file'],
-        unite_patch = config['unite_patch_file'],
         script = "{rdir}/drake.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
