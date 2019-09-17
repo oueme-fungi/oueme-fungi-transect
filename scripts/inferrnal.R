@@ -80,9 +80,10 @@ cmsearch <- function(cm,
       abc <- Biostrings::uniqueLetters(seq)
       if (all(abc %in% Biostrings::DNA_ALPHABET)) {
         seq <- Biostrings::DNAStringSet(seq)
+        seq <- Biostrings::RNAStringSet(seq)
       } else if (all(abc %in% Biostrings::RNA_ALPHABET)) {
         seq <- Biostrings::RNAStringSet(seq)
-      }
+      } else stop("Sequence alphabet should be DNA or RNA for CMalign.")
     }
     if (methods::is(seq, "XStringSet")) {
       Biostrings::writeXStringSet(seq, seqfile)
@@ -105,6 +106,44 @@ cmsearch <- function(cm,
                                    "description"),
                      col_types = "ccccciiiicciddddcc",
                      comment = "#")
+}
+
+cmalign <- function(cmfile, seq, glocal = TRUE, cpu) {
+  assertthat::assert_that(assertthat::is.readable(cmfile),
+                          assertthat::is.flag(glocal))
+  args <- "cmalign"
+  if (isTRUE(glocal)) args <- c(args, "-g")
+  if (!missing(cpu)) {
+    assertthat::assert_that(assertthat::is.count(cpu))
+    args <- c(args, "--cpu", cpu)
+  }
+  
+  seqfile <- NULL
+  if (assertthat::is.string(seq) && file.exists(seq)) {
+    seqfile <- seq
+  } else {
+    seqfile <- tempfile("seq", fileext = ".fasta")
+    if (is.character(seq)) {
+      seq <- Biostrings::BStringSet(seq)
+      abc <- Biostrings::uniqueLetters(seq)
+      if (all(abc %in% Biostrings::DNA_ALPHABET)) {
+        seq <- Biostrings::DNAStringSet(seq)
+        seq <- Biostrings::RNAStringSet(seq)
+      } else if (all(abc %in% Biostrings::RNA_ALPHABET)) {
+        seq <- Biostrings::RNAStringSet(seq)
+      } else stop("Sequence alphabet should be DNA or RNA for CMalign.")
+    }
+    if (methods::is(seq, "XStringSet")) {
+      Biostrings::writeXStringSet(seq, seqfile)
+      on.exit(unlink(seqfile))
+    } else  {
+      stop("'seq' should be a filename, XStringSet, or character vector.")
+    }
+  }
+  args <- c(args, cmfile, seqfile)
+  args <- paste(args, collapse = " ")
+  alnpipe <- pipe(args)
+  read_stockholm_msa(alnpipe)
 }
 
 merge_5_8S <- function(itsx_result, csearch_result) {
@@ -186,6 +225,13 @@ read_stockholm_rf <- function(stockholm) {
 
 
 parse_stockholm_msa_chunk <- function(x, pos, acc) {
+  
+  gc <- stringr::str_match(x, "#=GC +([^ ]+) +(.+)")[,2:3]
+  gc <- gc[complete.cases(gc),]
+  for (i in 1:nrow(gc)) {
+    attr(acc, gc[i,1]) <- paste0(attr(acc, gc[i,1]), gc[i,2])
+  }
+  
   x <- stringr::str_match(x, "^([^#][^ ]*) +([^ ]+)$")[,2:3]
   x <- x[complete.cases(x),]
   for (i in 1:nrow(x)) {
@@ -206,7 +252,13 @@ read_stockholm_msa <- function(stockholm) {
   seqs <- 
     readr::read_lines_chunked(stockholm,
                               readr::AccumulateCallback$new(parse_stockholm_msa_chunk, acc = list()))
-  Biostrings::RNAMultipleAlignment(unlist(seqs))
+  out <- attributes(seqs)
+  out[["alignment"]] <- Biostrings::RNAMultipleAlignment(unlist(seqs))
+  out
+}
+
+read_stockholm_msa_rf <- function(stockholm) {
+  
 }
 
 map_position <- function(alignment, x) {
@@ -217,7 +269,7 @@ map_position <- function(alignment, x) {
                           x <= ncol(alignment))
   if (x == 1L) return(rep(1L, nrow(alignment)))
   
-  trimaln <- substr(alignment, 1L, x - 1L)
+  trimaln <- substr(alignment, 1L, x)
   gapcounts <- stringr::str_count(trimaln, "[.-]")
   pmax(x - gapcounts, 1L)
 }
@@ -237,37 +289,59 @@ extract_rf_region <- function(rf, n, names) {
   out
 }
 
-LSUx <- function(stockholm, include_incomplete = FALSE) {
-  assertthat::assert_that(assertthat::is.string(stockholm),
-                          assertthat::is.readable(stockholm))
-  rf <- read_stockholm_rf(stockholm)
-  aln <- read_stockholm_msa(stockholm)
-  
+
+gap_free_width <- function(x, gapchars = ".-") {
+  if (methods::is(x, "MultipleAlignment")) x <- x@unmasked
+  assertthat::assert_that(methods::is(x, "XStringSet"))
+  Biostrings::width(x) - c(Biostrings::letterFrequency(x, gapchars))
+}
+
+# extract_LSU <- function(stockholm, include_incomplete = FALSE) {
+#   assertthat::assert_that(assertthat::is.string(stockholm),
+#                           assertthat::is.readable(stockholm))
+#   
+#   aln <- read_stockholm_msa(stockholm)
+#   rf <- aln$RF
+#   aln <- aln$alignment
+
+extract_LSU <- function(aln, rf, include_incomplete = FALSE) {
   limits <- extract_rf_region(rf, c(1:9, LETTERS[1:10]),
                               c("5_8S", paste0("LSU", 1:18)))
   
-  out <- tibble::tibble(seq_name = names(aln@unmasked))
+  outhead <- tibble::tibble(seq_name = names(aln@unmasked),
+                        length = gap_free_width(aln@unmasked))
+  
+  out <- tibble::tibble(.rows = nrow(outhead))
+  
   for (region in rownames(limits)) {
-    for (boundary in colnames(limits)) {
-      out[[paste0(region, "_", boundary)]] <- map_position(aln, limits[region, boundary])
-    }
+    startcol <- paste0(region, "_start")
+    endcol <- paste0(region, "_end")
+    
+    out[[startcol]] <- map_position(aln, limits[region, "start"])
+    out[[endcol]] <- map_position(aln, limits[region, "end"])
+    
+    out_of_range <- out[[startcol]] >= outhead$length & out[[endcol]] >= outhead$length
+    out[[startcol]] <- ifelse(out_of_range, NA_integer_, out[[startcol]])
+    out[[endcol]] <- ifelse(out_of_range, NA_integer_, out[[endcol]])
   }
+  
   out[["ITS2_start"]] <- out[["5_8S_end"]] + 1L
   out[["ITS2_end"]] <- out[["LSU1_start"]] - 1L
   for (i in 2L:18L) {
     prename <- paste0("LSU", i - 1, "_end")
     postname <- paste0("LSU", i, "_start")
-    if (include_incomplete || 
+    if (isTRUE(include_incomplete) || 
         any(!is.na(out[[prename]]) & !is.na(out[[postname]]))) {
-    out[[paste0("V", i, "_start")]] <- out[[prename]] + 1L
-    out[[paste0("V", i, "_end")]] <- out[[postname]] - 1L
+      zerosize <- out[[postname]] - out[[prename]] == 1L
+      out[[paste0("V", i, "_start")]] <- ifelse(zerosize, NA_integer_,
+                                                out[[prename]] + 1L)
+      out[[paste0("V", i, "_end")]] <- ifelse(zerosize, NA_integer_,
+                                              out[[postname]] - 1L)
     }
   }
   out <- purrr::discard(out, ~all(is.na(.)))
-  outhead <- out["seq_name"]
-  outvals <- dplyr::select(out, -seq_name)
-  outvals <- outvals[order(apply(outvals, 2, median, na.rm = TRUE))]
-  dplyr::bind_cols(outhead, outvals)
+  out <- out[order(apply(out, 2, median, na.rm = TRUE))]
+  dplyr::bind_cols(outhead, out)
 }
 
 gather_regions <- function(pos) {
@@ -303,4 +377,45 @@ spread_regions <- function(pos) {
   outvals <- dplyr::select(out, -!!hvars)
   outvals <- outvals[order(apply(outvals, 2, median))]
   dplyr::bind_cols(outhead, outvals)
+}
+
+
+LSUx <- function(seq, cm_5.8S, cm_32S, glocal = TRUE, ITS1 = FALSE, cpu) {
+  assertthat::assert_that(assertthat::is.readable(cm_5.8S),
+                          assertthat::is.readable(cm_32S),
+                          assertthat::is.flag(glocal),
+                          assertthat::is.flag(ITS1))
+  
+  futile.logger::flog.info("Beginning CM search.", name = "LSUx")
+  cms <- cmsearch(cm = cm_5.8S, seq = seq, glocal = glocal, cpu = cpu)
+  
+  # remove multiple hits
+  cms <- dplyr::group_by(cms, target_name)
+  cms <- dplyr::filter(cms, all(inc == "?") | inc == "!")
+  cms <- dplyr::filter(cms, dplyr::n() == 1)
+  cms <- dplyr::ungroup(cms)
+  futile.logger::flog.info("%d sequences contained a single 5.8S hit.", nrow(cms),
+                           name = "LSUx")
+  seq_32S <- IRanges::narrow(seq[cms$target_name], start = cms$seq_from)
+  
+  futile.logger::flog.info("Beginning CM alignment.", name = "LSUx")
+  aln <- cmalign(cmfile = cm_32S, seq = seq_32S, glocal = glocal, cpu = cpu)
+  
+  futile.logger::flog.info("Extracting LSU regions.", name = "LSUx")
+  pos <- extract_LSU(aln = aln$alignment, rf = aln$RF)
+  pos <- dplyr::mutate_at(pos, "seq_name", stringr::str_replace, "^[^|]*\\|", "")
+  pos <- dplyr::mutate_if(pos, is.integer, add, cms$seq_from - 1)
+  if (isTRUE(add_ITS1)) {
+    no_ITS1 <- pos$`5_8S_start` == 1 | is.na(pos$`5_8S_start`)
+    if (all(no_ITS1)) {
+      futile.logger::flog.warn("ITS1 annotation was requested, but no bases before 5.8S were found.",
+                name = "LSUx")
+    } else {
+      pos$ITS1_start <- ifelse(no_ITS1, NA_integer_, 1L)
+      pos$ITS1_end <- ifelse(no_ITS1, NA_integer_, pos$`5_8S_start` - 1L)
+      pos <- dplyr::select(pos, seq_name, length, ITS1_start, ITS1_end,
+                           dplyr::everything())
+    }
+  }
+  pos
 }

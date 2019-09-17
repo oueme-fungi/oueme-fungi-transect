@@ -1,10 +1,11 @@
+library(futile.logger)
 if (file.exists("ENTREZ_KEY")) {
   Sys.setenv(ENTREZ_KEY = ENTREZ_KEY)
 }
 
 # define or input file names and parameters
 if (interactive()) {
-  cat("Creating drake plan in interactive session...\n")
+  flog.info("Creating drake plan in interactive session...")
   library(here)
   r_dir <- "scripts"
   config_dir <- "config"
@@ -12,7 +13,7 @@ if (interactive()) {
   tedersoo_file <- file.path(ref_dir, "Tedersoo_Eukarya_classification.xlsx")
   regions_file <- file.path(config_dir, "regions.csv")
 } else if (exists("snakemake")) {
-  cat("Creating drake plan in snakemake session...\n")
+  flog.info("Creating drake plan in snakemake session...")
   snakemake@source(".Rprofile", echo = FALSE)
   r_dir <- snakemake@config$rdir
   ref_dir <- snakemake@config$ref_root
@@ -23,13 +24,17 @@ if (interactive()) {
   sink(logfile)
   sink(logfile, type = "message")
 } else {
-  stop("Can't find Snakemake object in non-interactive session!")
+  flog.error("Can't find Snakemake object in non-interactive session!")
+  stop()
 }
 
 library(magrittr)
 library(drake)
 
 source(file.path(r_dir, "taxonomy.R"))
+source(file.path(r_dir, "parallel_helpers.R"))
+
+setup_log("translate_references")
 
 tedersoo_ranks <- c("kingdom", "subkingdom", "phylum", "subphylum", "class",
                     "order", "family", "genus")

@@ -5,18 +5,22 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-target <- get_target(default = "guilds_table_ITS2_unite")
+target <- get_target(default = "taxon_ITS2_unite_ITS2")
+target <- plan$target[startsWith(plan$target, target)]
+
 library(magrittr)
 library(backports)
+library(futile.logger)
 setup_log("taxonomy")
 
 #### Taxonomy targets from DADA2 pipeline ####
-# dada is internally parallel, so these need to be sent to nodes with multiple
-# cores (and incidentally a lot of memory)
+# All of the taxonomy assignment algorithms are internally parallel,
+# so these need to be sent to nodes with multiple cores (and incidentally a lot
+# of memory)
 
 dada_cpus <- local_cpus()
-if (target %in% od) {
-  cat("\n Making", target, " with", dada_cpus, "cores...\n")
+if (any(target %in% od)) {
+  flog.info("Making %s with %d cores...", target, dada_cpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
@@ -34,4 +38,4 @@ if (target %in% od) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else cat("\n Target", target, "is up-to-date.\n")
+} else flog.info("Target is up-to-date.", target)

@@ -15,7 +15,7 @@ setup_log("ITSx")
 # Instead, we divide the work into a large number of 
 # shards and submit them all as seperate jobs on SLURM.
 # failing that, do all the shards locally on the cores we have.
-itsx_targets <- stringr::str_subset(od, "^itsx_shard")
+itsx_targets <- stringr::str_subset(od, "^(its|lsu)x_shard")
 # hmmer can use multiple processes per job; it tends to become I/O bound after about 4.
 itsx_cpus <- 4L
 itsx_cpus <- min(itsx_cpus, max_cpus())
@@ -43,7 +43,7 @@ if (length(itsx_targets)) {
                           ncpus = itsx_cpus,
                           memory = 7*1024,
                           timeout = 1800) # the master can take a while to send everything.
-    cat("\n Making itsx_shard (SLURM with ", itsx_jobs, "worker(s))...\n")
+    flog.info(" Making ITSx and LSUx shards (SLURM with %d worker(s))...", itsx_jobs)
   } else {
     itsx_cpus <- 1
     itsx_jobs <- local_cpus() %/% itsx_cpus
@@ -51,7 +51,7 @@ if (length(itsx_targets)) {
     itsx_parallelism <- if (itsx_jobs > 1) "clustermq" else "loop"
     options(clustermq.scheduler = "multicore")
     itsx_template = list()
-    cat("\n Making itsx_shard (local with ", itsx_jobs, "worker(s))...\n")
+    cat("Making ITSx and LSUx shards (local with %d worker(s))...", itsx_jobs)
   }
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
@@ -71,4 +71,4 @@ if (length(itsx_targets)) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else cat("\n ITSx targets are up-to-date. \n")
+} else flog.info("ITSx targets are up-to-date.")

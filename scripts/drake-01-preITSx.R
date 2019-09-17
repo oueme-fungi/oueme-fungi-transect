@@ -7,14 +7,16 @@ if (exists("snakemake")) {
 
 library(magrittr)
 library(backports)
+library(futile.logger)
 setup_log("preITSx")
 
 #### Pre-ITSx targets ####
 # These are computationally easy, but some take a lot of memory, and would be
 # inefficient to send to SLURM workers.  It's better to just do them locally.
-preitsx_targets <- stringr::str_subset(od, "^split_fasta_")
+preitsx_targets <- c(stringr::str_subset(od, "^split_fasta_"),
+                     stringr::str_subset(od, "^join_derep_map"))
 if (length(preitsx_targets)) {
-  cat("\nMaking targets to prepare for ITSx...\n")
+  flog.info("\nMaking targets to prepare for ITSx...")
   tictoc::tic()
   dconfig <- drake::drake_config(
     plan,
@@ -36,4 +38,4 @@ if (length(preitsx_targets)) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else cat("\n All pre-itsx targets are up-to-date.\n")
+} else flog.info("\n All pre-itsx targets are up-to-date.")

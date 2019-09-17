@@ -12,13 +12,14 @@ outputs <- setdiff(outputs, paste0(".", target))
 
 library(magrittr)
 library(backports)
+library(futile.logger)
 setup_log("pretaxonomy")
 
 #### pre-taxonomy ####
 # single-threaded targets after dada2, before taxonomy.
 if (target %in% od #|| !all(file.exists(outputs))
     ) {
-  cat("\n Making pre-taxonomy targets (loop)...\n")
+  flog.info("Making pre-taxonomy targets (loop)...")
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
@@ -36,4 +37,4 @@ if (target %in% od #|| !all(file.exists(outputs))
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else cat("\n Pre-taxonomy targets are up-to-date. \n")
+} else flog.info("Pre-taxonomy targets are up-to-date.")

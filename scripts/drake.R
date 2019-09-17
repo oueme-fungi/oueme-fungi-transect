@@ -1,5 +1,6 @@
-# define or input file names and parameters
 library(futile.logger)
+
+# define or input file names and parameters
 if (interactive()) {
   flog.info("Creating drake plan in interactive session...")
   library(here)
@@ -30,6 +31,8 @@ if (interactive()) {
   unite_file <- file.path(ref_dir, "unite.fasta.gz")
   unite_patch_file <- file.path(ref_dir, "unite_patch.csv")
   rdp_patch_file <- file.path(ref_dir, "rdp_patch.csv")
+  cm_5.8S <- file.path(ref_dir, "RF00002.cm")
+  cm_32S <- file.path(ref_dir, "fungi_32S_LR5.cm")
   plan_file <- file.path(plan_dir, "plan.rds")
   itsx_meta_file <- file.path(plan_dir, "itsx_meta.rds")
   predada_meta_file <- file.path(plan_dir, "predada_meta.rds")
@@ -58,6 +61,8 @@ if (interactive()) {
   rdp_patch_file <- snakemake@config$rdp_patch_file
   unite_file <- snakemake@config$unite_file
   unite_patch_file <- snakemake@config$unite_patch_file
+  cm_5.8S <- snakemake@config$cm_5_8S
+  cm_32S <- snakemake@config$cm_32S
   rmd_dir <- snakemake@config$rmddir
   out_dir <- snakemake@config$outdir
   cluster_dir <- snakemake@config$clusterdir
@@ -108,6 +113,7 @@ source(file.path(r_dir, "taxonomy.R"))
 source(file.path(r_dir, "plate_check.R"))
 source(file.path(r_dir, "map_LSU.R"))
 source(file.path(r_dir, "mantel.R"))
+source(file.path(r_dir, "inferrnal.R"))
 
 setup_log("drakeplan")
 
@@ -153,13 +159,15 @@ itsx_meta <- datasets %>%
          derep = make.names(glue("derep1_{file_ID}")),
          join_derep = make.names(glue("join_derep_{primer_ID}")),
          join_derep_map = make.names(glue("join_derep_map_{primer_ID}")),
-         itsxtrim = make.names(glue("itsxtrim_{primer_ID}"))) %T>%
+         itsxtrim = make.names(glue("itsxtrim_{primer_ID}")),
+         lsux_pos = make.names(glue("lsux_pos_{primer_ID}")),
+         search5_8S = make.names(glue("search5_8S_{primer_ID}"))) %T>%
          {flog.info("finished fourth mutate...")} %>%
   filter(file.exists(file.path(trim_dir, trim_file))) %>%
   filter(normalizePath(file.path(trim_dir, trim_file)) %in% normalizePath(in_files)) %>%
   filter(file.size(file.path(trim_dir, trim_file)) > 40) %>%
   verify(file.path(trim_dir, trim_file) %in% in_files) %>%
-  mutate_at(c("join_derep", "join_derep_map", "itsxtrim", "file_ID", "seq_run_ID", "primer_ID"), syms)
+  mutate_at(c("join_derep", "join_derep_map", "itsxtrim", "lsux_pos", "search5_8S", "file_ID", "seq_run_ID", "primer_ID"), syms)
 
 #### predada_meta ####
 # predada_meta has one row region per input file
@@ -337,14 +345,37 @@ plan <- drake_plan(
                         .by = primer_ID),
     format = "fst"),
   
+  lsux_shard = target(
+    LSUx(seq = split_fasta[[shard]],
+         cm_5.8S = file_in(!!cm_5.8S),
+         cm_32S = file_in(!!cm_32S),
+         glocal = TRUE,
+         add_ITS1 = TRUE,
+         cpu = ignore(itsx_cpus)) %>%
+      dplyr::mutate_at("seq_name", as.integer),
+    transform = cross(split_fasta,
+                      shard = !!(1:bigsplit),
+                      .id = primer_ID),
+    format = "fst"
+  ),
+  
+  lsux_pos = target(
+    dplyr::bind_rows(lsux_shard),
+    transform = combine(lsux_shard,
+                        .by = primer_ID),
+    format = "fst"
+  ),
+  
   # positions----
   # find the entries in the positions list which correspond to the sequences
   # in each file
   positions = target(
-    dplyr::filter(join_derep_map, name == derep) %>% #here
-      dplyr::left_join(itsxtrim, by = c("map" = "seq")) %>%
+    lsux_pos %>%
+      dplyr::left_join(dplyr::filter(join_derep_map, name == derep), .,
+                       by = c("map" = "seq_name")) %>%
       dplyr::rename(seq = seq.id),
-    transform = map(.data = !!select(itsx_meta, derep, join_derep_map, itsxtrim, trim_file,
+    transform = map(.data = !!select(itsx_meta, derep, join_derep_map,
+                                     lsux_pos, trim_file,
                                      file_ID),
                     .tag_in = step,
                     .id = file_ID),
@@ -494,55 +525,6 @@ plan <- drake_plan(
                     file_out(!!big_fasta_file)),
     transform = map(.data = !!region_meta, .id = region_ID)),
   
-  
-  # dbprep ----
-  # import the RDP, Silva, and UNITE databases, and format them for use with
-  # DECIPHER.
-  refdb_dada2 = target(
-    file_in(reference_file),
-    transform = map(.data = !!filter(ref_meta, method == "dada2"),
-                    .tag_out = refdb,
-                    .id = ref_ID)),
-  
-  
-  refdb_sintax = target(
-    file_in(reference_file),
-    transform = map(.data = !!filter(ref_meta, method == "sintax"),
-                    .tag_out = refdb,
-                    .id = ref_ID)),
-  
-  refdb_idtaxa = target(
-    fit_idtaxa(file_in(reference_file)),
-    transform = map(.data = !!filter(ref_meta, method == "idtaxa"),
-                    .tag_out = refdb,
-                    .id = ref_ID)),
-  
-  # taxon ----
-  # Assign taxonomy to each ASV
-  taxon = target(
-    colnames(big_seq_table) %>%
-      taxonomy(reference = refdb, method = method, multithread = ignore(dada_cpus)) %>%
-      taxtable(),
-    transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
-    format = "fst"),
-  
-  # funguild_db ----
-  # Download the FUNGuild database
-  funguild_db = FUNGuildR::get_funguild_db(),
-  
-  # guilds_table ----
-  # Assign ecological guilds to the ASVs based on taxonomy.
-  guilds_table = target(
-    FUNGuildR::funguild_assign(taxon, db = funguild_db),
-    transform = map(taxon, tax_ID, .tag_in = step, .id = tax_ID),
-    format = "fst"),
-  
-  # platemap ----
-  # Read the map between plate locations and samples
-  platemap = target(
-    read_platemap(file_in(!!platemap_file), platemap_sheet),
-    format = "fst"),
-  
   # raw ----
   # Join the raw read info (for long pacbio reads).
   raw = target(
@@ -581,28 +563,72 @@ plan <- drake_plan(
       dplyr::summarize(
         nreads = dplyr::n(),
         !! region := as.character(
-          calculate_consensus(.data[[region]], seq.id, ignore(dada_cpus)))),
-    transform = map(region = !!c("long", "ITS", "ITS1", "LSU"), .id = region),
+          tzara::cluster_consensus(.data[[region]], seq.id, ignore(dada_cpus)))) %>%
+      dplyr::ungroup() %>%
+      dplyr::filter(stringr::str_count(!! region, "[MRWSYKVHDBN]") < 3,
+                    !is.na(!!region)),
+    transform = map(region = !!c("long", "short", "ITS", "ITS1", "LSU", "32S", "5_8S"), .id = region),
     format = "fst"),
   
-  # conseq_filt ----
-  # Remove consensus sequences which did not have a strong consensus.
-  conseq_filt = target(
-    list(conseq) %>%
-      purrr::reduce(dplyr::full_join, by = c("ITS2", "nreads")) %>%
-      dplyr::filter(complete.cases(.)) %>%
-      dplyr::mutate(
-        qlong = Biostrings::RNAStringSet(long) %>%
-          Biostrings::letterFrequency(., "MRWSYKVHDBN"),
-        qITS = Biostrings::RNAStringSet(ITS) %>%
-          Biostrings::letterFrequency(., "MRWSYKVHDBN"),
-        qLSU = Biostrings::RNAStringSet(LSU) %>%
-          Biostrings::letterFrequency(., "MRWSYKVHDBN")) %>%
-      dplyr::filter(qITS < 3, qLSU < 3, qlong < 3) %>%
-      dplyr::mutate(hash = tzara::seqhash(long)) %>%
-      dplyr::arrange(hash),
-    transform = combine(conseq),
+  # make a data frame of all consensus sequences and ASVs; each row is an ITS2 ASV,
+  # or if 
+  allseqs = target(
+    make_allseq_table(list(conseq),
+                      drake_combine(big_seq_table)),
+    transform = combine(conseq, big_seq_table),
+    format = "fst"
+  ),
+  
+  # dbprep ----
+  # import the RDP, Silva, and UNITE databases, and format them for use with
+  # DECIPHER.
+  refdb_dada2 = target(
+    file_in(reference_file),
+    transform = map(.data = !!filter(ref_meta, method == "dada2"),
+                    .tag_out = refdb,
+                    .id = ref_ID)),
+  
+  
+  refdb_sintax = target(
+    file_in(reference_file),
+    transform = map(.data = !!filter(ref_meta, method == "sintax"),
+                    .tag_out = refdb,
+                    .id = ref_ID)),
+  
+  refdb_idtaxa = target(
+    fit_idtaxa(file_in(reference_file)),
+    transform = map(.data = !!filter(ref_meta, method == "idtaxa"),
+                    .tag_out = refdb,
+                    .id = ref_ID)),
+  
+  # taxon ----
+  # Assign taxonomy to each ASV
+  taxon = target(
+    conseq_filt[[region]] %>%
+      taxonomy(reference = refdb,
+               method = method,
+               multithread = ignore(dada_cpus)) %>%
+      taxtable(),
+    transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
     format = "fst"),
+  
+  # funguild_db ----
+  # Download the FUNGuild database
+  funguild_db = FUNGuildR::get_funguild_db(),
+  
+  # guilds_table ----
+  # Assign ecological guilds to the ASVs based on taxonomy.
+  guilds_table = target(
+    FUNGuildR::funguild_assign(taxon, db = funguild_db),
+    transform = map(taxon, tax_ID, .tag_in = step, .id = tax_ID),
+    format = "fst"),
+  
+  # platemap ----
+  # Read the map between plate locations and samples
+  platemap = target(
+    read_platemap(file_in(!!platemap_file), platemap_sheet),
+    format = "fst"),
+  
   
   # taxon_LSUcons_rdp----
   # Assign taxonomy to the consensus LSU sequences.

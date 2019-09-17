@@ -7,6 +7,66 @@ join_seqs <- function(seq.tabs) {
     as.matrix
 }
 
+#' Combine consensus sequences and ASVs for different regions
+#'
+#' @param conseqs (list of \code{\link[tibble]{tibble}}) ASVs for one region 
+#'   (in the column named by \code{conseq_key}) and the corresponding consensus
+#'   sequences for a linked region, as well as the number of reads for the ASV 
+#'   (in column \code{nreads}).
+#' @param seq_tables (named list of character matrix, as returned by 
+#'   \code{\link[dada2]{makeSequenceTable}}) ASV matrices for the same (and
+#'   optionally additional) regions as given in \code{conseqs}.  The list names
+#'   should be the same as the column names for the regions in \code{conseq},
+#'   with the optional addition of a prefix.
+#' @param conseq_key (character of length 1) The region whose ASVs are used to
+#'   group the other regions in \code{conseqs}.
+#' @param seq_table_prefix (character of length one) A regular expression which
+#'   be removed from the names of \code{seq_tables}.  It does not actually
+#'   have to be a prefix.
+#' @param label_order (character) regions in order of priority for naming the
+#'   ASV.
+#'
+#' @return A tibble with columns for each of the regions in \code{conseqs} and
+#'  \code{seq_tables}, where each row corresponds to sequences which match the 
+#'  same ASV for the region given by \code{conseq_key}.  ASVs which are not
+#'  represented in the consensus sequences are given on their own rows, where all
+#'  other sequences are \code{NA}.  A column named \code{hash} is also created,
+#'  giving the hash of the highest priority (as determined by \code{label_order})
+#'  sequence which is present.
+#' @export
+make_allseq_table <- function(conseqs, seq_tables,
+                              conseq_key = "ITS2",
+                              seq_table_prefix = "big_seq_table_",
+                              label_order = c("long", "ITS", "short",
+                                              "ITS2", "LSU", "ITS1")) {
+  conseqs <- purrr::reduce(conseqs,
+                           dplyr::full_join,
+                           by = c(conseq_key, "nreads"))
+  
+  names(seq_tables) <- stringr::str_replace(names(seq_tables),
+                                            "big_seq_table_",
+                                            "")
+  
+  # make sure all the names are present in the consensus table, so that the
+  # join will work
+  for (n in names(seq_tables)) {
+    if (!n %in% names(conseqs)) conseqs[[n]] <- NA_character_
+  }
+  
+  seq_tables <- purrr::imap(seq_tables,
+                            ~ tibble::tibble(x = colnames(.x)) %>%
+                              set_colnames(.y))
+  
+  conseqs <-
+    purrr::reduce(seq_tables,
+                  dplyr::full_join,
+                  .init = conseqs)
+  
+  dplyr::mutate(conseqs,
+                hash = dplyr::coalesce(!!!label_order) %>%
+                    tzara::seqhash())
+}
+
 taxonomy_dada <- function(seq.table, reference, multithread = FALSE) {
   assertthat::assert_that(file.exists(reference),
                           assertthat::is.readable(reference))

@@ -41,4 +41,6 @@ dependencies:
   - r-roxygen2
   - r-devtools
   - r-pryr
+  - infernal=1.1.2
+  - itsx=1.1b
   - defaults::qt

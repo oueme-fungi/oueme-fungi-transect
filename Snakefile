@@ -35,6 +35,9 @@ config['platemap']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
 config['gits7_tags'] = '{labdir}/Hectors_tag_primer_plates.xlsx'.format_map(config)
 config['lr5_tags']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
 
+config['cm_5_8S'] = '{ref_root}/RF00002.cm'.format_map(config)
+config['cm_32S']  = '{ref_root}/fungi_32S_LR5.cm'.format_map(config)
+
 # Find the maximum number of cores available to a single node on SLURM,
 # or if we aren't in a SLURM environment, how many we have on the local machine.
 try:
@@ -340,7 +343,6 @@ def ion_find(seqrun, plate):
 #### Reference databases ####
 
 # Download the Unite database
-# This can be used as-is by the DADA2 classifier, and will be used to generate a database for SINTAX.
 localrules: unite_download
 rule unite_download:
     output: "{ref_root}/unite.raw.fasta.gz".format_map(config)
@@ -357,11 +359,6 @@ rule unite_download:
         """
 
 # Download the RDP fungal LSU training set
-# This will be used to generate databases for SINTAX and DADA2.
-# both require a consistent classification depth
-# to achieve this we add more "unknown X" to the ends of incomplete
-# classifications.
-# see references/rdp_train.sed for more info
 localrules: rdp_download
 rule rdp_download:
     output:
@@ -381,7 +378,6 @@ rule rdp_download:
         """
 
 # Download the Warcup fungal ITS training set
-# This will be used to generate databases for SINTAX and DADA2
 localrules: warcup_download
 rule warcup_download:
     output:
@@ -445,6 +441,7 @@ rule itsx_reference:
         """
 
 # Assume the entire database is ITS.
+# UNITE also includes part of LSU in some sequences; this will be helpful when IDing long amplicons
 localrules: its_reference
 rule its_reference:
     output: "{ref_root}/{{dbname}}.ITS.fasta.gz".format_map(config)
@@ -514,22 +511,6 @@ rule translate_references:
   log: "{logdir}/translate_references.log".format_map(config)
   script: "{rdir}/make_taxonomy.R".format_map(config)
 
-# generate all the references
-localrules: all_references
-rule all_references:
-    input:
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['warcup', 'unite'],
-               region = ['ITS', 'ITS1', 'ITS2'],
-               method = ['sintax', 'dada2']),
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['rdp_train'],
-               region = ['LSU'],
-               method = ['sintax', 'dada2']),
-        rules.tedersoo_classification.output
-
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
 # It is very nice for handling dependencies within R.  However, it lacks the capability
@@ -564,9 +545,12 @@ checkpoint drake_plan:
         "{rdir}/plate_check.R".format_map(config),
         "{rdir}/map_LSU.R".format_map(config),
         "{rdir}/taxonomy.R".format_map(config),
+        "{rdir}/inferrnal.R".format_map(config),
         dataset  = config['dataset'],
         regions  = config['regions'],
         methods  = config['methods'],
+        cm_5_8S  = config['cm_5_8S'],
+        cm_32S   = config['cm_32S'],
         platemap = config['platemap'],
         script = "{rdir}/drake.R".format_map(config)
     conda: "config/conda/drake.yaml"
@@ -636,12 +620,14 @@ rule DADA:
     log: "{logdir}/DADA_{{RID}}.log".format_map(config)
     script: "{rdir}/drake-04-DADA.R".format_map(config)
 
+
+regions_table = datasets2.assign(regions=datasets2.regions.str.split(',')).explode('regions')
+
 # Function to calculate which DADA results represent each region.
 def region_inputs(wildcards):
     checkpoints.drake_plan.get()
-    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("region")
-    PIDs = taxonomy_meta.loc[[wildcards.region], 'plate_region_ID'].unique()[0].split(',')
-    return expand('.nochim_{plate_region_ID}', plate_region_ID = PIDs)
+    region_meta = regions_table.loc[regions_table.regions == wildcards.region]
+    return expand('.nochim_{plate}_{region}', zip, plate = region_meta.seqplate, region = region_meta.regions)
 
 # combine the dada results for each region
 localrules: region_table
@@ -652,13 +638,13 @@ rule region_table:
     input:
         drakedata = rules.drake_plan.output.drakedata,
         dada      = region_inputs,
-        script = "{rdir}/drake-06-pretaxonomy.R".format_map(config)
+        script = "{rdir}/drake-06-preconsensus.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime = 10
     log: "{logdir}/pretaxonomy_{{region}}.log".format_map(config)
-    script: "{rdir}/drake-06-pretaxonomy.R".format_map(config)
+    script: "{rdir}/drake-06-preconsensus.R".format_map(config)
 
 localrules: cluster
 rule cluster:
@@ -682,7 +668,7 @@ rule cluster:
               --id 0.97\
               --uc {output.uc}\
               --otutabout {output.otutable}\
-              --threads 8\
+              --threads {threads}\
               --log {log}
       """
 
@@ -703,43 +689,7 @@ rule tech_compare:
       R -e 'getwd(); outfile <- file.path(getwd(), "{output}"); print(outfile); rmarkdown::render("{input.rmd}", output_file = outfile)' &>{log}
     """
 
-# calculate which sequence tables are needed for a taxonomy assignment step
-def taxon_inputs(wildcards):
-    checkpoints.drake_plan.get()
-    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
-    tax_ID = "{region}_{reference}".format_map(wildcards)
-    regions = taxonomy_meta.loc[tax_ID, 'region'].split(sep = ",")
-    return expand('.big_fasta_{region}', region = regions)
-
-def taxon_reference(wildcards):
-    checkpoints.drake_plan.get()
-    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
-    tax_ID = "{region}_{reference}".format_map(wildcards)
-    return taxonomy_meta.loc[tax_ID, 'reference_file']
-
-# call taxonomy and assign guilds
-rule taxonomy:
-    output: touch(".guilds_table_{region}_{reference}")
-    wildcard_constraints:
-        region = "[a-zA-Z0-9]+"
-    input:
-        drakedata = rules.drake_plan.output.drakedata,
-        dada      = taxon_inputs,
-        reference = taxon_reference
-    conda: "config/conda/drake.yaml"
-    threads: 8
-    resources:
-        walltime = 240
-    log: "{logdir}/taxonomy_{{region}}_{{reference}}.log".format_map(config)
-    script: "{rdir}/drake-07-taxonomy.R".format_map(config)
-
-# calculate all the taxonomy outputs which should be calculated
-def taxon_outputs(wildcards):
-    checkpoints.drake_plan.get()
-    file = open(rules.drake_plan.output.tids, mode = 'r')
-    tax_IDs = file.read().splitlines()
-    file.close()
-    return expand(".guilds_table_{tax_ID}", tax_ID = tax_IDs)
+consensus_table = regions_table.loc[regions_table.seq_run == "pb_500"]
 
 # Calculate a consensus LSU and long amplicon (ITS1--LR5) for each ITS2 ASV,
 # and build a guide tree based on LSU
@@ -748,14 +698,82 @@ rule consensus:
         flag    = touch(".consensus"),
         longasv = "{pastadir}/long_ASVs.fasta".format_map(config)
     input:
+        expand(".nochim_{plate}_{region}",
+              zip,
+              plate = consensus_table.seqplate,
+              region = consensus_table.regions),
+        expand(".big_fasta_{region}",
+              region = consensus_table.regions.unique()),
         drakedata = rules.drake_plan.output.drakedata,
-        taxon     = taxon_outputs
+        script = "{rdir}/drake-07-consensus.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:
         walltime = 240
     log: "{logdir}/consensus.log".format_map(config)
     script: "{rdir}/drake-08-consensus.R".format_map(config)
+
+
+# calculate which sequence tables are needed for a taxonomy assignment step
+#def taxon_inputs(wildcards):
+#    checkpoints.drake_plan.get()
+#    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
+#    tax_ID = "{region}_{reference}_{refregion}_{method}".format_map(wildcards)
+#    regions = taxonomy_meta.loc[tax_ID, 'region'].split(sep = ",")
+#    return expand('.big_fasta_{region}', region = regions)
+
+#def taxon_reference(wildcards):
+#    checkpoints.drake_plan.get()
+#    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
+#    tax_ID = "{region}_{reference}".format_map(wildcards)
+#    return taxonomy_meta.loc[tax_ID, 'reference_file']
+
+# build the drake targets to prepare for taxonomy
+rule tax_ref:
+    output: touch(".taxref_{reference}_{refregion}")
+    wildcard_constraints:
+        refregion = "[a-zA-Z0-9]+"
+    input:
+        dada2 = "{ref_root}/{{reference}}.{{refregion}}.dada2.fasta.gz".format_map(config),
+        sintax = "{ref_root}/{{reference}}.{{refregion}}.sintax.fasta.gz".format_map(config),
+        script = "{rdir}/drake-08-references.R".format_map(config)
+    conda: "config/conda/drake.yaml"
+    threads: 8
+    resources:
+        walltime = 240
+    log: "{logdir}/taxref_{{reference}}_{{refregion}}.log".format_map(config)
+    script: "{rdir}/drake-08-references.R".format_map(config)
+
+
+# call taxonomy and assign guilds
+rule taxonomy:
+    output: touch(".taxon_{region}_{reference}_{refregion}")
+    wildcard_constraints:
+        region = "([0-9]+_)?[a-zA-Z0-9]+",
+        refregion = "[a-zA-Z0-9]+"
+    input:
+        ".consensus",
+        ".taxref_{reference}_{refregion}",
+        drakedata = rules.drake_plan.output.drakedata
+    conda: "config/conda/drake.yaml"
+    threads: 8
+    resources:
+        walltime = 240
+    log: "{logdir}/taxonomy_{{region}}_{{reference}}_{{refregion}}.log".format_map(config)
+    script: "{rdir}/drake-08-taxonomy.R".format_map(config)
+
+# calculate all the taxonomy outputs which should be calculated
+def taxon_outputs(wildcards):
+    checkpoints.drake_plan.get()
+    references = regions.reference.str.replace(".", "_").str.split(',').explode()
+    return expand(".taxon_{region}_{reference}",
+                  zip,
+                  region = references.index.to_list(),
+                  reference = references.to_list())
+
+rule all_taxonomy:
+    input: taxon_outputs
+
 
 # Build a progressive tree using PASTA, with the LSU tree as guide
 rule pasta:
@@ -799,8 +817,6 @@ rule raxml:
     threads: 16
     resources:
         walltime=60*36
-
-
 
 # delimit species based on the ITS+LSU tree using a Poisson Tree Process model
 localrules: ptp

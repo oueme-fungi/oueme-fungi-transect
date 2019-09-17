@@ -5,16 +5,23 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
+dada_cpus <- local_cpus()
+
+target <- get_target(default = "refdb_unite_ITS")
+target <- sub("refdb", "", target)
+target <- plan$target[endsWith(plan$target, target)]
+
 library(magrittr)
 library(backports)
-setup_log("predada")
+library(futile.logger)
+setup_log("pretaxonomy")
 
-#### pre-DADA2 ####
-# single-threaded targets after itsx
-# for local runs, ITSx targets will also run here.
-predada_targets <- stringr::str_subset(od, "^derep2_")
-if (length(predada_targets)) {
-  flog.info("Making pre-dada targets (loop)...")
+#### pre-taxonomy ####
+# training the IDTAXA classifier is the big part of this;
+# that is internally parallel
+if (any(target %in% od) #|| !all(file.exists(outputs))
+    ) {
+  flog.info("Making taxonomy reference targets (loop)...")
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
@@ -23,7 +30,8 @@ if (length(predada_targets)) {
        elapsed = 3600, #1 hour
        keep_going = FALSE,
        cache_log_file = TRUE,
-       targets = predada_targets
+       targets = target
+
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
@@ -31,4 +39,4 @@ if (length(predada_targets)) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else flog.info("Pre-DADA2 targets are up-to-date.")
+} else flog.info("Pre-taxonomy targets are up-to-date.")

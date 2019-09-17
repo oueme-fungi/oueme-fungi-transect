@@ -13,7 +13,7 @@ setup_log("finish")
 # For now the later steps are not very intensive, so they can be done
 # using the resources of the master computer.
 if (length(od)) {
-  cat("\n Making all remaining targets (loop)...\n")
+  flog.info("Making all remaining targets (loop)...")
   tictoc::tic()
   future::plan(strategy = "multiprocess")
   dconfig <- drake::drake_config(plan,
@@ -32,4 +32,4 @@ if (length(od)) {
     if (interactive()) stop() else quit(status = 1)
   }
 }
-cat("\nAll targets are up-to-date.\n")
+flog.info("All targets are up-to-date.")

@@ -15,7 +15,7 @@ setup_log("dada")
 # cores (and incidentally a lot of memory)
 dada_cpus <- local_cpus()
 if (target %in% od) {
-  cat("\n Making", target, " with", dada_cpus, "cores...\n")
+  flog.info("Making %s with %d cores...", target, dada_cpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
@@ -33,4 +33,4 @@ if (target %in% od) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else cat("\n Target", target, "is up-to-date.\n")
+} else cat("Target %s is up-to-date.", target)
