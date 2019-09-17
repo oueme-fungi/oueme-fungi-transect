@@ -313,7 +313,7 @@ plan <- drake_plan(
   # break the list of unique files into equal sized chunks for ITSx
   split_fasta = target(
     split(join_derep_fasta, seq_along(join_derep_fasta) %% !!bigsplit + 1),
-    transform = map(join_derep,
+    transform = map(join_derep_fasta,
                     .id = primer_ID,
                     .tag_in = step)),
   
