@@ -451,7 +451,7 @@ rule its_reference:
       fulloutput = lambda wildcards, output: os.path.abspath(output[0])
     threads: 1
     log: "{logdir}/{{dbname}}_ITS.log".format_map(config)
-    shell: "rm -f {output} && ln -s {params.fullinput} {params.fulloutput}"
+    shell: "rm -f {output} && cd $(dirname {input}) && ln -s $(basename {input}) $(basename {output})"
 
 # Process an LSU reference database (e.g., RDP or Silva)
 # At the moment this doesn't do anything
