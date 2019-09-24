@@ -507,6 +507,8 @@ rule translate_references:
     tedersoo = rules.tedersoo_classification.output,
     regions = config['regions'],
     script = "{rdir}/make_taxonomy.R".format_map(config)
+  resources:
+    walltime = 60
   conda: "config/conda/drake.yaml"
   log: "{logdir}/translate_references.log".format_map(config)
   script: "{rdir}/make_taxonomy.R".format_map(config)
@@ -642,7 +644,7 @@ rule region_table:
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
-        walltime = 10
+        walltime = 60
     log: "{logdir}/pretaxonomy_{{region}}.log".format_map(config)
     script: "{rdir}/drake-06-preconsensus.R".format_map(config)
 
@@ -696,7 +698,8 @@ consensus_table = regions_table.loc[regions_table.seq_run == "pb_500"]
 rule consensus:
     output:
         flag    = touch(".consensus"),
-        longasv = "{pastadir}/long_ASVs.fasta".format_map(config)
+        aln_LSU = "{pastadir}/LSU_ASVs.fasta".format_map(config),
+        aln_32S = "{pastadir}/32S_ASVs.fasta".format_map(config)
     input:
         expand(".nochim_{plate}_{region}",
               zip,
@@ -711,7 +714,7 @@ rule consensus:
     resources:
         walltime = 240
     log: "{logdir}/consensus.log".format_map(config)
-    script: "{rdir}/drake-08-consensus.R".format_map(config)
+    script: "{rdir}/drake-07-consensus.R".format_map(config)
 
 
 # calculate which sequence tables are needed for a taxonomy assignment step
@@ -734,6 +737,7 @@ rule tax_ref:
     wildcard_constraints:
         refregion = "[a-zA-Z0-9]+"
     input:
+        drakedata = rules.drake_plan.output.drakedata,
         dada2 = "{ref_root}/{{reference}}.{{refregion}}.dada2.fasta.gz".format_map(config),
         sintax = "{ref_root}/{{reference}}.{{refregion}}.sintax.fasta.gz".format_map(config),
         script = "{rdir}/drake-08-references.R".format_map(config)
@@ -754,13 +758,14 @@ rule taxonomy:
     input:
         ".consensus",
         ".taxref_{reference}_{refregion}",
-        drakedata = rules.drake_plan.output.drakedata
+        drakedata = rules.drake_plan.output.drakedata,
+        script = "{rdir}/drake-09-taxonomy.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:
         walltime = 240
     log: "{logdir}/taxonomy_{{region}}_{{reference}}_{{refregion}}.log".format_map(config)
-    script: "{rdir}/drake-08-taxonomy.R".format_map(config)
+    script: "{rdir}/drake-09-taxonomy.R".format_map(config)
 
 # calculate all the taxonomy outputs which should be calculated
 def taxon_outputs(wildcards):
@@ -781,7 +786,7 @@ rule pasta:
         tree = "{pastadir}/pasta_raxml.tree".format_map(config)
     input:
         consensus = ancient(rules.consensus.output.flag),
-        longasv   = ancient(rules.consensus.output.longasv)
+        aln_LSU   = ancient(rules.consensus.output.aln_LSU)
     log: "{logdir}/pasta.log".format_map(config)
     threads: 16
     resources:
@@ -796,7 +801,7 @@ rule pasta:
         PASTA_TOOLS_DEVDIR=$CONDA_PREFIX/bin/ \
         run_pasta.py \
         -j ITS_LSU \
-        --input {input.longasv} \
+        --input {input.aln_LSU} \
         --aligned \
         --datatype rna \
         --raxml-search-after \
@@ -812,7 +817,7 @@ rule raxml:
         tree = "{datadir}/long_ASVs.tree".format_map(config)
     input:
         consensus = ancient(rules.consensus.output.flag),
-        longasv   = ancient(rules.consensus.output.longasv)
+        aln_LSU   = ancient(rules.consensus.output.aln_LSU)
     log: "{logdir}/raxml.log".format_map(config)
     threads: 16
     resources:

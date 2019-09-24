@@ -1,6 +1,6 @@
 library(futile.logger)
 if (file.exists("ENTREZ_KEY")) {
-  Sys.setenv(ENTREZ_KEY = ENTREZ_KEY)
+  Sys.setenv(ENTREZ_KEY = readLines("ENTREZ_KEY"))
 }
 
 # define or input file names and parameters

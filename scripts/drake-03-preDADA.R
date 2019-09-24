@@ -7,6 +7,7 @@ if (exists("snakemake")) {
 
 library(magrittr)
 library(backports)
+library(futile.logger)
 setup_log("predada")
 
 #### pre-DADA2 ####

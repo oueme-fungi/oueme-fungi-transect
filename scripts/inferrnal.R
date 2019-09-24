@@ -404,8 +404,8 @@ LSUx <- function(seq, cm_5.8S, cm_32S, glocal = TRUE, ITS1 = FALSE, cpu) {
   futile.logger::flog.info("Extracting LSU regions.", name = "LSUx")
   pos <- extract_LSU(aln = aln$alignment, rf = aln$RF)
   pos <- dplyr::mutate_at(pos, "seq_name", stringr::str_replace, "^[^|]*\\|", "")
-  pos <- dplyr::mutate_if(pos, is.integer, add, cms$seq_from - 1)
-  if (isTRUE(add_ITS1)) {
+  pos <- dplyr::mutate_if(pos, is.integer, add, cms$seq_from - 1L)
+  if (isTRUE(ITS1)) {
     no_ITS1 <- pos$`5_8S_start` == 1 | is.na(pos$`5_8S_start`)
     if (all(no_ITS1)) {
       futile.logger::flog.warn("ITS1 annotation was requested, but no bases before 5.8S were found.",
@@ -419,3 +419,32 @@ LSUx <- function(seq, cm_5.8S, cm_32S, glocal = TRUE, ITS1 = FALSE, cpu) {
   }
   pos
 }
+
+write_clustalw_ss <- function(aln, sec_str, file, seq_names = names(aln)) {
+  assertthat::assert_that(methods::is(aln, "XStringSet"))
+  assertthat::assert_that(is.character(seq_names),
+                          length(seq_names) == length(aln),
+                          assertthat::is.string(file),
+                          all(nchar(sec_str) == width(aln)))
+  
+  aln <- Biostrings::RNAStringSet(aln)
+  sec_str <- chartr("{[<>]},:", "((())).x", sec_str)
+  con <- file(file, "wt")
+  on.exit(close(con))
+  writeLines("CLUSTALW", con)
+  start <- 1
+  width <- unique(width(aln))
+  namewidth <- max(nchar(seq_names))
+  seq_names <- stringr::str_pad(seq_names, namewidth, "right")
+  str_name <- stringr::str_pad("", namewidth, "right")
+  while (start <= width) {
+    end <- min(start + 59, width)
+    writeLines("", con)
+    writeLines(paste(seq_names, substr(aln, start, end), end), con)
+    writeLines(paste(str_name, substr(sec_str, start, end), "#S"), con)
+    start <- end + 1
+  }
+}
+
+
+

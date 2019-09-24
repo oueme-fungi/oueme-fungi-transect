@@ -97,3 +97,6 @@ s/f__Tachinidae;g__Ernestia;/f__Tachinidae;g__Panzeria;/
 
 # Not recognized by Tedersoo, but it's as good as "Rhizaria phy incertae sedis"
 #s/k__Protista;p__Plasmodiophoromycota/k_Rhizaria;p_Plasmodiophoromycota/
+
+# Misspelling
+s/Hypoceales/Hypocreales/g

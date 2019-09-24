@@ -8,7 +8,7 @@ if (exists("snakemake")) {
 dada_cpus <- local_cpus()
 
 target <- get_target(default = "refdb_unite_ITS")
-target <- sub("refdb", "", target)
+target <- sub("taxref", "", target)
 target <- plan$target[endsWith(plan$target, target)]
 
 library(magrittr)

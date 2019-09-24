@@ -76,10 +76,10 @@ reduce_ncbi_taxonomy <- function(taxonomy, taxa, ranks, keytaxa) {
 reduce_taxonomy <- function(taxonomy) {
     # take only the first capitalized word at each taxonomic level
     stringr::str_replace_all(taxonomy,
-                         "(^|;)[^A-Z;]*([A-Z][a-z]+)[^;]*",
+                         "(^|;)[^A-Z;]*([A-Z]+[a-z0-9]+)[^;]*",
                          "\\1\\2") %>%
     # remove repeated taxa (due to removed incertae sedis or species epithet)
-    stringr::str_replace_all("([A-Z][a-z]+)(;\\1)+(;|$)", "\\1\\3")
+    stringr::str_replace_all("([A-Z]+[a-z0-9]+)(;\\1)+(;|$)", "\\1\\3")
 }
 
 translate_taxonomy <- function(taxonomy, c12n, reference) {
@@ -88,6 +88,7 @@ translate_taxonomy <- function(taxonomy, c12n, reference) {
     dplyr::group_split(n_supertaxa)
   
   for (i in seq_along(c12n)) {
+    flog.info("Translating %i taxa at level %i.", nrow(c12n[[i]]), i)
     replacements <- c12n[[i]] %>%
       dplyr::select(taxon_names, classifications) %>%
       dplyr::inner_join(reference, by = "taxon_names",
@@ -117,7 +118,40 @@ translate_taxonomy <- function(taxonomy, c12n, reference) {
       }
     }
   }
-  taxonomy
+  flog.info("Uniquifying taxonomy.")
+  uniquify_taxonomy(taxonomy, dplyr::bind_rows(c12n))
+}
+
+uniquify_taxonomy <- function(taxonomy, c12n) {
+  # finding duplicates is much faster than checking whether the
+  # classification is present in the taxonomy, so do that first.
+  taxdupes <- unique(c12n$taxon_names[duplicated(c12n$taxon_names)])
+  flog.info("Found %i initial duplicated taxon names. Searching reference...",
+            length(taxdupes))
+  c12n <-
+    dplyr::filter(c12n, taxon_names %in% taxdupes) %>%
+    dplyr::filter(purrr::map_lgl(classifications,
+                                 ~any(stringi::stri_detect_fixed(
+                                   taxonomy$classifications, .))))
+  # now we only need the ones where duplicates are actually present.
+  taxdupes <- c12n$taxon_names[duplicated(c12n$taxon_names)]
+  flog.info("Found %i duplicated taxon names in reference.", length(taxdupes))
+  if (length(taxdupes) > 0) {
+    dplyr::filter(c12n, taxon_names %in% taxdupes) %>%
+      dplyr::mutate(kingdom = stringr::str_extract(classifications, "^[^;]+")) %>%
+      dplyr::filter(kingdom == "Metazoa") %>%
+      dplyr::mutate(replacement = paste0(classifications, "(Metazoa)$1"),
+                    pattern = paste0(classifications, "(;|$)")) %$%
+      dplyr::mutate_at(taxonomy,
+                       "classifications",
+                       stringi::stri_replace_all_regex,
+                       pattern = pattern,
+                       replacement = replacement,
+                       vectorize_all = FALSE)
+  } else {
+    taxonomy
+  }
+  
 }
 
 patch_taxonomy <- function(taxonomy, patch_file) {

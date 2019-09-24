@@ -3,7 +3,7 @@ ITS1,,ITS1,ITS1,3,50,500,,,"unite.ITS1,warcup.ITS1"
 ITS2,,ITS2,ITS2,3,50,500,,,"unite.ITS2,warcup.ITS2"
 LSU,,LSU1,LSU4,3,500,2999,,,rdp_train.LSU
 5_8S,,5_8S,5_8S,3,50,200,,,"unite.ITS,warcup.ITS"
-32S,,5_8S,LSU,3,600,2999,,,"unite.ITS,warcup.ITS,rdp_train.LSU"
+32S,,5_8S,LSU4,3,600,2999,,,"unite.ITS,warcup.ITS,rdp_train.LSU"
 short,,full,full,3,50,2999,,,"unite.ITS,warcup.ITS"
 long,,full,full,3,500,2999,,,"unite.ITS,warcup.ITS,rdp_train.LSU"
 ITS,,ITS1,ITS2,3,100,1500,,,"unite.ITS,warcup.ITS"

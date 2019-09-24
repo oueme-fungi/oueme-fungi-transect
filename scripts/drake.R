@@ -151,8 +151,6 @@ itsx_meta <- datasets %>%
                        {flog.info("finished third mutate...")} %>%
   unnest(well) %>%
   mutate(trim_file = glue("{seq_run}_{plate}/{seq_run}_{plate}-{well}{direction}.trim.fastq.gz"),
-         seq_run_ID = seq_run,
-         
          file_ID = glue("{seq_run}{plate}{well}{direction}") %>%
            str_replace_all("[:punct:]", ""),
          positions = make.names(glue("positions_{file_ID}")),
@@ -167,12 +165,12 @@ itsx_meta <- datasets %>%
   filter(normalizePath(file.path(trim_dir, trim_file)) %in% normalizePath(in_files)) %>%
   filter(file.size(file.path(trim_dir, trim_file)) > 40) %>%
   verify(file.path(trim_dir, trim_file) %in% in_files) %>%
-  mutate_at(c("join_derep", "join_derep_map", "itsxtrim", "lsux_pos", "search5_8S", "file_ID", "seq_run_ID", "primer_ID"), syms)
+  mutate_at(c("join_derep", "join_derep_map", "itsxtrim", "lsux_pos", "search5_8S"), syms)
 
 #### predada_meta ####
 # predada_meta has one row region per input file
 # it is used in targets regions, filter, and derep2
-# The index is well_ID + region_ID
+# The index is well_ID + region
 # plate_ID is defined because it will be the index for dada_meta
 flog.info("Making predada_meta.")
 predada_meta <- itsx_meta %>%
@@ -180,12 +178,11 @@ predada_meta <- itsx_meta %>%
   unnest(region = regions, .preserve = ends_with("_ID")) %>%
   left_join(regions, by = "region") %>%
   mutate(well_ID = glue("{seq_run}{plate}{well}{direction}"),
-         plate_ID = glue("{seq_run}_{plate}"), 
-         region_ID = region,
+         plate_ID = glue("{seq_run}_{plate}"),
          range_ID = glue("{region}{range}"),
          region_file = glue("{seq_run}_{plate}-{well}{direction}-{region}.trim.fastq.gz"),
          filter_file = glue("{seq_run}_{plate}-{well}{direction}-{region}{range}.qfilt.fastq.gz")) %>%
-  mutate_at(c("positions", "well_ID", "plate_ID", "region_ID", "range_ID"), syms)
+  mutate_at("positions", syms)
 
 if (interactive()) {
   #use a subset
@@ -206,16 +203,16 @@ if (interactive()) {
 #### dada_meta ####
 # dada_meta has one row per region per plate
 # it is used for targets err, dada, dadamap, seq_table, and nochim
-# The index is plate_ID + region_ID (plate_ID)
+# The index is plate_ID + region (plate_ID)
 flog.info("Making dada_meta.")
 dada_meta <- predada_meta %>%
-  select(seq_run, plate, region, range, plate_ID, region_ID, range_ID, seq_run_ID) %>%
+  select(seq_run, plate, region, range, plate_ID, range_ID, seq_run) %>%
   unique() %>%
   arrange(seq_run, plate, region) %>%
   mutate(region_derep = glue("region_derep_{plate_ID}_{range_ID}")) %>%
   left_join(datasets %>% select(-regions), by = "seq_run") %>%
   left_join(regions, by = c("region", "range")) %>%
-  mutate_at(c("region_derep"), syms)
+  mutate_at("region_derep", syms)
 if (!interactive()) {
   saveRDS(dada_meta, dada_meta_file)
 }
@@ -223,13 +220,13 @@ if (!interactive()) {
 #### region_meta ####
 # region_meta has one row per region
 # it is used in target big_fasta.
-# the index is region_ID
+# the index is region
 flog.info("Making region_meta.")
 region_meta <- regions %>%
-  select(region_ID = region) %>%
-  mutate(big_seq_table = glue("big_seq_table_{region_ID}"),
-         big_fasta_file = glue("{cluster_dir}/{region_ID}.fasta.gz")) %>%
-  mutate_at(c("region_ID", "big_seq_table"), syms) %>%
+  select(region) %>%
+  mutate(big_seq_table = glue("big_seq_table_{region}"),
+         big_fasta_file = glue("{cluster_dir}/{region}.fasta.gz")) %>%
+  mutate_at("big_seq_table", syms) %>%
   unique()
 
 #### taxonomy_meta ####
@@ -241,17 +238,18 @@ flog.info("Making taxonomy_meta.")
 taxonomy_meta <- dada_meta %>%
   mutate_if(is.list, as.character) %>%
   group_by_at(names(regions)) %>%
-  summarize(plate_region_ID = paste(plate_ID, region_ID, sep = "_", collapse = ",")) %>%
+  summarize(plate_region_ID = paste(plate_ID, region, sep = "_", collapse = ",")) %>%
   ungroup() %>%
   separate_rows(reference, sep = " *, *") %>%
   separate(reference, c("reference", "refregion"), sep = "\\.") %>%
   crossing(methods) %>%
-  mutate(reference_file = glue("{ref_dir}/{reference}.{refregion}.{method}.fasta.gz"),
+  mutate(methodfile = ifelse(method == "idtaxa", "sintax", method),
+         reference_file = glue("{ref_dir}/{reference}.{refregion}.{methodfile}.fasta.gz"),
          refdb = glue("refdb_{method}_{reference}_{refregion}"),
          tax_ID = glue("{region}_{reference}_{refregion}_{method}"),
          big_seq_table = glue("big_seq_table_{region}")) %>%
   arrange(tax_ID) %>%
-  mutate_at(c("tax_ID", "big_seq_table", "refdb"), syms)
+  mutate_at(c("big_seq_table", "refdb"), syms)
 if (!interactive()) {
   saveRDS(taxonomy_meta, taxonomy_meta_file)
   mutate_if(taxonomy_meta, is.list, as.character) %>%
@@ -264,9 +262,9 @@ if (!interactive()) {
 # it is used for target dbprep
 # and mapped to target classifier
 flog.info("Making ref_meta.")
-ref_meta <- select(taxonomy_meta, reference, refregion, method, reference_file) %>%
+ref_meta <- select(taxonomy_meta, "reference", "refregion", "method", "reference_file") %>%
   unique() %>%
-  mutate(ref_ID = rlang::syms(glue("{reference}_{refregion}")))
+  mutate(ref_ID = glue("{reference}_{refregion}"))
 
 #### drake plan ####
 
@@ -287,7 +285,7 @@ plan <- drake_plan(
       # we will not run dada on these, so we don't need the quality
       # information.  Removing it drastically reduces the size in memory.
       magrittr::inset2("quals", NULL),
-    transform = map(.data = !!select(itsx_meta, trim_file, file_ID, primer_ID),
+    transform = map(.data = !!select(itsx_meta, "trim_file", "file_ID", "primer_ID"),
                     .tag_in = step,
                     .id = file_ID)),
   
@@ -350,7 +348,7 @@ plan <- drake_plan(
          cm_5.8S = file_in(!!cm_5.8S),
          cm_32S = file_in(!!cm_32S),
          glocal = TRUE,
-         add_ITS1 = TRUE,
+         ITS1 = TRUE,
          cpu = ignore(itsx_cpus)) %>%
       dplyr::mutate_at("seq_name", as.integer),
     transform = cross(split_fasta,
@@ -360,7 +358,8 @@ plan <- drake_plan(
   ),
   
   lsux_pos = target(
-    dplyr::bind_rows(lsux_shard),
+    dplyr::bind_rows(lsux_shard) %>%
+      gather_regions(),
     transform = combine(lsux_shard,
                         .by = primer_ID),
     format = "fst"
@@ -374,27 +373,23 @@ plan <- drake_plan(
       dplyr::left_join(dplyr::filter(join_derep_map, name == derep), .,
                        by = c("map" = "seq_name")) %>%
       dplyr::rename(seq = seq.id),
-    transform = map(.data = !!select(itsx_meta, derep, join_derep_map,
-                                     lsux_pos, trim_file,
-                                     file_ID),
+    transform = map(.data = !!select(itsx_meta, "derep", "join_derep_map",
+                                     "lsux_pos", "trim_file", "file_ID"),
                     .tag_in = step,
                     .id = file_ID),
     format = "fst"),
   
   # regions----
   # cut the required regions out of each sequence
-  regions = target(
+  regionx = target(
     tzara::extract_region(seq = file_in(!!file.path(trim_dir, trim_file)),
                           outfile = file_out(!!file.path(region_dir, region_file)),
                           region = region_start,
                           region2 = region_end,
                           positions = positions),
-    transform = map(.data = !!unique(select(predada_meta, seq_run, trim_file,
-                                            region_file, region, region_start, region_end,
-                                            positions,
-                                            well_ID, plate_ID, region_ID, seq_run_ID)),
+    transform = map(.data = !!predada_meta,
                     .tag_in = step,
-                    .id = c(well_ID, region_ID))),
+                    .id = c(well_ID, region))),
   
   # filter----
   # quality filter the sequences
@@ -415,9 +410,7 @@ plan <- drake_plan(
       }
       return(out)
     },
-    transform = map(.data = !!select(predada_meta, region_file, filter_file,
-                                     max_length, min_length, max_ee, well_ID,
-                                     region_ID, range_ID),
+    transform = map(.data = !!predada_meta,
                     .tag_in = step,
                     .id = c(well_ID, range_ID))),
   
@@ -509,13 +502,13 @@ plan <- drake_plan(
         as.matrix,
       method = "consensus",
       multithread = ignore(dada_cpus)),
-    transform = combine(seq_table, .by = c(plate_ID, region_ID))),
+    transform = combine(seq_table, .by = c(plate_ID, region))),
   
   # big_seq_table ----
   # Join all the sequence tables for each region
   big_seq_table = target(
     dada2::mergeSequenceTables(tables = list(nochim)),
-    transform = combine(nochim, .tag_in = step, .by = region_ID)),
+    transform = combine(nochim, .tag_in = step, .by = region)),
   
   # big_fasta ----
   # write the ITS2 big_seq_table as a fasta file so that it can be clustered by
@@ -523,18 +516,18 @@ plan <- drake_plan(
   big_fasta = target(
     write_big_fasta(big_seq_table,
                     file_out(!!big_fasta_file)),
-    transform = map(.data = !!region_meta, .id = region_ID)),
+    transform = map(.data = !!region_meta, .id = region)),
   
   # raw ----
   # Join the raw read info (for long pacbio reads).
   raw = target(
-    tzara::summarize_sread(list(regions),
+    tzara::summarize_sread(list(regionx),
                            name = !!symbols_to_values(filter_file),
                            max_ee = !!eval(parse(text = unique(symbols_to_values(max_ee))))),
-    transform = combine(regions, filter_file, max_ee, seq_run, region,
-                        .by = c(seq_run_ID, region_ID),
+    transform = combine(regionx, filter_file, max_ee, seq_run, region,
+                        .by = c(seq_run, region),
                         .tag_in = step,
-                        .id = c(seq_run_ID, region_ID)),
+                        .id = c(seq_run, region)),
     format = "fst"
   ),
   
@@ -544,7 +537,7 @@ plan <- drake_plan(
   combined = target(
     combine_bigmaps(dplyr::bind_rows(dada_map),
                     dplyr::bind_rows(raw)),
-    transform = combine(dada_map, raw, .by = seq_run_ID, .tag_in = step),
+    transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
     format = "fst"
   ),
   
@@ -567,7 +560,7 @@ plan <- drake_plan(
       dplyr::ungroup() %>%
       dplyr::filter(stringr::str_count(!! region, "[MRWSYKVHDBN]") < 3,
                     !is.na(!!region)),
-    transform = map(region = !!c("long", "short", "ITS", "ITS1", "LSU", "32S", "5_8S"), .id = region),
+    transform = map(region = !!c("long", "ITS", "ITS1", "LSU", "32S", "5_8S"), .id = region),
     format = "fst"),
   
   # make a data frame of all consensus sequences and ASVs; each row is an ITS2 ASV,
@@ -604,7 +597,7 @@ plan <- drake_plan(
   # taxon ----
   # Assign taxonomy to each ASV
   taxon = target(
-    conseq_filt[[region]] %>%
+    allseqs[[region]] %>%
       taxonomy(reference = refdb,
                method = method,
                multithread = ignore(dada_cpus)) %>%
@@ -633,7 +626,7 @@ plan <- drake_plan(
   # taxon_LSUcons_rdp----
   # Assign taxonomy to the consensus LSU sequences.
   taxon_LSUcons_rdp = target(
-    conseq_filt$LSU %>%
+    allseqs$LSU %>%
       unique() %>%
       stringr::str_replace_all("U", "T") %>%
       sintax(db = file_in("reference/rdp_train.LSU.fasta.gz"),
@@ -646,7 +639,7 @@ plan <- drake_plan(
   # Make names which combine the ITS2 and LSU identifications to put on the tree
   # Also make hash names, because PASTA will destroy non-alphanumeric names
   cons_tax  = target(
-    conseq_filt %>%
+    allseqs %>%
       dplyr::left_join(dplyr::select(taxon_ITS2_unite, ITS2 = seq, name),
                        by = "ITS2") %>%
       dplyr::left_join(dplyr::select(taxon_LSUcons_rdp, LSU = seq, name),
@@ -658,34 +651,46 @@ plan <- drake_plan(
   # long_consensus----
   # get the long amplicon consensus and convert to RNAStringSet.
   # Use the sequence hashes as the name, so that names will be robust in PASTA
-  long_consensus = conseq_filt %$%
-    rlang::set_names(long, hash) %>%
+  consensus_32S = allseqs %>%
+    dplyr::select("32S", hash) %>%
+    dplyr::filter(complete.cases(.)) %$%
+    rlang::set_names(`32S`, hash) %>%
+    chartr(old = "T", new = "U") %>% 
     Biostrings::RNAStringSet(),
-  lsu_consensus = conseq_filt %$%
+  consensus_LSU = allseqs %>%
+    dplyr::select(LSU, hash) %>%
+    dplyr::filter(complete.cases(.))%$%
     rlang::set_names(LSU, hash) %>%
+    chartr(old = "T", new = "U") %>%
     Biostrings::RNAStringSet(),
   
   # lsualn----
   # Align the LSU consensus.
   # DECIPHER has a fast progressive alignment algorithm that calculates RNA
   # secondary structure
-  longaln =
-    DECIPHER::AlignSeqs(long_consensus,
-                        iterations = 10, refinements = 10,
-                        processors = ignore(dada_cpus)),
-  lsualn =
-    DECIPHER::AlignSeqs(lsu_consensus,
+  aln_32S =
+    cmalign(cmfile = file_in(!!cm_32S),
+            seq = consensus_32S,
+            glocal = TRUE,
+            cpu = ignore(dada_cpus)),
+  aln_LSU =
+    DECIPHER::AlignSeqs(consensus_LSU,
                         iterations = 10, refinements = 10,
                         processors = ignore(dada_cpus)),
   
   # write_lsualn----
   # write the aligned consensus for PASTA.
-  # also touch a file to mark that we really need to re-run PASTA.
-  write_lsualn = {
-    Biostrings::writeXStringSet(lsualn,
-                                file_out(ignore(longASV_file)))
+  # also touch a file to mark that we really do need to re-run PASTA.
+  write_aln_LSU = {
+    Biostrings::writeXStringSet(aln_LSU,
+                                file_out(aln_file_LSU))
     Sys.setFileTime(file.path(pasta_dir, ".dopasta"), Sys.time())
   },
+
+  write_aln_32S = 
+    write_clustalw_ss(aln = aln_32S$alignment@unmasked,
+                      sec_str = aln_32S$SS_cons,
+                      file = file_out(aln_file_32S)),
   
   # longtree----
   # read the long amplicon tree in
@@ -693,8 +698,8 @@ plan <- drake_plan(
     lt = ape::read.tree(file_in(longtree_file))
     phyloseq::taxa_names(lt) <-
       tibble::tibble(hash = phyloseq::taxa_names(lt)) %>%
-      dplyr::left_join(conseq_filt) %$%
-      seqhash(ITS2)
+      dplyr::left_join(allseqs) %$%
+      hash
     lt},
   
   physeq = assemble_physeq(platemap, datasets, relabel_seqtable(big_seq_table_ITS2)),#, longtree),
@@ -770,7 +775,7 @@ plan <- drake_plan(
     q_stats(file_in(!!file.path(region_dir, region_file))),
     transform = map(.data = !!predada_meta,
                     .tag_in = step,
-                    .id = c(well_ID, region_ID)),
+                    .id = c(well_ID, region)),
     format = "fst"),
   #qstats_join----
   # join all the quality stats into one data.frame
@@ -793,7 +798,7 @@ plan <- drake_plan(
       output_dir = !!out_dir)},
   trace = TRUE
 ) %>%
-  filter(!(step %in% c("raw", "combined")) | seq_run_ID == 'pb_500')
+  filter(!(step %in% c("raw", "combined")) | seq_run == '"pb_500"')
 tictoc::toc()
 
 if (!interactive()) saveRDS(plan, plan_file)

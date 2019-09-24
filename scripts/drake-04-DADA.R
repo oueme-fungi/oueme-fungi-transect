@@ -8,6 +8,7 @@ if (exists("snakemake")) {
 target <- get_target(default = "nochim_pb_500_002_ITS2")
 library(magrittr)
 library(backports)
+library(futile.logger)
 setup_log("dada")
 
 #### DADA2 pipeline ####

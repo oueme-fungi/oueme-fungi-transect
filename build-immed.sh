@@ -16,11 +16,16 @@
 ## texlive from conda isn't functional
 module load texlive &&
 
+for x in $(grep -l '"incomplete": true' .snakemake/metadata/*)
+do 
+ echo "removing file $x"
+ rm $x
+done
+
 snakemake -pr --jobs 999\
   --keep-going\
   --profile config/UPPMAX\
   --use-conda\
-  --local-cores $SLURM_JOB_CPUS_PER_NODE\
   --immediate-submit\
   --notemp\
   all_taxonomy

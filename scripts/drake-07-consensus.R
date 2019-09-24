@@ -1,10 +1,13 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
-  longASV_file <- snakemake@output$longasv
+  aln_file_LSU <- snakemake@output$aln_LSU
+  aln_file_32S <- snakemake@output$aln_32S
 } else {
   load("drake.Rdata")
-  longASV_file <- file.path(pasta.dir, "long_ASVs.fasta")
+  aln_file_LSU <- file.path(pasta.dir, "lsu_ASVs.fasta")
+  aln_file_32S <- file.path(pasta.dir, "32S_ASVs.aln")
+
 }
 
 library(magrittr)
@@ -15,12 +18,12 @@ setup_log("consensus")
 #### Taxonomy targets from DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-targets <- c("lsualn", "cons_tax")
+targets <- c("allseqs", "write_aln_LSU", "write_aln_32S")
 
 dada_cpus <- local_cpus()
 
-if (any(targets %in% od)) {
-  cat("\n Making", targets, "with", dada_cpus, "cores...\n")
+if (any(targets %in% od) || !all(file.exists(aln_file_LSU, aln_file_32S))) {
+  cat("Making", targets, "with", dada_cpus, "cores...\n")
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
@@ -32,10 +35,29 @@ if (any(targets %in% od)) {
        cache_log_file = TRUE,
        targets = targets
   )
-  dod <- drake::outdated(dconfig)
+  od <- drake::outdated(dconfig)
   drake::make(config = dconfig)
   tictoc::toc()
-  if (any(dod %in% drake::failed())) {
+  if (any(od %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else cat("\n Long ASV consensus sequences are up-to-date.\n")
+  if (!file.exists(aln_file_LSU)) {
+    flog.info("Creating %s.", aln_file_LSU)
+    tictoc::tic()
+    drake_build(write_aln_LSU, dconfig)
+    tictoc::toc()
+  }
+  if (!file.exists(aln_file_32S)) {
+    flog.info("Creating	%s.", aln_file_32S)
+    tictoc::tic()
+    drake_build(write_aln_32S, dconfig)
+    tictoc::toc()
+  }
+
+
+} else {
+  cat("\n Long ASV consensus sequences are up-to-date.\n")
+}
+
+Sys.setFileTime(aln_file_LSU, Sys.time())
+Sys.setFileTime(aln_file_32S, Sys.time())
