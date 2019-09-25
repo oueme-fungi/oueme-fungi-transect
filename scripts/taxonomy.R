@@ -950,8 +950,6 @@ refine_classifier <- function(trainset, taxonomy, rank, out_root,
 }
 
 taxonomy <- function(seq.table, reference, method, multithread = FALSE, ...) {
-  assertthat::assert_that(file.exists(reference),
-                          assertthat::is.readable(reference))
   # we can take a community matrix (in which case the sequences are the column
   # names) or the sequences
   if (is.matrix(seq.table)) {
@@ -964,7 +962,7 @@ taxonomy <- function(seq.table, reference, method, multithread = FALSE, ...) {
   is.RNA <- stringr::str_detect(seq[1], "[Uu]")
   # seq <- if (is.RNA) Biostrings::RNAStringSet(seq) else Biostrings::DNAStringSet(seq)
   
-  switch(method,
+  f <- switch(method,
          dada2 = taxonomy_dada2,
          sintax = taxonomy_sintax,
          idtaxa = taxonomy_idtaxa,
@@ -977,7 +975,7 @@ taxonomy_dada2 <- function(seq, reference, multithread = FALSE, threshold = 50,
                            tryRC = FALSE,
                            outputBootstraps = TRUE,
                            verbose = TRUE, ...) {
-  dada2::assignTaxonomy(seqs = seq,
+  dada2::assignTaxonomy(seqs = chartr("Uu", "Tt", seq),
                         refFasta = reference,
                         tryRC = tryRC,
                         outputBootstraps = outputBootstraps,

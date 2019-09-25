@@ -20,7 +20,7 @@ setup_log("taxonomy")
 
 dada_cpus <- local_cpus()
 if (any(target %in% od)) {
-  flog.info("Making %s with %d cores...", target, dada_cpus)
+  flog.info("Preparing drake configuration for %s with %d cores...", target, dada_cpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
@@ -32,7 +32,13 @@ if (any(target %in% od)) {
        cache_log_file = TRUE,
        targets = target
   )
-  dod <- drake::outdated(dconfig)
+  tictoc::toc()
+  flog.info("Determining outdated targets...")
+  tictoc::tic()
+  dod <- exp_try(drake::outdated(dconfig), 30, 300)
+  tictoc::toc()
+  flog.info("Making targets...")
+  tictoc::tic()
   drake::make(config = dconfig)
   tictoc::toc()
   if (any(dod %in% drake::failed())) {

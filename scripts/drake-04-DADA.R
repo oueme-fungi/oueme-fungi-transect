@@ -34,4 +34,4 @@ if (target %in% od) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else cat("Target %s is up-to-date.", target)
+} else flog.info("Target %s is up-to-date.", target)

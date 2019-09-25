@@ -4,4 +4,4 @@ __default__:
   n: 1
   C: "usage_mail"
   mail-type: "ALL"
-  mail-user: "brendan"
+  mail-user: "brendan.furneaux@ebc.uu.se"

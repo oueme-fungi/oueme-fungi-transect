@@ -85,3 +85,15 @@ symbols_to_values <- function(...) {
 get_conda_env <- function() {
    Sys.getenv("CONDA_PREFIX")
 }
+
+
+#### Try several times with an exponential backoff and logging.
+exp_try <- function(x, t, max) {
+  if (t >= max) return(x)
+  x <- rlang::enquo(x)
+  futile.logger::ftry(rlang::eval_tidy(x),
+                      error = function(e) {
+                        Sys.sleep(t)
+                        exp_try(rlang::eval_tidy(x), t*2, max)
+                      })
+}

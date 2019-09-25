@@ -425,7 +425,7 @@ write_clustalw_ss <- function(aln, sec_str, file, seq_names = names(aln)) {
   assertthat::assert_that(is.character(seq_names),
                           length(seq_names) == length(aln),
                           assertthat::is.string(file),
-                          all(nchar(sec_str) == width(aln)))
+                          all(nchar(sec_str) == Biostrings::width(aln)))
   
   aln <- Biostrings::RNAStringSet(aln)
   sec_str <- chartr("{[<>]},:", "((())).x", sec_str)
@@ -433,7 +433,7 @@ write_clustalw_ss <- function(aln, sec_str, file, seq_names = names(aln)) {
   on.exit(close(con))
   writeLines("CLUSTALW", con)
   start <- 1
-  width <- unique(width(aln))
+  width <- unique(Biostrings::width(aln))
   namewidth <- max(nchar(seq_names))
   seq_names <- stringr::str_pad(seq_names, namewidth, "right")
   str_name <- stringr::str_pad("", namewidth, "right")

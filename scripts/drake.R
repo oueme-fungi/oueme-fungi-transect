@@ -558,8 +558,9 @@ plan <- drake_plan(
         !! region := as.character(
           tzara::cluster_consensus(.data[[region]], seq.id, ignore(dada_cpus)))) %>%
       dplyr::ungroup() %>%
-      dplyr::filter(stringr::str_count(!! region, "[MRWSYKVHDBN]") < 3,
-                    !is.na(!!region)),
+      dplyr::filter(stringr::str_count(.[[region]], "[MRWSYKVHDBN]") < 3,
+                    !is.na(.[[region]]),
+                    nchar(.[[region]]) >= 50),
     transform = map(region = !!c("long", "ITS", "ITS1", "LSU", "32S", "5_8S"), .id = region),
     format = "fst"),
   
@@ -597,7 +598,9 @@ plan <- drake_plan(
   # taxon ----
   # Assign taxonomy to each ASV
   taxon = target(
-    allseqs[[region]] %>%
+    dplyr::select(allseqs, region, "hash") %>%
+      dplyr::filter(complete.cases(.)) %>%
+      {set_names(.[[region]], .$hash)} %>%
       taxonomy(reference = refdb,
                method = method,
                multithread = ignore(dada_cpus)) %>%
