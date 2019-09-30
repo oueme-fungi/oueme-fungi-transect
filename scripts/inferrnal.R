@@ -225,14 +225,14 @@ read_stockholm_rf <- function(stockholm) {
 
 
 parse_stockholm_msa_chunk <- function(x, pos, acc) {
-  
+
   gc <- stringr::str_match(x, "#=GC +([^ ]+) +(.+)")[,2:3]
   gc <- gc[complete.cases(gc),]
   for (i in 1:nrow(gc)) {
     attr(acc, gc[i,1]) <- paste0(attr(acc, gc[i,1]), gc[i,2])
   }
-  
-  x <- stringr::str_match(x, "^([^#][^ ]*) +([^ ]+)$")[,2:3]
+
+  x <- stringr::str_match(x, "^(\\d+\\|)?([^#][^ ]*) +([^ ]+)$")[,3:4]
   x <- x[complete.cases(x),]
   for (i in 1:nrow(x)) {
     if (x[i,1] %in% names(acc)) {
@@ -428,7 +428,7 @@ write_clustalw_ss <- function(aln, sec_str, file, seq_names = names(aln)) {
                           all(nchar(sec_str) == Biostrings::width(aln)))
   
   aln <- Biostrings::RNAStringSet(aln)
-  sec_str <- chartr("{[<>]},:", "((())).x", sec_str)
+  sec_str <- chartr("{[<>]},:_-", "((())).x..", sec_str)
   con <- file(file, "wt")
   on.exit(close(con))
   writeLines("CLUSTALW", con)
@@ -436,15 +436,60 @@ write_clustalw_ss <- function(aln, sec_str, file, seq_names = names(aln)) {
   width <- unique(Biostrings::width(aln))
   namewidth <- max(nchar(seq_names))
   seq_names <- stringr::str_pad(seq_names, namewidth, "right")
-  str_name <- stringr::str_pad("", namewidth, "right")
+  str_name <- stringr::str_pad("#S", namewidth, "right")
   while (start <= width) {
     end <- min(start + 59, width)
     writeLines("", con)
     writeLines(paste(seq_names, substr(aln, start, end), end), con)
-    writeLines(paste(str_name, substr(sec_str, start, end), "#S"), con)
+    writeLines(paste(str_name, substr(sec_str, start, end), end), con)
     start <- end + 1
   }
 }
 
+parse_clustal_ss_chunk <- function(x, pos, acc) {
+  ss <- stringr::str_match(x, "#S *([()\\[\\]{}<>.,:_x-]+)$")
+  ss <- ss[complete.cases(ss),]
+  for (i in 1:nrow(ss)) {
+    attr(acc, "SS_cons") <- paste0(attr(acc, "SS_cons"), ss[i, 2])
+  }
+  
+  x <- stringr::str_match(x, "^([^# ][^ ]*) +([^ ]+) *\\d*$")[,2:3]
+  x <- x[complete.cases(x),]
+  for (i in 1:nrow(x)) {
+    if (x[i,1] %in% names(acc)) {
+      acc[[x[i,1]]] <- paste0(acc[[x[i,1]]], x[i,2])
+    } else {
+      acc[[x[i,1]]] <- x[i,2]
+    }
+  }
+  acc
+}
 
+read_clustalw_ss <- function(clustal) {
+  assertthat::assert_that((assertthat::is.string(clustal) &&
+                             file.exists(clustal)) || 
+                            methods::is(clustal, "connection"))
+  
+  seqs <- 
+    readr::read_lines_chunked(
+      clustal,
+      readr::AccumulateCallback$new(parse_clustal_ss_chunk, acc = list()))
+  
+  #names(seqs) <- stringr::str_replace(names(seqs), "^\\d+\\|", "")
+  out <- attributes(seqs)
+  out[["alignment"]] <- Biostrings::RNAMultipleAlignment(unlist(seqs))
+  out
+}
 
+remove_nonconsensus_nongaps <- function(aln, gapfrac = 1) {
+  tibble::as_tibble(unclass(rle(seqinr::s2c(aln$SS_cons) == "."))) %>%
+    dplyr::mutate(end = cumsum(lengths), start = end - lengths + 1) %>%
+    dplyr::filter(!values) %>%
+    purrr::pmap(function(start, end, ...)
+      substr(aln$alignment@unmasked, start, end)) %>%
+    do.call(paste0, .) %>%
+    set_names(aln$names) %>%
+    Biostrings::RNAMultipleAlignment() %>%
+    Biostrings::maskGaps(gapfrac, 1) %>%
+    methods::as("RNAStringSet")
+}
