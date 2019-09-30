@@ -3,5 +3,6 @@
 *.ITS.fasta.gz
 *.ITS2.fasta.gz
 *.ITS1.fasta.gz
-*.vsearch.fasta.gz
+*.sintax.fasta.gz
+*.dada2.fasta.gz
 *_problems*.csv
