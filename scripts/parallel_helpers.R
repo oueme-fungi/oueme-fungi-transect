@@ -97,3 +97,23 @@ exp_try <- function(x, t, max) {
                         exp_try(rlang::eval_tidy(x), t*2, max)
                       })
 }
+
+
+is_outdated <- function(task, dconfig) {
+  assertthat::assert_that(assertthat::is.string(task))
+  any(drake::deps_profile(task, dconfig)$changed)
+}
+
+which_outdated <- function(tasks, dconfig) {
+  assertthat::assert_that(is.character(tasks))
+  which(purrr::map_lgl(tasks, is_outdated, dconfig = dconfig))
+}
+
+#### Count the number of tasks which still need to be done from a list (without calculating all outdated tasks)
+n_outdated <- function(tasks, dconfig) {
+  length(which_outdated(tasks, dconfig))
+}
+
+subset_outdated <- function(tasks, dconfig) {
+  tasks[which_outdated(tasks, dconfig)]
+}

@@ -16,7 +16,8 @@ setup_log("ITSx")
 # Instead, we divide the work into a large number of 
 # shards and submit them all as seperate jobs on SLURM.
 # failing that, do all the shards locally on the cores we have.
-itsx_targets <- stringr::str_subset(od, "^(its|lsu)x_shard")
+itsx_targets <- stringr::str_subset(plan$target, "^(its|lsu)x_shard")
+itsx_targets <- subset_outdated(itsx_targets, dconfig)
 # hmmer can use multiple processes per job; it tends to become I/O bound after about 4.
 itsx_cpus <- 4L
 itsx_cpus <- min(itsx_cpus, max_cpus())

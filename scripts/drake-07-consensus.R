@@ -23,7 +23,7 @@ targets <- c("allseqs", "write_aln_LSU", "write_aln_32S")
 dada_cpus <- local_cpus()
 
 if (any(targets %in% od) || !all(file.exists(aln_file_LSU, aln_file_32S))) {
-  cat("Making", targets, "with", dada_cpus, "cores...\n")
+  flog.info("Configuring drake  %s with %d core(s)...", targets, dada_cpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
@@ -35,7 +35,14 @@ if (any(targets %in% od) || !all(file.exists(aln_file_LSU, aln_file_32S))) {
        cache_log_file = TRUE,
        targets = targets
   )
-  od <- drake::outdated(dconfig)
+  tictoc::toc()
+  flog.info("Finding outdated targets...")
+  tictoc::tic()
+  od <- subset_outdated(targets, dconfig)
+  tictoc::toc()
+  flog.info("Found %d outdated targets.", length(od))
+  flog.info("Making targets...")
+  tictoc::tic()
   drake::make(config = dconfig)
   tictoc::toc()
   if (any(od %in% drake::failed())) {
@@ -56,7 +63,7 @@ if (any(targets %in% od) || !all(file.exists(aln_file_LSU, aln_file_32S))) {
 
 
 } else {
-  cat("\n Long ASV consensus sequences are up-to-date.\n")
+  flog.info("Long ASV consensus sequences are up-to-date.")
 }
 
 Sys.setFileTime(aln_file_LSU, Sys.time())
