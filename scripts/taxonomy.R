@@ -1007,9 +1007,9 @@ taxonomy_sintax <- function(seq, reference, min_confidence = NULL, multithread =
                             seq = as.character(seq@sread, use.names = FALSE))
     } else if (is.character(seq)) {
       if (is.null(names(seq))) names(seq) <- tzara::seqhash(seq)
-      is.RNA <- stringr::str_detect(seq[1], "[Uu]")
+      is.RNA <- any(stringr::str_detect(seq, "[Uu]"))
       if (is.RNA) {
-        seq <- Biostrings::RNAStringSet(seq)
+        seq <- Biostrings::RNAStringSet(chartr("Tt", "Uu", seq))
       } else {
         seq <- Biostrings::DNAStringSet(seq)
       }
@@ -1051,7 +1051,7 @@ taxonomy_sintax <- function(seq, reference, min_confidence = NULL, multithread =
     if (isFALSE(multithread)) multithread <- 1
     args <- c(args, "--threads", multithread)
   }
-  system2("vsearch", args = args)
+	  system2("vsearch", args = args)
   if (missing(min_confidence)) {
     # vsearch outputs an extra tab when it cannot place the sequence
     system2("sed", args = c("--in-place", "'s/\\t\\t\\t/\\t\\t/'", tablefile))
@@ -1072,6 +1072,9 @@ taxonomy_sintax <- function(seq, reference, min_confidence = NULL, multithread =
 taxonomy_idtaxa <- function(seq, reference, multithread = FALSE, strand = "top", min_confidence = 40, ...) {
   if (isTRUE(multithread)) multithread <- NULL
   if (isFALSE(multithread)) multithread <- 1
+  if (!methods::is(seq, "XStringSet")) {
+    seq <- Biostrings::DNAStringSet(chartr("Uu", "Tt", seq))
+  }
   DECIPHER::IdTaxa(test = seq,
                    trainingSet = reference,
                    strand = strand,

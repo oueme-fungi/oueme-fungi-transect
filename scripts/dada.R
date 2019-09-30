@@ -63,8 +63,9 @@ make_allseq_table <- function(conseqs, seq_tables,
                   .init = conseqs)
   
   dplyr::mutate(conseqs,
-                hash = dplyr::coalesce(!!!label_order) %>%
-                    tzara::seqhash())
+                hash = do.call(dplyr::coalesce, conseqs[,label_order]) %>%
+                    tzara::seqhash() %>%
+                    unname())
 }
 
 taxonomy_dada <- function(seq.table, reference, multithread = FALSE) {

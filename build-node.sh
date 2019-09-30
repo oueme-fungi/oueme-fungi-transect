@@ -20,6 +20,6 @@ snakemake -pr --jobs $SLURM_JOB_CPUS_PER_NODE\
   --keep-going\
   --use-conda\
   --shadow-prefix /scratch\
-  output/tech_compare.pdf
+  all_taxonomy
 
 #exit $out
