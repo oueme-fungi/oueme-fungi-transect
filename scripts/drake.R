@@ -242,6 +242,7 @@ taxonomy_meta <- dada_meta %>%
   ungroup() %>%
   separate_rows(reference, sep = " *, *") %>%
   separate(reference, c("reference", "refregion"), sep = "\\.") %>%
+  filter(!is.na(reference)) %>%
   crossing(methods) %>%
   mutate(methodfile = ifelse(method == "idtaxa", "sintax", method),
          reference_file = glue("{ref_dir}/{reference}.{refregion}.{methodfile}.fasta.gz"),

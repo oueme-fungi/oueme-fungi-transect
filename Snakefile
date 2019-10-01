@@ -770,7 +770,7 @@ rule taxonomy:
 # calculate all the taxonomy outputs which should be calculated
 def taxon_outputs(wildcards):
     checkpoints.drake_plan.get()
-    references = regions.reference.str.replace(".", "_").str.split(',').explode()
+    references = regions.reference.loc[-regions.reference.isnull()].str.replace(".", "_").str.split(',').explode()
     return expand(".taxon_{region}_{reference}",
                   zip,
                   region = references.index.to_list(),
