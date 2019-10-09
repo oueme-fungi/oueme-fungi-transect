@@ -168,21 +168,25 @@ itsx_meta <- datasets %>%
   mutate_at(c("join_derep", "join_derep_map", "itsxtrim", "lsux_pos", "search5_8S"), syms)
 
 #### predada_meta ####
-# predada_meta has one row region per input file
-# it is used in targets regions, filter, and derep2
+# predada_meta has one row per region per well
+# it is used in targets regionx, filter, and derep2
 # The index is well_ID + region
 # plate_ID is defined because it will be the index for dada_meta
 flog.info("Making predada_meta.")
 predada_meta <- itsx_meta %>%
+  group_by_at(c("seq_run", "regions", "plate", "well")) %>%
+  summarize(trim_file = list(c(trim_file)),
+            positions = list(c(positions))) %>%
+  ungroup() %>%
   mutate_at("regions", str_split, ",") %>%
-  unnest(region = regions, .preserve = ends_with("_ID")) %>%
+  unnest(region = regions, .preserve = c("trim_file", "positions")) %>%
   left_join(regions, by = "region") %>%
-  mutate(well_ID = glue("{seq_run}{plate}{well}{direction}"),
+  mutate(well_ID = glue("{seq_run}{plate}{well}"),
          plate_ID = glue("{seq_run}_{plate}"),
          range_ID = glue("{region}{range}"),
-         region_file = glue("{seq_run}_{plate}-{well}{direction}-{region}.trim.fastq.gz"),
-         filter_file = glue("{seq_run}_{plate}-{well}{direction}-{region}{range}.qfilt.fastq.gz")) %>%
-  mutate_at("positions", syms)
+         region_file = glue("{seq_run}_{plate}-{well}-{region}.trim.fastq.gz"),
+         filter_file = glue("{seq_run}_{plate}-{well}-{region}{range}.qfilt.fastq.gz")) %>%
+  mutate_at("positions", lapply, syms)
 
 if (interactive()) {
   #use a subset
@@ -201,18 +205,19 @@ if (interactive()) {
 }
 
 #### dada_meta ####
-# dada_meta has one row per region per plate
+# dada_meta has one row per region per sequencing run
 # it is used for targets err, dada, dadamap, seq_table, and nochim
-# The index is plate_ID + region (plate_ID)
+# The index is seq_run + region
 flog.info("Making dada_meta.")
 dada_meta <- predada_meta %>%
-  select(seq_run, plate, region, range, plate_ID, range_ID, seq_run) %>%
+  select(seq_run, region, range, range_ID) %>%
   unique() %>%
-  arrange(seq_run, plate, region) %>%
-  mutate(region_derep = glue("region_derep_{plate_ID}_{range_ID}")) %>%
+  arrange(seq_run, region) %>%
+  mutate(region_derep = glue("region_derep_{seq_run}_{range_ID}"),
+         error_model = glue("err_{seq_run}_5_8S")) %>%
   left_join(datasets %>% select(-regions), by = "seq_run") %>%
   left_join(regions, by = c("region", "range")) %>%
-  mutate_at("region_derep", syms)
+  mutate_at(c("region_derep", "error_model"), syms)
 if (!interactive()) {
   saveRDS(dada_meta, dada_meta_file)
 }
@@ -237,9 +242,7 @@ region_meta <- regions %>%
 flog.info("Making taxonomy_meta.")
 taxonomy_meta <- dada_meta %>%
   mutate_if(is.list, as.character) %>%
-  group_by_at(names(regions)) %>%
-  summarize(plate_region_ID = paste(plate_ID, region, sep = "_", collapse = ",")) %>%
-  ungroup() %>%
+  select_at(names(regions)) %>%
   separate_rows(reference, sep = " *, *") %>%
   separate(reference, c("reference", "refregion"), sep = "\\.") %>%
   filter(!is.na(reference)) %>%
@@ -380,7 +383,7 @@ plan <- drake_plan(
                     .id = file_ID),
     format = "fst"),
   
-  # regions----
+  # regionx----
   # cut the required regions out of each sequence
   regionx = target(
     tzara::extract_region(seq = file_in(!!file.path(trim_dir, trim_file)),
@@ -439,7 +442,7 @@ plan <- drake_plan(
   # put together all the dereplicated files for each region for each plate.
   region_derep = target(
     purrr::compact(c(derep2)),
-    transform = combine(derep2, .by = c(plate_ID, range_ID), .tag_in = step),
+    transform = combine(derep2, .by = c(seq_run, range_ID), .tag_in = step),
   ),
   
   # err----
@@ -459,21 +462,21 @@ plan <- drake_plan(
       pool = eval(rlang::parse_expr(pool)),
       verbose = TRUE,
       qualityType = "FastqQuality")},
-    transform = map(.data = !!dada_meta,
-                    .tag_in = step, .id = c(plate_ID, range_ID))),
+    transform = map(.data = !!filter(dada_meta, range_ID == "5_8S"),
+                    .tag_in = step, .id = c(seq_run, range_ID))),
   
   # dada----
   # Run dada denoising algorithm (on different size ranges)
   dada = target(
     dada2::dada(
-      derep = region_derep, err = err,
+      derep = region_derep, err = error_model,
       multithread = ignore(dada_cpus), 
       HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(hgp)),
       BAND_SIZE = band_size,
       pool = eval(rlang::parse_expr(pool))),
-    transform = map(err,
+    transform = map(.data = !!dada_meta,
                     .tag_in = step,
-                    .id = c(plate_ID, range_ID))),
+                    .id = c(seq_run, range_ID))),
   
   # dadamap----
   # Make maps from individual sequences in source files to dada ASVs
@@ -481,7 +484,7 @@ plan <- drake_plan(
   dada_map = target(
     tzara::dadamap(region_derep, dada),
     transform = map(dada,
-                    .tag_in = step, .id = c(plate_ID, range_ID))),
+                    .tag_in = step, .id = c(seq_run, range_ID))),
   
   # seq_table----
   # Make a sample x ASV abundance matrix
@@ -490,7 +493,7 @@ plan <- drake_plan(
     dada2::makeSequenceTable(dada) %>%
       magrittr::extract(,nchar(colnames(.)) >= min_length_post &
                           nchar(colnames(.)) <= max_length_post),
-    transform = map(dada, .tag_in = step, .id = c(plate_ID, range_ID))),
+    transform = map(dada, .tag_in = step, .id = c(seq_run, range_ID))),
   
   # nochim----
   # Remove likely bimeras
@@ -503,7 +506,7 @@ plan <- drake_plan(
         as.matrix,
       method = "consensus",
       multithread = ignore(dada_cpus)),
-    transform = combine(seq_table, .by = c(plate_ID, region))),
+    transform = combine(seq_table, .by = c(seq_run, region))),
   
   # big_seq_table ----
   # Join all the sequence tables for each region
@@ -524,7 +527,7 @@ plan <- drake_plan(
   raw = target(
     tzara::summarize_sread(list(regionx),
                            name = !!symbols_to_values(filter_file),
-                           max_ee = !!eval(parse(text = unique(symbols_to_values(max_ee))))),
+                           max_ee = 1.5 * !!eval(parse(text = unique(symbols_to_values(max_ee))))),
     transform = combine(regionx, filter_file, max_ee, seq_run, region,
                         .by = c(seq_run, region),
                         .tag_in = step,
@@ -536,9 +539,19 @@ plan <- drake_plan(
   # Replace raw reads which were mapped to a DADA2 ASV with the ASV,
   # and put them all in one tibble.  We'll only do this for pacbio long reads.
   combined = target(
-    combine_bigmaps(dplyr::bind_rows(dada_map),
-                    dplyr::bind_rows(raw)),
-    transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
+    tzara::reconstruct(seqtabs = list(dada_map),
+                       rawtabs = list(raw),
+                       regions = !!symbols_to_values(region),
+                       order = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2",
+                                 "D2", "LSU3", "D3", "LSU4"),
+                       output = "long",
+                       read_column = "seq.id",
+                       asv_column = "dada.seq",
+                       raw_column = "seq",
+                       sample_column = "name",
+                       sample_regex = paste0("(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d"),
+                       ncpus = ignore(dada_cores)),
+    transform = combine(dada_map, raw, region, .by = seq_run, .tag_in = step),
     format = "fst"
   ),
   
@@ -663,7 +676,7 @@ plan <- drake_plan(
     Biostrings::RNAStringSet(),
   consensus_LSU = allseqs %>%
     dplyr::select(LSU, hash) %>%
-    dplyr::filter(complete.cases(.))%$%
+    dplyr::filter(complete.cases(.)) %$%
     rlang::set_names(LSU, hash) %>%
     chartr(old = "T", new = "U") %>%
     Biostrings::RNAStringSet(),

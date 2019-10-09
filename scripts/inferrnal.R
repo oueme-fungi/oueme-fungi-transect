@@ -420,12 +420,16 @@ LSUx <- function(seq, cm_5.8S, cm_32S, glocal = TRUE, ITS1 = FALSE, cpu) {
   pos
 }
 
-write_clustalw_ss <- function(aln, sec_str, file, seq_names = names(aln)) {
+write_clustalw_ss <- function(aln, sec_str, file, ref = sec_str, seq_names = names(aln), write_ref = TRUE) {
   assertthat::assert_that(methods::is(aln, "XStringSet"))
   assertthat::assert_that(is.character(seq_names),
                           length(seq_names) == length(aln),
                           assertthat::is.string(file),
-                          all(nchar(sec_str) == Biostrings::width(aln)))
+                          assertthat::is.string(sec_str),
+                          assertthat::is.string(ref),
+                          assertthat::is.flag(write_ref),
+                          all(nchar(sec_str) == Biostrings::width(aln)),
+                          nchar(sec_str) == nchar(ref))
   
   aln <- Biostrings::RNAStringSet(aln)
   sec_str <- chartr("{[<>]},:_-", "((())).x..", sec_str)
@@ -437,20 +441,25 @@ write_clustalw_ss <- function(aln, sec_str, file, seq_names = names(aln)) {
   namewidth <- max(nchar(seq_names))
   seq_names <- stringr::str_pad(seq_names, namewidth, "right")
   str_name <- stringr::str_pad("#S", namewidth, "right")
+  ref_name <- stringr::str_pad("#A1", namewidth, "right")
   while (start <= width) {
     end <- min(start + 59, width)
     writeLines("", con)
     writeLines(paste(seq_names, substr(aln, start, end), end), con)
     writeLines(paste(str_name, substr(sec_str, start, end), end), con)
+    if (!missing(ref) || write_ref)
+    writeLines(paste(ref_name, substr(ref, start, end), end), con)
     start <- end + 1
   }
 }
 
 parse_clustal_ss_chunk <- function(x, pos, acc) {
-  ss <- stringr::str_match(x, "#S *([()\\[\\]{}<>.,:_x-]+)$")
+  ss <- stringr::str_match(x, "#S *([()\\[\\]{}<>.,:_x-]+) ?\\d*$")
   ss <- ss[complete.cases(ss),]
-  for (i in 1:nrow(ss)) {
-    attr(acc, "SS_cons") <- paste0(attr(acc, "SS_cons"), ss[i, 2])
+  if (nrow(ss) >= 1) {
+    for (i in 1:nrow(ss)) {
+      attr(acc, "SS_cons") <- paste0(attr(acc, "SS_cons"), ss[i, 2])
+    }
   }
   
   x <- stringr::str_match(x, "^([^# ][^ ]*) +([^ ]+) *\\d*$")[,2:3]
@@ -473,7 +482,8 @@ read_clustalw_ss <- function(clustal) {
   seqs <- 
     readr::read_lines_chunked(
       clustal,
-      readr::AccumulateCallback$new(parse_clustal_ss_chunk, acc = list()))
+      readr::AccumulateCallback$new(parse_clustal_ss_chunk, acc = list())
+    )
   
   #names(seqs) <- stringr::str_replace(names(seqs), "^\\d+\\|", "")
   out <- attributes(seqs)

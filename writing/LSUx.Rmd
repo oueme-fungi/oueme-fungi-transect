@@ -1,0 +1,108 @@
+---
+title: Comparison of DADA2 performance on LSUx domains (including ITS and 5.8S)
+  rDNA
+author: "Brendan Furneaux"
+date: "October 2, 2019"
+output:
+  beamer_presentation:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, device = "tikz")
+library(ggplot2)
+theme_set(theme_bw(base_size = 24) + theme(legend.direction = "vertical"))
+library(drake)
+library(magrittr)
+targets <- drake_cache()$list()
+expand.grid(plate = c("001", "002"),
+            region = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2",
+                       "LSU3", "D3", "LSU4", "ITS", "LSU", "32S", "long"))
+  
+table <- tibble::tibble(name = targets[startsWith(targets, "nochim_pb_500")]) %>%
+  tidyr::extract(col = name, into = c("plate", "region"),
+                 regex = "nochim_pb_500_(00[12])_(.+)",
+                 remove = FALSE) %>%
+  dplyr::mutate_at("region", factor, levels = c("ITS1", "5_8S", "ITS2", "LSU1",
+                                                "D1", "LSU2", "D2", "LSU3",
+                                                "D3", "LSU4", "ITS", "LSU",
+                                                "32S", "long")) %>%
+  dplyr::group_by(region) %>%
+  dplyr::mutate(nochim = lapply(name, readd, character_only = TRUE)) %>%
+  dplyr::summarize(nochim = list(dada2::mergeSequenceTables(tables = nochim)),
+                   reads = sum(nochim),
+                   ASVs = ncol(nochim),
+                   length_min = min(nchar(colnames(nochim))),
+                   length_q1 = quantile(rep(nchar(colnames(nochim)),
+                                            colSums(nochim)), 0.25),
+                   length_med = median(rep(nchar(colnames(nochim)),
+                                           colSums(nochim))),
+                   length_mean = mean(rep(nchar(colnames(nochim)),
+                                          colSums(nochim))),
+                   length_q3 = quantile(rep(nchar(colnames(nochim)),
+                                            colSums(nochim)), 0.75),
+                   length_max = max(nchar(colnames(nochim))))
+```
+
+## Reads vs. ASVs
+
+```{r}
+ggplot(table, aes(reads, ASVs, color = length_med, label = region)) +
+  geom_text() +
+  scale_color_gradientn(colors = c("blue", "red", "green1"), limits = c(30, 2000), breaks = c(50, 150, 400, 1000), trans = "log10", name = "median length") +
+  xlab("mapped reads")
+```
+
+## Length distributions
+```{r}
+ggplot(table, aes(x = length_med, y = reads, label = region)) +
+  geom_text() +
+  xlab("length (bp)")
+```
+
+## Length distributions - Variable regions
+```{r}
+lengths_table <- table %>%
+  mutate(
+    nreads = map(nochim, colSums),
+    length = map(nochim, ~ nchar(colnames(.)))
+  ) %>%
+  select(region, length, nreads) %>%
+  unnest() %>%
+  group_by(region, length) %>%
+  summarize(nreads = sum(nreads))
+
+lengths_table %>%
+  filter(region %in% c("ITS1", "ITS2", "D1", "D2", "D3")) %>%
+  dplyr::slice(rep(1:nrow(.), .$nreads)) %>%
+  ggplot(aes(length)) +
+  geom_density(bw = 2) +
+  facet_wrap(~region,ncol = 2, strip.position = "right") +
+  scale_y_continuous(breaks = NULL, labels = NULL)
+```
+
+## Length distributions -- conserved regions
+
+```{r}
+lengths_table %>%
+  filter(region %in% c("5_8S", "LSU1", "LSU2", "LSU3", "LSU4")) %>%
+  dplyr::slice(rep(1:nrow(.), .$nreads)) %>%
+  ggplot(aes(length)) +
+  geom_density(bw = 1) +
+  facet_wrap(~region,ncol = 2, strip.position = "right") +
+  scale_y_continuous(breaks = NULL, labels = NULL) +
+  scale_x_continuous(limits = c(0, 300))
+```
+
+## Length distributions -- combined regions
+
+```{r}
+lengths_table %>%
+  filter(region %in% c("ITS", "LSU", "32S", "long")) %>%
+  dplyr::slice(rep(1:nrow(.), .$nreads)) %>%
+  ggplot(aes(length)) +
+  geom_density(bw = 10) +
+  facet_wrap(~region,ncol = 2, strip.position = "right") +
+  scale_y_continuous(breaks = NULL, labels = NULL) +
+  scale_x_continuous(limits = c(0, 2000))
+```

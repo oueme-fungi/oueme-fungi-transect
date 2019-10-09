@@ -18,7 +18,7 @@ library("scales")
   base.dir <- getwd() %>%
     str_extract(".*oueme-fungi-transect")
   data.dir <- file.path(base.dir, "data")
-  lab.dir <- file.path(data.dir, "lab_setup")
+  lab.dir <- file.path(base.dir, "config")
   seq.dir <- file.path(base.dir, "sequences")
   rawfastq.dir <- file.path(seq.dir, "rawfastq")
   demux.dir <- file.path(seq.dir, "demux")
@@ -33,19 +33,32 @@ library("scales")
 ```{r}
 
 reads <- datasets %>%
-  mutate(trim.files = map(paste0(Seq.Run, ".*\\.fastq\\.gz"), list.files, path = trim.dir,
-                          full.names = TRUE),
-         old.demux.files = map(paste0(Dataset, ".*\\.fastq\\.gz"), list.files,
-                               path = demux.dir, full.names = TRUE),
-         files = pmap(list(trim.files, old.demux.files), c)) %>%
+  mutate(
+    trim.files = map(
+      paste0(seq_run, ".*\\.fastq\\.gz"),
+      list.files,
+      path = trim.dir,
+      full.names = TRUE
+    ),
+    old.demux.files = map(
+      paste0(dataset, ".*\\.fastq\\.gz"),
+      list.files,
+      path = demux.dir,
+      full.names = TRUE
+    ),
+    files = pmap(
+      list(trim.files, old.demux.files),
+      c
+    )
+  ) %>%
   select(-trim.files, -old.demux.files) %>%
   unnest() %>%
   filter(!str_detect(files, "-x[a-z]{2}\\.fastq\\.gz")) %>%
   mutate(filesize = file.size(files),
-         Base.Calling = ifelse(str_detect(basename(files), Seq.Run),
+         base_calling = ifelse(str_detect(basename(files), seq_run),
                                "arrow", "default")) %>%
   filter(filesize > 0,
-         Base.Calling == "default" | Tech == "PacBio") %>%
+         base_calling == "default" | tech == "PacBio") %>%
   mutate(fastq = map(files, readFastq),
          # fastq = map(fastq, ~magrittr::extract(., width(.) > 0)),
          eexp = map(fastq, ~ 10^(-1 * as(.@quality, "matrix")/10) %>%
@@ -55,7 +68,7 @@ reads <- datasets %>%
                          exp),
          length = map(fastq, width)) %>%
   select(-fastq) %>%
-  unnest %>%
+  unnest() %>%
   mutate(erate = eexp/length)
 ```
 
@@ -69,9 +82,9 @@ reverselog_trans <- function(base = exp(1)) {
 }
 
 ggplot(reads, aes(x = erate,
-                  # group = paste(Base.Calling, Dataset),
-                  color = Dataset,
-                  linetype = Base.Calling)) +
+                  # group = paste(base_calling, dataset),
+                  color = dataset,
+                  linetype = base_calling)) +
   geom_step(aes(y = 1- ..y..), stat = "ecdf") +
   scale_x_continuous(name = "Expected number of errors per base",
                      trans = reverselog_trans(10),
@@ -80,9 +93,9 @@ ggplot(reads, aes(x = erate,
   scale_y_continuous(name = "Fraction passing")
 
 ggplot(reads, aes(x = eexp,
-                  group = paste(Base.Calling, Dataset),
-                  color = Dataset,
-                  linetype = Base.Calling)) +
+                  group = paste(base_calling, dataset),
+                  color = dataset,
+                  linetype = base_calling)) +
   geom_step(aes(y = 1- ..y..), stat = "ecdf") +
   scale_x_continuous(name = "Expected number of errors",
                      trans = reverselog_trans(10),
@@ -91,9 +104,9 @@ ggplot(reads, aes(x = eexp,
   scale_y_continuous(name = "Fraction passing")
 
 ggplot(reads, aes(x = p.noerr,
-                  group = paste(Base.Calling, Dataset),
-                  color = Dataset,
-                  linetype = Base.Calling)) +
+                  group = paste(base_calling, dataset),
+                  color = dataset,
+                  linetype = base_calling)) +
   geom_step(aes(y = 1 - ..y..), stat = "ecdf") +
   scale_x_continuous(name = "Expectation of being error-free",
                      # trans = log_trans(10),
@@ -102,16 +115,16 @@ ggplot(reads, aes(x = p.noerr,
   scale_y_continuous(name = "Fraction passing")
 
 ggplot(reads, aes(x = length,
-                  group = paste(Base.Calling, Dataset),
-                  color = Dataset,
-                  linetype = Base.Calling)) +
+                  group = paste(base_calling, dataset),
+                  color = dataset,
+                  linetype = base_calling)) +
   geom_step(aes(y = 1- ..y..), stat = "ecdf") +
   scale_x_log10(name = "Length (bp)") +
   scale_y_continuous(name = "Fraction Greater than length")
   
 
 reads %>%
-  group_by(Base.Calling, Dataset) %>%
+  group_by(base_calling, dataset) %>%
   summarize(`Expected Error-Free` = sum(p.noerr),
             Total = n()) %>%
   knitr::kable()
@@ -125,9 +138,9 @@ dada2::plotQualityProfile(unique(filter(reads, Tech == "PacBio")$files))
 
 ```{r}
 counts <- read_csv(file.path(data.dir, "fastq.counts"), col_names = c("file", "reads"))
-counts %<>% mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
+counts %<>% mutate(dataset = map(file, str_extract, datasets$dataset) %>%
                      map_chr(purrr::compose(dplyr::first, sort, unique)),
-                   seq.run = map(file, str_extract, datasets$Seq.Run) %>%
+                   seq.run = map(file, str_extract, datasets$seq_run) %>%
                      map_chr(purrr::compose(dplyr::first, sort, unique)),
                    well = str_extract(file, "[A-H]\\d\\d?"),
                    shard = str_extract(file, "\\bx[a-z][a-z]\\b"),
@@ -167,11 +180,11 @@ demux.counts <- read_lines(file.path(data.dir, "demux.counts")) %>%
                          !is.na(d2) & d2 == "R" ~ n2,
                          TRUE ~ NA_integer_)) %>%
   select(-(d1:n2)) %>%
-  mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
+  mutate(dataset = map(file, str_extract, datasets$dataset) %>%
            map_chr(purrr::compose(dplyr::first, sort, unique)),
-         seq.run = map(file, str_extract, datasets$Seq.Run) %>%
+         seq.run = map(file, str_extract, datasets$seq_run) %>%
            map_chr(purrr::compose(dplyr::first, sort, unique)),
-         seq.plate = map(file, str_extract, paste0(datasets$Dataset, "-[0-9]{3}")) %>%
+         seq.plate = map(file, str_extract, paste0(datasets$dataset, "-[0-9]{3}")) %>%
            map_chr(purrr::compose(dplyr::first, sort, unique))) %>%
   group_by(dataset, seq.run, seq.plate,type) %>%
   summarize_at(c("reads", "fwd", "rev"), sum) %>%
@@ -199,8 +212,8 @@ demux.counts <- read_lines(file.path(data.dir, "demux.counts")) %>%
 
 dada.counts <-
   demux.counts %>%
-  left_join(select(datasets, dataset = Dataset, Seq.Run)) %>%
-  mutate(file = glue("{data.dir}/{dataset}_{Seq.Run}.dada.seqtable.rds"),
+  left_join(select(datasets, dataset = dataset, seq_run)) %>%
+  mutate(file = glue("{data.dir}/{dataset}_{seq_run}.dada.seqtable.rds"),
          file = ifelse(is.na(region),
                        file,
                        str_replace(file, "\\.dada", glue(".{region}.dada"))),
@@ -248,8 +261,8 @@ crosstab %>% arrange(pb.reads, ion.reads) %>%
 ```{r}
 demux.counts %>%
   select(dataset, region) %>%
-  left_join(select(datasets, dataset = Dataset, Seq.Run)) %>%
-  mutate(file = glue("{data.dir}/{dataset}_{Seq.Run}.dada.taxonomy.rds"),
+  left_join(select(datasets, dataset = dataset, seq_run)) %>%
+  mutate(file = glue("{data.dir}/{dataset}_{seq_run}.dada.taxonomy.rds"),
          file = ifelse(is.na(region),
                        file,
                        str_replace(file, "\\.dada", glue(".{region}.dada")))) %>%

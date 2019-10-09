@@ -13,7 +13,10 @@ setup_log("predada")
 #### pre-DADA2 ####
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
-predada_targets <- stringr::str_subset(od, "^derep2_")
+predada_targets <- c(
+  purrr::keep(od, startsWith, "derep2_"),
+  purrr::keep(od, startsWith, "err_")
+)
 if (length(predada_targets)) {
   flog.info("Making pre-dada targets (loop)...")
   tictoc::tic()

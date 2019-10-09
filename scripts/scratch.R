@@ -770,3 +770,337 @@ ggtree(groupOTU(longtree, split(treetax$seq, treetax$Kingdom))) + aes(color = gr
 theme(legend.position = NULL)
 p + aes(color = Kingdom) 
 
+reconstruct_ITS <- 
+  readd(dada_map_pb_500_001_ITS1) %>%
+  select(seq.id, ITS1 = dada.seq) %>%
+  inner_join(
+    readd(dada_map_pb_500_001_5_8S) %>%
+               select(seq.id, `5_8S` = dada.seq),
+             by = "seq.id") %>%
+  inner_join(
+    readd(dada_map_pb_500_001_ITS2) %>%
+               select(seq.id, ITS2 = dada.seq),
+             by = "seq.id") %>%
+  full_join(
+    readd(dada_map_pb_500_001_ITS) %>%
+      select(seq.id, ITS = dada.seq),
+    by = "seq.id") %>%
+  mutate(ITS = coalesce(ITS, paste0(ITS1, `5_8S`, ITS2))) %>%
+  select(seq.id, ITS)
+
+is_bimera_ITS <- reconstruct_ITS %>%
+  group_by(ITS) %>%
+  summarize(abundance = n()) %>%
+  ungroup() %>%
+  dplyr::rename(sequence = ITS) %>%
+  dada2::isBimeraDenovo()
+
+reconstruct_LSU <- 
+  readd(dada_map_pb_500_001_LSU1) %>%
+  select(seq.id, LSU1 = dada.seq) %>%
+  inner_join(
+    readd(dada_map_pb_500_001_D1) %>%
+      select(seq.id, D1 = dada.seq),
+    by = "seq.id") %>%
+  inner_join(
+    readd(dada_map_pb_500_001_LSU2) %>%
+      select(seq.id, LSU2 = dada.seq),
+    by = "seq.id") %>%
+  inner_join(
+    readd(dada_map_pb_500_001_D2) %>%
+      select(seq.id, D2 = dada.seq),
+    by = "seq.id") %>%
+  inner_join(
+    readd(dada_map_pb_500_001_LSU3) %>%
+      select(seq.id, LSU3 = dada.seq),
+    by = "seq.id") %>%
+  inner_join(
+    readd(dada_map_pb_500_001_D3) %>%
+      select(seq.id, D3 = dada.seq),
+    by = "seq.id") %>%
+  inner_join(
+    readd(dada_map_pb_500_001_LSU4) %>%
+      select(seq.id, LSU4 = dada.seq),
+    by = "seq.id") %>%
+  full_join(
+    readd(dada_map_pb_500_001_LSU) %>%
+      select(seq.id, LSU = dada.seq),
+    by = "seq.id") %>%
+  mutate(LSU = coalesce(LSU, paste0(LSU1, D1, LSU2, D2, LSU3, D3, LSU4))) %>%
+  select(seq.id, LSU)
+
+is_bimera_LSU <- reconstruct_LSU %>%
+  group_by(LSU) %>%
+  summarize(abundance = n()) %>%
+  ungroup() %>%
+  dplyr::rename(sequence = LSU) %>%
+  dada2::isBimeraDenovo()
+
+reconstruct_long <-
+  inner_join(
+    reconstruct_ITS %>%
+      filter(!ITS %in% names(is_bimera_ITS)[is_bimera_ITS]),
+    reconstruct_LSU %>%
+      filter(!LSU %in% names(is_bimera_LSU)[is_bimera_LSU]),
+    by = "seq.id"
+  ) %>%
+  full_join(
+    readd(dada_map_pb_500_001_long) %>%
+      select(seq.id, long = dada.seq),
+    by = "seq.id"
+  ) %>%
+  mutate(long = coalesce(long, paste0(ITS, LSU))) %>%
+  select(seq.id, long)
+
+is_bimera_long <- reconstruct_long %>%
+  group_by(long) %>%
+  summarize(abundance = n()) %>%
+  ungroup() %>%
+  dplyr::rename(sequence = long) %>%
+  dada2::isBimeraDenovo()
+
+dada2::getUniques(reconstruct_ITS$ITS)
+reconstruct_ITS %>%
+  group_by(ITS) %>%
+  summarize(abundance = n()) %>%
+  ungroup() %>%
+  dplyr::rename(sequence = ITS) %>%
+  dada2::isBimeraDenovo()
+
+reconstruct <- function(
+  seqtabs,
+  regions,
+  output = "concat",
+  order = setdiff(regions, output),
+  read_column = "seq.id",
+  asv_column = "dada.seq",
+  raw_column = NULL,
+  sample_column = NULL,
+  sample_regex = NULL,
+  sample_replace = NULL,
+  chimera_offset = 0,
+  ...)
+{
+  assertthat::assert_that(assertthat::is.string(read_column),
+                          assertthat::is.string(asv_column),
+                          is.null(raw_column) || is.na(raw_column) ||
+                            assertthat::is.string(raw_column),
+                          is.null(sample_column) || is.na(sample_column) ||
+                            assertthat::is.string(sample_column),
+                          is.null(sample_regex) || is.na(sample_regex) ||
+                            assertthat::is.string(sample_regex),
+                          is.null(sample_replace) || is.na(sample_replace) ||
+                            assertthat::is.string(sample_replace))
+  
+  if (is.null(raw_column) || is.na(raw_column)) raw_column <- NULL
+  if (is.null(sample_column) || is.na(sample_column)) sample_column <- NULL
+  if (is.null(sample_regex) || is.na(sample_regex)) sample_regex <- NULL
+  if (is.null(sample_replace) || is.na(sample_replace)) sample_replace <- NULL
+  seqtabs <- purrr::map2(
+    seqtabs,
+    regions,
+    function(st, reg) magrittr::set_names(
+      st[,c(sample_column, read_column, asv_column, raw_column)],
+      c(sample_column, read_column, reg, if (is.null(raw_column)) NULL else paste0(reg, "_raw"))))
+  seqtabs <- purrr::map(
+    unique(regions) %>% magrittr::set_names(., .),
+    function(r) {
+      dplyr::bind_rows(seqtabs[regions == r])
+    }
+  )
+  if (!is.null(sample_regex)) {
+    if (is.null(sample_column)) stop("If sample_regex is give, sample_column must also be given.")
+    if (is.null(sample_replace)) {
+      seqtabs <- purrr::map(
+        seqtabs,
+        dplyr::mutate_at,
+        sample_column,
+        stringr::str_extract,
+        sample_regex
+      )
+    } else {
+      seqtabs <- purrr::map(
+        seqtabs,
+        dplyr::mutate_at,
+        sample_column,
+        stringr::str_replace,
+        sample_regex,
+        sample_replace,
+      )
+      
+    }
+  }
+  out <- purrr::reduce(
+    seqtabs[order],
+    dplyr::full_join,
+    by = c(sample_column, read_column)
+  )
+  if (output %in% regions) {
+    out <-
+      dplyr::full_join(out, seqtabs[[output]], by = c(sample_column, read_column))
+  }
+  combos <- dplyr::group_by_at(out, regions) %>%
+    dplyr::summarize(nreads = dplyr::n()) %>%
+    dplyr::ungroup()
+  
+  for (i in seq(1, max(1, length(order) - 2), 2)) {
+    chimset <- order[i:min(length(order), i + 2)]
+    seqs <- do.call(stringr::str_c, out[,chimset])
+    chims <-
+      if (!is.null(sample_column)) {
+        tibble::tibble(sample = out[[sample_column]], seq = seqs) %>%
+          dplyr::filter(!is.na(seq)) %>% dplyr::group_by(sample, seq) %>%
+          dplyr::summarize(nread = dplyr::n()) %>%
+          dplyr::ungroup() %>%
+          tidyr::spread(seq, nread, fill = 0L) %>%
+          tibble::column_to_rownames("sample") %>%
+          as.matrix() %>%
+          dada2::isBimeraDenovoTable(...)
+      } else {
+        table(seqs) %>%
+        {tibble::tibble(abundance = ., sequence = names(.))} %>%
+          dada2::isBimeraDenovo(...)
+      }
+    chims <- names(chims)[chims]
+    futile.logger::flog.info(
+      "Removing %d/%d reads of %d/%d chimeric sequences from domains: %s.",
+      sum(seqs %in% chims),
+      length(seqs),
+      length(chims),
+      dplyr::n_distinct(seqs, na.rm = TRUE),
+      paste(chimset, collapse = ", ")
+    )
+    out <- out[!seqs %in% chims,]
+  }
+  if (output %in% regions) {
+    out[["_concat_"]] <- do.call(stringr::str_c, out[,order])
+    out[[output]] <- dplyr::coalesce(out[[output]], out[["_concat_"]])
+    out[["_concat_"]] <- NULL
+  } else {
+    out[[output]] <- do.call(stringr::str_c, out[,order])
+  }
+  out
+}
+
+
+debugonce(reconstruct)
+reconstruct_long <- reconstruct(
+  list(
+    readd(dada_map_pb_500_001_ITS1),
+    readd(dada_map_pb_500_001_5_8S),
+    readd(dada_map_pb_500_001_ITS2),
+    readd(dada_map_pb_500_001_LSU1),
+    readd(dada_map_pb_500_001_D1),
+    readd(dada_map_pb_500_001_LSU2),
+    readd(dada_map_pb_500_001_D2),
+    readd(dada_map_pb_500_001_LSU3),
+    readd(dada_map_pb_500_001_D3),
+    readd(dada_map_pb_500_001_LSU4),
+    readd(dada_map_pb_500_001_long)),
+  regions = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3",
+              "LSU4", "long"),
+  output = "long")
+
+reconstruct_ITS <- reconstruct(
+  list(
+    readd(dada_map_pb_500_001_ITS1),
+    readd(dada_map_pb_500_001_5_8S),
+    readd(dada_map_pb_500_001_ITS2),
+    readd(dada_map_pb_500_001_ITS)),
+  regions = c("ITS1", "5_8S", "ITS2", "ITS"),
+  output = "ITS")
+
+reconstruct_ITS <- reconstruct(
+  list(
+    readd(dada_map_pb_500_001_ITS1),
+    readd(dada_map_pb_500_001_5_8S),
+    readd(dada_map_pb_500_001_ITS2),
+    readd(dada_map_pb_500_001_ITS),
+    readd(dada_map_pb_500_002_ITS1),
+    readd(dada_map_pb_500_002_5_8S),
+    readd(dada_map_pb_500_002_ITS2),
+    readd(dada_map_pb_500_002_ITS)),
+  regions = c("ITS1", "5_8S", "ITS2", "ITS", "ITS1", "5_8S", "ITS2", "ITS"),
+  output = "ITS",
+  sample_column = "name",
+  sample_regex = "pb_500_00[12]-[A-H]1?[0-9]"
+)
+
+targets <- drake_cache()$list()
+dada_maps <- targets[startsWith(targets, "dada_map_pb_500")]
+dada_map_regions <- stringr::str_replace(dada_maps, "dada_map_pb_500_00[12]_", "")
+
+reconstruct_long <-
+  lapply(dada_maps, readd, character_only = TRUE) %>%
+  reconstruct(
+    regions = dada_map_regions,
+    output = "long",
+    order = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3",
+              "LSU4"),
+    sample_column = "name",
+    sample_regex = "pb_500_00[12]-[A-H]1?[0-9]"
+  )
+
+reconstruct_32S <-
+  dplyr::mutate(
+    reconstruct_long,
+    `32S` = stringr::str_c(`5_8S`, ITS2, LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
+    long = dplyr::coalesce(stringr::str_c(ITS1, `32S`), long)
+  ) %>%
+  dplyr::select(long, `32S`) %>%
+  dplyr::filter(complete.cases(.)) %>%
+  unique()
+
+reconstruct_32s_aln <- 
+  reconstruct_32S %$%
+  magrittr::set_names(`32S`, tzara::seqhash(long)) %>%
+  Biostrings::DNAStringSet() %>%
+  Biostrings::RNAStringSet() %T>%
+  Biostrings::writeXStringSet("temp/32S_recon.fasta") %>%
+  cmalign(cmfile = 'reference/fungi_32S_LR5.cm', seq = ., glocal = TRUE, cpu = 4)
+
+reconstruct_long_aln <-
+  reconstruct_long %>%
+  dplyr::select(long, ITS1) %>%
+  dplyr::filter(complete.cases(.)) %>%
+  unique() %>%
+  dplyr::mutate(hash = tzara::seqhash(long)) %>%
+  dplyr::inner_join(
+    tibble::tibble(
+      hash = reconstruct_32s_aln$names,
+      aln = as.character(reconstruct_32s_aln$alignment@unmasked)
+    ),
+    by = "hash"
+  ) %>%
+  dplyr::mutate(
+    ITS1 = chartr("T", "U", ITS1),
+    ITS1 = stringr::str_pad(ITS1, max(nchar(ITS1)), "right", "-"),
+    aln = stringr::str_c(ITS1, aln)
+  )
+
+long_recon_aln <- reconstruct_long_aln %$%
+  magrittr::set_names(aln, hash) %>%
+  Biostrings::RNAStringSet()
+
+write_clustalw_ss(
+  aln = long_recon_aln,
+  sec_str = paste0(
+    stringr::str_pad("xxxx", max(nchar(reconstruct_long_aln$ITS1)), "right", "-"),
+    reconstruct_32s_aln$SS_cons
+  ),
+  ref = stringr::str_pad(chartr("v", ".", reconstruct_32s_aln$RF),
+                         max(nchar(reconstruct_long_aln$aln)), "left", "-"),
+  seq_names = reconstruct_long_aln$hash,
+  file = "temp/long_recon.aln")
+
+
+long_recon <-
+  unique(reconstruct_long$long) %>%
+  set_names(tzara::seqhash(.)) %>%
+  purrr::discard(is.na) %>%
+  Biostrings::DNAStringSet() %>%
+  Biostrings::RNAStringSet()
+
+long_recon_aln <- DECIPHER::AlignSeqs(long_recon, iterations = 10, refinements = 10, processors = 4)
+
+Biostrings::writeXStringSet(long_recon_aln, "temp/long_recon_aln.fasta")
