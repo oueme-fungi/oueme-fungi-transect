@@ -561,8 +561,8 @@ plan <- drake_plan(
       dplyr::ungroup() %>%
       dplyr::filter(stringr::str_count(.[[region]], "[MRWSYKVHDBN]") < 3,
                     !is.na(.[[region]]),
-                    nchar(.[[region]]) >= 50),
-    transform = map(region = !!c("long", "ITS", "ITS1", "LSU", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4", "32S", "5_8S"), .id = region),
+                    nchar(.[[region]]) >= min_length),
+    transform = map(.data = !!filter(regions, region %in% c("long", "ITS", "ITS1", "LSU", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4", "32S", "5_8S")), .id = region),
     format = "fst"),
   
   # make a data frame of all consensus sequences and ASVs; each row is an ITS2 ASV,
