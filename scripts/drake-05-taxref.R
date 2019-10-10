@@ -17,7 +17,7 @@ setup_log("taxonomy-refs")
 #### pre-taxonomy ####
 # single-threaded targets after dada2, before taxonomy.
 if (any(targets %in% od)) {
-  flog.info("Making pre-taxonomy targets (loop)...")
+  flog.info("Making pre-taxonomy targets for %s (loop)...", target)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
