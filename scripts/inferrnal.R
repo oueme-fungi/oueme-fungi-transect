@@ -572,8 +572,3 @@ mlocarna_realign <- function(alignment,
   system2("mlocarna", args = args)
   file.path(target_dir, "results", "result.aln")
 }
-
-
-mlocarna_realign("data/pasta/test.aln", target_dir = "data/pasta/probtest",
-                 probabilistic = TRUE, extended_pf = TRUE, cpus = 3, verbose = TRUE)
-# 
