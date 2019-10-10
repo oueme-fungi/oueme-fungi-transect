@@ -547,7 +547,7 @@ plan <- drake_plan(
     format = "fst"
   ),
   
-  # reconstructed
+  # reconstructed ----
   # 
   reconstructed = target(
     tzara::reconstruct(seqtabs = list(dada_map),
@@ -594,6 +594,7 @@ plan <- drake_plan(
     transform = map(.data = !!filter(regions, region %in% c("long", "ITS", "ITS1", "LSU", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4", "32S", "5_8S")), .id = region),
     format = "fst"),
   
+  # allseqs ----
   # make a data frame of all consensus sequences and ASVs; each row is an ITS2 ASV,
   # or if 
   allseqs = target(
@@ -703,6 +704,7 @@ plan <- drake_plan(
     chartr(old = "T", new = "U") %>%
     Biostrings::RNAStringSet(),
   
+  # cmaln_32S
   # Align conserved positions and annotate conserved secondary structure of the
   # 32S consensus using Infernal.
   cmaln_32S =
@@ -711,6 +713,7 @@ plan <- drake_plan(
             glocal = TRUE,
             cpu = ignore(dada_cpus)),
   
+  # cmaln_long
   # Concatenate ITS1 (padded with gaps) to the beginning of the Infernal 32S
   # alignment to make a preliminary long amplicon alignment with conserved
   # 5.8S/LSU secondary structure annotations.
@@ -755,6 +758,7 @@ plan <- drake_plan(
       )
     },
   
+  # guidetree_32S ----
   # Take only the conserved, gap-free positions in the 32S alignment
   aln_32S_conserv =
     remove_nonconsensus_nongaps(aln_32S),
