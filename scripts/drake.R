@@ -42,7 +42,7 @@ if (interactive()) {
   taxonomy_meta_csv_file <- file.path(plan_dir, "taxonomy_meta.csv")
   tid_file <- file.path(plan_dir, "tids.txt")
   drakedata_file <- file.path(plan_dir, "drake.Rdata")
-  longtree_file <- file.path(pasta_dir, "pasta_raxml.tree")
+  #longtree_file <- file.path(pasta_dir, "pasta_raxml.tree")
   bigsplit <- 80L
 } else if (exists("snakemake")) {
   flog.info("Creating drake plan in snakemake session...")
@@ -90,7 +90,7 @@ if (interactive()) {
   pid_file <- snakemake@output[["pids"]]
   tid_file <- snakemake@output[["tids"]]
   drakedata_file <- snakemake@output[["drakedata"]]
-  longtree_file <- snakemake@output[["pasta"]][["tree"]]
+  #longtree_file <- snakemake@output[["pasta"]][["tree"]]
   logfile <- file(snakemake@log[[1]], open = "at")
   sink(logfile)
   sink(logfile, type = "message")
