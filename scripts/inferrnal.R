@@ -492,14 +492,88 @@ read_clustalw_ss <- function(clustal) {
 }
 
 remove_nonconsensus_nongaps <- function(aln, gapfrac = 1) {
-  tibble::as_tibble(unclass(rle(seqinr::s2c(aln$SS_cons) == "."))) %>%
-    dplyr::mutate(end = cumsum(lengths), start = end - lengths + 1) %>%
+  # rle gives a list with "value" and "length" for each run
+  # turn it into a tibble, and calculate the begin and end of each run
+  # TRUE = nonconsensus position, FALSE = consensus position
+  rle(seqinr::s2c(aln$SS_cons) == ".") %>%
+    unclass() %>%
+    tibble::as_tibble() %>%
+    dplyr::mutate(
+      end = cumsum(lengths),
+      start = end - lengths + 1
+    ) %>%
+    # take only the consensus values
     dplyr::filter(!values) %>%
-    purrr::pmap(function(start, end, ...)
-      substr(aln$alignment@unmasked, start, end)) %>%
+    purrr::pmap(
+      function(start, end, ...)
+        substr(aln$alignment@unmasked, start, end)
+    ) %>%
+    # paste them together
     do.call(paste0, .) %>%
     set_names(aln$names) %>%
     Biostrings::RNAMultipleAlignment() %>%
+    # mask all-gap columns
     Biostrings::maskGaps(gapfrac, 1) %>%
+    # converting to XStringSet removes masked columns
     methods::as("RNAStringSet")
 }
+
+mlocarna_realign <- function(alignment,
+                             target_dir,
+                             guide_tree = NULL,
+                             probabilistic = FALSE,
+                             extended_pf = FALSE,
+                             skip_pp = FALSE,
+                             cache_dir = NULL,
+                             verbose = FALSE,
+                             quiet = FALSE,
+                             cpus = 1L) {
+  assertthat::assert_that(
+    assertthat::is.string(alignment),
+    assertthat::is.readable(alignment),
+    assertthat::is.string(target_dir),
+    assertthat::is.flag(probabilistic),
+    assertthat::is.flag(extended_pf),
+    assertthat::is.flag(skip_pp),
+    assertthat::is.flag(verbose),
+    assertthat::is.flag(quiet),
+    !(verbose && quiet),
+    assertthat::is.count(cpus)
+  )
+  args <- c("--realign", alignment, "--tgtdir", target_dir)
+  
+  if (!is.null(guide_tree)) {
+    assertthat::assert_that(
+      assertthat::is.string(guide_tree),
+      assertthat::is.readable(guide_tree)
+    )
+    args <- c(args, "--treefile", guide_tree)
+  }
+  
+  if (isTRUE(probabilistic)) args <- c(args, "--probabilistic")
+  if (isTRUE(extended_pf)) {
+    if (!isTRUE(probabilistic)) stop("'extended_pf' requires 'probabilistic'.")
+    args <- c(args, "--extended-pf")
+  }
+  
+  if (isTRUE(skip_pp)) args <- c(args, "--skip-pp")
+  if (isTRUE(verbose)) args <- c(args, "--verbose")
+  if (isTRUE(quiet)) args <- c(args, "--quiet")
+  
+  if (!missing(cache_dir)) {
+    assertthat::assert_that(
+      assertthat::is.string(cache_dir)
+    )
+    args <- c(args, "--dp-cache", cache_dir)
+  }
+  
+  if (!missing(cpus)) args <- c(args, "--cpus", cpus)
+  cat("mlocarna", args, sep = " ")
+  system2("mlocarna", args = args)
+  file.path(target_dir, "results", "result.aln")
+}
+
+
+mlocarna_realign("data/pasta/test.aln", target_dir = "data/pasta/probtest",
+                 probabilistic = TRUE, extended_pf = TRUE, cpus = 3, verbose = TRUE)
+# 
