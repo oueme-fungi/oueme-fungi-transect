@@ -24,6 +24,7 @@ config['trimdir']    = "{seqdir}/trim".format_map(config)
 config['regiondir']  = "{seqdir}/regions".format_map(config)
 config['filterdir']  = "{seqdir}/filter".format_map(config)
 config['clusterdir'] = "{datadir}/clusters".format_map(config)
+config['locarnadir'] = "{datadir}/mlocarna".format_map(config)
 config['pastadir']   = "{datadir}/pasta".format_map(config)
 config['plandir']    = "{datadir}/plan".format_map(config)
 config['tagdir']     = "{labdir}/tags".format_map(config)
@@ -698,8 +699,8 @@ consensus_table = regions_table.loc[regions_table.seq_run == "pb_500"]
 rule consensus:
     output:
         flag    = touch(".consensus"),
-        aln_LSU = "{pastadir}/LSU_ASVs.fasta".format_map(config),
-        aln_32S = "{pastadir}/32S_ASVs.fasta".format_map(config)
+        cmaln_long = "{locarnadir}/long_cmalign.aln".format_map(config),
+        guide_tree = "{locarnadir}/32S_guide.tree".format_map(config)
     input:
         expand(".nochim_{seq_run}_{region}",
               zip,

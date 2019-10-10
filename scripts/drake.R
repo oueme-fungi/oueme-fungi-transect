@@ -14,6 +14,7 @@ if (interactive()) {
   filter_dir <- file.path(seq_dir, "filter")
   cluster_dir <- file.path(data_dir, "clusters")
   pasta_dir <- file.path(data_dir, "pasta")
+  locarna_dir <- file.path(data_dir, "mlocarna")
   plan_dir <- file.path(data_dir, "plan")
   ref_dir <- here("reference")
   rmd_dir <- here("writing")
@@ -67,6 +68,7 @@ if (interactive()) {
   out_dir <- snakemake@config$outdir
   cluster_dir <- snakemake@config$clusterdir
   pasta_dir <- snakemake@config$pastadir
+  locarna_dir <- snakemake@config$locarnadir
   plan_dir <- snakemake@config$plandir
   plan_file <- snakemake@output$plan
   itsx_meta_file <- snakemake@output$itsx_meta
@@ -539,6 +541,15 @@ plan <- drake_plan(
   # Replace raw reads which were mapped to a DADA2 ASV with the ASV,
   # and put them all in one tibble.  We'll only do this for pacbio long reads.
   combined = target(
+    combine_bigmaps(dplyr::bind_rows(dada_map),
+                    dplyr::bind_rows(raw)),
+    transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
+    format = "fst"
+  ),
+  
+  # reconstructed
+  # 
+  reconstructed = target(
     tzara::reconstruct(seqtabs = list(dada_map),
                        rawtabs = list(raw),
                        regions = !!symbols_to_values(region),
@@ -550,7 +561,12 @@ plan <- drake_plan(
                        raw_column = "seq",
                        sample_column = "name",
                        sample_regex = paste0("(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d"),
-                       ncpus = ignore(dada_cores)),
+                       ncpus = ignore(dada_cores)) %>%
+      dplyr::mutate(`32S` = stringr::str_c(`5_8S`, ITS2, LSU1, D1, LSU2, D2, LSU3,
+                                           D3, LSU4),
+                    ITS = stringr::str_c(ITS1, `5_8S`, ITS2),
+                    LSU = stringr::str_c(LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
+                    hash = tzara::seqhash(long)),
     transform = combine(dada_map, raw, region, .by = seq_run, .tag_in = step),
     format = "fst"
   ),
@@ -612,7 +628,7 @@ plan <- drake_plan(
   # taxon ----
   # Assign taxonomy to each ASV
   taxon = target(
-    dplyr::select(allseqs, region, "hash") %>%
+    dplyr::select(reconstructed, region, "hash") %>%
       dplyr::filter(complete.cases(.)) %>%
       {set_names(.[[region]], .$hash)} %>%
       taxonomy(reference = refdb,
@@ -668,32 +684,109 @@ plan <- drake_plan(
   # long_consensus----
   # get the long amplicon consensus and convert to RNAStringSet.
   # Use the sequence hashes as the name, so that names will be robust in PASTA
-  consensus_32S = allseqs %>%
-    dplyr::select("32S", hash) %>%
+  reconst_32S = reconstructed %>%
+    dplyr::select("32S", ITS1, hash) %>%
     dplyr::filter(complete.cases(.)) %$%
     rlang::set_names(`32S`, hash) %>%
     chartr(old = "T", new = "U") %>% 
     Biostrings::RNAStringSet(),
-  consensus_LSU = allseqs %>%
-    dplyr::select(LSU, hash) %>%
+  reconst_LSU = reconstructed %>%
+    dplyr::select(LSU, ITS, hash) %>%
     dplyr::filter(complete.cases(.)) %$%
     rlang::set_names(LSU, hash) %>%
     chartr(old = "T", new = "U") %>%
     Biostrings::RNAStringSet(),
+  reconst_long = reconstructed %>%
+    dplyr::select(long, ITS, hash) %>%
+    dplyr::filter(complete.cases(.)) %$%
+    rlang::set_names(long, hash) %>%
+    chartr(old = "T", new = "U") %>%
+    Biostrings::RNAStringSet(),
   
-  # lsualn----
-  # Align the LSU consensus.
-  # DECIPHER has a fast progressive alignment algorithm that calculates RNA
-  # secondary structure
-  aln_32S =
+  # Align conserved positions and annotate conserved secondary structure of the
+  # 32S consensus using Infernal.
+  cmaln_32S =
     cmalign(cmfile = file_in(!!cm_32S),
-            seq = consensus_32S,
+            seq = reconst_32S,
             glocal = TRUE,
             cpu = ignore(dada_cpus)),
+  
+  # Concatenate ITS1 (padded with gaps) to the beginning of the Infernal 32S
+  # alignment to make a preliminary long amplicon alignment with conserved
+  # 5.8S/LSU secondary structure annotations.
+  cmaln_long =
+    dplyr::inner_join(
+      reconstructed %>%
+        dplyr::select(hash, ITS1) %>%
+        dplyr::filter(complete.cases(.)) %>%
+        unique(),
+      tibble::tibble(
+        hash = cmaln_32S$names,
+        aln = as.character(cmaln_32S$alignment@unmasked)
+      ),
+      by = "hash"
+    ) %>%
+    dplyr::mutate(
+      ITS1 = chartr("T", "U", ITS1),
+      ITS1 = stringr::str_pad(ITS1, max(nchar(ITS1)), "right", "-"),
+      aln = stringr::str_c(ITS1, aln)
+    ) %>% {
+      write_clustalw_ss(
+        aln = magrittr::set_names(.$aln, .$hash) %>%
+          Biostrings::RNAStringSet(),
+        sec_str = paste0(
+          # The first four bases after the ITS1 primer are paired to other
+          # parts of SSU, so should not be paired in the rest of the amplicon.
+          # Otherwise, we have no structure information for the ITS1 region (it
+          # does not have eukaryote-wide or fungi-wide conserved structure)
+          stringr::str_pad(
+            "xxxx",
+            max(nchar(reconstruct_long_aln$ITS1)),
+            "right",
+            "-"),
+          cmaln_32S$SS_cons
+        ),
+        # Don't take the alignment in the variable regions as
+        # conserved.
+        ref = stringr::str_pad(chartr("v", ".", cmaln_32S$RF),
+                               max(nchar(.$aln)), "left", "-"),
+        seq_names = .$hash,
+        file = file_out(cmaln_file_long)
+      )
+    },
+  
+  # Take only the conserved, gap-free positions in the 32S alignment
+  aln_32S_conserv =
+    remove_nonconsensus_nongaps(aln_32S),
+  
+  # Generate a distance matrix from the conserved 32S alignment.
+  dist_32S_conserv =
+    DECIPHER::DistanceMatrix(
+      type = "dist",
+      processors = ignore(dada_cpus)
+    ),
+  
+  # Make a UPGMA guide tree for mlocarna based on the aligned positions in
+  # the Infernal alignment for 32S.
+  guidetree_32S =
+    DECIPHER::IdClusters(
+      myDistMatrix = dist_32S_conserv,
+      collapse = -1, #break polytomies
+      type = "dendrogram",
+      processors = ignore(dada_cpus)
+    ) %T>%
+    DECIPHER::WriteDendrogram(
+      file = file_out(guide_tree_file)
+    ),
+  
+  # DECIPHER has a fast progressive alignment algorithm that calculates RNA
+  # secondary structure
   aln_LSU =
     DECIPHER::AlignSeqs(consensus_LSU,
                         iterations = 10, refinements = 10,
                         processors = ignore(dada_cpus)),
+  
+  
   
   # write_lsualn----
   # write the aligned consensus for PASTA.

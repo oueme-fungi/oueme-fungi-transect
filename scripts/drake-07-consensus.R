@@ -1,12 +1,12 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
-  aln_file_LSU <- snakemake@output$aln_LSU
-  aln_file_32S <- snakemake@output$aln_32S
+  aln_file_long <- snakemake@output$cmaln_long
+  guide_tree_file <- snakemake@output$guide_tree
 } else {
   load("drake.Rdata")
-  aln_file_LSU <- file.path(pasta.dir, "lsu_ASVs.fasta")
-  aln_file_32S <- file.path(pasta.dir, "32S_ASVs.aln")
+  cmaln_file_long <- file.path(locarna_dir, "long_cmalign.aln")
+  guide_tree_file <- file.path(locarna_dir, "32S_guide.tree")
 
 }
 
@@ -18,7 +18,7 @@ setup_log("consensus")
 #### Taxonomy targets from DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-targets <- c("allseqs", "write_aln_LSU", "write_aln_32S")
+targets <- c("cmaln_long", "guidetree_32S")
 
 dada_cpus <- local_cpus()
 
@@ -48,16 +48,16 @@ if (any(targets %in% od) || !all(file.exists(aln_file_LSU, aln_file_32S))) {
   if (any(od %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-  if (!file.exists(aln_file_LSU)) {
-    flog.info("Creating %s.", aln_file_LSU)
+  if (!file.exists(cmaln_file_long)) {
+    flog.info("Creating %s.", cmaln_file_long)
     tictoc::tic()
-    drake_build(write_aln_LSU, dconfig)
+    drake_build(cmaln_long, dconfig)
     tictoc::toc()
   }
-  if (!file.exists(aln_file_32S)) {
-    flog.info("Creating	%s.", aln_file_32S)
+  if (!file.exists(guide_tree_file)) {
+    flog.info("Creating	%s.", guide_tree_file)
     tictoc::tic()
-    drake_build(write_aln_32S, dconfig)
+    drake_build(guidetree_32S, dconfig)
     tictoc::toc()
   }
 
@@ -66,5 +66,5 @@ if (any(targets %in% od) || !all(file.exists(aln_file_LSU, aln_file_32S))) {
   flog.info("Long ASV consensus sequences are up-to-date.")
 }
 
-Sys.setFileTime(aln_file_LSU, Sys.time())
-Sys.setFileTime(aln_file_32S, Sys.time())
+Sys.setFileTime(cmaln_file_long, Sys.time())
+Sys.setFileTime(guide_tree_file, Sys.time())
