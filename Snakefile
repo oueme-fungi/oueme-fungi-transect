@@ -603,7 +603,7 @@ rule preDADA:
         ITSx      = rules.ITSx.output.flag,
         script    = "{rdir}/drake-03-preDADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: 4
+    threads: maxthreads
     resources:
         walltime=120
     log: "{logdir}/preDADA.log".format_map(config)
@@ -611,16 +611,16 @@ rule preDADA:
 
 # Dereplicate, denoise, and remove chimeras for each region/plate combination
 rule DADA:
-    output: touch(".nochim_{RID}")
+    output: touch(".DADA")
     input:
         drakedata = rules.drake_plan.output.drakedata,
         preDADA   = ".preDADA",
         script    = "{rdir}/drake-04-DADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: 8
+    threads: maxthreads
     resources:
         walltime = 120
-    log: "{logdir}/DADA_{{RID}}.log".format_map(config)
+    log: "{logdir}/DADA.log".format_map(config)
     script: "{rdir}/drake-04-DADA.R".format_map(config)
 
 
@@ -636,17 +636,17 @@ def region_inputs(wildcards):
 localrules: region_table
 rule region_table:
     output:
-        touch(".big_fasta_{region}")#,
+        touch(".preconsensus")#,
         #bigfasta = "{datadir}/clusters/{{region}}.fasta.gz".format_map(config)
     input:
         drakedata = rules.drake_plan.output.drakedata,
-        dada      = region_inputs,
+        dada      = ".DADA",
         script = "{rdir}/drake-06-preconsensus.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: 1
+    threads: maxthreads
     resources:
         walltime = 60
-    log: "{logdir}/pretaxonomy_{{region}}.log".format_map(config)
+    log: "{logdir}/preconsensus.log".format_map(config)
     script: "{rdir}/drake-06-preconsensus.R".format_map(config)
 
 localrules: cluster
@@ -702,12 +702,8 @@ rule consensus:
         cmaln_long = "{locarnadir}/long_cmalign.aln".format_map(config),
         guide_tree = "{locarnadir}/32S_guide.tree".format_map(config)
     input:
-        expand(".nochim_{seq_run}_{region}",
-              zip,
-              seq_run = consensus_table.seq_run,
-              region = consensus_table.regions),
-        expand(".big_fasta_{region}",
-              region = consensus_table.regions.unique()),
+        ".DADA",
+        ".preconsensus",
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-07-consensus.R".format_map(config)
     conda: "config/conda/drake.yaml"
@@ -733,39 +729,36 @@ rule consensus:
 #    return taxonomy_meta.loc[tax_ID, 'reference_file']
 
 # build the drake targets to prepare for taxonomy
-rule tax_ref:
-    output: touch(".taxref_{reference}_{refregion}")
-    wildcard_constraints:
-        refregion = "[a-zA-Z0-9]+"
-    input:
-        drakedata = rules.drake_plan.output.drakedata,
-        dada2 = "{ref_root}/{{reference}}.{{refregion}}.dada2.fasta.gz".format_map(config),
-        sintax = "{ref_root}/{{reference}}.{{refregion}}.sintax.fasta.gz".format_map(config),
-        script = "{rdir}/drake-08-references.R".format_map(config)
-    conda: "config/conda/drake.yaml"
-    threads: 8
-    resources:
-        walltime = 240
-    log: "{logdir}/taxref_{{reference}}_{{refregion}}.log".format_map(config)
-    script: "{rdir}/drake-08-references.R".format_map(config)
+#rule tax_ref:
+#    output: touch(".taxref_{reference}_{refregion}")
+#    wildcard_constraints:
+#        refregion = "[a-zA-Z0-9]+"
+#    input:
+#        drakedata = rules.drake_plan.output.drakedata,
+#        dada2 = "{ref_root}/{{reference}}.{{refregion}}.dada2.fasta.gz".format_map(config),
+#        sintax = "{ref_root}/{{reference}}.{{refregion}}.sintax.fasta.gz".format_map(config),
+#        script = "{rdir}/drake-08-references.R".format_map(config)
+#    conda: "config/conda/drake.yaml"
+#    threads: 8
+#    resources:
+#        walltime = 240
+#    log: "{logdir}/taxref_{{reference}}_{{refregion}}.log".format_map(config)
+#    script: "{rdir}/drake-08-references.R".format_map(config)
 
 
 # call taxonomy and assign guilds
 rule taxonomy:
-    output: touch(".taxon_{region}_{reference}_{refregion}")
-    wildcard_constraints:
-        region = "([0-9]+_)?[a-zA-Z0-9]+",
-        refregion = "[a-zA-Z0-9]+"
+    output: touch(".taxonomy")
     input:
         ".consensus",
-        ".taxref_{reference}_{refregion}",
+        rules.translate_references.output,
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-09-taxonomy.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: 8
+    threads: maxthreads
     resources:
         walltime = 240
-    log: "{logdir}/taxonomy_{{region}}_{{reference}}_{{refregion}}.log".format_map(config)
+    log: "{logdir}/taxonomy.log".format_map(config)
     script: "{rdir}/drake-09-taxonomy.R".format_map(config)
 
 # calculate all the taxonomy outputs which should be calculated
@@ -853,7 +846,7 @@ rule finish:
     input:
 #        pasta     = rules.pasta.output.tree,
         drakedata = rules.drake_plan.output.drakedata,
-        taxonomy  = taxon_outputs
+        taxonomy  = ".taxonomy"
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:

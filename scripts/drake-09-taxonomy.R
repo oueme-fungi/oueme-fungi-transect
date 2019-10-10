@@ -5,43 +5,50 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-target <- get_target(default = "taxon_ITS2_unite_ITS2")
-target <- plan$target[startsWith(plan$target, target)]
+targets <- purrr::keep(plan$target, startsWith, "taxon_")
+targets <- subset_outdated(targets, dconfig)
 
 library(magrittr)
 library(backports)
 library(futile.logger)
 setup_log("taxonomy")
+library(clustermq)
+options(clustermq.scheduler = "multicore")
 
 #### Taxonomy targets from DADA2 pipeline ####
 # All of the taxonomy assignment algorithms are internally parallel,
 # so these need to be sent to nodes with multiple cores (and incidentally a lot
 # of memory)
 
-dada_cpus <- local_cpus()
-if (any(target %in% od)) {
-  flog.info("Preparing drake configuration for %s with %d cores...", target, dada_cpus)
+if (length(targets) > 0) {
+  jobs <- min(max(local_cpus() %/% 8, 1), length(targets))
+  dada_cpus <- max(local_cpus() %/% jobs, 1)
+  parallelism <- if(jobs > 1) "clustermq" else "loop"
+
+  flog.info("Building %d taxonomy targets with %d jobs of %d cores...", length(targets), jobs, dada_cpus)
   tictoc::tic()
-  dconfig <- drake::drake_config(plan,
-       parallelism = "loop",
-       jobs_preprocess = dada_cpus,
-       retries = 1,
-       elapsed = 3600*6, #6 hours
-       keep_going = FALSE,
-       caching = "worker",
-       cache_log_file = TRUE,
-       targets = target
+  drake::make(
+    plan,
+    parallelism = parallelism,
+    jobs_preprocess = local_cpus(),
+    jobs = jobs,
+    retries = 1,
+    elapsed = 3600*6, #6 hours
+    keep_going = FALSE,
+    caching = "worker",
+    cache_log_file = TRUE,
+    targets = targets
   )
   tictoc::toc()
-  flog.info("Determining outdated targets...")
-  tictoc::tic()
-  dod <- exp_try(drake::outdated(dconfig), 30, 300)
-  tictoc::toc()
-  flog.info("Making targets...")
-  tictoc::tic()
-  drake::make(config = dconfig)
-  tictoc::toc()
-  if (any(dod %in% drake::failed())) {
+#  flog.info("Determining outdated targets...")
+#  tictoc::tic()
+#  dod <- exp_try(drake::outdated(dconfig), 30, 300)
+#  tictoc::toc()
+#  flog.info("Making targets...")
+#  tictoc::tic()
+#  drake::make(config = dconfig)
+#  tictoc::toc()
+  if (any(targets %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
 } else flog.info("Target is up-to-date.", target)

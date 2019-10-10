@@ -7,23 +7,26 @@ if (exists("snakemake")) {
   outputs <- "data/clusters/ITS2.fasta.gz"
 }
 
-target <- get_target(default = "big_fasta_ITS2")
-outputs <- setdiff(outputs, paste0(".", target))
+targets <- purrr::keep(plan$target, startsWith, "big_fasta")
+targets <- subset_outdated(targets, dconfig)
+outputs <- setdiff(outputs, ".pretaxonomy")
 
 library(magrittr)
 library(backports)
 library(futile.logger)
 setup_log("pretaxonomy")
+library(clustermq)
+options(clustermq.scheduler = "multicore")
 
 #### pre-taxonomy ####
 # single-threaded targets after dada2, before taxonomy.
-if (target %in% od #|| !all(file.exists(outputs))
-    ) {
-  flog.info("Making pre-taxonomy targets (loop)...")
+if (length(targets) > 0) {
+  flog.info("Making pre-taxonomy targets with %d jobs of one core each...")
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
-       parallelism = "loop",
+       parallelism = "clustermq",
        jobs_preprocess = local_cpus(),
+       jobs = local_cpus(),
        retries = 2,
        elapsed = 3600, #1 hour
        keep_going = FALSE,
@@ -38,3 +41,5 @@ if (target %in% od #|| !all(file.exists(outputs))
     if (interactive()) stop() else quit(status = 1)
   }
 } else flog.info("Pre-taxonomy targets are up-to-date.")
+
+for (f in outputs) Sys.setFileTime(f, Sys.time())

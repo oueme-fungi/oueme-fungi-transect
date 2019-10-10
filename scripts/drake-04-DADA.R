@@ -5,28 +5,34 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-target <- get_target(default = "nochim_pb_500_002_ITS2")
+targets <- purrr::keep(od, startsWith, "nochim")
+targets <- subset_outdated(targets, dconfig)
 library(magrittr)
 library(backports)
 library(futile.logger)
+library(clustermq)
+options(clustermq.scheduler = "multicore")
 setup_log("dada")
 
 #### DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-dada_cpus <- local_cpus()
-if (target %in% od) {
-  flog.info("Making %s with %d cores...", target, dada_cpus)
+jobs <- max(local_cpus() %/% 8, targets)
+dada_cpus <- local_cpus() %/% jobs
+
+if (length(targets) > 0) {
+  flog.info("Making %d dada targets with %d jobs of %d cores...", length(targets), jobs, dada_cpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
-       parallelism = "loop",
-       jobs_preprocess = dada_cpus,
+       parallelism = "clustermq",
+       jobs_preprocess = local_cpus(),
+       jobs = jobs,
        retries = 1,
        elapsed = 3600*6, #6 hours
        keep_going = FALSE,
        caching = "worker",
        cache_log_file = TRUE,
-       targets = target
+       targets = targets
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
@@ -34,4 +40,4 @@ if (target %in% od) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else flog.info("Target %s is up-to-date.", target)
+} else flog.info("DADA targets are up-to-date.")
