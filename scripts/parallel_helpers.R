@@ -101,7 +101,10 @@ exp_try <- function(x, t, max) {
 
 is_outdated <- function(task, dconfig) {
   assertthat::assert_that(assertthat::is.string(task))
-  any(drake::deps_profile(task, dconfig, character_only = TRUE)$changed)
+  tryCatch(
+    any(drake::deps_profile(task, dconfig, character_only = TRUE)$changed),
+    error = function(e) TRUE
+  )
 }
 
 which_outdated <- function(tasks, dconfig) {
