@@ -782,47 +782,47 @@ rule all_taxonomy:
 
 
 # Build a progressive tree using PASTA, with the LSU tree as guide
-rule pasta:
-    output:
-        tree = "{pastadir}/pasta_raxml.tree".format_map(config)
-    input:
-        consensus = ancient(rules.consensus.output.flag),
-        aln_LSU   = ancient(rules.consensus.output.aln_LSU)
-    log: "{logdir}/pasta.log".format_map(config)
-    threads: 16
-    resources:
-        walltime=60
-    conda: "config/conda/pasta.yaml"
-    shell:
-        """
-        mkdir -p {config[pastadir]} &&
-        cd {config[pastadir]} &&
-        [ -e .dopasta ] &&
-        rm -f *postraxtree_tree.tre &&
-        PASTA_TOOLS_DEVDIR=$CONDA_PREFIX/bin/ \
-        run_pasta.py \
-        -j ITS_LSU \
-        --input {input.aln_LSU} \
-        --aligned \
-        --datatype rna \
-        --raxml-search-after \
-        --num-cpus={threads} &&
-        mv {config[pastadir]}/*postraxtree_tree.tre {output.tree} &&
-        rm -f {config[pastadir]}/.dopasta &> {log} ||
-        ( echo "alignment unchanged, skipping PASTA and using old tree.";
-          touch {output.tree} )
-        """
+#rule pasta:
+#    output:
+#        tree = "{pastadir}/pasta_raxml.tree".format_map(config)
+#    input:
+#        consensus = ancient(rules.consensus.output.flag),
+#        aln_LSU   = ancient(rules.consensus.output.aln_LSU)
+#    log: "{logdir}/pasta.log".format_map(config)
+#    threads: 16
+#    resources:
+#        walltime=60
+#    conda: "config/conda/pasta.yaml"
+#    shell:
+#        """
+#        mkdir -p {config[pastadir]} &&
+#        cd {config[pastadir]} &&
+#        [ -e .dopasta ] &&
+#        rm -f *postraxtree_tree.tre &&
+#        PASTA_TOOLS_DEVDIR=$CONDA_PREFIX/bin/ \
+#        run_pasta.py \
+#        -j ITS_LSU \
+#        --input {input.aln_LSU} \
+#        --aligned \
+#        --datatype rna \
+#        --raxml-search-after \
+#        --num-cpus={threads} &&
+#        mv {config[pastadir]}/*postraxtree_tree.tre {output.tree} &&
+#        rm -f {config[pastadir]}/.dopasta &> {log} ||
+#        ( echo "alignment unchanged, skipping PASTA and using old tree.";
+#          touch {output.tree} )
+#        """
 
-rule raxml:
-    output:
-        tree = "{datadir}/long_ASVs.tree".format_map(config)
-    input:
-        consensus = ancient(rules.consensus.output.flag),
-        aln_LSU   = ancient(rules.consensus.output.aln_LSU)
-    log: "{logdir}/raxml.log".format_map(config)
-    threads: 16
-    resources:
-        walltime=60*36
+#rule raxml:
+#    output:
+#        tree = "{datadir}/long_ASVs.tree".format_map(config)
+#    input:
+#        consensus = ancient(rules.consensus.output.flag),
+#        aln_LSU   = ancient(rules.consensus.output.aln_LSU)
+#    log: "{logdir}/raxml.log".format_map(config)
+#    threads: 16
+#    resources:
+#        walltime=60*36
 
 # delimit species based on the ITS+LSU tree using a Poisson Tree Process model
 localrules: ptp
@@ -851,7 +851,7 @@ localrules: finish
 rule finish:
     output: touch(".drake_finish")
     input:
-        pasta     = rules.pasta.output.tree,
+#        pasta     = rules.pasta.output.tree,
         drakedata = rules.drake_plan.output.drakedata,
         taxonomy  = taxon_outputs
     conda: "config/conda/drake.yaml"

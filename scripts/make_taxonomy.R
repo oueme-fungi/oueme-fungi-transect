@@ -51,6 +51,7 @@ regions = readr::read_csv(regions_file, col_types = "cccciiiiic") %>%
   
 
 db_out <- dplyr::select(regions, reference) %>%
+  dplyr::filter(complete.cases(.)) %>%
   unique() %>%
   tidyr::separate(col = reference, into = c("db", "region"), sep = "\\.") %>%
   tidyr::crossing(method = c("dada2", "sintax")) %>%
