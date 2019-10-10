@@ -623,13 +623,13 @@ rule DADA:
     script: "{rdir}/drake-04-DADA.R".format_map(config)
 
 
-regions_table = datasets2.assign(regions=datasets2.regions.str.split(',')).explode('regions')
+regions_table = datasets.assign(regions=datasets.regions.str.split(',')).explode('regions')
 
 # Function to calculate which DADA results represent each region.
 def region_inputs(wildcards):
     checkpoints.drake_plan.get()
     region_meta = regions_table.loc[regions_table.regions == wildcards.region]
-    return expand('.nochim_{plate}_{region}', zip, plate = region_meta.seqplate, region = region_meta.regions)
+    return expand('.nochim_{seq_run}_{region}', zip, seq_run = region_meta.seq_run, region = region_meta.regions)
 
 # combine the dada results for each region
 localrules: region_table
@@ -701,9 +701,9 @@ rule consensus:
         aln_LSU = "{pastadir}/LSU_ASVs.fasta".format_map(config),
         aln_32S = "{pastadir}/32S_ASVs.fasta".format_map(config)
     input:
-        expand(".nochim_{plate}_{region}",
+        expand(".nochim_{seq_run}_{region}",
               zip,
-              plate = consensus_table.seqplate,
+              seq_run = consensus_table.seq_run,
               region = consensus_table.regions),
         expand(".big_fasta_{region}",
               region = consensus_table.regions.unique()),

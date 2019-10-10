@@ -13,6 +13,7 @@ setup_log("predada")
 #### pre-DADA2 ####
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
+dada_cpus <- local_cpus()
 predada_targets <- c(
   purrr::keep(od, startsWith, "derep2_"),
   purrr::keep(od, startsWith, "err_")
