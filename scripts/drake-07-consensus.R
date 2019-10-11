@@ -23,7 +23,7 @@ targets <- c("cmaln_long", "guidetree_32S")
 dada_cpus <- local_cpus()
 
 if (any(targets %in% od) || !all(file.exists(aln_file_LSU, aln_file_32S))) {
-  flog.info("Configuring drake  %s with %d core(s)...", targets, dada_cpus)
+  flog.info("Configuring drake %s with %d core(s)...", targets, dada_cpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",

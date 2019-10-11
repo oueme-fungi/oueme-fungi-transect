@@ -561,7 +561,7 @@ plan <- drake_plan(
                        raw_column = "seq",
                        sample_column = "name",
                        sample_regex = paste0("(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d"),
-                       ncpus = ignore(dada_cores)) %>%
+                       ncpus = ignore(dada_cpus)) %>%
       dplyr::mutate(`32S` = stringr::str_c(`5_8S`, ITS2, LSU1, D1, LSU2, D2, LSU3,
                                            D3, LSU4),
                     ITS = stringr::str_c(ITS1, `5_8S`, ITS2),
@@ -761,11 +761,12 @@ plan <- drake_plan(
   # guidetree_32S ----
   # Take only the conserved, gap-free positions in the 32S alignment
   aln_32S_conserv =
-    remove_nonconsensus_nongaps(aln_32S),
+    remove_nonconsensus_nongaps(cmaln_32S),
   
   # Generate a distance matrix from the conserved 32S alignment.
   dist_32S_conserv =
     DECIPHER::DistanceMatrix(
+      aln_32S_conserv,
       type = "dist",
       processors = ignore(dada_cpus)
     ),
