@@ -685,19 +685,19 @@ plan <- drake_plan(
   # long_consensus----
   # get the long amplicon consensus and convert to RNAStringSet.
   # Use the sequence hashes as the name, so that names will be robust in PASTA
-  reconst_32S = reconstructed %>%
+  reconst_32S = reconstructed_pb_500 %>%
     dplyr::select("32S", ITS1, hash) %>%
     dplyr::filter(complete.cases(.)) %$%
     rlang::set_names(`32S`, hash) %>%
     chartr(old = "T", new = "U") %>% 
     Biostrings::RNAStringSet(),
-  reconst_LSU = reconstructed %>%
+  reconst_LSU = reconstructed_pb_500 %>%
     dplyr::select(LSU, ITS, hash) %>%
     dplyr::filter(complete.cases(.)) %$%
     rlang::set_names(LSU, hash) %>%
     chartr(old = "T", new = "U") %>%
     Biostrings::RNAStringSet(),
-  reconst_long = reconstructed %>%
+  reconst_long = reconstructed_pb_500 %>%
     dplyr::select(long, ITS, hash) %>%
     dplyr::filter(complete.cases(.)) %$%
     rlang::set_names(long, hash) %>%
@@ -719,7 +719,7 @@ plan <- drake_plan(
   # 5.8S/LSU secondary structure annotations.
   cmaln_long =
     dplyr::inner_join(
-      reconstructed %>%
+      reconstructed_pb_500 %>%
         dplyr::select(hash, ITS1) %>%
         dplyr::filter(complete.cases(.)) %>%
         unique(),
@@ -744,7 +744,7 @@ plan <- drake_plan(
           # does not have eukaryote-wide or fungi-wide conserved structure)
           stringr::str_pad(
             "xxxx",
-            max(nchar(reconstruct_long_aln$ITS1)),
+            max(nchar(.$ITS1)),
             "right",
             "-"),
           cmaln_32S$SS_cons
@@ -912,7 +912,7 @@ plan <- drake_plan(
       output_dir = !!out_dir)},
   trace = TRUE
 ) %>%
-  filter(!(step %in% c("raw", "combined")) | seq_run == '"pb_500"')
+  filter(!(step %in% c("raw", "combined", "reconstructed")) | seq_run == '"pb_500"')
 tictoc::toc()
 
 if (!interactive()) saveRDS(plan, plan_file)

@@ -31,7 +31,7 @@ if (length(targets) > 0) {
        elapsed = 3600, #1 hour
        keep_going = FALSE,
        cache_log_file = TRUE,
-       targets = target
+       targets = targets
 
   )
   dod <- drake::outdated(dconfig)
