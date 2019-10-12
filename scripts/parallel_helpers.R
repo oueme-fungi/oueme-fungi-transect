@@ -67,8 +67,12 @@ drake_combine.default <- function(...) {
    list
 }
 
-#### return the argument's name as a string ####
+#### return the argument's name(s) as (a) string(s) ####
 name_to_string <- function(x) deparse(substitute(x))
+names_to_strings <- function(...) {
+  s <- rlang::ensyms(...)
+  purrr::map_chr(s, rlang::as_string)
+}
 
 #### undo conversion of values to symbols ####
 # transform = combine() in drake will convert columns which are not intended to

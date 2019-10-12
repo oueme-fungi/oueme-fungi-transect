@@ -552,7 +552,12 @@ plan <- drake_plan(
   reconstructed = target(
     tzara::reconstruct(seqtabs = list(dada_map),
                        rawtabs = list(raw),
-                       regions = !!symbols_to_values(region),
+                       # find the regions from the names of the dada_maps
+                       regions = !!stringr::str_replace(
+                         names_to_strings(dada_map),
+                         "dada_map_(pb|is|ps)_\\d{3}_",
+                         ""
+                       ),
                        order = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2",
                                  "D2", "LSU3", "D3", "LSU4"),
                        output = "long",
@@ -567,7 +572,7 @@ plan <- drake_plan(
                     ITS = stringr::str_c(ITS1, `5_8S`, ITS2),
                     LSU = stringr::str_c(LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
                     hash = tzara::seqhash(long)),
-    transform = combine(dada_map, raw, region, .by = seq_run, .tag_in = step),
+    transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
     format = "fst"
   ),
   
