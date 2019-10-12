@@ -571,6 +571,7 @@ plan <- drake_plan(
                                            D3, LSU4),
                     ITS = stringr::str_c(ITS1, `5_8S`, ITS2),
                     LSU = stringr::str_c(LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
+                    long = dplyr::coalesce(stringr::str_c(ITS1, `32S`), long),
                     hash = tzara::seqhash(long)),
     transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
     format = "fst"
@@ -692,19 +693,26 @@ plan <- drake_plan(
   # Use the sequence hashes as the name, so that names will be robust in PASTA
   reconst_32S = reconstructed_pb_500 %>%
     dplyr::select("32S", ITS1, hash) %>%
-    dplyr::filter(complete.cases(.)) %$%
+    dplyr::filter(complete.cases(.)) %>%
+    dplyr::select("32S", hash) %>%
+    unique() %>%
+    assertr::assert(assertr::is_uniq, hash) %$%
     rlang::set_names(`32S`, hash) %>%
     chartr(old = "T", new = "U") %>% 
     Biostrings::RNAStringSet(),
   reconst_LSU = reconstructed_pb_500 %>%
-    dplyr::select(LSU, ITS, hash) %>%
-    dplyr::filter(complete.cases(.)) %$%
+    dplyr::select(LSU, ITS1, hash) %>%
+    dplyr::filter(complete.cases(.)) %>%
+    dplyr::select(LSU, hash) %>%
+    unique() %$%
     rlang::set_names(LSU, hash) %>%
     chartr(old = "T", new = "U") %>%
     Biostrings::RNAStringSet(),
   reconst_long = reconstructed_pb_500 %>%
-    dplyr::select(long, ITS, hash) %>%
-    dplyr::filter(complete.cases(.)) %$%
+    dplyr::select(long, ITS1, hash) %>%
+    dplyr::filter(complete.cases(.)) %>%
+    dplyr::select(long, hash) %>%
+    unique() %$%
     rlang::set_names(long, hash) %>%
     chartr(old = "T", new = "U") %>%
     Biostrings::RNAStringSet(),
