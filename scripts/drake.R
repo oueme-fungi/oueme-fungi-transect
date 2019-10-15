@@ -635,7 +635,7 @@ plan <- drake_plan(
   # taxon ----
   # Assign taxonomy to each ASV
   taxon = target(
-    dplyr::select(reconstructed, region, "hash") %>%
+    dplyr::select(reconstructed_pb_500, region, "hash") %>%
       dplyr::filter(complete.cases(.)) %>%
       {set_names(.[[region]], .$hash)} %>%
       taxonomy(reference = refdb,

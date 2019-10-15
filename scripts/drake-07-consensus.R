@@ -1,7 +1,7 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
-  aln_file_long <- snakemake@output$cmaln_long
+  cmaln_file_long <- snakemake@output$cmaln_long
   guide_tree_file <- snakemake@output$guide_tree
 } else {
   load("drake.Rdata")
@@ -22,7 +22,7 @@ targets <- c("cmaln_long", "guidetree_32S")
 
 dada_cpus <- local_cpus()
 
-if (any(targets %in% od) || !all(file.exists(aln_file_LSU, aln_file_32S))) {
+if (any(targets %in% od) || !all(file.exists(cmaln_file_long, guide_tree_file))) {
   flog.info("Configuring drake %s with %d core(s)...", targets, dada_cpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
