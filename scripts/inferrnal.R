@@ -228,13 +228,13 @@ parse_stockholm_msa_chunk <- function(x, pos, acc) {
 
   gc <- stringr::str_match(x, "#=GC +([^ ]+) +(.+)")[,2:3]
   gc <- gc[complete.cases(gc),]
-  for (i in 1:nrow(gc)) {
+  for (i in seq_len(nrow(gc))) {
     attr(acc, gc[i,1]) <- paste0(attr(acc, gc[i,1]), gc[i,2])
   }
 
   x <- stringr::str_match(x, "^(\\d+\\|)?([^#][^ ]*) +([^ ]+)$")[,3:4]
   x <- x[complete.cases(x),]
-  for (i in 1:nrow(x)) {
+  for (i in seq_len(nrow(x))) {
     if (x[i,1] %in% names(acc)) {
       acc[[x[i,1]]] <- paste0(acc[[x[i,1]]], x[i,2])
     } else {
@@ -456,15 +456,13 @@ write_clustalw_ss <- function(aln, sec_str, file, ref = sec_str, seq_names = nam
 parse_clustal_ss_chunk <- function(x, pos, acc) {
   ss <- stringr::str_match(x, "#S *([()\\[\\]{}<>.,:_x-]+) ?\\d*$")
   ss <- ss[complete.cases(ss),]
-  if (nrow(ss) >= 1) {
-    for (i in 1:nrow(ss)) {
-      attr(acc, "SS_cons") <- paste0(attr(acc, "SS_cons"), ss[i, 2])
-    }
+  for (i in seq_len(nrow(ss))) {
+    attr(acc, "SS_cons") <- paste0(attr(acc, "SS_cons"), ss[i, 2])
   }
   
   x <- stringr::str_match(x, "^([^# ][^ ]*) +([^ ]+) *\\d*$")[,2:3]
   x <- x[complete.cases(x),]
-  for (i in 1:nrow(x)) {
+  for (i in seq_len(nrow(x))) {
     if (x[i,1] %in% names(acc)) {
       acc[[x[i,1]]] <- paste0(acc[[x[i,1]]], x[i,2])
     } else {

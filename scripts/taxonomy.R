@@ -16,7 +16,7 @@ read_header_rdp <- function(header_file, patch_file) {
     names() %>%
     patch_taxonomy(patch_file) %>%
     stringr::str_match("(gi\\|\\d+\\|e?[gm]b\\|)?([A-Z]+_?[0-9]+)[.\\d|-]*[:space:]+Root;(.+)") %>%
-    {tibble::tibble(index = 1:nrow(.),
+    {tibble::tibble(index = seq_len(nrow(.)),
                     accno = .[,3],
                     classifications = .[,4])}
 }
@@ -31,7 +31,7 @@ read_header_unite <- function(header_file, patch_file) {
     names() %>%
     patch_taxonomy(patch_file) %>%
     stringr::str_match("[^|]\\|([A-Z]+_?[0-9]+)\\|[^|]+\\|re[pf]s(_singleton)?\\|(([kpcofgs]__[-\\w.]+;?){7})") %>%
-    {tibble::tibble(index = 1:nrow(.),
+    {tibble::tibble(index = seq_len(nrow(.)),
                     accno = .[,2],
                     classifications = .[,4])} %>%
     dplyr::mutate_at("classifications",
@@ -164,7 +164,7 @@ patch_taxonomy <- function(taxonomy, patch_file) {
     stringr::str_subset("^s/") %>%
     stringr::str_match("s/(.+)/(.+)/g?")
   if (nrow(replace) == 0) return(taxonomy)
-  for (n in 1:nrow(replace)) {
+  for (n in seq_len(nrow(replace))) {
     taxonomy <- gsub(replace[n, 2], replace[n,3], taxonomy)
   }
   taxonomy
@@ -363,7 +363,7 @@ trim_group <- function(table, key, indexcol, seq, n, ...) {
     kmers <- as.matrix(kmer::kdistance(seq))
     s <- which.min(rowSums(kmers))
   } else {
-    s <- sample(1:nrow(table), n)
+    s <- sample(seq_len(nrow(table)), n)
   }
   return(table[s,,drop = FALSE])
 }

@@ -146,7 +146,7 @@ warcup <- readLines("reference/warcup.fasta.gz") %>%
 warcup_replace <- readLines("reference/warcup.sed") %>%
   stringr::str_subset("^s/") %>%
   stringr::str_match("s/(.+)/(.+)/g?")
-for (n in 1:nrow(warcup_replace)) {
+for (n in seq_len(nrow(warcup_replace))) {
   warcup <- gsub(warcup_replace[n, 2], warcup_replace[n,3], warcup)
 }
 
@@ -165,7 +165,7 @@ unite <- readLines("reference/unite.fasta.gz") %>%
 unite_replace <- readLines("reference/unite.sed") %>%
   stringr::str_subset("^s/") %>%
   stringr::str_match("s/(.+)/(.+)/g?")
-for (n in 1:nrow(unite_replace)) {
+for (n in seq_len(nrow(unite_replace))) {
   unite <- gsub(unite_replace[n, 2], unite_replace[n,3], unite)
 }
 

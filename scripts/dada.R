@@ -138,7 +138,7 @@ its_join <- function(combined_map,
     dplyr::arrange(dplyr::desc(reads)) %>%
     dplyr::ungroup()
   g <- 1
-  for (i in 1:nrow(group_map)) {
+  for (i in seq_len(nrow(group_map))) {
     if (verbose) cat("sequence", i, "(", group_map$reads[i], "reads )\n")
     # to start with, make the next sequence its own group
     group_map$group[i] <- g
