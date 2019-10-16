@@ -1,12 +1,16 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
-  cmaln_file_long <- snakemake@output$cmaln_long
+  aln_file_long <- snakemake@output$cmaln_long
   guide_tree_file <- snakemake@output$guide_tree
+  mlocarna_aln_file <- snakemake@output$mlocarna_aln
+  mlocarna_result_dir <- snakemake@output$mlocarna_dir
 } else {
   load("drake.Rdata")
   cmaln_file_long <- file.path(locarna_dir, "long_cmalign.aln")
   guide_tree_file <- file.path(locarna_dir, "32S_guide.tree")
+  mlocarna_aln_file <- file.path(locarna_dir, "output", "results", "result.aln")
+  mlocarna_result_dir <- file.path(locarna_dir, "output")
 
 }
 
@@ -18,12 +22,15 @@ setup_log("consensus")
 #### Taxonomy targets from DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-targets <- c("cmaln_long", "guidetree_32S")
+targets <- c("cmaln_long", "guidetree_32S", "realign_long")
 
 dada_cpus <- local_cpus()
 
-if (any(targets %in% od) || !all(file.exists(cmaln_file_long, guide_tree_file))) {
-  flog.info("Configuring drake %s with %d core(s)...", targets, dada_cpus)
+if (any(targets %in% od) || !all(file.exists(aln_file_long, guide_tree_file, mlocarna_result_file))) {
+  flog.info(
+    "Configuring drake to build consensus targets with %d core(s)...",
+    dada_cpus
+  )
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
@@ -41,7 +48,7 @@ if (any(targets %in% od) || !all(file.exists(cmaln_file_long, guide_tree_file)))
   od <- subset_outdated(targets, dconfig)
   tictoc::toc()
   flog.info("Found %d outdated targets.", length(od))
-  flog.info("Making targets...")
+  flog.info("Making targets %s ...")
   tictoc::tic()
   drake::make(config = dconfig)
   tictoc::toc()
@@ -60,10 +67,16 @@ if (any(targets %in% od) || !all(file.exists(cmaln_file_long, guide_tree_file)))
     drake_build(guidetree_32S, dconfig)
     tictoc::toc()
   }
+  if (!file.exists(mlocarna_aln_file)) {
+    flog.info("Creating	%s.", mlocarna_alnfile)
+    tictoc::tic()
+    drake_build(realign_long, dconfig)
+    tictoc::toc()
+  }
 
 
 } else {
-  flog.info("Long ASV consensus sequences are up-to-date.")
+  flog.info("Consensus targets are up-to-date.")
 }
 
 Sys.setFileTime(cmaln_file_long, Sys.time())

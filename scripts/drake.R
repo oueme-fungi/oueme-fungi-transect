@@ -388,11 +388,13 @@ plan <- drake_plan(
   # regionx----
   # cut the required regions out of each sequence
   regionx = target(
-    tzara::extract_region(seq = file_in(!!file.path(trim_dir, trim_file)),
-                          outfile = file_out(!!file.path(region_dir, region_file)),
-                          region = region_start,
-                          region2 = region_end,
-                          positions = positions),
+    tzara::extract_region(
+      seq = file_in(!!file.path(trim_dir, trim_file)),
+      outfile = file_out(!!file.path(region_dir, region_file)),
+      region = region_start,
+      region2 = region_end,
+      positions = positions
+    ),
     transform = map(.data = !!predada_meta,
                     .tag_in = step,
                     .id = c(well_ID, region))),
@@ -425,9 +427,11 @@ plan <- drake_plan(
   derep2 = target({
     infile <- file_in(!!file.path(filter_dir, filter_file))
     if (file.size(infile) > 50) {
-      out <- dada2::derepFastq(fls = infile, n = 1e4,
-                               qualityType = "FastqQuality",
-                               verbose = TRUE) %>%
+      out <- dada2::derepFastq(
+        fls = infile, n = 1e4,
+        qualityType = "FastqQuality",
+        verbose = TRUE
+      ) %>%
         tzara::add_derep_names(infile)
     } else {
       out = NULL
@@ -527,13 +531,17 @@ plan <- drake_plan(
   # raw ----
   # Join the raw read info (for long pacbio reads).
   raw = target(
-    tzara::summarize_sread(list(regionx),
-                           name = !!symbols_to_values(filter_file),
-                           max_ee = 1.5 * !!eval(parse(text = unique(symbols_to_values(max_ee))))),
-    transform = combine(regionx, filter_file, max_ee, seq_run, region,
-                        .by = c(seq_run, region),
-                        .tag_in = step,
-                        .id = c(seq_run, region)),
+    tzara::summarize_sread(
+      list(regionx),
+      name = !!symbols_to_values(filter_file),
+      max_ee = 1.5 * !!eval(parse(text = unique(symbols_to_values(max_ee))))
+    ),
+    transform = combine(
+      regionx, filter_file, max_ee, seq_run, region,
+      .by = c(seq_run, region),
+      .tag_in = step,
+      .id = c(seq_run, region)
+    ),
     format = "fst"
   ),
   
@@ -550,29 +558,30 @@ plan <- drake_plan(
   # reconstructed ----
   # 
   reconstructed = target(
-    tzara::reconstruct(seqtabs = list(dada_map),
-                       rawtabs = list(raw),
-                       # find the regions from the names of the dada_maps
-                       regions = !!stringr::str_replace(
-                         names_to_strings(dada_map),
-                         "dada_map_(pb|is|ps)_\\d{3}_",
-                         ""
-                       ),
-                       order = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2",
-                                 "D2", "LSU3", "D3", "LSU4"),
-                       output = "long",
-                       read_column = "seq.id",
-                       asv_column = "dada.seq",
-                       raw_column = "seq",
-                       sample_column = "name",
-                       sample_regex = paste0("(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d"),
-                       ncpus = ignore(dada_cpus)) %>%
-      dplyr::mutate(`32S` = stringr::str_c(`5_8S`, ITS2, LSU1, D1, LSU2, D2, LSU3,
-                                           D3, LSU4),
-                    ITS = stringr::str_c(ITS1, `5_8S`, ITS2),
-                    LSU = stringr::str_c(LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
-                    long = dplyr::coalesce(stringr::str_c(ITS1, `32S`), long),
-                    hash = tzara::seqhash(long)),
+    tzara::reconstruct(
+      seqtabs = drake_combine(dada_map),
+      rawtabs = drake_combine(raw),
+      # find the regions from the names of the dada_maps
+      regions_regex = "(dada_map|raw)_(pb|is|ps)_\\d{3}_",
+      regions_replace = "",
+      order = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2",
+                "D2", "LSU3", "D3", "LSU4"),
+      output = list(
+        long = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3",
+                 "D3", "LSU4"),
+        ITS = c("ITS1", "5_8S", "ITS2"),
+        LSU = c("LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4"),
+        `32S` = c("5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3",
+                  "LSU4")
+      ),
+      use_output = "second",
+      read_column = "seq.id",
+      asv_column = "dada.seq",
+      raw_column = "seq",
+      sample_column = "name",
+      sample_regex = "(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d",
+      ncpus = ignore(dada_cpus)) %>%
+      dplyr::mutate(hash = tzara::seqhash(long)),
     transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
     format = "fst"
   ),
@@ -592,13 +601,23 @@ plan <- drake_plan(
       dplyr::summarize(
         nreads = dplyr::n(),
         !! region := as.character(
-          tzara::cluster_consensus(.data[[region]], seq.id, ignore(dada_cpus)))) %>%
+          tzara::cluster_consensus(.data[[region]], seq.id, ignore(dada_cpus)))
+      ) %>%
       dplyr::ungroup() %>%
-      dplyr::filter(stringr::str_count(.[[region]], "[MRWSYKVHDBN]") < 3,
-                    !is.na(.[[region]]),
-                    nchar(.[[region]]) >= min_length),
-    transform = map(.data = !!filter(regions, region %in% c("long", "ITS", "ITS1", "LSU", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4", "32S", "5_8S")), .id = region),
-    format = "fst"),
+      dplyr::filter(
+        stringr::str_count(.[[region]], "[MRWSYKVHDBN]") < 3,
+        !is.na(.[[region]]),
+        nchar(.[[region]]) >= min_length
+      ),
+    transform = map(
+      .data = !!filter(regions, region %in% c("long", "ITS", "ITS1", "LSU",
+                                              "LSU1", "D1", "LSU2", "D2",
+                                              "LSU3", "D3", "LSU4", "32S",
+                                              "5_8S")),
+      .id = region
+    ),
+    format = "fst"
+  ),
   
   # allseqs ----
   # make a data frame of all consensus sequences and ASVs; each row is an ITS2 ASV,
@@ -796,6 +815,17 @@ plan <- drake_plan(
     DECIPHER::WriteDendrogram(
       file = file_out(guide_tree_file)
     ),
+  
+  # realign the consensus sequences using mlocarna
+  realign_long = {
+    file_out(mlocarna_aln_file)
+    mlocarna_realign(
+      alignment = file_in(cmaln_file_long),
+      guide_tree = file_in(guide_tree_file),
+      target_dir = file_out(mlocarna_result_dir),
+      cpus = ignore(dada_cpus)
+    )
+  },
   
   # DECIPHER has a fast progressive alignment algorithm that calculates RNA
   # secondary structure

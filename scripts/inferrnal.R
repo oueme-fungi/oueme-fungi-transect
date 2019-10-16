@@ -503,14 +503,14 @@ remove_nonconsensus_nongaps <- function(aln, gapfrac = 1) {
       start = end - lengths + 1
     ) %>%
     # take only the consensus values
-    dplyr::filter(!values) %>%
+    dplyr::filter(!.data$values) %>%
     purrr::pmap(
       function(start, end, ...)
         substr(aln$alignment@unmasked, start, end)
     ) %>%
     # paste them together
     do.call(paste0, .) %>%
-    set_names(aln$names) %>%
+    magrittr::set_names(aln$names) %>%
     Biostrings::RNAMultipleAlignment() %>%
     # mask all-gap columns
     Biostrings::maskGaps(gapfrac, 1) %>%
@@ -518,6 +518,38 @@ remove_nonconsensus_nongaps <- function(aln, gapfrac = 1) {
     methods::as("RNAStringSet")
 }
 
+#' Realign the nonconserved parts of an Infernal alignment with mLocarna
+#'
+#' @param alignment (\code{character} scalar) path to the alignment, in 
+#'        locarna's extended clustal format
+#' @param target_dir (\code{character} scalar) path to a directory to put the 
+#'        output in.  Locarna will issue a warning if the directory already
+#'        exists.
+#' @param guide_tree (\code{character} scalar) path to a strictly bifurcating
+#'        guide tree in Newick format.  All the sequence names in
+#'        \code{alignment} should exist as tip labels in \code{guide_tree},
+#'        but additional tips are allowed.
+#' @param probabilistic (\code{logical} scalar) if \code{TRUE}, run Locarna in
+#'        probabalistic mode.  This is much slower, but should yield more
+#'        reliable results.
+#' @param extended_pf (\code{logical} scalar) if \code{TRUE}, use extended
+#'        precision calculations in probabalistic mode.
+#' @param skip_pp (\code{logical} scalar) if \code{TRUE}, skip calculating
+#'        pair probabilities if they already exist in the output directory.
+#' @param cache_dir (\code{character} scalar) path to a directory for caching
+#'        intermediat calculations.
+#' @param verbose (\code{logical} scalar) if \code{TRUE}, print extra output.
+#' @param quiet (\code{logical} scalar) if \code{TRUE}, don't print output to
+#'        screen.
+#' @param cpus (\code{integer} scalar) number of CPUs to use for parallel
+#'        computation.  The progressive alignment stage of mlocarna is not
+#'        effectively parallelized, but the initial all-to-all stages of the
+#'        alignment (pair probabilities, pairwise alignments if no guide tree
+#'        is given, pairwise probabilities in probabilistic mode, etc.) can be
+#'        run in parallel.
+#'
+#' @return the path to the resulting alignment
+#' @export
 mlocarna_realign <- function(alignment,
                              target_dir,
                              guide_tree = NULL,

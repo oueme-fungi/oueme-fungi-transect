@@ -700,7 +700,9 @@ rule consensus:
     output:
         flag    = touch(".consensus"),
         cmaln_long = "{locarnadir}/long_cmalign.aln".format_map(config),
-        guide_tree = "{locarnadir}/32S_guide.tree".format_map(config)
+        guide_tree = "{locarnadir}/32S_guide.tree".format_map(config),
+        mlocarna_dir = "{locarnadir}/output".format_map(config),
+        mlocarna_aln = "{locarnadir}/output/results/result.aln".format_map(config)
     input:
         ".DADA",
         ".preconsensus",
