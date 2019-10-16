@@ -282,92 +282,117 @@ plan <- drake_plan(
   # dereplicate input sequences before running ITSx
   # this is done independently in parallel
   derep1 = target(
-    dada2::derepFastq(file_in(!!file.path(trim_dir, trim_file)),
-                      qualityType = "FastqQuality",
-                      verbose = TRUE,
-                      n = 1e4) %>%
+    dada2::derepFastq(
+      file_in(!!file.path(trim_dir, trim_file)),
+      qualityType = "FastqQuality",
+      verbose = TRUE,
+      n = 1e4
+    ) %>%
       # add the names of the sequences
       tzara::add_derep_names(file_in(!!file.path(trim_dir, trim_file))) %>%
       # we will not run dada on these, so we don't need the quality
       # information.  Removing it drastically reduces the size in memory.
       magrittr::inset2("quals", NULL),
-    transform = map(.data = !!select(itsx_meta, "trim_file", "file_ID", "primer_ID"),
-                    .tag_in = step,
-                    .id = file_ID)),
+    transform = map(
+      .data = !!select(itsx_meta, "trim_file", "file_ID", "primer_ID"),
+      .tag_in = step,
+      .id = file_ID
+    )
+  ),
   
   # join_derep----
   # join the results from dereplicating into a list of unique sequences
   # and a map from the original sequences to the uniques
   join_derep = target(
     tzara::combine_derep(drake_combine(derep1)),
-    transform = combine(derep1,
-                        .tag_in = step,
-                        .by = primer_ID)),
+    transform = combine(
+      derep1,
+      .tag_in = step,
+      .by = primer_ID
+    )
+  ),
   
   # Get the two parts separately
   join_derep_fasta = target(
     join_derep$fasta,
-    transform = map(join_derep, .id = primer_ID)),
+    transform = map(join_derep, .id = primer_ID)
+  ),
   join_derep_map = target(
     join_derep$map,
     transform = map(join_derep, .id = primer_ID),
-    format = "fst"),
+    format = "fst"
+  ),
   
   # split_fasta----
   # break the list of unique files into equal sized chunks for ITSx
   split_fasta = target(
     split(join_derep_fasta, seq_along(join_derep_fasta) %% !!bigsplit + 1),
-    transform = map(join_derep_fasta,
-                    .id = primer_ID,
-                    .tag_in = step)),
+    transform = map(
+      join_derep_fasta,
+      .id = primer_ID,
+      .tag_in = step
+    )
+  ),
   
   # itsx_shard----
   # find the location of LSU, 5.8S, and SSU (and thus ITS1 and ITS2)
   # in the sequences from each chunk
-  itsx_shard = target({
-    library(Biostrings)
-    library(dplyr)
-    rITSx::itsx(in.file = split_fasta[[shard]],
-                nhmmer = TRUE,
-                read_function = Biostrings::readDNAStringSet,
-                fasta = FALSE, summary = FALSE, graphical = FALSE,
-                save_regions = "none", not_found = FALSE,
-                complement = FALSE, cpu = ignore(itsx_cpus))[["positions"]]
-  },
-  transform = cross(split_fasta,
-                    shard = !!(1:bigsplit),
-                    .tag_in = step,
-                    .id = primer_ID),
-  format = "fst"),
+  itsx_shard = target(
+    rITSx::itsx(
+      in_file = split_fasta[[shard]],
+      nhmmer = TRUE,
+      read_function = Biostrings::readDNAStringSet,
+      fasta = FALSE,
+      summary = FALSE,
+      graphical = FALSE,
+      save_regions = "none",
+      not_found = FALSE,
+      complement = FALSE,
+      cpu = ignore(itsx_cpus)
+    )[["positions"]],
+    transform = cross(
+      split_fasta,
+      shard = !!(1:bigsplit),
+      .tag_in = step,
+      .id = primer_ID
+    ),
+    format = "fst"
+  ),
   
   # itsxtrim ----
   # combine the chunks into a master positions list.
   itsxtrim = target(
     dplyr::bind_rows(itsx_shard),
-    transform = combine(itsx_shard,
-                        .tag_in = step,
-                        .by = primer_ID),
-    format = "fst"),
+    transform = combine(
+      itsx_shard,
+      .tag_in = step,
+      .by = primer_ID
+    ),
+    format = "fst"
+  ),
   
   lsux_shard = target(
-    LSUx(seq = split_fasta[[shard]],
-         cm_5.8S = file_in(!!cm_5.8S),
-         cm_32S = file_in(!!cm_32S),
-         glocal = TRUE,
-         ITS1 = TRUE,
-         cpu = ignore(itsx_cpus)) %>%
+    LSUx(
+      seq = split_fasta[[shard]],
+      cm_5.8S = file_in(!!cm_5.8S),
+      cm_32S = file_in(!!cm_32S),
+      glocal = TRUE,
+      ITS1 = TRUE,
+      cpu = ignore(itsx_cpus)
+    ) %>%
       dplyr::mutate_at("seq_name", as.integer),
-    transform = cross(split_fasta,
-                      shard = !!(1:bigsplit),
-                      .id = primer_ID),
+    transform = cross(
+      split_fasta,
+      shard = !!(1:bigsplit),
+      .id = primer_ID
+    ),
     format = "fst"
   ),
   
   lsux_pos = target(
     dplyr::bind_rows(lsux_shard) %>%
       gather_regions(),
-    transform = combine(lsux_shard,
-                        .by = primer_ID),
+    transform = combine(lsux_shard, .by = primer_ID),
     format = "fst"
   ),
   
@@ -379,11 +404,14 @@ plan <- drake_plan(
       dplyr::left_join(dplyr::filter(join_derep_map, name == derep), .,
                        by = c("map" = "seq_name")) %>%
       dplyr::rename(seq = seq.id),
-    transform = map(.data = !!select(itsx_meta, "derep", "join_derep_map",
-                                     "lsux_pos", "trim_file", "file_ID"),
-                    .tag_in = step,
-                    .id = file_ID),
-    format = "fst"),
+    transform = map(
+      .data = !!select(itsx_meta, "derep", "join_derep_map", "lsux_pos",
+                       "trim_file", "file_ID"),
+      .tag_in = step,
+      .id = file_ID
+    ),
+    format = "fst"
+  ),
   
   # regionx----
   # cut the required regions out of each sequence
@@ -395,9 +423,12 @@ plan <- drake_plan(
       region2 = region_end,
       positions = positions
     ),
-    transform = map(.data = !!predada_meta,
-                    .tag_in = step,
-                    .id = c(well_ID, region))),
+    transform = map(
+      .data = !!predada_meta,
+      .tag_in = step,
+      .id = c(well_ID, region)
+    )
+  ),
   
   # filter----
   # quality filter the sequences
@@ -413,36 +444,41 @@ plan <- drake_plan(
         maxEE = max_ee,
         qualityType = "FastqQuality")
       if (!file.exists(outfile)) {
-        ShortRead::writeFastq(ShortRead::ShortReadQ(),
-                              outfile)
+        ShortRead::writeFastq(ShortRead::ShortReadQ(), outfile)
       }
       return(out)
     },
-    transform = map(.data = !!predada_meta,
-                    .tag_in = step,
-                    .id = c(well_ID, range_ID))),
+    transform = map(
+      .data = !!predada_meta,
+      .tag_in = step,
+      .id = c(well_ID, range_ID)
+    )
+  ),
   
   # derep2----
   # Do a second round of dereplication on the filtered regions.
   derep2 = target({
-    infile <- file_in(!!file.path(filter_dir, filter_file))
-    if (file.size(infile) > 50) {
-      out <- dada2::derepFastq(
-        fls = infile, n = 1e4,
-        qualityType = "FastqQuality",
-        verbose = TRUE
-      ) %>%
-        tzara::add_derep_names(infile)
-    } else {
-      out = NULL
-    }
-    result <- list()
-    result[[filter_file]] <- out
-    result
-  },
-  transform = map(.data = !!predada_meta,
-                  .tag_in = step,
-                  .id = c(well_ID, range_ID))),
+      infile <- file_in(!!file.path(filter_dir, filter_file))
+      if (file.size(infile) > 50) {
+        out <- dada2::derepFastq(
+          fls = infile, n = 1e4,
+          qualityType = "FastqQuality",
+          verbose = TRUE
+        ) %>%
+          tzara::add_derep_names(infile)
+      } else {
+        out = NULL
+      }
+      result <- list()
+      result[[filter_file]] <- out
+      result
+    },
+    transform = map(
+      .data = !!predada_meta,
+      .tag_in = step,
+      .id = c(well_ID, range_ID)
+    )
+  ),
   
   # region_derep ----
   # put together all the dereplicated files for each region for each plate.
@@ -454,9 +490,8 @@ plan <- drake_plan(
   # err----
   # Calibrate dada error models (on different size ranges)
   err = target({
-    err.fun <- ifelse(tech == "PacBio",
-                      dada2::PacBioErrfun,
-                      dada2::loessErrfun)
+    err.fun <- if (tech == "PacBio" ) dada2::PacBioErrfun else
+      dada2::loessErrfun
     dada2::learnErrors(
       fls = region_derep,
       nbases = 1e9,
@@ -467,9 +502,14 @@ plan <- drake_plan(
       BAND_SIZE = band_size,
       pool = eval(rlang::parse_expr(pool)),
       verbose = TRUE,
-      qualityType = "FastqQuality")},
-    transform = map(.data = !!filter(dada_meta, range_ID == "5_8S"),
-                    .tag_in = step, .id = c(seq_run, range_ID))),
+      qualityType = "FastqQuality"
+    )},
+    transform = map(
+      .data = !!filter(dada_meta, range_ID == "5_8S"),
+      .tag_in = step,
+      .id = c(seq_run, range_ID)
+    )
+  ),
   
   # dada----
   # Run dada denoising algorithm (on different size ranges)
@@ -480,9 +520,12 @@ plan <- drake_plan(
       HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(hgp)),
       BAND_SIZE = band_size,
       pool = eval(rlang::parse_expr(pool))),
-    transform = map(.data = !!dada_meta,
-                    .tag_in = step,
-                    .id = c(seq_run, range_ID))),
+    transform = map(
+      .data = !!dada_meta,
+      .tag_in = step,
+      .id = c(seq_run, range_ID)
+    )
+  ),
   
   # dadamap----
   # Make maps from individual sequences in source files to dada ASVs
