@@ -39,6 +39,11 @@ config['lr5_tags']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
 config['cm_5_8S'] = '{ref_root}/RF00002.cm'.format_map(config)
 config['cm_32S']  = '{ref_root}/fungi_32S_LR5.cm'.format_map(config)
 
+config['cmaln_long']   = "{locarnadir}/long_cmalign.aln".format_map(config),
+config['guide_tree']   = "{locarnadir}/32S_guide.tree".format_map(config),
+config['mlocarna_dir'] = "{locarnadir}/output".format_map(config)
+config['mlocarna_aln'] = "{mlocarna_dir}/results/result.aln".format_map(config)
+
 # Find the maximum number of cores available to a single node on SLURM,
 # or if we aren't in a SLURM environment, how many we have on the local machine.
 try:
@@ -699,16 +704,14 @@ consensus_table = regions_table.loc[regions_table.seq_run == "pb_500"]
 rule consensus:
     output:
         flag    = touch(".consensus"),
-        cmaln_long = "{locarnadir}/long_cmalign.aln".format_map(config),
-        guide_tree = "{locarnadir}/32S_guide.tree".format_map(config),
-        mlocarna_aln = "{locarnadir}/output/results/result.aln".format_map(config)
+        cmaln_long = config['cmaln_long'],
+        guide_tree = config['guide_tree'],
+        mlocarna_aln = config['mlocarna_aln']
     input:
         ".DADA",
         ".preconsensus",
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-07-consensus.R".format_map(config)
-    params:
-        mlocarna_dir = "{locarnadir}/output".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:

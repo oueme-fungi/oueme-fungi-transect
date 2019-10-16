@@ -15,6 +15,10 @@ if (interactive()) {
   cluster_dir <- file.path(data_dir, "clusters")
   pasta_dir <- file.path(data_dir, "pasta")
   locarna_dir <- file.path(data_dir, "mlocarna")
+  cmaln_file_long <- file.path(locarna_dir, "long_cmalign.aln")
+  guide_tree_file <- file.path(locarna_dir, "32S_guide.tree")
+  mlocarna_result_dir <- file.path(locarna_dir, "output")
+  mlocarna_aln_file <- file.path(mlocarna_result_dir, "results", "result.aln")
   plan_dir <- file.path(data_dir, "plan")
   ref_dir <- here("reference")
   rmd_dir <- here("writing")
@@ -69,6 +73,10 @@ if (interactive()) {
   cluster_dir <- snakemake@config$clusterdir
   pasta_dir <- snakemake@config$pastadir
   locarna_dir <- snakemake@config$locarnadir
+  aln_file_long <- snakemake@config$cmaln_long
+  guide_tree_file <- snakemake@config$guide_tree
+  mlocarna_aln_file <- snakemake@config$mlocarna_aln
+  mlocarna_result_dir <- snakemake@config$mlocarna_dir
   plan_dir <- snakemake@config$plandir
   plan_file <- snakemake@output$plan
   itsx_meta_file <- snakemake@output$itsx_meta
@@ -829,7 +837,7 @@ plan <- drake_plan(
         ref = stringr::str_pad(chartr("v", ".", cmaln_32S$RF),
                                max(nchar(.$aln)), "left", "-"),
         seq_names = .$hash,
-        file = file_out(cmaln_file_long)
+        file = file_out(!!cmaln_file_long)
       )
     },
   
@@ -856,16 +864,16 @@ plan <- drake_plan(
       processors = ignore(dada_cpus)
     ) %T>%
     DECIPHER::WriteDendrogram(
-      file = file_out(guide_tree_file)
+      file = file_out(!!guide_tree_file)
     ),
   
   # realign the consensus sequences using mlocarna
   realign_long = {
-    file_out(mlocarna_aln_file)
+    file_out(!!mlocarna_aln_file)
     mlocarna_realign(
-      alignment = file_in(cmaln_file_long),
-      guide_tree = file_in(guide_tree_file),
-      target_dir = file_out(mlocarna_result_dir),
+      alignment = file_in(!!cmaln_file_long),
+      guide_tree = file_in(!!guide_tree_file),
+      target_dir = file_out(!!mlocarna_result_dir),
       cpus = ignore(dada_cpus)
     )
   },
