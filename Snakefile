@@ -701,13 +701,14 @@ rule consensus:
         flag    = touch(".consensus"),
         cmaln_long = "{locarnadir}/long_cmalign.aln".format_map(config),
         guide_tree = "{locarnadir}/32S_guide.tree".format_map(config),
-        mlocarna_dir = "{locarnadir}/output".format_map(config),
         mlocarna_aln = "{locarnadir}/output/results/result.aln".format_map(config)
     input:
         ".DADA",
         ".preconsensus",
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-07-consensus.R".format_map(config)
+    params:
+        mlocarna_dir = "{locarnadir}/output".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 8
     resources:

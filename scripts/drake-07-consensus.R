@@ -4,7 +4,7 @@ if (exists("snakemake")) {
   aln_file_long <- snakemake@output$cmaln_long
   guide_tree_file <- snakemake@output$guide_tree
   mlocarna_aln_file <- snakemake@output$mlocarna_aln
-  mlocarna_result_dir <- snakemake@output$mlocarna_dir
+  mlocarna_result_dir <- snakemake@params$mlocarna_dir
 } else {
   load("drake.Rdata")
   cmaln_file_long <- file.path(locarna_dir, "long_cmalign.aln")
