@@ -100,8 +100,6 @@ if (interactive()) {
   drakedata_file <- snakemake@output[["drakedata"]]
   #longtree_file <- snakemake@output[["pasta"]][["tree"]]
   logfile <- file(snakemake@log[[1]], open = "at")
-  sink(logfile)
-  sink(logfile, type = "message")
 } else {
   stop("Can't find Snakemake object in non-interactive session!")
 }

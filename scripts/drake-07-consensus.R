@@ -37,7 +37,7 @@ if (any(targets %in% od) || !all(file.exists(cmaln_file_long, guide_tree_file, m
   od <- subset_outdated(targets, dconfig)
   tictoc::toc()
   flog.info("Found %d outdated targets.", length(od))
-  flog.info("Making targets %s ...")
+  flog.info("Making targets %s...", paste(od, collapse = "; "))
   tictoc::tic()
   drake::make(config = dconfig)
   tictoc::toc()
