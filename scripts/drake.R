@@ -73,7 +73,7 @@ if (interactive()) {
   cluster_dir <- snakemake@config$clusterdir
   pasta_dir <- snakemake@config$pastadir
   locarna_dir <- snakemake@config$locarnadir
-  aln_file_long <- snakemake@config$cmaln_long
+  cmaln_file_long <- snakemake@config$cmaln_long
   guide_tree_file <- snakemake@config$guide_tree
   mlocarna_aln_file <- snakemake@config$mlocarna_aln
   mlocarna_result_dir <- snakemake@config$mlocarna_dir
