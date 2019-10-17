@@ -758,10 +758,14 @@ plan <- drake_plan(
   
   # long_consensus----
   # get the long amplicon consensus and convert to RNAStringSet.
-  # Use the sequence hashes as the name, so that names will be robust in PASTA
+  # Use the sequence hashes as the name, so that names will be robust
+  # make sure that we only use sequences that actually match the long sequence.
   reconst_32S = reconstructed_pb_500 %>%
-    dplyr::select("32S", ITS1, hash) %>%
-    dplyr::filter(complete.cases(.)) %>%
+    dplyr::select("32S", ITS1, long, hash) %>%
+    dplyr::filter(
+      complete.cases(.),
+      endsWith(long, `32S`)
+    ) %>%
     dplyr::select("32S", hash) %>%
     unique() %>%
     assertr::assert(assertr::is_uniq, hash) %$%
@@ -770,7 +774,10 @@ plan <- drake_plan(
     Biostrings::RNAStringSet(),
   reconst_LSU = reconstructed_pb_500 %>%
     dplyr::select(LSU, ITS1, hash) %>%
-    dplyr::filter(complete.cases(.)) %>%
+    dplyr::filter(
+      complete.cases(.),
+      endsWith(long, LSU)
+    ) %>%
     dplyr::select(LSU, hash) %>%
     unique() %$%
     rlang::set_names(LSU, hash) %>%
@@ -801,8 +808,8 @@ plan <- drake_plan(
   cmaln_long =
     dplyr::inner_join(
       reconstructed_pb_500 %>%
-        dplyr::select(hash, ITS1) %>%
-        dplyr::filter(complete.cases(.)) %>%
+        dplyr::select(hash, long, ITS1) %>%
+        dplyr::filter(complete.cases(.), startsWith(long, ITS1)) %>%
         unique(),
       tibble::tibble(
         hash = cmaln_32S$names,
