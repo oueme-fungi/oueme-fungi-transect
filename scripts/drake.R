@@ -187,7 +187,8 @@ predada_meta <- itsx_meta %>%
             positions = list(c(positions))) %>%
   ungroup() %>%
   mutate_at("regions", str_split, ",") %>%
-  unnest(region = regions, .preserve = c("trim_file", "positions")) %>%
+  unnest(regions) %>%
+  dplyr::rename(region = regions) %>%
   left_join(regions, by = "region") %>%
   mutate(well_ID = glue("{seq_run}{plate}{well}"),
          plate_ID = glue("{seq_run}_{plate}"),
@@ -606,7 +607,7 @@ plan <- drake_plan(
   
   # reconstructed ----
   # 
-  reconstructed = target(
+  big_reconstructed = target(
     tzara::reconstruct(
       seqtabs = drake_combine(dada_map),
       rawtabs = drake_combine(raw),
@@ -632,6 +633,33 @@ plan <- drake_plan(
       ncpus = ignore(dada_cpus)) %>%
       dplyr::mutate(hash = tzara::seqhash(long)),
     transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
+    format = "fst"
+  ),
+  
+  reconstructed = target(
+    tzara::reconstruct(
+      seqtabs = drake_combine(dada_map),
+      # find the regions from the names of the dada_maps
+      regions_regex = "(dada_map|raw)_(pb|is|ps)_\\d{3}_",
+      regions_replace = "",
+      order = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2",
+                "D2", "LSU3", "D3", "LSU4"),
+      output = list(
+        long = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3",
+                 "D3", "LSU4"),
+        ITS = c("ITS1", "5_8S", "ITS2"),
+        LSU = c("LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4"),
+        `32S` = c("5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3",
+                  "LSU4")
+      ),
+      use_output = "second",
+      read_column = "seq.id",
+      asv_column = "dada.seq",
+      sample_column = "name",
+      sample_regex = "(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d",
+      ncpus = ignore(dada_cpus)) %>%
+      dplyr::mutate(hash = tzara::seqhash(long)),
+    transform = combine(dada_map, .by = seq_run, .tag_in = step),
     format = "fst"
   ),
   
