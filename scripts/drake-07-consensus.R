@@ -14,7 +14,7 @@ setup_log("consensus")
 #### Taxonomy targets from DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-targets <- c("cmaln_long", "guidetree_32S", "realign_long")
+targets <- c("cmaln_long", "guidetree_32S", "realign_long", "big_reconstruct_pb_500")
 
 dada_cpus <- local_cpus()
 
@@ -25,7 +25,7 @@ if (any(targets %in% od) || !all(file.exists(cmaln_file_long, guide_tree_file, m
        parallelism = "loop",
        jobs_preprocess = dada_cpus,
        retries = 1,
-       elapsed = 3600*6, #6 hours
+       elapsed = 3600*24, #24 hours
        keep_going = FALSE,
        caching = "worker",
        cache_log_file = TRUE,
