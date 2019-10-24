@@ -10,20 +10,32 @@ library(magrittr)
 library(backports)
 library(futile.logger)
 setup_log("consensus")
+options(clustermq.scheduler = "multicore")
 
 #### Taxonomy targets from DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-targets <- c("cmaln_long", "guidetree_32S", "realign_long", "big_reconstructed_pb_500")
+targets <- c("cmaln_long", "guidetree_32S", "realign_long", "big_reconstructed_pb_500",
+             purrr::keep(plan$target, startsWith, "taxon_"))
 
-dada_cpus <- local_cpus()
+targets <- subset_outdated(targets, dconfig)
+if (!file.exists(cmaln_file_long)) targets <- c(targets, "cmaln_long")
+if (!file.exists(guide_tree_file)) targets <- c(targets, "guidetree_32S")
+if (!file.exists(mlocarna_aln_file)) targets <- c(targets, "realign_long")
 
-if (any(targets %in% od) || !all(file.exists(cmaln_file_long, guide_tree_file, mlocarna_result_file))) {
-  flog.info("Configuring drake to build consensus targets with %d core(s)...", dada_cpus)
+dada_cpus <- max(local_cpus() %/% 2L, 1L)
+jobs <- max(1, local_cpus() %/% dada_cpus)
+
+if (length(targets) > 0) {
+  jobs <- min(max(local_cpus() %/% 8, 1), length(targets))
+  dada_cpus <- max(local_cpus() %/% jobs, 1)
+  parallelism <- if(jobs > 1) "clustermq" else "loop"
+  flog.info("Building %d consensus and taxonomy targets with %d jobs of %d cores...",
+            length(targets), jobs, dada_cpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
-       jobs_preprocess = dada_cpus,
+       jobs_preprocess = local_cpus(),
        retries = 1,
        elapsed = 3600*24, #24 hours
        keep_going = FALSE,
