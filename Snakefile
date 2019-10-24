@@ -714,7 +714,7 @@ rule consensus:
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-07-consensus.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: 8
+    threads: maxthreads
     resources:
         walltime = 240
     log: "{logdir}/consensus.log".format_map(config)
