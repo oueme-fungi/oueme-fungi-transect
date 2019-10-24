@@ -630,7 +630,8 @@ plan <- drake_plan(
       raw_column = "seq",
       sample_column = "name",
       sample_regex = "(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d",
-      ncpus = ignore(dada_cpus)) %>%
+      ncpus = ignore(dada_cpus),
+      multithread = ignore(dada_cpus)) %>%
       dplyr::mutate(hash = tzara::seqhash(long)),
     transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
     format = "fst"
@@ -657,7 +658,8 @@ plan <- drake_plan(
       asv_column = "dada.seq",
       sample_column = "name",
       sample_regex = "(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d",
-      ncpus = ignore(dada_cpus)) %>%
+      ncpus = ignore(dada_cpus),
+      multithread = ignore(dada_cpus)) %>%
       dplyr::mutate(hash = tzara::seqhash(long)),
     transform = combine(dada_map, .by = seq_run, .tag_in = step),
     format = "fst"
