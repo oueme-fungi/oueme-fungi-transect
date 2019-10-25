@@ -42,7 +42,7 @@ config['cm_32S']  = '{ref_root}/fungi_32S_LR5.cm'.format_map(config)
 config['cmaln_long']   = "{locarnadir}/long_cmalign.aln".format_map(config),
 config['guide_tree']   = "{locarnadir}/32S_guide.tree".format_map(config),
 config['mlocarna_dir'] = "{locarnadir}/output".format_map(config)
-config['mlocarna_aln'] = "{mlocarna_dir}/results/result.aln".format_map(config)
+config['mlocarna_aln'] = "{mlocarna_dir}/results/result.stk".format_map(config)
 
 # Find the maximum number of cores available to a single node on SLURM,
 # or if we aren't in a SLURM environment, how many we have on the local machine.

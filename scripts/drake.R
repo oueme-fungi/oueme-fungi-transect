@@ -909,9 +909,34 @@ plan <- drake_plan(
       alignment = file_in(!!cmaln_file_long),
       guide_tree = file_in(!!guide_tree_file),
       target_dir = file_out(!!mlocarna_result_dir),
+      stockholm = TRUE,
+      consensus_structure = "alifold",
       cpus = ignore(dada_cpus)
     )
   },
+  
+  # read the mlocarna output
+  aln_long =
+    read_stockholm_msa(file_in(!!mlocarna_aln_file)),
+  
+  # make a tree based on the realigned consensus using RAxML
+  tree_long = {
+    Biostrings::readRNAMultipleAlignment(file_in(!!mlocarna_aln_file)) %>%
+      Biostrings::DNAStringSet() %>%
+      ape::as.DNAbin() %>%
+      ips::raxml(
+        DNAbin = .,
+        m = "GTRGAMMA",
+        f = "a",
+        N = 100,
+        p = 12345,
+        x = 827,
+        k = TRUE,
+        file = file_out(!!raxml_long_out_dir),
+        exec = Sys.which("raxmlHPC-PTHREADS-AVX")
+      )
+    
+  }
   
   # DECIPHER has a fast progressive alignment algorithm that calculates RNA
   # secondary structure

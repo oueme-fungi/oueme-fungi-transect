@@ -257,10 +257,6 @@ read_stockholm_msa <- function(stockholm) {
   out
 }
 
-read_stockholm_msa_rf <- function(stockholm) {
-  
-}
-
 map_position <- function(alignment, x) {
   if (length(x) == 1 && is.na(x)) return(rep(NA_integer_, nrow(alignment)))
   assertthat::assert_that(assertthat::is.count(x),
@@ -532,6 +528,10 @@ remove_nonconsensus_nongaps <- function(aln, gapfrac = 1) {
 #'        reliable results.
 #' @param extended_pf (\code{logical} scalar) if \code{TRUE}, use extended
 #'        precision calculations in probabalistic mode.
+#' @param stockholm (\code{logical} scalar) if \code{TRUE}, write results in
+#'        stockholm format in addition to clustal format.
+#' @param consensus_structure (\code{character} scalar) how to calculate
+#'        consensus structure to include in stockholm and screen output.
 #' @param skip_pp (\code{logical} scalar) if \code{TRUE}, skip calculating
 #'        pair probabilities if they already exist in the output directory.
 #' @param cache_dir (\code{character} scalar) path to a directory for caching
@@ -553,6 +553,8 @@ mlocarna_realign <- function(alignment,
                              guide_tree = NULL,
                              probabilistic = FALSE,
                              extended_pf = FALSE,
+                             stockholm = TRUE,
+                             consensus_structure = c("none", "alifold", "mea"),
                              skip_pp = FALSE,
                              cache_dir = NULL,
                              verbose = FALSE,
@@ -564,6 +566,8 @@ mlocarna_realign <- function(alignment,
     assertthat::is.string(target_dir),
     assertthat::is.flag(probabilistic),
     assertthat::is.flag(extended_pf),
+    assertthat::is.flag(stockholm),
+    is.character(consensus_structure),
     assertthat::is.flag(skip_pp),
     assertthat::is.flag(verbose),
     assertthat::is.flag(quiet),
@@ -586,6 +590,11 @@ mlocarna_realign <- function(alignment,
     args <- c(args, "--extended-pf")
   }
   
+  if (isTRUE(stockholm)) args <- c(args, "--stockholm")
+  
+  consensus_structure <- match.arg(consensus_structure)
+  args <- c(args, "--consensus-structure", consensus_structure)
+  
   if (isTRUE(skip_pp)) args <- c(args, "--skip-pp")
   if (isTRUE(verbose)) args <- c(args, "--verbose")
   if (isTRUE(quiet)) args <- c(args, "--quiet")
@@ -601,4 +610,19 @@ mlocarna_realign <- function(alignment,
   cat("mlocarna", args, sep = " ")
   system2("mlocarna", args = args)
   file.path(target_dir, "results", "result.aln")
+}
+
+seqhash_safe <- function(seq) {
+  unq <- unique(seq)
+  h <- tzara::seqhash(unq, algo = "xxhash32")
+  n <- 8
+  while (length(unique(h)) != length(unq) && n <= 16) {
+    h <- tzara::seqhash(unq, algo = "xxhash64", len = n)
+    n <- n + 1
+  }
+  while (length(unique(h)) != length(unq) && n <= 128) {
+    h <- tzara::seqhash(unq, algo = "sha512", len = n)
+    n <- n + 1
+  }
+  h[match(unq, seq)]
 }
