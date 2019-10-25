@@ -39,7 +39,7 @@ if (length(targets) > 0) {
             length(targets), jobs, dada_cpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
-       parallelism = "loop",
+       parallelism = parallelism,
        jobs_preprocess = local_cpus(),
        jobs = jobs,
        retries = 1,
