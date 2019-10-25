@@ -15,8 +15,13 @@ options(clustermq.scheduler = "multicore")
 #### Taxonomy targets from DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-targets <- c("cmaln_long", "guidetree_32S", "realign_long", "big_reconstructed_pb_500",
-             purrr::keep(plan$target, startsWith, "taxon_"))
+targets <- c("cmaln_long", "guidetree_32S", "realign_long",
+             "big_reconstructed_pb_500",
+             purrr::keep(
+               plan$target,
+               stringr::str_detect,
+               "taxon_.+_(warcup|sintax|dada2)"
+             ))
 
 targets <- subset_outdated(targets, dconfig)
 if (!file.exists(cmaln_file_long)) targets <- c(targets, "cmaln_long")
