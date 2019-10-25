@@ -98,6 +98,7 @@ raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
   
   if (!inherits(RNAaln, "RNAMultipleAlignment")) stop("RNAaln is not of class 
                                                       'RNAMultipleAlignment'")
+  if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
   olddir <- setwd(dir)
   on.exit(setwd(olddir))
   

@@ -19,6 +19,7 @@ if (interactive()) {
   guide_tree_file <- file.path(locarna_dir, "32S_guide.tree")
   mlocarna_result_dir <- file.path(locarna_dir, "output")
   mlocarna_aln_file <- file.path(mlocarna_result_dir, "results", "result.aln")
+  raxml_long_out_dir <- file.path(data_dir, "raxml")
   plan_dir <- file.path(data_dir, "plan")
   ref_dir <- here("reference")
   rmd_dir <- here("writing")
@@ -77,6 +78,7 @@ if (interactive()) {
   guide_tree_file <- snakemake@config$guide_tree
   mlocarna_aln_file <- snakemake@config$mlocarna_aln
   mlocarna_result_dir <- snakemake@config$mlocarna_dir
+  raxml_long_out_dir <- snakemake@config$raxml_dir
   plan_dir <- snakemake@config$plandir
   plan_file <- snakemake@output$plan
   itsx_meta_file <- snakemake@output$itsx_meta

@@ -43,6 +43,7 @@ config['cmaln_long']   = "{locarnadir}/long_cmalign.aln".format_map(config),
 config['guide_tree']   = "{locarnadir}/32S_guide.tree".format_map(config),
 config['mlocarna_dir'] = "{locarnadir}/output".format_map(config)
 config['mlocarna_aln'] = "{mlocarna_dir}/results/result.stk".format_map(config)
+config['raxml_dir']    = "{datadir}/raxml".format_map(config)
 
 # Find the maximum number of cores available to a single node on SLURM,
 # or if we aren't in a SLURM environment, how many we have on the local machine.
@@ -726,7 +727,7 @@ rule raxml:
         touch(".raxml")
     input:
         ".consensus",
-        script = "{rdir}/drake-08-raxml.R".format_map(config)
+        script = "{rdir}/drake-09-raxml.R".format_map(config)
     log: "{logdir}/raxml.log".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: maxthreads
