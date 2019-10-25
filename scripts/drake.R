@@ -737,6 +737,7 @@ plan <- drake_plan(
   taxon = target(
     dplyr::select(reconstructed_pb_500, region, "hash") %>%
       dplyr::filter(complete.cases(.)) %>%
+      unique() %>%
       {set_names(.[[region]], .$hash)} %>%
       taxonomy(reference = refdb,
                method = method,
