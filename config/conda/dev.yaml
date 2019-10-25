@@ -46,5 +46,6 @@ dependencies:
   - r-pryr
   - infernal=1.1.2
   - locarna=2.0.0
+  - raxml=8.2.12
   - itsx=1.1b
   - defaults::qt

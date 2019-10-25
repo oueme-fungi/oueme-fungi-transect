@@ -42,3 +42,4 @@ dependencies:
   - itsx=1.1b
   - vsearch=2.9.1
   - locarna=2.0.0
+  - raxml=8.2.12

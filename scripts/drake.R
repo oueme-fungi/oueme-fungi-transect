@@ -920,23 +920,23 @@ plan <- drake_plan(
     read_stockholm_msa(file_in(!!mlocarna_aln_file)),
   
   # make a tree based on the realigned consensus using RAxML
-  tree_long = {
-    Biostrings::readRNAMultipleAlignment(file_in(!!mlocarna_aln_file)) %>%
-      Biostrings::DNAStringSet() %>%
-      ape::as.DNAbin() %>%
-      ips::raxml(
-        DNAbin = .,
+  raxml_long = {
+    raxml_RNA(
+        RNAaln = aln_long$alignment,
+        S = aln_long$SS_cons,
         m = "GTRGAMMA",
+        A = "S16",
         f = "a",
-        N = 100,
+        N = "autoMRE_IGN",
         p = 12345,
         x = 827,
         k = TRUE,
-        file = file_out(!!raxml_long_out_dir),
-        exec = Sys.which("raxmlHPC-PTHREADS-AVX")
+        dir = file_out(!!raxml_long_out_dir),
+        exec = Sys.which("raxmlHPC-PTHREADS-AVX"),
+        threads = raxml_cpus
       )
     
-  }
+  },
   
   # DECIPHER has a fast progressive alignment algorithm that calculates RNA
   # secondary structure

@@ -554,6 +554,7 @@ checkpoint drake_plan:
         "{rdir}/map_LSU.R".format_map(config),
         "{rdir}/taxonomy.R".format_map(config),
         "{rdir}/inferrnal.R".format_map(config),
+        "{rdir}/raxml.R".format_map(config),
         dataset  = config['dataset'],
         regions  = config['regions'],
         methods  = config['methods'],
@@ -720,109 +721,18 @@ rule consensus:
     log: "{logdir}/consensus.log".format_map(config)
     script: "{rdir}/drake-07-consensus.R".format_map(config)
 
-
-# calculate which sequence tables are needed for a taxonomy assignment step
-#def taxon_inputs(wildcards):
-#    checkpoints.drake_plan.get()
-#    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
-#    tax_ID = "{region}_{reference}_{refregion}_{method}".format_map(wildcards)
-#    regions = taxonomy_meta.loc[tax_ID, 'region'].split(sep = ",")
-#    return expand('.big_fasta_{region}', region = regions)
-
-#def taxon_reference(wildcards):
-#    checkpoints.drake_plan.get()
-#    taxonomy_meta = pd.read_csv(rules.drake_plan.output.taxonomy_meta_csv).set_index("tax_ID")
-#    tax_ID = "{region}_{reference}".format_map(wildcards)
-#    return taxonomy_meta.loc[tax_ID, 'reference_file']
-
-# build the drake targets to prepare for taxonomy
-#rule tax_ref:
-#    output: touch(".taxref_{reference}_{refregion}")
-#    wildcard_constraints:
-#        refregion = "[a-zA-Z0-9]+"
-#    input:
-#        drakedata = rules.drake_plan.output.drakedata,
-#        dada2 = "{ref_root}/{{reference}}.{{refregion}}.dada2.fasta.gz".format_map(config),
-#        sintax = "{ref_root}/{{reference}}.{{refregion}}.sintax.fasta.gz".format_map(config),
-#        script = "{rdir}/drake-08-references.R".format_map(config)
-#    conda: "config/conda/drake.yaml"
-#    threads: 8
-#    resources:
-#        walltime = 240
-#    log: "{logdir}/taxref_{{reference}}_{{refregion}}.log".format_map(config)
-#    script: "{rdir}/drake-08-references.R".format_map(config)
-
-
-# call taxonomy and assign guilds
-rule taxonomy:
-    output: touch(".taxonomy")
+rule raxml:
+    output:
+        touch(".raxml")
     input:
         ".consensus",
-        rules.translate_references.output,
-        drakedata = rules.drake_plan.output.drakedata,
-        script = "{rdir}/drake-09-taxonomy.R".format_map(config)
+        script = "{rdir}/drake-08-raxml.R".format_map(config)
+    log: "{logdir}/raxml.log".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: maxthreads
     resources:
-        walltime = 240
-    log: "{logdir}/taxonomy.log".format_map(config)
-    script: "{rdir}/drake-09-taxonomy.R".format_map(config)
-
-# calculate all the taxonomy outputs which should be calculated
-def taxon_outputs(wildcards):
-    checkpoints.drake_plan.get()
-    references = regions.reference.loc[-regions.reference.isnull()].str.replace(".", "_").str.split(',').explode()
-    return expand(".taxon_{region}_{reference}",
-                  zip,
-                  region = references.index.to_list(),
-                  reference = references.to_list())
-
-rule all_taxonomy:
-    input: taxon_outputs
-
-
-# Build a progressive tree using PASTA, with the LSU tree as guide
-#rule pasta:
-#    output:
-#        tree = "{pastadir}/pasta_raxml.tree".format_map(config)
-#    input:
-#        consensus = ancient(rules.consensus.output.flag),
-#        aln_LSU   = ancient(rules.consensus.output.aln_LSU)
-#    log: "{logdir}/pasta.log".format_map(config)
-#    threads: 16
-#    resources:
-#        walltime=60
-#    conda: "config/conda/pasta.yaml"
-#    shell:
-#        """
-#        mkdir -p {config[pastadir]} &&
-#        cd {config[pastadir]} &&
-#        [ -e .dopasta ] &&
-#        rm -f *postraxtree_tree.tre &&
-#        PASTA_TOOLS_DEVDIR=$CONDA_PREFIX/bin/ \
-#        run_pasta.py \
-#        -j ITS_LSU \
-#        --input {input.aln_LSU} \
-#        --aligned \
-#        --datatype rna \
-#        --raxml-search-after \
-#        --num-cpus={threads} &&
-#        mv {config[pastadir]}/*postraxtree_tree.tre {output.tree} &&
-#        rm -f {config[pastadir]}/.dopasta &> {log} ||
-#        ( echo "alignment unchanged, skipping PASTA and using old tree.";
-#          touch {output.tree} )
-#        """
-
-#rule raxml:
-#    output:
-#        tree = "{datadir}/long_ASVs.tree".format_map(config)
-#    input:
-#        consensus = ancient(rules.consensus.output.flag),
-#        aln_LSU   = ancient(rules.consensus.output.aln_LSU)
-#    log: "{logdir}/raxml.log".format_map(config)
-#    threads: 16
-#    resources:
-#        walltime=60*36
+        walltime=60*72
+    script: "{rdir}/drake-08-raxml.R".format_map(config)
 
 # delimit species based on the ITS+LSU tree using a Poisson Tree Process model
 localrules: ptp
@@ -853,7 +763,7 @@ rule finish:
     input:
 #        pasta     = rules.pasta.output.tree,
         drakedata = rules.drake_plan.output.drakedata,
-        taxonomy  = ".taxonomy"
+        raxml  = ".raxml"
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
