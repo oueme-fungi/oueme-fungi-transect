@@ -41,8 +41,9 @@ if (length(targets) > 0) {
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
        jobs_preprocess = local_cpus(),
+       jobs = jobs,
        retries = 1,
-       elapsed = 3600*24, #24 hours
+       elapsed = 3600*48, #48 hours
        keep_going = FALSE,
        caching = "worker",
        cache_log_file = TRUE,
