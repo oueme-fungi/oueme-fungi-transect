@@ -21,7 +21,9 @@ targets <- c("cmaln_long", "guidetree_32S", "realign_long",
                plan$target,
                stringr::str_detect,
                "taxon_.+_(warcup|sintax|dada2)"
-             ))
+             ) %>%
+               purrr::discard(stringr::str_detect, "short")
+             )
 
 targets <- subset_outdated(targets, dconfig)
 if (!file.exists(cmaln_file_long)) targets <- c(targets, "cmaln_long")
