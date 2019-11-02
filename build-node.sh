@@ -6,7 +6,7 @@
 #SBATCH -A snic2018-8-131
 #SBATCH -p node
 #SBATCH -N 1
-#SBATCH -t 24:00:00
+#SBATCH -t 4-00:00:00
 #SBATCH -J oueme-fungi-transect
 #SBATCH -C usage_mail
 #SBATCH --mail-type=ALL
@@ -20,6 +20,6 @@ snakemake -pr --jobs $SLURM_JOB_CPUS_PER_NODE\
   --keep-going\
   --use-conda\
   --shadow-prefix /scratch\
-  all_taxonomy
+  .raxml
 
 #exit $out
