@@ -28,7 +28,6 @@ targets <- c("cmaln_long", "guidetree_32S", "realign_long",
 targets <- subset_outdated(targets, dconfig)
 if (!file.exists(cmaln_file_long)) targets <- c(targets, "cmaln_long")
 if (!file.exists(guide_tree_file)) targets <- c(targets, "guidetree_32S")
-if (!file.exists(mlocarna_aln_file)) targets <- c(targets, "realign_long")
 
 dada_cpus <- max(local_cpus() %/% 2L, 1L)
 jobs <- max(1, local_cpus() %/% dada_cpus)

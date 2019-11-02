@@ -42,6 +42,7 @@ config['cm_32S']  = '{ref_root}/fungi_32S_LR5.cm'.format_map(config)
 config['cmaln_long']   = "{locarnadir}/long_cmalign.aln".format_map(config),
 config['guide_tree']   = "{locarnadir}/32S_guide.tree".format_map(config),
 config['mlocarna_dir'] = "{locarnadir}/output".format_map(config)
+config['makelocarna']  = "{rdir}/makelocarna.sh".format_map(config)
 config['mlocarna_aln'] = "{mlocarna_dir}/results/result.stk".format_map(config)
 config['raxml_dir']    = "{datadir}/raxml".format_map(config)
 
@@ -727,12 +728,13 @@ rule raxml:
         touch(".raxml")
     input:
         ".consensus",
+        makelocarna = config['makelocarna'],
         script = "{rdir}/drake-09-raxml.R".format_map(config)
     log: "{logdir}/raxml.log".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: maxthreads
     resources:
-        walltime=60*72
+        walltime=60*96
     script: "{rdir}/drake-08-raxml.R".format_map(config)
 
 # delimit species based on the ITS+LSU tree using a Poisson Tree Process model

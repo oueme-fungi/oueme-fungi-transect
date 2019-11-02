@@ -18,6 +18,7 @@ if (interactive()) {
   cmaln_file_long <- file.path(locarna_dir, "long_cmalign.aln")
   guide_tree_file <- file.path(locarna_dir, "32S_guide.tree")
   mlocarna_result_dir <- file.path(locarna_dir, "output")
+  makelocarna <- file.path(r_dir, "makelocarna.sh")
   mlocarna_aln_file <- file.path(mlocarna_result_dir, "results", "result.aln")
   raxml_long_out_dir <- file.path(data_dir, "raxml")
   plan_dir <- file.path(data_dir, "plan")
@@ -78,6 +79,7 @@ if (interactive()) {
   guide_tree_file <- snakemake@config$guide_tree
   mlocarna_aln_file <- snakemake@config$mlocarna_aln
   mlocarna_result_dir <- snakemake@config$mlocarna_dir
+  makelocarna <- snakemake@config$makelocarna
   raxml_long_out_dir <- snakemake@config$raxml_dir
   plan_dir <- snakemake@config$plandir
   plan_file <- snakemake@output$plan
@@ -914,7 +916,9 @@ plan <- drake_plan(
       target_dir = file_out(!!mlocarna_result_dir),
       stockholm = TRUE,
       consensus_structure = "alifold",
-      cpus = ignore(dada_cpus)
+      cpus = ignore(dada_cpus),
+      pw_aligner = normalizePath(file_in(!!makelocarna)),
+      pw_aligner_options = ignore(raxml_cpus)
     )
   },
   

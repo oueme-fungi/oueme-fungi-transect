@@ -559,7 +559,11 @@ mlocarna_realign <- function(alignment,
                              cache_dir = NULL,
                              verbose = FALSE,
                              quiet = FALSE,
-                             cpus = 1L) {
+                             cpus = 1L,
+                             pw_aligner = NULL,
+                             pw_aligner_options = NULL,
+                             pw_aligner_p = NULL,
+                             pw_aligner_p_options = NULL) {
   assertthat::assert_that(
     assertthat::is.string(alignment),
     assertthat::is.readable(alignment),
@@ -604,6 +608,33 @@ mlocarna_realign <- function(alignment,
       assertthat::is.string(cache_dir)
     )
     args <- c(args, "--dp-cache", cache_dir)
+  }
+  if (!is.null(pw_aligner)) {
+    assertthat::assert_that(
+      assertthat::is.string(pw_aligner)
+    )
+    args <- c(args, "--pw-aligner", pw_aligner)
+  }
+  
+  if (!is.null(pw_aligner_options)) {
+    assertthat::assert_that(
+      assertthat::is.string(pw_aligner_options)
+    )
+    args <- c(args, "--pw-aligner-options", pw_aligner_options)
+  }
+  
+  if (!is.null(pw_aligner_p)) {
+    assertthat::assert_that(
+      assertthat::is.string(pw_aligner_p)
+    )
+    args <- c(args, "--pw-aligner-p", pw_aligner_p)
+  }
+  
+  if (!is.null(pw_aligner_p_options)) {
+    assertthat::assert_that(
+      assertthat::is.string(pw_aligner_p_options)
+    )
+    args <- c(args, "--pw-aligner-p-options", pw_aligner_p_options)
   }
   
   if (!missing(cpus)) args <- c(args, "--cpus", cpus)
