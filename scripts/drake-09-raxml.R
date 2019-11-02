@@ -21,7 +21,7 @@ setup_log("raxml")
 raxml_cpus <- local_cpus()
 if (length(targets))
   flog.info(
-    "Building %d raxml targets with %d cores...", length(targets), raxml_cpus
+    "Building %d RAxML targets with %d cores...", length(targets), raxml_cpus
   )
   tictoc::tic()
   ftry(
@@ -50,4 +50,13 @@ if (length(targets))
   if (any(targets %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else flog.info("RaxML targets are up-to-date.")
+
+  if (!file.exists(mlocarna_aln_file)) {
+    flog.info("Creating	%s.", mlocarna_aln_file)
+    tictoc::tic()
+    drake_build(realign_long, dconfig)
+    tictoc::toc()
+  }
+} else flog.info("RAxML targets are up-to-date.")
+Sys.setFileTime(mlocarna_aln_file, Sys.time())
+

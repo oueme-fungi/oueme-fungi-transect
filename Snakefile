@@ -707,9 +707,8 @@ consensus_table = regions_table.loc[regions_table.seq_run == "pb_500"]
 rule consensus:
     output:
         flag    = touch(".consensus"),
-        cmaln_long = config['cmaln_long'],
         guide_tree = config['guide_tree'],
-        mlocarna_aln = config['mlocarna_aln']
+        cmaln_long = config['cmaln_long']
     input:
         ".DADA",
         ".preconsensus",
@@ -725,10 +724,13 @@ rule consensus:
 
 rule raxml:
     output:
-        touch(".raxml")
+        touch(".raxml"),
+        mlocarna_aln = config['mlocarna_aln']
     input:
         ".consensus",
         makelocarna = config['makelocarna'],
+        cmaln_long = config['cmaln_long'],
+        guide_tree = config['guide_tree'],
         script = "{rdir}/drake-09-raxml.R".format_map(config)
     log: "{logdir}/raxml.log".format_map(config)
     conda: "config/conda/drake.yaml"

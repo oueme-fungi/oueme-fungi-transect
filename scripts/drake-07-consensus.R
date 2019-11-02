@@ -15,7 +15,7 @@ options(clustermq.scheduler = "multicore")
 #### Taxonomy targets from DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-targets <- c("cmaln_long", "guidetree_32S", "realign_long",
+targets <- c("cmaln_long", "guidetree_32S",
              "big_reconstructed_pb_500",
              purrr::keep(
                plan$target,
@@ -75,13 +75,6 @@ if (length(targets) > 0) {
     drake_build(guidetree_32S, dconfig)
     tictoc::toc()
   }
-  if (!file.exists(mlocarna_aln_file)) {
-    flog.info("Creating	%s.", mlocarna_alnfile)
-    tictoc::tic()
-    drake_build(realign_long, dconfig)
-    tictoc::toc()
-  }
-
 
 } else {
   flog.info("Consensus targets are up-to-date.")
