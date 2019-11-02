@@ -29,7 +29,7 @@ if (length(targets))
       plan,
       parallelism = "loop",
       jobs_preprocess = local_cpus(),
-      jobs = jobs,
+      jobs = 1,
       retries = 1,
       elapsed = 3600*72, #3 days
       keep_going = FALSE,
