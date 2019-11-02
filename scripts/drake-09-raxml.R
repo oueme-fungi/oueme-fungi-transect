@@ -5,11 +5,15 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-targets <- purrr::keep(plan$target, startsWith, "raxml_")
+targets <- c(
+  purrr::keep(plan$target, startsWith, "raxml_"),
+  purrr::keep(plan$target, startsWith, "realign_")
+)
 targets <- subset_outdated(targets, dconfig)
 
 library(magrittr)
 library(backports)
+library(drake)
 library(futile.logger)
 setup_log("raxml")
 

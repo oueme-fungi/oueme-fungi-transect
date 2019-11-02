@@ -19,7 +19,7 @@ if (interactive()) {
   guide_tree_file <- file.path(locarna_dir, "32S_guide.tree")
   mlocarna_result_dir <- file.path(locarna_dir, "output")
   makelocarna <- file.path(r_dir, "makelocarna.sh")
-  mlocarna_aln_file <- file.path(mlocarna_result_dir, "results", "result.aln")
+  mlocarna_aln_file <- file.path(mlocarna_result_dir, "results", "result.stk")
   raxml_long_out_dir <- file.path(data_dir, "raxml")
   plan_dir <- file.path(data_dir, "plan")
   ref_dir <- here("reference")
@@ -916,9 +916,9 @@ plan <- drake_plan(
       target_dir = file_out(!!mlocarna_result_dir),
       stockholm = TRUE,
       consensus_structure = "alifold",
-      cpus = ignore(dada_cpus),
+      cpus = ignore(raxml_cpus),
       pw_aligner = normalizePath(file_in(!!makelocarna)),
-      pw_aligner_options = ignore(raxml_cpus)
+      pw_aligner_options = ignore(as.character(raxml_cpus))
     )
   },
   
@@ -940,7 +940,7 @@ plan <- drake_plan(
         k = TRUE,
         dir = file_out(!!raxml_long_out_dir),
         exec = Sys.which("raxmlHPC-PTHREADS-AVX"),
-        threads = raxml_cpus
+        threads = ignore(raxml_cpus)
       )
     
   },
