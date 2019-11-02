@@ -737,7 +737,7 @@ rule raxml:
     threads: maxthreads
     resources:
         walltime=60*96
-    script: "{rdir}/drake-08-raxml.R".format_map(config)
+    script: "{rdir}/drake-09-raxml.R".format_map(config)
 
 # delimit species based on the ITS+LSU tree using a Poisson Tree Process model
 localrules: ptp
