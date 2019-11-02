@@ -731,6 +731,7 @@ rule raxml:
         makelocarna = config['makelocarna'],
         cmaln_long = config['cmaln_long'],
         guide_tree = config['guide_tree'],
+        drakedata = "{plandir}/drake.Rdata".format_map(config),
         script = "{rdir}/drake-09-raxml.R".format_map(config)
     log: "{logdir}/raxml.log".format_map(config)
     conda: "config/conda/drake.yaml"
