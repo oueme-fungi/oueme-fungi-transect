@@ -49,3 +49,5 @@ dependencies:
   - raxml=8.2.12
   - itsx=1.1b
   - defaults::qt
+  - snakemake-minimal=5.5.4
+  - pandas=0.25.1

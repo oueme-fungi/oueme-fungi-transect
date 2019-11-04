@@ -43,3 +43,5 @@ dependencies:
   - vsearch=2.9.1
   - locarna=2.0.0
   - raxml=8.2.12
+  - snakemake-minimal=5.5.4
+  - pandas=0.25.1

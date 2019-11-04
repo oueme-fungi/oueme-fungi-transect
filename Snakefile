@@ -43,8 +43,11 @@ config['cmaln_long']   = "{locarnadir}/long_cmalign.aln".format_map(config),
 config['guide_tree']   = "{locarnadir}/32S_guide.tree".format_map(config),
 config['mlocarna_dir'] = "{locarnadir}/output".format_map(config)
 config['makelocarna']  = "{rdir}/makelocarna.sh".format_map(config)
+config['makelocarna_profile'] = "configdir/snakemakelocarnaUPPMAX"
+config['makelocarna_conda'] = "condadir/snakemakelocarna.yaml"
 config['mlocarna_aln'] = "{mlocarna_dir}/results/result.stk".format_map(config)
-config['raxml_dir']    = "{datadir}/raxml".format_map(config)
+config['raxml_locarna_dir']    = "{datadir}/raxml/locarna".format_map(config)
+config['raxml_decipher_dir']    = "{datadir}/raxml/decipher".format_map(config)
 
 # Find the maximum number of cores available to a single node on SLURM,
 # or if we aren't in a SLURM environment, how many we have on the local machine.
@@ -724,8 +727,7 @@ rule consensus:
 
 rule raxml:
     output:
-        touch(".raxml"),
-        mlocarna_aln = config['mlocarna_aln']
+        touch(".raxml")
     input:
         ".consensus",
         makelocarna = config['makelocarna'],

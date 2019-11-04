@@ -1,0 +1,8 @@
+name: snakemakelocarna
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - locarna=2.0.0
+  - snakemake-minimal=5.5.4

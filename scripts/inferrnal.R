@@ -557,6 +557,7 @@ mlocarna_realign <- function(alignment,
                              consensus_structure = c("none", "alifold", "mea"),
                              skip_pp = FALSE,
                              cache_dir = NULL,
+                             only_dps = FALSE,
                              verbose = FALSE,
                              quiet = FALSE,
                              cpus = 1L,
@@ -573,6 +574,7 @@ mlocarna_realign <- function(alignment,
     assertthat::is.flag(stockholm),
     is.character(consensus_structure),
     assertthat::is.flag(skip_pp),
+    assertthat::is.flag(only_dps),
     assertthat::is.flag(verbose),
     assertthat::is.flag(quiet),
     !(verbose && quiet),
@@ -600,6 +602,7 @@ mlocarna_realign <- function(alignment,
   args <- c(args, "--consensus-structure", consensus_structure)
   
   if (isTRUE(skip_pp)) args <- c(args, "--skip-pp")
+  if (isTRUE(only_dps)) args <- c(args, "--only-dps")
   if (isTRUE(verbose)) args <- c(args, "--verbose")
   if (isTRUE(quiet)) args <- c(args, "--quiet")
   
@@ -640,7 +643,19 @@ mlocarna_realign <- function(alignment,
   if (!missing(cpus)) args <- c(args, "--cpus", cpus)
   cat("mlocarna", args, sep = " ")
   system2("mlocarna", args = args)
-  file.path(target_dir, "results", "result.aln")
+  outfile <- file.path(target_dir, "results", "result.aln")
+  # return md5 of the output file
+  if (!only_dps) return(tools::md5sum(outfile))
+  # if only calculating initial files, calculate md5 of all of them and then
+  # md5 of the list
+  seqnames <- readLines(alignment)[-1]
+  seqnames <- sub(" .*", "", seqnames)
+  seqnames <- seqnames[!grepl("^#", seqnames)]
+  seqnames <- seqnames[nchar(seqnames) > 0]
+  seqnames <- unique(seqnames)
+  ppdir <- file.path(target_dir, "input", seqnames)
+  md5s <- tools::md5sum(ppdir)
+  return(digest::digest(md5s, "md5"))
 }
 
 seqhash_safe <- function(seq) {

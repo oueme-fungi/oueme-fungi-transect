@@ -18,9 +18,12 @@ if (interactive()) {
   cmaln_file_long <- file.path(locarna_dir, "long_cmalign.aln")
   guide_tree_file <- file.path(locarna_dir, "32S_guide.tree")
   mlocarna_result_dir <- file.path(locarna_dir, "output")
-  makelocarna <- file.path(r_dir, "makelocarna.sh")
+  makelocarna <- file.path(r_dir, "snakemakelocarna.sh")
+  makelocarna_profile <- file.path(lab_dir, "snakemakelocarnaUPPMAX")
+  makelocarna_conda <- file.path(lab_dir, "conda", "snakemakelocarna.yaml")
   mlocarna_aln_file <- file.path(mlocarna_result_dir, "results", "result.stk")
-  raxml_long_out_dir <- file.path(data_dir, "raxml")
+  raxml_locarna_out_dir <- file.path(data_dir, "raxml_locarna")
+  raxml_decipher_out_dir <- file.path(data_dir, "raxml_decipher")
   plan_dir <- file.path(data_dir, "plan")
   ref_dir <- here("reference")
   rmd_dir <- here("writing")
@@ -80,7 +83,10 @@ if (interactive()) {
   mlocarna_aln_file <- snakemake@config$mlocarna_aln
   mlocarna_result_dir <- snakemake@config$mlocarna_dir
   makelocarna <- snakemake@config$makelocarna
-  raxml_long_out_dir <- snakemake@config$raxml_dir
+  makelocarna_profile <- snakemake@config$makelocarna_profile
+  makelocarna_conda <- snakemake@config$makelocarna_conda
+  raxml_locarna_out_dir <- snakemake@config$raxml_locarna_dir
+  raxml_decipher_out_dir <- snakemake@config$raxml_decipher_dir
   plan_dir <- snakemake@config$plandir
   plan_file <- snakemake@output$plan
   itsx_meta_file <- snakemake@output$itsx_meta
@@ -907,8 +913,17 @@ plan <- drake_plan(
       file = file_out(!!guide_tree_file)
     ),
   
+  mlocarna_pp_long = 
+    mlocarna_realign(
+      alignment = file_in(!!cmaln_file_long),
+      target_dir = file_out(!!mlocarna_result_dir),
+      cpus = ignore(dada_cpus),
+      only_dps = TRUE
+    ),
+  
   # realign the consensus sequences using mlocarna
   realign_long = {
+    mlocarna_pp_long
     file_out(!!mlocarna_aln_file)
     mlocarna_realign(
       alignment = file_in(!!cmaln_file_long),
@@ -916,21 +931,25 @@ plan <- drake_plan(
       target_dir = file_out(!!mlocarna_result_dir),
       stockholm = TRUE,
       consensus_structure = "alifold",
-      cpus = ignore(raxml_cpus),
+      cpus = 1,
+      skip_pp = TRUE,
       pw_aligner = normalizePath(file_in(!!makelocarna)),
-      pw_aligner_options = ignore(as.character(raxml_cpus))
+      pw_aligner_options = paste(
+        "--profile", normalizePath(!!makelocarna_profile),
+        "--conda", normalizePath(!!makelocarna_conda)
+      )
     )
   },
   
   # read the mlocarna output
-  aln_long =
+  aln_locarna_long =
     read_stockholm_msa(file_in(!!mlocarna_aln_file)),
   
   # make a tree based on the realigned consensus using RAxML
-  raxml_long = {
+  raxml_locarna_long = {
     raxml_RNA(
-        RNAaln = aln_long$alignment,
-        S = aln_long$SS_cons,
+        RNAaln = aln_locarna_long$alignment,
+        S = aln_locarna_long$SS_cons,
         m = "GTRGAMMA",
         A = "S16",
         f = "a",
@@ -938,12 +957,39 @@ plan <- drake_plan(
         p = 12345,
         x = 827,
         k = TRUE,
-        dir = file_out(!!raxml_long_out_dir),
+        dir = file_out(!!raxml_locarna_out_dir),
         exec = Sys.which("raxmlHPC-PTHREADS-AVX"),
         threads = ignore(raxml_cpus)
       )
-    
   },
+  
+  aln_decipher_long =
+    reconstructed_pb_500 %>%
+    dplyr::select(hash, long, ITS1) %>%
+    dplyr::filter(complete.cases(.), startsWith(long, ITS1)) %>%
+    unique() %$%
+    set_names(long, hash) %>%
+    chartr("T", "U", .) %>%
+    Biostrings::RNAStringSet() %>%
+    DECIPHER::AlignSeqs(iterations = 10,
+                        refinements = 10,
+                        processors = ignore(raxml_cpus)),
+  
+  raxml_decipher_long =
+    aln_decipher_long %>%
+    Biostrings::DNAStringSet() %>%
+    ape::as.DNAbin() %>%
+    ips::raxml(
+      DNAbin = .,
+      m = "GTRGAMMA",
+      f = "a",
+      N = "autoMRE_IGN",
+      p = 12345,
+      x = 827,
+      k = TRUE,
+      file = file_out(!!raxml_decipher_out_dir),
+      exec = Sys.which("raxmlHPC-PTHREADS-AVX"),
+      threads = ignore(raxml_cpus)),
   
   # DECIPHER has a fast progressive alignment algorithm that calculates RNA
   # secondary structure
