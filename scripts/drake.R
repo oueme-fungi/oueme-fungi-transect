@@ -989,7 +989,7 @@ plan <- drake_plan(
       x = 827,
       k = TRUE,
       file = file_out(!!raxml_decipher_out_dir),
-      exec = Sys.which("raxmlHPC-PTHREADS-AVX"),
+      exec = Sys.which("raxmlHPC-PTHREADS-AVX2"),
       threads = ignore(raxml_cpus)),
   
   # DECIPHER has a fast progressive alignment algorithm that calculates RNA
