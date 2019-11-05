@@ -958,7 +958,7 @@ plan <- drake_plan(
         x = 827,
         k = TRUE,
         dir = file_out(!!raxml_locarna_out_dir),
-        exec = Sys.which("raxmlHPC-PTHREADS-AVX"),
+        exec = Sys.which("raxmlHPC-PTHREADS-AVX2"),
         threads = ignore(raxml_cpus)
       )
   },
