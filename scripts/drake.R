@@ -947,7 +947,7 @@ plan <- drake_plan(
   
   # make a tree based on the realigned consensus using RAxML
   raxml_locarna_long = {
-    raxml_RNA(
+      raxml_RNA(
         RNAaln = aln_locarna_long$alignment,
         S = aln_locarna_long$SS_cons,
         m = "GTRGAMMA",
@@ -957,10 +957,13 @@ plan <- drake_plan(
         p = 12345,
         x = 827,
         k = TRUE,
-        dir = file_out(!!raxml_locarna_out_dir),
+        file = "locarna_long",
+        dir = !!raxml_locarna_out_dir,
         exec = Sys.which("raxmlHPC-PTHREADS-AVX2"),
         threads = ignore(raxml_cpus)
       )
+    setwd(wd)
+    result
   },
   
   aln_decipher_long =
@@ -975,22 +978,29 @@ plan <- drake_plan(
                         refinements = 10,
                         processors = ignore(raxml_cpus)),
   
-  raxml_decipher_long =
-    aln_decipher_long %>%
-    Biostrings::DNAStringSet() %>%
-    ape::as.DNAbin() %>%
-    as.matrix() %>%
-    ips::raxml(
-      DNAbin = .,
-      m = "GTRGAMMA",
-      f = "a",
-      N = "autoMRE_IGN",
-      p = 12345,
-      x = 827,
-      k = TRUE,
-      file = file_out(!!raxml_decipher_out_dir),
-      exec = Sys.which("raxmlHPC-PTHREADS-AVX2"),
-      threads = ignore(raxml_cpus)),
+  raxml_decipher_long = {
+    if (!dir.exists(!!raxml_decipher_out_dir))
+      dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
+    wd <- setwd(!!raxml_decipher_out_dir)
+    result <- 
+      aln_decipher_long %>%
+      Biostrings::DNAStringSet() %>%
+      ape::as.DNAbin() %>%
+      as.matrix() %>%
+      ips::raxml(
+        DNAbin = .,
+        m = "GTRGAMMA",
+        f = "a",
+        N = "autoMRE_IGN",
+        p = 12345,
+        x = 827,
+        k = TRUE,
+        file = "decipher_long",
+        exec = Sys.which("raxmlHPC-PTHREADS-AVX2"),
+        threads = ignore(raxml_cpus))
+    setwd(wd)
+    result
+    },
   
   # DECIPHER has a fast progressive alignment algorithm that calculates RNA
   # secondary structure
