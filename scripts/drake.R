@@ -979,6 +979,7 @@ plan <- drake_plan(
     aln_decipher_long %>%
     Biostrings::DNAStringSet() %>%
     ape::as.DNAbin() %>%
+    as.matrix() %>%
     ips::raxml(
       DNAbin = .,
       m = "GTRGAMMA",
