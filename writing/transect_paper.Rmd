@@ -127,25 +127,35 @@ write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
                   - remove sequences with more than 3 ambiguous bases (bad consensus)
           - repeat process using each other domain as reference, in decreasing order of diversity.
 
-      - taxonomy assigned using IDTAXA [@murali2018]
-          - UNITE version 8 [@nilsson2019a]
-              - extracted ITS1 and ITS2 using ITSx [@Nilsson2010; @bengtsson-palme2013]
-              - trained three classifiers: full ITS, ITS1, ITS2.
-          - RDP fungal LSU release 11.5 [@cole2014]
-              - chose only sequences containing conserved primer sites for ITS4 (3' side of H11; CAUAUnAnUnAGnSSAGGA) and LR5 (on H37; CGAAnUUUCnCUCAGGAUAGCnG).
-              - ambiguities based on [@cannone2002; @tedersoo2015]
-              - Trim all bases after LR5 because they are not present in our amplicons.
-          - SILVA LSU release 132 [@quast2013; @glockner2017; @yilmaz2014]
-              - filter out sequences annotates as prokaryotes, then treat as RDP.
-          - all databases
-              - select medioid sequence for each annotated species, based on minimum 5-mer distance to other sequences
-              - for sequences not annotated as species (e.g. "unidentified Basidiomycota"), randomly choose up to 20 per taxon
-              - Use up to 5 iterations of IDTAXA training, removing all "problem" sequences on each iteration, unless last member of annotated taxon.
-              - "underannotated" sequences (e.g., "unidentified Basidiomycota" confidently placed as Agaricomycetes) not protected from removal if last sequence annotated as such.
+      - taxonomy assignment
+          - three methods: 
+              - IDTAXA [@murali2018]
+              - SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016]
+              - RDP Naïve Bayesian Classifier (NBC) [@wang2007] as implemented in DADA2
+          - three databases:
+              - UNITE version 8 [@nilsson2019a]
+                  - extracted ITS1 and ITS2 using ITSx [@Nilsson2010; @bengtsson-palme2013]
+                  - trained three classifiers: full (for ITS, 5_8S, full amplicons), ITS1, ITS2.
+              - RDP fungal LSU training set 11.5 [@cole2014]
+                  - chose only sequences containing conserved primer sites for ITS4 (3' side of H11; CAUAUnAnUnAGnSSAGGA) and LR5 (on H37; CGAAnUUUCnCUCAGGAUAGCnG).
+                  - ambiguities based on [@cannone2002; @tedersoo2015]
+                  - Trim all bases after LR5 because they are not present in our amplicons.
+                  - used to identify long amplicon, 32S, LSU
+                  - taxonomy for non-fungi looked up from NCBI based on accession numbers
+              - RDP Warcup fungal ITS training set [@wang2007]
+                  - ITS1 and ITS2 extracted as for Unite;
+          - taxonomic classification in the three datasets were standardized to @tedersoo2017c
+              - full classification to genus level available in supplementary material
+              - apparently used by Unite for nonfungi; @tedersoo2018 used by Unite for fungi
+              - groups monophyletic
+              - SINTAX and NBC require a ranked system, as opposed to more accepted classifications like @adl2019
       - ecological guild assigned using FUNGuild [@nguyen2016funguild]
-      - consensus long read and LSU region constructed for each ITS2 ASV:
-          
-      - initial alignment of long amplicons with DECIPHER [@wright2015;@wright2016]
+      - alignment
+          - preliminary alignment of 32S to RDP covariance model with `cmalign` from Infernal (aligns only conserved regions)
+          - concatenate ITS1 to beginning of alignment
+          - create guide tree using alignment of only conserved, gap-free columns in preliminary alignment, using UPGMA in DECIPHER [@wright2016]
+          - realign nonconserved sites using MLocARNA (progressive simultaneous alignment and folding) from LocARNA 2.0.0RC8 [@will2007; @will2012; @will2013].
+
       - alignment/tree for long amplicons built iteratively with PASTA[@mirarab2014; @mirarab2014a]. Fastree tree, mafft align, OPAL merge, RaxML final tree
           
 ## Statistics
