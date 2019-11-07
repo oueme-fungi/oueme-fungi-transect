@@ -68,6 +68,14 @@ write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
 
 ## Sampling
 
+Sampling was conducted at two sites approximately 30 km apart in the _Forêt Reservée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
+Both locations were located in woodlands dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
+At each site, 25 soil samples were collected at intervals of 1 m.
+For each sample, any coarse organic debris was removed from the soil surface and a sample of approximately 5cm×5cm×5cm was extracted with a knife blade.
+Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
+Approximately 50 mg total of soil was collected from two locations in the homogenized soil and placed in Xpedition lysis solution (Zymo Research) and lysed in the field using a handheld bead-beater (Terralyzer; Zymo Research).
+The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis.
+
   - Ouémé Forest reserve
   - Two locations in _Isoberlinia doka_ forest, approx. 30km apart
   - transect: 25m, sampled at interval of 1m
@@ -117,15 +125,6 @@ write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
       - full length amplicons reconstructed from ASVs of extracted domains (r package tzara -- available on github and conda)
           - when a read is mapped to ASVs for all regions, they are concatenated.
           - bimera detection on each trio of variable-conserved-variable domains (e.g., ITS1-5.8S-ITS2, ITS2-LSU1-D1, etc.); reads which are detected at bimera for any trio are discarded.
-          - For each ITS2 ASV, check each other domain:
-              - If some reads are mapped to ASVs, but some are not, assign the unassigned to the closest ASV as long as distance < 10. This is less stringent than DADA2.
-              - If no reads are mapped to ASVs, calculate consensus sequence:
-                  - align reads using `DECIPHER` with RNA secondary structure calculation [@wright2015;@wright2016]
-                  - remove outliers (i.e. chimeras) with `odseq` [@jehl2015]
-                  - remove gap columns (>50%)
-                  - take consensus (>50%) at non-gaps
-                  - remove sequences with more than 3 ambiguous bases (bad consensus)
-          - repeat process using each other domain as reference, in decreasing order of diversity.
 
       - taxonomy assignment
           - three methods: 
@@ -137,10 +136,7 @@ write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
                   - extracted ITS1 and ITS2 using ITSx [@Nilsson2010; @bengtsson-palme2013]
                   - trained three classifiers: full (for ITS, 5_8S, full amplicons), ITS1, ITS2.
               - RDP fungal LSU training set 11.5 [@cole2014]
-                  - chose only sequences containing conserved primer sites for ITS4 (3' side of H11; CAUAUnAnUnAGnSSAGGA) and LR5 (on H37; CGAAnUUUCnCUCAGGAUAGCnG).
-                  - ambiguities based on [@cannone2002; @tedersoo2015]
-                  - Trim all bases after LR5 because they are not present in our amplicons.
-                  - used to identify long amplicon, 32S, LSU
+                  - used to identify long amplicon, LSU
                   - taxonomy for non-fungi looked up from NCBI based on accession numbers
               - RDP Warcup fungal ITS training set [@wang2007]
                   - ITS1 and ITS2 extracted as for Unite;
@@ -150,11 +146,14 @@ write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
               - groups monophyletic
               - SINTAX and NBC require a ranked system, as opposed to more accepted classifications like @adl2019
       - ecological guild assigned using FUNGuild [@nguyen2016funguild]
-      - alignment
+      - alignment as RNA in DECIPHER (iterative progressive alignment with RNS secondary structure prediction) [@wright2015]
+      - tree using RAxML 8.2 [@stamatakis2014]; GTR+GAMMA; rapid bootstrapping with MRE-IGN stopping criterion [@pattengale2010].
+
+<!--
           - preliminary alignment of 32S to RDP covariance model with `cmalign` from Infernal (aligns only conserved regions)
           - concatenate ITS1 to beginning of alignment
           - create guide tree using alignment of only conserved, gap-free columns in preliminary alignment, using UPGMA in DECIPHER [@wright2016]
-          - realign nonconserved sites using MLocARNA (progressive simultaneous alignment and folding) from LocARNA 2.0.0RC8 [@will2007; @will2012; @will2013].
+          - realign nonconserved sites using MLocARNA (progressive simultaneous alignment and folding) from LocARNA 2.0.0RC8 [@will2007; @will2012; @will2013]. -->
 
       - alignment/tree for long amplicons built iteratively with PASTA[@mirarab2014; @mirarab2014a]. Fastree tree, mafft align, OPAL merge, RaxML final tree
           
