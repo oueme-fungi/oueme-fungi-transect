@@ -1147,7 +1147,8 @@ taxtable_sintax <- function(tax, min_confidence = 0, ...) {
     dplyr::filter(confidence >= min_confidence, !is.na(taxon))
 }
 
-taxtable_idtaxa <- function(tax, min_confidence = 0, ...) {
+taxtable_idtaxa <- function(tax, min_confidence = 0, names = NULL, ...) {
+  if (!missing(names) && !is.null(names)) names(tax) <- names
   purrr::imap_dfr(tax, ~tibble::tibble(label = .y,
                                        rank = factor(.x$rank,
                                                      levels = c("rootrank",

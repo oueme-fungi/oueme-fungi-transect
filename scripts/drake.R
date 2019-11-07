@@ -743,14 +743,15 @@ plan <- drake_plan(
   # taxon ----
   # Assign taxonomy to each ASV
   taxon = target(
-    dplyr::select(reconstructed_pb_500, region, "hash") %>%
+    seqs <- dplyr::select(reconstructed_pb_500, region, "hash") %>%
       dplyr::filter(complete.cases(.)) %>%
       unique() %>%
-      {set_names(.[[region]], .$hash)} %>%
-      taxonomy(reference = refdb,
-               method = method,
-               multithread = ignore(dada_cpus)) %>%
-      taxtable(),
+      {set_names(.[[region]], .$hash)}
+    taxonomy(seq = seqs,
+             reference = refdb,
+             method = method,
+             multithread = ignore(dada_cpus)) %>%
+      taxtable(names = names(seqs)),
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
     format = "fst"),
   
