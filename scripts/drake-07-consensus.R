@@ -20,7 +20,7 @@ targets <- c("cmaln_long", "guidetree_32S",
              purrr::keep(
                plan$target,
                stringr::str_detect,
-               "taxon_.+_(warcup|sintax|dada2)"
+               "taxon_.+_(idtaxa|sintax|dada2)"
              ) %>%
                purrr::discard(stringr::str_detect, "short")
              )
