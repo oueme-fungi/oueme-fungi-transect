@@ -1104,3 +1104,27 @@ long_recon <-
 long_recon_aln <- DECIPHER::AlignSeqs(long_recon, iterations = 10, refinements = 10, processors = 4)
 
 Biostrings::writeXStringSet(long_recon_aln, "temp/long_recon_aln.fasta")
+
+for (region in c("ITS1", "ITS2", "ITS", "LSU"))
+  for (database in c("unite", "rdp_train", "warcup"))
+    for (method in c("dada2", "sintax", "idtaxa")) {
+      tname <- paste("taxon", region, database, region, method, sep = "_")
+      if (tname %in% targets) {
+        taxa <- readd(tname, character_only = TRUE)
+        pcount <- dplyr::n_distinct(
+          taxa$label[!is.na(taxa$taxon) &
+                        taxa$rank == "phylum" &
+                        taxa$confidence >= 0.5],
+          na.rm = TRUE
+        )
+        lall <- dplyr::n_distinct(taxa$label, na.rm = TRUE)
+        gcount <- dplyr::n_distinct(
+          taxa$label[!is.na(taxa$taxon) &
+                        taxa$rank == "genus" &
+                        taxa$confidence >= 0.5],
+          na.rm = TRUE
+        )
+        cat(region, database, method, "phylum: ", pcount, "/", lall, "genus: ", gcount, "/", lall,"\n")
+      }
+    }
+        
