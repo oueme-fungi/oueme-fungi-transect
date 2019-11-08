@@ -806,7 +806,7 @@ plan <- drake_plan(
   # get the long amplicon consensus and convert to RNAStringSet.
   # Use the sequence hashes as the name, so that names will be robust
   # make sure that we only use sequences that actually match the long sequence.
-  reconst_32S = reconstructed_pb_500 %>%
+  cons_32S = allseqs %>%
     dplyr::select("32S", ITS1, long, hash) %>%
     dplyr::filter(
       complete.cases(.),
@@ -818,7 +818,7 @@ plan <- drake_plan(
     rlang::set_names(`32S`, hash) %>%
     chartr(old = "T", new = "U") %>% 
     Biostrings::RNAStringSet(),
-  reconst_LSU = reconstructed_pb_500 %>%
+  cons_LSU = allseqs %>%
     dplyr::select(LSU, ITS1, hash) %>%
     dplyr::filter(
       complete.cases(.),
@@ -829,7 +829,7 @@ plan <- drake_plan(
     rlang::set_names(LSU, hash) %>%
     chartr(old = "T", new = "U") %>%
     Biostrings::RNAStringSet(),
-  reconst_long = reconstructed_pb_500 %>%
+  cons_long = allseqs %>%
     dplyr::select(long, ITS1, hash) %>%
     dplyr::filter(complete.cases(.)) %>%
     dplyr::select(long, hash) %>%
@@ -843,7 +843,7 @@ plan <- drake_plan(
   # 32S consensus using Infernal.
   cmaln_32S =
     cmalign(cmfile = file_in(!!cm_32S),
-            seq = reconst_32S,
+            seq = cons_32S,
             glocal = TRUE,
             cpu = ignore(dada_cpus)),
   
@@ -853,7 +853,7 @@ plan <- drake_plan(
   # 5.8S/LSU secondary structure annotations.
   cmaln_long =
     dplyr::inner_join(
-      reconstructed_pb_500 %>%
+      allseqs %>%
         dplyr::select(hash, long, ITS1) %>%
         dplyr::filter(complete.cases(.), startsWith(long, ITS1)) %>%
         unique(),
@@ -972,7 +972,7 @@ plan <- drake_plan(
   },
   
   aln_decipher_long =
-    reconstructed_pb_500 %>%
+    allseqs %>%
     dplyr::select(hash, long, ITS1) %>%
     dplyr::filter(complete.cases(.), startsWith(long, ITS1)) %>%
     unique() %$%
