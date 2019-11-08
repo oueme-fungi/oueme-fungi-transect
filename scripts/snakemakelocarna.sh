@@ -67,6 +67,5 @@ if (( i == n - 1 )); then
 		XXX
 	echo "executing..."
 	rm intermediates/intermediate*.pp
-	$sm_command &&
-	while [ ! -e $out ]; do sleep 60; done
+	$sm_command 
 fi

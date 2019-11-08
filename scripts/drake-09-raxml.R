@@ -32,7 +32,7 @@ if (length(targets)) {
     parallelism = "loop",
     jobs_preprocess = local_cpus(),
     jobs = 1,
-    retries = 1,
+    retries = 0,
     elapsed = 3600*72, #3 days
     keep_going = TRUE,
     caching = "worker",
