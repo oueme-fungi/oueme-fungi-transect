@@ -746,7 +746,7 @@ plan <- drake_plan(
   
   # taxon ----
   # Assign taxonomy to each ASV
-  taxon = target(
+  taxon = target({
     seqs <- dplyr::select(allseqs, region, "hash") %>%
       dplyr::filter(complete.cases(.)) %>%
       unique() %>%
@@ -755,7 +755,8 @@ plan <- drake_plan(
              reference = refdb,
              method = method,
              multithread = ignore(dada_cpus)) %>%
-      taxtable(names = names(seqs)),
+      taxtable(names = names(seqs))
+    },
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
     format = "fst"),
   
