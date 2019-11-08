@@ -41,7 +41,7 @@ config['cm_32S']  = '{ref_root}/fungi_32S_LR5.cm'.format_map(config)
 
 config['cmaln_long']   = "{locarnadir}/long_cmalign.aln".format_map(config),
 config['guide_tree']   = "{locarnadir}/32S_guide.tree".format_map(config),
-config['mlocarna_dir'] = "{locarnadir}/output".format_map(config)
+config['mlocarna_dir'] = "{locarnadir}/consensus".format_map(config)
 config['makelocarna']  = "{rdir}/makelocarna.sh".format_map(config)
 config['makelocarna_profile'] = "configdir/snakemakelocarnaUPPMAX"
 config['makelocarna_conda'] = "condadir/snakemakelocarna.yaml"
