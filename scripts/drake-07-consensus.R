@@ -16,7 +16,6 @@ options(clustermq.scheduler = "multicore")
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
 targets <- c("cmaln_long", "guidetree_32S",
-             "big_reconstructed_pb_500",
              purrr::keep(
                plan$target,
                stringr::str_detect,
