@@ -680,13 +680,14 @@ plan <- drake_plan(
   # with at least 3 sequences.
   preconseq = target(
     combined_pb_500 %>%
-      tidyr::extract(name, c("seq_run", "plate", "well", "direction", "region"), "([pi][sb]_\\d{3})_(\\d{3})-([A-H]\\d{1,2})([fr])-(.+)\\.qfilt\\.fastq\\.gz") %>%
+      tidyr::extract(name, c("seq_run", "plate", "well", "region"), "([pi][sb]_\\d{3})_(\\d{3})-([A-H]\\d{1,2})-(.+)\\.qfilt\\.fastq\\.gz") %>%
       tidyr::spread(key = "region", value = "seq") %>%
       dplyr::group_by(ITS2) %>%
       dplyr::filter(!is.na(ITS2), dplyr::n() >= 3)),
   
   conseq = target(
     preconseq %>%
+      dplyr::filter(sum(!is.na(.data[[region]])) >= 3) %>%
       dplyr::summarize(
         nreads = dplyr::n(),
         !! region := as.character(
