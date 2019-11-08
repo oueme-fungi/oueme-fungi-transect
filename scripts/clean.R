@@ -14,7 +14,7 @@ space <- system2("du", args = c("-sh", dc$path), stdout = TRUE)
 flog.info(space)
 if (length(cached) > 0) {
   flog.info("Removing %d cached targets no longer in plan", length(cached))
-  clean(list = cached, cache = dc, garbage.collection = TRUE, verbose = TRUE)
+  clean(list = cached, cache = dc, garbage_collection = TRUE, verbose = 2L)
   flog.info("Checking disk space taken by cache after cleaning...")
   space <- system2("du", args = c("-sh", dc$path), stdout = TRUE)
   flog.info(space)
