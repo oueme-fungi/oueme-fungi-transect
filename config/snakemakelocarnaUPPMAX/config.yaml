@@ -1,11 +1,10 @@
 jobs: 9999
-keep-going: True
 immediate-submit: True
 notemp: True
 jobscript: "slurm-jobscript.sh"
-cluster: "slurm-submit.py --dependency \"afterok:{dependencies}\""
-cluster-status: "slurm-status.py"
+cluster: "/crex/proj/snic2018-8-131/data/oueme-fungi-transect/config/snakemakelocarnaUPPMAX/slurm-submit.py --dependency \"afterok:{dependencies}\" --account snic2018-8-131 --constraint usage_mail --mail-type ALL --time 4-00:00:00 -M snowy"
+cluster-status: "/crex/proj/snic2018-8-131/data/oueme-fungi-transect/config/snakemakelocarnaUPPMAX/slurm-status.py"
 max-jobs-per-second: 10
 max-status-checks-per-second: 10
-cluster-config: "UPPMAX.yaml"
+cluster-config: "/crex/proj/snic2018-8-131/data/oueme-fungi-transect/config/snakemakelocarnaUPPMAX/UPPMAX.yaml"
 

@@ -26,6 +26,8 @@ slurm_parser.add_argument(
 slurm_parser.add_argument(
     "-c", "--cpus-per-task", help="number of cpus required per task")
 slurm_parser.add_argument(
+    "-M", "--clusters", help="which cluster to run the job on")
+slurm_parser.add_argument(
     "-d", "--dependency",
     help="defer job until condition on jobid is satisfied")
 slurm_parser.add_argument(

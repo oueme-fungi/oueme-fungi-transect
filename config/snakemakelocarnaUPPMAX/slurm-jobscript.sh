@@ -1,5 +1,5 @@
 #!/bin/bash -l
 # SBATCH --mail-type=ALL
+# SBATCH -M snowy
 # properties = {properties}
-module load texlive &&
 {exec_job}

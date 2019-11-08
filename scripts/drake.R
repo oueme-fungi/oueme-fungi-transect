@@ -964,7 +964,7 @@ plan <- drake_plan(
         k = TRUE,
         file = "locarna_long",
         dir = !!raxml_locarna_out_dir,
-        exec = Sys.which("raxmlHPC-PTHREADS-AVX2"),
+        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
         threads = ignore(raxml_cpus)
       )
     setwd(wd)
@@ -1001,7 +1001,7 @@ plan <- drake_plan(
         x = 827,
         k = TRUE,
         file = "decipher_long",
-        exec = Sys.which("raxmlHPC-PTHREADS-AVX2"),
+        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
         threads = ignore(raxml_cpus))
     setwd(wd)
     result

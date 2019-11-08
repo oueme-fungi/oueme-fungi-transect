@@ -1,7 +1,3 @@
 __default__:
-  account: "snic2018-3-181"
-  time: "96:00:00"
-  n: 1
-  C: "usage_mail"
-  mail-type: "ALL"
-  mail-user: "brendan.furneaux@ebc.uu.se"
+  resources:
+    runtime: "96:00:00"

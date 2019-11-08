@@ -3,6 +3,7 @@ c5f3c99a61379f14,import,accno_c12n_table
 ef18d8797e02bf95,target,allseqs
 58206e09cb2e9516,import,aln_32S
 ba35a2ec87956517,target,aln_32S_conserv
+b7c273c6160567aa,target,aln_decipher_long
 1ae728a96c51005a,target,aln_LSU
 73d09ac93030b6c1,import,assemble_physeq
 d1fa39d337549386,target,big_fasta_32S
@@ -12219,7 +12220,7 @@ f1386878a7689681,import,fit_idtaxa
 a8c0f34865f116b0,target,funguild_db
 91cf08a775e44d43,import,gap_free_width
 9db209c041cbac3a,import,gather_regions
-ed43f66de9e79075,target,guidetree_32S
+9802dbf7fa17e6e7,target,guidetree_32S
 f5838e806b011bf8,target,itsx_shard_gits7its4
 303d7f7e36a87e5f,target,itsx_shard_gits7its4_10
 119634f68fdd66de,target,itsx_shard_gits7its4_11
@@ -12553,7 +12554,7 @@ c676ca85a76f4d99,target,lsux_shard_its1lr5_80
 8afd72451aed4f0e,target,lsux_shard_its1lr5_9
 917aa2f43bfadcca,import,make_allseq_table
 d3e4e68826777a39,import,map_position
-3647026b8b38d568,import,mlocarna_realign
+6c372bd9d88e1b34,import,mlocarna_realign
 8359442aa29b0189,import,Biostrings::BStringSet
 17e76a85d8e544f7,import,Biostrings::DNAStringSet
 59beaebc83babbc3,import,Biostrings::DNA_ALPHABET
@@ -12583,6 +12584,7 @@ ecad3ee60e8b02f0,import,ShortRead::writeFastq
 c7a479c415fff1b6,import,ShortRead::ShortReadQ
 a78ea9da30af59ad,import,ShortRead::readFastq
 93ddef391200a0e5,import,glue::glue
+cf2c6f010e62300c,import,ape::as.DNAbin
 dd0eed4921855a17,import,ape::read.tree
 64abcb25f0d00888,import,assertthat::assert_that
 33b58eab9cf53fd9,import,assertthat::is.count
@@ -12601,6 +12603,7 @@ cbfd00915f70c479,import,dada2::assignTaxonomy
 921296f71fdd63a1,import,dada2::loessErrfun
 c8362c3027796441,import,dada2::learnErrors
 9105bd4674eeafbc,import,dada2::removeBimeraDenovo
+35357fc75c72c500,import,digest::digest
 65fd467dabcf0969,import,dplyr::mutate
 914cda10efd95cee,import,dplyr::mutate_all
 33cd3fb63b1f2690,import,dplyr::mutate_at
@@ -12632,6 +12635,7 @@ b660243a2b7c9957,import,dplyr::rowwise
 dd55fcb2f4b75570,import,futile.logger::flog.warn
 8a670be52f0c1da9,import,forcats::fct_collapse
 4d09017a40d2853e,import,forcats::fct_explicit_na
+df3559a1d34d3f60,import,ips::raxml
 ca6c2e9e4e3157cf,import,magrittr::extract
 f4f93bfdca3a70e7,import,magrittr::inset2
 61262e0b76e402c9,import,magrittr::set_colnames
@@ -12710,6 +12714,7 @@ d45ca0b19348b00a,import,tidyr::separate_rows
 7545ccadda244a3f,import,tidyr::unite
 e66609491e9d3d61,import,tidyselect::ends_with
 e519c4734e7c59fc,import,tidyxl::xlsx_cells
+095b0f27b616f2b9,import,tools::md5sum
 7bb4abbe5fe0b4cb,import,vegan::mantel.correlog
 42d1539f889f6cb8,target,new_header_rdp_train
 d3e408b28a349784,target,new_header_unite
@@ -12785,7 +12790,7 @@ a2ff9ddf6043216e,target,file data/clusters/5_8S.fasta.gz
 72a8838e04032b5e,target,file data/mlocarna/long_cmalign.aln
 f63e1feaa02610de,target,file data/mlocarna/output
 3ea8d2dc9b9879ac,target,file data/mlocarna/output/results/result.aln
-6f40cb38a2417b3a,target,file data/mlocarna/32S_guide.tree
+45d6e9e025ace021,target,file data/mlocarna/32S_guide.tree
 9b7e567bcdaa0f69,import,file writing/qual-check.Rmd
 3ea8d2dc9b9879ac,import,file reference/NA.NA.dada2.fasta.gz
 3ea8d2dc9b9879ac,import,file reference/NA.NA.fasta.gz
