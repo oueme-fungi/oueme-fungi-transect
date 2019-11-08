@@ -700,10 +700,9 @@ plan <- drake_plan(
         nchar(.[[region]]) >= min_length
       ),
     transform = map(
-      .data = !!filter(regions, region %in% c("long", "ITS", "ITS1", "LSU",
+      .data = !!filter(regions, region %in% c("ITS1", "5_8S",
                                               "LSU1", "D1", "LSU2", "D2",
-                                              "LSU3", "D3", "LSU4", "32S",
-                                              "5_8S")),
+                                              "LSU3", "D3", "LSU4")),
       .id = region
     ),
     format = "fst"
@@ -714,7 +713,11 @@ plan <- drake_plan(
   # or if 
   allseqs = target(
     make_allseq_table(list(conseq),
-                      drake_combine(big_seq_table)),
+                      drake_combine(big_seq_table)) %>%
+      dplyr::mutate(LSU = stringr::str_c(LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
+                    `32S` = stringr::str_c(`5_8S`, ITS2, LSU),
+                    long = stringr::str_c(ITS1, `32S`),
+                    ITS = stringr::str_c(ITS1, `5_8S`, ITS2)),
     transform = combine(conseq, big_seq_table),
     format = "fst"
   ),
@@ -744,7 +747,7 @@ plan <- drake_plan(
   # taxon ----
   # Assign taxonomy to each ASV
   taxon = target(
-    seqs <- dplyr::select(reconstructed_pb_500, region, "hash") %>%
+    seqs <- dplyr::select(allseqs, region, "hash") %>%
       dplyr::filter(complete.cases(.)) %>%
       unique() %>%
       {set_names(.[[region]], .$hash)}

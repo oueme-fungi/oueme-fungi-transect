@@ -36,15 +36,13 @@ join_seqs <- function(seq.tabs) {
 #' @export
 make_allseq_table <- function(conseqs, seq_tables,
                               conseq_key = "ITS2",
-                              seq_table_prefix = "big_seq_table_",
-                              label_order = c("long", "ITS", "short",
-                                              "ITS2", "LSU", "ITS1")) {
+                              seq_table_prefix = "big_seq_table_")) {
   conseqs <- purrr::reduce(conseqs,
                            dplyr::full_join,
                            by = c(conseq_key, "nreads"))
   
   names(seq_tables) <- stringr::str_replace(names(seq_tables),
-                                            "big_seq_table_",
+                                            seq_table_prefix,
                                             "")
   
   # make sure all the names are present in the consensus table, so that the
@@ -63,8 +61,7 @@ make_allseq_table <- function(conseqs, seq_tables,
                   .init = conseqs)
   
   dplyr::mutate(conseqs,
-                hash = do.call(dplyr::coalesce, conseqs[,label_order]) %>%
-                    tzara::seqhash() %>%
+                hash = tzara::seqhash(.data[[conseq_key]]) %>%
                     unname())
 }
 
