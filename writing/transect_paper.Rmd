@@ -76,24 +76,18 @@ Each sample was sealed in a plastic zipper bag and homogenized by shaking and ma
 Approximately 50 mg total of soil was collected from two locations in the homogenized soil and placed in Xpedition lysis solution (Zymo Research) and lysed in the field using a handheld bead-beater (Terralyzer; Zymo Research).
 The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis.
 
-  - Ouémé Forest reserve
-  - Two locations in _Isoberlinia doka_ forest, approx. 30km apart
-  - transect: 25m, sampled at interval of 1m
-  - Sampled in May 2015 and June 2016
-  - remove coarse debris (typically very little) and take ~5cm×5cm×5cm sample
-  - homogenize by hand in ziplock bag
-  - take $\approx$ 50mg, lysis in field with Terralyzer
-  - remainder of sample dried at 40°C with electric dryer within 24-48 hours
-
 ## Soil Chemistry
 
   - Need to get methods from Nourou
 
 ## DNA extraction, PCR, and sequencing
 
-  - lysis in field Zymo Research Xpedition kit
+After field lysis, DNA was extracted using the Zymo Research Soil/Fecal Prep kit **check name**.
+DNA for short amplicons was amplified using the primer pairs gITS7[@ihrmark2012]--ITS4[@white1990amplification].
   - short amplicon : gITS7 -- ITS4 (multiplexing index on gITS7)
+  - short PCR protocol:
   - long amplicon : ITS1 -- LR5 (multiplexing index on both ends)
+  - long PCR protocol:
   - short amplicon : same library sequenced with PacBio RS II and Ion Proton S5
   - long amplicon : PacBio RS II
   
@@ -110,14 +104,22 @@ The remainder of each sample was dried at 40°C with an electric dehydrator with
           - used demultiplexing from SciLife (standard IonXpress)
           - primers removed with `cutadapt` [@martin2011]
       - PacBio
-          - CCS basecalls re-done with `ccs` version ___ [@pacificbiosciences2019]
+          - CCS basecalls re-done with `ccs` from SMRTtools version 5.0.1 [@pacificbiosciences2019]
           - demultiplexed and primers removed with `cutadapt` [@martin2011]
       - Illumina MiSeq
           - pending
-      - Region extraction with LSUx (available as R package on github and conda)
-          - 5.8S located with Rfam [@kalvari2018] covariance model (CM) using `cmsearch` from Infernal 1.1.2 [@nawrocki2013]
-          - read trimmed at 5' end of 5.8S; remaining read aligned to modified 5.8S + LSU (=32S) CM from Ribosomal Data Project (RDP) [@glockner2017, @cole2014] with annotations for different LSU domains (definitions from @michot1984 and @raue1988), using `cmalign` from Infernal 1.1.2
-          - 5.8S, ITS2, D1, D2, D3, and conserved LSU domains (called LSU1, LSU2, LSU3, LSU4) extracted from alignment using annotations; ITS1 is everything before 5.8S.
+  
+Raw reads were divided into regions/domains by matching to covariance models, which account for both nucleotide sequence and RNA secondary structure.
+First, the 5.8S rRNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013].
+This approach was able to identify both the 5' and 3' ends of the 5.8S rRNA more consistently and quickly than ITSx [@bengtsson-palme2013; data not shown].
+Each read was then aligned to a CM based on the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017, @cole2014] using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
+The seed alignment was truncated at the LR5 primer site, and the reference line was modified to annotate the 5.8S RNA, ITS2 region, and the divergent "D" domains of the 28S RNA as defined by @raue1988.
+The alignment for each read was then split into alternating more-conserved and less-conserved regions according to these annotations:
+ITS1 (for the entire read prior to the 5' end of 5.8S), 5.8S, ITS2, LSU1, D1, LSU2, D2, LSU3, D3, LSU4,
+where the four "LSU" regions represent the conserved regions of the 28S rRNA between the "D" regions.
+The process of extracting the regions is automated in the new R package `LSUx`, available on github and conda-forge (**but not yet**).
+
+
       - extracted regions independently quality filtered by max expected error using `dada2::filterAndTrim()`
       - dereplicated using `dada2::derepFastq()`
       - denoised with `dada2::dada()`
