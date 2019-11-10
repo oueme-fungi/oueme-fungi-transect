@@ -923,7 +923,7 @@ plan <- drake_plan(
     mlocarna_realign(
       alignment = file_in(!!cmaln_file_long),
       target_dir = file_out(!!mlocarna_result_dir),
-      cpus = ignore(dada_cpus),
+      cpus = ignore(raxml_cpus),
       only_dps = TRUE
     ),
   
