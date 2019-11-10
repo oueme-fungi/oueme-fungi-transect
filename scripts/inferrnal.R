@@ -623,7 +623,7 @@ mlocarna_realign <- function(alignment,
     assertthat::assert_that(
       assertthat::is.string(pw_aligner_options)
     )
-    args <- c(args, "--pw-aligner-options", pw_aligner_options)
+    args <- c(args, "--pw-aligner-options", paste0("\"", pw_aligner_options, "\""))
   }
   
   if (!is.null(pw_aligner_p)) {
@@ -637,7 +637,7 @@ mlocarna_realign <- function(alignment,
     assertthat::assert_that(
       assertthat::is.string(pw_aligner_p_options)
     )
-    args <- c(args, "--pw-aligner-p-options", pw_aligner_p_options)
+    args <- c(args, "--pw-aligner-p-options", paste0("\"", pw_aligner_p_options, "\""))
   }
   
   if (!missing(cpus)) args <- c(args, "--cpus", cpus)
