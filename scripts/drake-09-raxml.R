@@ -6,7 +6,7 @@ if (exists("snakemake")) {
 }
 
 targets <- c(
-  purrr::keep(plan$target, startsWith, "raxml_decipher")
+  purrr::keep(plan$target, startsWith, "raxml_")
 )
 targets <- subset_outdated(targets, dconfig)
 
