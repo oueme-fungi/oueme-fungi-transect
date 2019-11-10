@@ -7,6 +7,3 @@ dependencies:
   - bam2fastq
   - bax2bam
   - pbccs
-  - pblaa
-  - lima
-
