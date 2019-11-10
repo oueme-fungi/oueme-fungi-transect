@@ -714,6 +714,7 @@ plan <- drake_plan(
   allseqs = target(
     make_allseq_table(list(conseq),
                       drake_combine(big_seq_table)) %>%
+      dplyr::filter(!is.na(ITS2)) %>%
       dplyr::mutate(LSU = stringr::str_c(LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
                     `32S` = stringr::str_c(`5_8S`, ITS2, LSU),
                     long = stringr::str_c(ITS1, `32S`),
