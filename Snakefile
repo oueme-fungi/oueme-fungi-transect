@@ -742,27 +742,6 @@ rule raxml:
         walltime=60*96
     script: "{rdir}/drake-09-raxml.R".format_map(config)
 
-# delimit species based on the ITS+LSU tree using a Poisson Tree Process model
-localrules: ptp
-rule ptp:
-    output:
-        psh = "{basename}.psh.txt"
-    input:
-        tree = ancient("{basename}.tree")
-    log: "{basename}.log"
-    threads: 1
-    shell:
-        """
-        mptp --tree_file {input.tree}\
-             --output_file {wildcards.basename}\
-             --mcmc 50000000\
-             --mcmc_sample 1000\
-             --mcmc_burnin 1000000\
-             --mcmc_log\
-             --seed 9999
-        mv {wildcards.basename}.9999.txt {output.psh}
-        """
-
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
 localrules: finish
