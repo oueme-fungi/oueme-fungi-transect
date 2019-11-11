@@ -958,6 +958,7 @@ taxonomy <- function(seq.table, reference, method, multithread = FALSE, ...) {
   } else {
     nreads <- 1
     seq <- as.character(seq.table)
+    names(seq) <- names(seq.table)
   }
   is.RNA <- stringr::str_detect(seq[1], "[Uu]")
   # seq <- if (is.RNA) Biostrings::RNAStringSet(seq) else Biostrings::DNAStringSet(seq)
@@ -995,7 +996,7 @@ taxonomy_sintax <- function(seq, reference, min_confidence = NULL, multithread =
       {tibble(seq = unlist(seqinr::getSequence(., as.string = TRUE)),
               label = seqinr::getName(.))}
   } else {
-    seqfile <- tempfile("seq", fileext = "fasta")
+    seqfile <- tempfile("seq", fileext = ".fasta")
     on.exit(file.remove(seqfile))
     if (methods::is(seq, "XStringSet")) {
       Biostrings::writeXStringSet(seq, seqfile)
