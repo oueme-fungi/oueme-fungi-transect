@@ -8,6 +8,11 @@ mirror_dir <- function(from, to) {
     recursive = TRUE,
     showWarnings = FALSE
   )
+  newfiles <- files[!file.exists(file.path(to, files))]
+  oldfiles <- setdiff(files, newfiles)
+  wrongfiles <- oldfiles[normalizePath(file.path(from, oldfiles)) !=
+                           normalizePath(file.path(to, oldfiles))]
+  todofiles <- c(newfiles, wrongfiles)
   reldirs <- vapply(
     dirs,
     function(dir)
@@ -21,7 +26,9 @@ mirror_dir <- function(from, to) {
         stdout = TRUE
       ),
     ""
-  )[dirname(files)]
+  )[dirname(todofiles)]
+  
+  unlink(file.path(to, wrongfiles))
   file.symlink(
     file.path(reldirs, files),
     file.path(to, files)
