@@ -82,7 +82,7 @@ if (interactive()) {
   cmaln_file_long <- snakemake@config$cmaln_long
   guide_tree_file <- snakemake@config$guide_tree
   mlocarna_aln_file <- snakemake@config$mlocarna_aln
-  mlocarna_result_dir <- snakemake@config$mlocarna_pp_dir
+  mlocarna_pp_dir <- snakemake@config$mlocarna_pp_dir
   mlocarna_result_dir <- snakemake@config$mlocarna_dir
   makelocarna <- snakemake@config$makelocarna
   makelocarna_profile <- snakemake@config$makelocarna_profile
