@@ -710,9 +710,7 @@ consensus_table = regions_table.loc[regions_table.seq_run == "pb_500"]
 # and build a guide tree based on LSU
 rule consensus:
     output:
-        flag    = touch(".consensus"),
-        guide_tree = config['guide_tree'],
-        cmaln_long = config['cmaln_long']
+        flag    = touch(".consensus")
     input:
         ".DADA",
         ".preconsensus",
