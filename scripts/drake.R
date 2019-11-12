@@ -17,7 +17,8 @@ if (interactive()) {
   locarna_dir <- file.path(data_dir, "mlocarna")
   cmaln_file_long <- file.path(locarna_dir, "long_cmalign.aln")
   guide_tree_file <- file.path(locarna_dir, "32S_guide.tree")
-  mlocarna_result_dir <- file.path(locarna_dir, "output")
+  mlocarna_pp_dir <- file.path(locarna_dir, "consensus_pp")
+  mlocarna_result_dir <- file.path(locarna_dir, "consensus")
   makelocarna <- file.path(r_dir, "snakemakelocarna.sh")
   makelocarna_profile <- file.path(lab_dir, "snakemakelocarnaUPPMAX")
   makelocarna_conda <- file.path(lab_dir, "conda", "snakemakelocarna.yaml")
@@ -81,6 +82,7 @@ if (interactive()) {
   cmaln_file_long <- snakemake@config$cmaln_long
   guide_tree_file <- snakemake@config$guide_tree
   mlocarna_aln_file <- snakemake@config$mlocarna_aln
+  mlocarna_result_dir <- snakemake@config$mlocarna_pp_dir
   mlocarna_result_dir <- snakemake@config$mlocarna_dir
   makelocarna <- snakemake@config$makelocarna
   makelocarna_profile <- snakemake@config$makelocarna_profile
@@ -125,6 +127,7 @@ library(assertr)
 #### read scripts and configs ####
 # load various pipeline functions
 source(file.path(r_dir, "parallel_helpers.R"))
+source(file.path(r_dir, "utils.R"))
 source(file.path(r_dir, "extract_regions.R"))
 source(file.path(r_dir, "dada.R"))
 source(file.path(r_dir, "taxonomy.R"))
@@ -920,15 +923,39 @@ plan <- drake_plan(
       file = file_out(!!guide_tree_file)
     ),
   
-  mlocarna_pp_long = 
+  # create the pair probability files for mlocarna
+  # this only needs to be redone if the sequences change, and it can be
+  # efficiently done in parallel
+  # It is made in a mirror directory, because mlocarna will write a file to the
+  # same directory.
+  mlocarna_pp_long = {
     mlocarna_realign(
       alignment = file_in(!!cmaln_file_long),
-      target_dir = file_out(!!mlocarna_result_dir),
-      cpus = ignore(raxml_cpus),
+      target_dir = file_out(!!mlocarna_pp_dir),
+      cpus = ignore(dada_cpus),
       only_dps = TRUE
-    ),
+    )
+    mirror_dir(!!mlocarna_pp_dir, !!mlocarna_result_dir)
+  },
   
   # realign the consensus sequences using mlocarna
+  # this is a progressive alignment, where each locarna alignment is single
+  # threaded, and the ones closer to the root of the tree take a lot longer.
+  # it is efficient to do this in parallel near the beginning, but only one or
+  # a few cores can be utilized at the end; mlocarna itself does not execute
+  # them in parallel at all.
+  # snakemakelocarna.sh is a wrapper for locarna which writes empty files for
+  # every locarna call (thus spoofing mlocarna into thinking that it is working)
+  # while collecting the dependency structure of the calls.  On the last call, it
+  # submits all the calls as separate single-threaded jobs on SLURM using
+  # Snakemake.
+  # This requires a lot of configuration to work properly on a given cluster
+  # system; see files in makelocarna_profile.
+  # (default "config/snakemakelocarnaUPPMAX")
+  # This will always fail on the first run, because it does not wait for all of
+  # the locarna calls to complete.  Check the cluster queue and make sure
+  # all of the jobs have completed, then this rule should pass on the next run
+  # of drake.
   realign_long = {
     mlocarna_pp_long
     file_out(!!mlocarna_aln_file)
