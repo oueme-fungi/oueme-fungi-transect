@@ -107,7 +107,7 @@ else:
 opt_keys = ["array", "account", "begin", "cpus_per_task",
             "dependency", "workdir", "error", "job_name", "mail_type",
             "mail_user", "ntasks", "nodes", "output", "partition",
-            "quiet", "time", "wrap", "constraint", "mem"]
+            "quiet", "time", "wrap", "constraint", "mem", "clusters"]
 
 # Set default partition
 if arg_dict["partition"] is None:
