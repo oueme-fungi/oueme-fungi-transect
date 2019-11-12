@@ -34,7 +34,7 @@ if (( i == n - 1 )); then
 	while shift; do
 		case $1 in
 			--conda) conda="conda: \"$2\"
-    "; sm_command="$sm_command --useconda "; shift ;;
+    "; sm_command="$sm_command --use-conda "; shift ;;
 			--profile) sm_command="$sm_command --profile $2 "; shift;;
 			--clustal=*)
 				loc_command="$loc_command --clustal={output.clustal}"
@@ -67,5 +67,5 @@ if (( i == n - 1 )); then
 		XXX
 	echo "executing..."
 	rm intermediates/intermediate*.pp
-	$sm_command 
+	$sm_command snakeintermediates/intermediate$i.pp
 fi
