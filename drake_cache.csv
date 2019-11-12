@@ -1,6 +1,6 @@
 hash,type,name
 c5f3c99a61379f14,import,accno_c12n_table
-93c574c5534ec7a2,target,allseqs
+b2a4c3f62db7c90b,target,allseqs
 a1c9557be0d6142e,target,aln_32S_conserv
 2db798798ed2428a,target,aln_decipher_long
 1ae728a96c51005a,target,aln_LSU
@@ -4604,7 +4604,7 @@ f1386878a7689681,import,fit_idtaxa
 a8c0f34865f116b0,target,funguild_db
 91cf08a775e44d43,import,gap_free_width
 9db209c041cbac3a,import,gather_regions
-dc62f2c352b64884,target,guidetree_32S
+34272094a4a9ddfa,target,guidetree_32S
 f5838e806b011bf8,target,itsx_shard_gits7its4
 303d7f7e36a87e5f,target,itsx_shard_gits7its4_10
 119634f68fdd66de,target,itsx_shard_gits7its4_11
@@ -5138,12 +5138,12 @@ f3c53e8b1eb9f90e,target,file data/clusters/long.fasta.gz
 8a64c3080c49d866,target,file data/clusters/short.fasta.gz
 93dd64fbaf8fa946,target,file data/clusters/32S.fasta.gz
 a2ff9ddf6043216e,target,file data/clusters/5_8S.fasta.gz
-5a4d9faa61a3d089,target,file data/mlocarna/consensus
+fd3bc839e4c4eb09,target,file data/mlocarna/consensus
 3ea8d2dc9b9879ac,target,file data/mlocarna/consensus/results/result.stk
-a26d2edfa8d01963,import,file data/mlocarna/long_cmalign.aln
+a26d2edfa8d01963,target,file data/mlocarna/long_cmalign.aln
 f63e1feaa02610de,target,file data/mlocarna/output
 3ea8d2dc9b9879ac,target,file data/mlocarna/output/results/result.aln
-ce3d099cca76be46,import,file data/mlocarna/32S_guide.tree
+81f3eefeeaad345a,target,file data/mlocarna/32S_guide.tree
 9b7e567bcdaa0f69,import,file writing/qual-check.Rmd
 3ea8d2dc9b9879ac,import,file reference/NA.NA.dada2.fasta.gz
 3ea8d2dc9b9879ac,import,file reference/NA.NA.fasta.gz
@@ -5178,7 +5178,7 @@ f36fc2f42ee872d9,import,file reference/unite.ITS1.fasta.gz
 318255ff257294dc,import,file reference/unite.fasta.gz
 baace0c303800509,import,file reference/unite.pre.sed
 88aa21313cf7a892,import,file scripts/makelocarna.sh
-0379f65d0e605dd3,import,file scripts/snakemakelocarna.sh
+14fc9e47dd82802c,import,file scripts/snakemakelocarna.sh
 7fe23a28bb8b20f0,import,file sequences/filter/pb_483_001-A1-5_8S.qfilt.fastq.gz
 73cf98bdfd9eaadc,import,file sequences/filter/pb_483_001-A1-ITS2.qfilt.fastq.gz
 70c9cce2ff9e0e64,import,file sequences/filter/pb_483_001-A1-short.qfilt.fastq.gz
@@ -12343,61 +12343,61 @@ e802e6565d61bcf8,target,seq_table_pb_500_LSU
 ab09c311834275eb,target,seq_table_pb_500_LSU4
 ea665a7063e9c00e,target,split_fasta_gits7its4
 2f1c4904324029c9,target,split_fasta_its1lr5
-c18e276bb5a46b3e,target,taxon_32S_rdp_train_LSU_dada2
+03031da7874831b2,target,taxon_32S_rdp_train_LSU_dada2
 7163337bec3c9cee,target,taxon_32S_rdp_train_LSU_idtaxa
-6ddb28569a6b608e,target,taxon_32S_rdp_train_LSU_sintax
+6c8843241600feb6,target,taxon_32S_rdp_train_LSU_sintax
 ff523885babf815e,target,taxon_32S_unite_ITS_dada2
 50427248c2f9f03f,target,taxon_32S_unite_ITS_idtaxa
-62d30870b8c1e31a,target,taxon_32S_unite_ITS_sintax
-bbe39696f39ffc96,target,taxon_32S_warcup_ITS_dada2
+256b69b76eaad7b9,target,taxon_32S_unite_ITS_sintax
+393c286240409f79,target,taxon_32S_warcup_ITS_dada2
 e6b726cc3e09b9d7,target,taxon_32S_warcup_ITS_idtaxa
-e8860963ddd26be2,target,taxon_32S_warcup_ITS_sintax
+c376db19c99d72a0,target,taxon_32S_warcup_ITS_sintax
 f820267a509b8784,target,taxon_5_8S_unite_ITS_dada2
 410d7419110d4efd,target,taxon_5_8S_unite_ITS_idtaxa
-1e2fe970e836c587,target,taxon_5_8S_unite_ITS_sintax
+718c12aaf7890a54,target,taxon_5_8S_unite_ITS_sintax
 b535151ec90057ed,target,taxon_5_8S_warcup_ITS_dada2
 6ae772e83c47a0f0,target,taxon_5_8S_warcup_ITS_idtaxa
-8bebd163dacdac17,target,taxon_5_8S_warcup_ITS_sintax
+5af6b15541e7793e,target,taxon_5_8S_warcup_ITS_sintax
 2250d455ddc9f9b6,target,taxon_ITS_unite_ITS_dada2
 daca2f1411cbe02e,target,taxon_ITS_unite_ITS_idtaxa
-cfa34b81fc2fdbd9,target,taxon_ITS_unite_ITS_sintax
+9fa2c40603662a9b,target,taxon_ITS_unite_ITS_sintax
 70bb39187d02b9e8,target,taxon_ITS_warcup_ITS_dada2
 8113f82f412ddcb2,target,taxon_ITS_warcup_ITS_idtaxa
-81c52d66870663cb,target,taxon_ITS_warcup_ITS_sintax
+c66681df75991785,target,taxon_ITS_warcup_ITS_sintax
 5a8498300a7e3acf,target,taxon_ITS1_unite_ITS1_dada2
 4224ad8763477297,target,taxon_ITS1_unite_ITS1_idtaxa
-ae75470baa13aafd,target,taxon_ITS1_unite_ITS1_sintax
+4762b7c3dc80bce6,target,taxon_ITS1_unite_ITS1_sintax
 40eee79b30763294,target,taxon_ITS1_warcup_ITS1_dada2
 f4defb97d0479b3b,target,taxon_ITS1_warcup_ITS1_idtaxa
-e364f06a115554db,target,taxon_ITS1_warcup_ITS1_sintax
+3330fa5f1fb8e110,target,taxon_ITS1_warcup_ITS1_sintax
 132b703f58c9b4c5,target,taxon_ITS2_unite_ITS2_dada2
 e6a658f3d34df040,target,taxon_ITS2_unite_ITS2_idtaxa
-bf248344e7451e62,target,taxon_ITS2_unite_ITS2_sintax
+3e0ffb13a13147fa,target,taxon_ITS2_unite_ITS2_sintax
 b3745234b10bb06a,target,taxon_ITS2_warcup_ITS2_dada2
 d37c8f5620a38d77,target,taxon_ITS2_warcup_ITS2_idtaxa
-29a2e86098156739,target,taxon_ITS2_warcup_ITS2_sintax
+2869bc0c478dbde7,target,taxon_ITS2_warcup_ITS2_sintax
 82b04d5bff9b0ead,target,taxon_long_rdp_train_LSU_dada2
 22327b4eebbf7b4f,target,taxon_long_rdp_train_LSU_idtaxa
-0f6072437ff77c87,target,taxon_long_rdp_train_LSU_sintax
+710d49ac2ec151e4,target,taxon_long_rdp_train_LSU_sintax
 b8f5f73ee47859ec,target,taxon_long_unite_ITS_dada2
 be71b2ccdec0ace0,target,taxon_long_unite_ITS_idtaxa
-7639c0b51dd0752c,target,taxon_long_unite_ITS_sintax
+9fdc49468062752c,target,taxon_long_unite_ITS_sintax
 8d639edb80c70adf,target,taxon_long_warcup_ITS_dada2
 248b4eddcf2373ad,target,taxon_long_warcup_ITS_idtaxa
-09550bb5e9976587,target,taxon_long_warcup_ITS_sintax
+25e8d88a8da3ec36,target,taxon_long_warcup_ITS_sintax
 a20d0a15c7bcc401,target,taxon_LSU_rdp_train_LSU_dada2
 96477e8bc8c4150a,target,taxon_LSU_rdp_train_LSU_idtaxa
-5685e45bfdf8fd2a,target,taxon_LSU_rdp_train_LSU_sintax
+0cb838f22f679534,target,taxon_LSU_rdp_train_LSU_sintax
 67d4fcb4815fac18,import,taxon_short_unite_ITS_dada2
 79cec9bb864e2d67,target,taxon_short_unite_ITS_idtaxa
 e3c24894268230bb,target,taxon_short_unite_ITS_sintax
 2cd001ce876c2c06,target,taxon_short_warcup_ITS_dada2
 e2e8d81a223ebe4a,target,taxon_short_warcup_ITS_idtaxa
 e9b8040734849afa,target,taxon_short_warcup_ITS_sintax
-64ff490a9128bcd8,import,taxonomy
+cf0bc5071dbec71c,import,taxonomy
 b050a79c49087b5a,import,taxonomy_dada2
 1c4d69c1ca946016,import,taxonomy_idtaxa
-d98fca0fb677d13a,import,taxonomy_sintax
+822ddd6f06a39b1d,import,taxonomy_sintax
 27bb80f6aa6ea0ba,import,taxtable
 1657f0e8de51336f,import,taxtable_dada2
 196b9e1a7f4a333b,import,taxtable_idtaxa
