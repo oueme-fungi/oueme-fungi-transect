@@ -69,7 +69,10 @@ if (( i == n - 1 )); then
 	rm intermediates/intermediate*.pp
 	rm intermediates/intermediate*.stk
 	rm intermediates/intermediate*.aln
-	$sm_command snakeintermediates/intermediate$i.pp
+        echo "#!/bin/env sh" >snakemake.sh
+	echo "$sm_command -r snakeintermediates/intermediate$i.pp" >>snakemake.sh
+        chmod +x snakemake.sh
+        snakemake -t snakeintermediate$i.pp
 	for f in $(ls snakeintermediates)
 	  do
 	  ln -s "../snakeintermediates/$f" "intermediates/$f"
