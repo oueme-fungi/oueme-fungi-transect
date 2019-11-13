@@ -126,15 +126,17 @@ library(assertr)
 
 #### read scripts and configs ####
 # load various pipeline functions
-source(file.path(r_dir, "parallel_helpers.R"))
-source(file.path(r_dir, "utils.R"))
-source(file.path(r_dir, "extract_regions.R"))
 source(file.path(r_dir, "dada.R"))
-source(file.path(r_dir, "taxonomy.R"))
-source(file.path(r_dir, "plate_check.R"))
-source(file.path(r_dir, "mantel.R"))
+source(file.path(r_dir, "extract_regions.R"))
 source(file.path(r_dir, "inferrnal.R"))
+source(file.path(r_dir, "locarrna.R"))
+source(file.path(r_dir, "lsux.R"))
+source(file.path(r_dir, "mantel.R"))
+source(file.path(r_dir, "parallel_helpers.R"))
+source(file.path(r_dir, "plate_check.R"))
 source(file.path(r_dir, "raxml.R"))
+source(file.path(r_dir, "taxonomy.R"))
+source(file.path(r_dir, "utils.R"))
 
 setup_log("drakeplan")
 

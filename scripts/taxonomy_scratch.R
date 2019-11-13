@@ -1,126 +1,136 @@
 library(drake)
 library(magrittr)
-loadd(conseq)
-conseq %<>% dplyr::filter(!is.na(long)) %>%
-  dplyr::mutate(label = tzara::seqhash(long))
-lsu_consensus <- dplyr::filter(conseq, !is.na(LSU)) %$%
-  set_names(LSU, label)
-its_consensus <- dplyr::filter(conseq, !is.na(ITS)) %$%
-  set_names(chartr("U", "T", ITS), label)
-long_consensus <- conseq %$%
-  set_names(long, label)
-idtaxaenv <- new.env()
-load("reference/rdp_train.idtaxa.Rdata", envir = idtaxaenv)
-rdp_train_idtaxa <- idtaxaenv$trainingSet
-remove("idtaxaenv")
-tax_idtaxa <- DECIPHER::IdTaxa(Biostrings::RNAStringSet(lsu_consensus),
-                               trainingSet = rdp_train_idtaxa,
-                               strand = "top",
-                               threshold = 40,
-                               processors = 3)
-tictoc::tic()
-tax_sintax <- sintax(seq = chartr("U", "T", lsu_consensus),
-                     db = "reference/rdp_train.LSU.sintax.fasta.gz",
-                     multithread = 3)
-tictoc::toc()
-tictoc::tic()
-tax_dada2 <- dada2::assignTaxonomy(chartr("U", "T", lsu_consensus),
-                                   refFasta = "reference/rdp_train.LSU.dada2.fasta.gz",
-                                   tryRC = FALSE,
-                                   outputBootstraps = TRUE,
-                                   verbose = TRUE,
-                                   multithread = 3)
-tictoc::toc()
 
-idtaxaenv <- new.env()
-load("reference/warcup.idtaxa.Rdata", envir = idtaxaenv)
-warcup_idtaxa <- idtaxaenv$trainingSet
-tax_its_idtaxa <- DECIPHER::IdTaxa(Biostrings::DNAStringSet(its_consensus),
-                                   trainingSet = warcup_idtaxa,
-                                   strand = "top",
-                                   threshold = 40,
-                                   processors = 3)
-tictoc::tic()
-tax_its_sintax <- sintax(seq = its_consensus,
-                         db = "reference/warcup.ITS.sintax.fasta.gz",
-                         multithread = 3)
-tictoc::toc()
-tictoc::tic()
-tax_its_dada2 <- dada2::assignTaxonomy(its_consensus,
-                                       refFasta = "reference/warcup.ITS.dada2.fasta.gz",
-                                       tryRC = FALSE,
-                                       outputBootstraps = TRUE,
-                                       verbose = TRUE,
-                                       multithread = 3)
-tictoc::toc()
+taxon_targets <- drake_cache()$list() %>%
+  purrr::keep(stringr::str_detect, "taxon_(ITS|LSU)_(rdp_train|unite|warcup)_(ITS[12]?|LSU)_(sintax|idtaxa|dada2)")
 
-# idtaxaenv <- new.env()
-# load("reference/unite.idtaxa.Rdata", envir = idtaxaenv)
-# unite_idtaxa <- idtaxaenv$trainingSet
-# tax_unite_idtaxa <- DECIPHER::IdTaxa(Biostrings::DNAStringSet(its_consensus),
-#                                      trainingSet = unite_idtaxa,
-#                                      strand = "top",
-#                                      threshold = 40,
-#                                      processors = 3)
-tictoc::tic()
-tax_unite_sintax <- sintax(seq = its_consensus,
-                           db = "reference/unite.ITS.sintax.fasta.gz",
-                           multithread = 3)
-tictoc::toc()
+loadd(allseqs)
 
-taxmap <- tibble::tibble(name = c("idtaxa_rdp", "sintax_rdp", "dada2_rdp",
-                                  "idtaxa_warcup", "sintax_warcup", "dada2_warcup",
-                                  "sintax_unite"),
-                         tax = list(tax_idtaxa, tax_sintax, tax_dada2,
-                                    tax_its_idtaxa, tax_its_sintax, tax_its_dada2,
-                                    tax_unite_sintax),
-                         seq = list(lsu_consensus, lsu_consensus, lsu_consensus,
-                                    its_consensus, its_consensus, its_consensus,
-                                    its_consensus),
-                         min_confidence = c(0.4, 0.5, 0.5, 0.4, 0.5, 0.5, 0.5)) %>%
-  dplyr::mutate(names = lapply(seq, names)) %>%
-  dplyr::mutate(tax = purrr::pmap(., taxtable)) %>%
-  purrr::pmap(function(tax, name, ...) dplyr::rename_at(tax, c("taxon", "confidence"),
-                                                        paste, name, sep = "_")) %>%
-  purrr::reduce(dplyr::full_join, by = c("label", "rank")) %>%
-  dplyr::rowwise() %>%
-  dplyr::mutate(n = dplyr::n_distinct(c(taxon_idtaxa_rdp, taxon_sintax_rdp,
-                                        taxon_dada2_rdp, taxon_idtaxa_warcup,
-                                        taxon_sintax_warcup, taxon_dada2_warcup,
-                                        taxon_sintax_unite),
-                                      na.rm = TRUE)) %>%
-  dplyr::left_join(dplyr::select(conseq, label, nreads), by = "label")
+loadd(aln_decipher_long)
+loadd(aln_mlocarna_long)
+aln_decipher_long %>% DECIPHER::ConsensusSequence(threshold = 0.5, ambiguity = FALSE) %>%
+  as.character() %>%
+  stringi::stri_locate_first_fixed("CAAAUUUGGGUAUAG") %>%
+  magrittr::extract(1, 'end')
 
-taxmap_labels <- taxmap %>%
-  dplyr::filter(rank != "species") %>%
-  dplyr::rowwise() %>%
-  dplyr::mutate(taxon_consensus = table(c(taxon_idtaxa_rdp, taxon_sintax_rdp,
-                                          taxon_dada2_rdp, taxon_idtaxa_warcup,
-                                          taxon_sintax_warcup, taxon_dada2_warcup,
-                                          taxon_sintax_unite)) %>%
-                  paste0(names(.), collapse = "/") %>%
-                  gsub(pattern = "(.+/.+)", replacement = "<\\1>") %>%
-                  gsub(pattern = "(mycota|mycetes|ales|aceae)", replacement = "") %>%
-                  gsub(pattern = "incertae_sedis", replacement = "i_s") %>%
-                  gsub(pattern = "Fungi\\b", replacement = "F") %>%
-                  gsub(pattern = "Basidio\\b", replacement = "B") %>%
-                  gsub(pattern = "Asco\\b", replacement = "A") %>%
-                  gsub(pattern = "Chytridio\\b", replacement = "Chy") %>%
-                  gsub(pattern = "Zygo\\b", replacement = "Z")) %>%
-  dplyr::group_by(label, nreads) %>%
+taxtable <- 
+  taxon_targets %>%
+  tibble::tibble(name = .) %>%
+  tidyr::extract(
+    col = name,
+    into = c("region", "reference", "ref_region", "method"),
+    regex = "taxon_(32S|5_8S|ITS[12]?|LSU|long)_(unite|warcup|rdp_train)_(ITS[12]?|LSU)_(idtaxa|dada2|sintax)",
+    remove = FALSE
+  ) %>%
+  dplyr::mutate(
+    tax = lapply(name, readd, character_only = TRUE)
+  ) %>%
+  tidyr::unnest("tax") %>%
+  dplyr::filter(
+        !is.na(rank),
+        !is.na(label),
+        confidence >= 0.5,
+        !startsWith(taxon, "unidentified"),
+        !endsWith(taxon, "incertae_sedis"),
+        reference != "warcup" | rank != "kingdom"
+      ) %>%
+  dplyr::mutate_at(
+    "rank",
+    factor,
+    levels = c("kingdom", "phylum", "class", "order", "family", "genus")
+    ) %>%
+  dplyr::group_by(label, rank) %>%
+  dplyr::mutate(
+    n_tot = dplyr::n(),
+    n_diff = dplyr::n_distinct(taxon, na.rm = TRUE)
+  ) %>%
+  dplyr::left_join(
+    dplyr::select(allseqs, label = "hash", n_reads = "nreads"),
+    by = "label"
+  )
+
+taxmap_labels <- taxtable %>%
+  dplyr::group_by(label, rank, n_reads) %>%
+  dplyr::summarize(
+    taxon = 
+      table(taxon) %>%
+      paste0(names(.), collapse = "/") %>%
+      gsub(pattern = "(.+/.+)", replacement = "<\\1>") %>%
+      gsub(pattern = "(mycota|mycetes|ales|aceae)", replacement = "") %>%
+      gsub(pattern = "incertae_sedis", replacement = "i_s") %>%
+      gsub(pattern = "Fungi\\b", replacement = "F") %>%
+      gsub(pattern = "Basidio\\b", replacement = "B") %>%
+      gsub(pattern = "Asco\\b", replacement = "A") %>%
+      gsub(pattern = "Chytridio\\b", replacement = "Chy") %>%
+      gsub(pattern = "Zygo\\b", replacement = "Z")
+  ) %>%
+  dplyr::group_by(label, n_reads) %>%
+  dplyr::arrange(rank) %>%
   dplyr::summarize(tip_label = paste(label[1],
-                                     format(nreads[1], width = 5),
-                                     paste0(taxon_consensus, collapse = "-")))
+                                     format(n_reads[1], width = 5),
+                                     paste0(taxon, collapse = "-")))
 
-longtree <- castor::read_tree(file = "RAxML_bipartitions.long",
-                              include_node_labels = TRUE) %>%
+surefungi <-
+  taxtable %>%
+  dplyr::filter(
+    rank == "phylum",
+    n_tot >= 6,
+    n_diff == 1,
+    any(grepl("mycota", taxon))
+  ) %$%
+  label %>%
+  unique()
+
+tulasnella <-
+  taxtable %>%
+  dplyr::filter(
+    rank == "family",
+    taxon == "Tulasnellaceae"
+  ) %$%
+  label %>%
+  unique()
+
+surefungi <- setdiff(surefungi, tulasnella)
+
+loadd(raxml_decipher_long)
+
+fungi_tree <- ape::getMRCA(raxml_decipher_long$bipartitions, surefungi %>% intersect(raxml_decipher_long$bipartitions$tip.label)) %>%
+  ape::extract.clade(phy = raxml_decipher_long$bipartitions)
+
+loadd(aln_decipher_long)
+
+aln_decipher_long[fungi_tree$tip.label] %>%
+  Biostrings::RNAMultipleAlignment() %>%
+  Biostrings::maskGaps(min.fraction = 1, min.block.width = 1) %>%
+  Biostrings::RNAStringSet() %>%
+  Biostrings::writeXStringSet("output/fungi_decipher_long.fasta")
+
+aln_mlocarna_long <- read_stockholm_msa("data/mlocarna/consensus/intermediates/intermediate737.stk")
+
+aln_fungi_mlocarna_long <-
+  Biostrings::RNAStringSet(aln_mlocarna_long)[fungi_tree$tip.label] %>%
+  Biostrings::RNAMultipleAlignment() %>%
+  Biostrings::maskGaps(min.fraction = 1, min.block.width = 1) %>%
+  Biostrings::RNAStringSet() %>%
+  Biostrings::writeXStringSet("output/fungi_mlocarna_long.fasta")
+  
+fungi_tree %>%
+  inset2("tip.label",
+         plyr::mapvalues(.$tip.label, 
+                         taxmap_labels$label,
+                         taxmap_labels$tip_label,
+                         warn_missing = FALSE)) %>%
+  castor::write_tree("output/labeled_fungi_decipher_long.tree")
+
+
+longtree <- raxml_decipher_long$bipartitions %>%
   inset2("tip.label",
          plyr::mapvalues(.$tip.label, 
                          taxmap_labels$label,
                          taxmap_labels$tip_label,
                          warn_missing = FALSE))
 
-castor::write_tree(longtree, "output/labeled_long.tree")
+castor::write_tree(longtree, "output/labeled_decipher_long.tree")
 
 lsutree <- castor::read_tree(file = "RAxML_bipartitions.lsu",
                               include_node_labels = TRUE) %>%
