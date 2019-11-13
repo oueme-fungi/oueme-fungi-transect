@@ -557,7 +557,6 @@ checkpoint drake_plan:
         "{rdir}/extract_regions.R".format_map(config),
         "{rdir}/dada.R".format_map(config),
         "{rdir}/plate_check.R".format_map(config),
-        "{rdir}/map_LSU.R".format_map(config),
         "{rdir}/taxonomy.R".format_map(config),
         "{rdir}/inferrnal.R".format_map(config),
         "{rdir}/raxml.R".format_map(config),
