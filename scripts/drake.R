@@ -612,7 +612,7 @@ plan <- drake_plan(
   # Replace raw reads which were mapped to a DADA2 ASV with the ASV,
   # and put them all in one tibble.  We'll only do this for pacbio long reads.
   combined = target(
-    combine_bigmaps(dplyr::bind_rows(dada_map),
+    tzara::combine_bigmaps(dplyr::bind_rows(dada_map),
                     dplyr::bind_rows(raw)),
     transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
     format = "fst"

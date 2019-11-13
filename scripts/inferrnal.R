@@ -546,7 +546,7 @@ remove_nonconsensus_nongaps <- function(aln, gapfrac = 1) {
 #'        is given, pairwise probabilities in probabilistic mode, etc.) can be
 #'        run in parallel.
 #'
-#' @return the path to the resulting alignment
+#' @return md5sum of the output
 #' @export
 mlocarna_realign <- function(alignment,
                              target_dir,
