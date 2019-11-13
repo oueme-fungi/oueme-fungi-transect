@@ -561,6 +561,7 @@ checkpoint drake_plan:
         "{rdir}/taxonomy.R".format_map(config),
         "{rdir}/inferrnal.R".format_map(config),
         "{rdir}/raxml.R".format_map(config),
+        "{rdir}/utils.R".format_map(config),
         dataset  = config['dataset'],
         regions  = config['regions'],
         methods  = config['methods'],

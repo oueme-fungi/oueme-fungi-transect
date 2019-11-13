@@ -135,6 +135,7 @@ source(file.path(r_dir, "plate_check.R"))
 source(file.path(r_dir, "map_LSU.R"))
 source(file.path(r_dir, "mantel.R"))
 source(file.path(r_dir, "inferrnal.R"))
+source(file.path(r_dir, "raxml.R"))
 
 setup_log("drakeplan")
 
