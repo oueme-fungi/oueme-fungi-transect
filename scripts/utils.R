@@ -13,24 +13,26 @@ mirror_dir <- function(from, to) {
   wrongfiles <- oldfiles[normalizePath(file.path(from, oldfiles)) !=
                            normalizePath(file.path(to, oldfiles))]
   todofiles <- c(newfiles, wrongfiles)
-  reldirs <- vapply(
-    dirs,
-    function(dir)
-      system2(
-        "realpath",
-        c(
-          "--relative-to",
-          shQuote(file.path(to, dir)),
-          shQuote(from)
+  if (length(todofiles) > 0) {
+    reldirs <- vapply(
+      dirs,
+      function(dir)
+        system2(
+          "realpath",
+          c(
+            "--relative-to",
+            shQuote(file.path(to, dir)),
+            shQuote(from)
+          ),
+          stdout = TRUE
         ),
-        stdout = TRUE
-      ),
-    ""
-  )[dirname(todofiles)]
+      ""
+    )[dirname(todofiles)]
   
-  unlink(file.path(to, wrongfiles))
-  file.symlink(
-    file.path(reldirs, files),
-    file.path(to, files)
-  )
+    unlink(file.path(to, wrongfiles))
+    file.symlink(
+      file.path(reldirs, todofiles),
+      file.path(to, todofiles)
+    )
+  }
 }
