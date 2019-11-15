@@ -382,6 +382,18 @@ formatdb <- function(db = c("unite", "rdp", "silva"),
   f(seq_file = seq_file, patch_file = patch_file, ...)
 }
 
+rank_factor <- function(r,
+                        ranks = c("rootrank", "domain", "kingdom", "phylum",
+                                  "class", "order", "family", "genus",
+                                  "species"),
+                        abbrev = FALSE) {
+  if (abbrev) {
+    factor(r, levels = substr(ranks, 1, 1), labels = ranks, ordered = TRUE)
+  } else {
+    factor(r, levels = ranks, ordered = TRUE)
+  }
+}
+
 taxonomy <- function(seq.table, reference, method, multithread = FALSE, ...) {
   # we can take a community matrix (in which case the sequences are the column
   # names) or the sequences
@@ -524,11 +536,7 @@ sintax_format <- function(tax) {
     dplyr::mutate_at("c12n", dplyr::na_if, "") %>%
     tidyr::separate(c12n, into = c("rank", "taxon"), sep = ":") %>%
     dplyr::mutate_at("taxon", dplyr::na_if, "unidentified") %>%
-    dplyr::mutate_at("rank", factor,
-                     levels = c("d", "k", "p", "c", "o", "f", "g", "s"),
-                     labels = c("domain", "kingdom",
-                                "phylum", "class", "order", "family",
-                                "genus", "species")) %>%
+    dplyr::mutate_at("rank", rank_factor, abbrev = TRUE) %>%
     tidyr::spread(key = "rank", value = "taxon") %>%
     dplyr::select(-`<NA>`) %>%
     dplyr::mutate_at("name", rlang::`%|%`, "unknown") %>%
@@ -572,11 +580,7 @@ taxtable_sintax <- function(tax, min_confidence = 0, ...) {
     dplyr::mutate_at("taxon", gsub, pattern = "Incertae",
                      replacement = "incertae") %>%
     dplyr::mutate_at("confidence", as.numeric) %>%
-    dplyr::mutate_at("rank", factor,
-                     levels = c("d", "k", "p", "c", "o", "f", "g", "s"),
-                     labels = c("domain", "kingdom",
-                                "phylum", "class", "order", "family",
-                                "genus", "species")) %>%
+    dplyr::mutate_at("rank", rank_factor, abbrev = TRUE) %>%
     dplyr::select(label, rank, taxon, confidence) %>%
     dplyr::filter(confidence >= min_confidence, !is.na(taxon))
 }
@@ -584,35 +588,12 @@ taxtable_sintax <- function(tax, min_confidence = 0, ...) {
 taxtable_idtaxa <- function(tax, min_confidence = 0, names = NULL, ...) {
   if (!missing(names) && !is.null(names)) names(tax) <- names
   purrr::imap_dfr(tax, ~tibble::tibble(label = .y,
-                                       rank = factor(.x$rank,
-                                                     levels = c("rootrank",
-                                                                "domain",
-                                                                "kingdom",
-                                                                "phylum",
-                                                                "class",
-                                                                "order",
-                                                                "family",
-                                                                "genus",
-                                                                "species")),
+                                       rank = rank_factor(.x$rank),
                                        taxon = gsub(" ", "_", .x$taxon),
                                        confidence = .x$confidence / 100)) %>%
     dplyr::mutate_at("taxon", gsub, pattern = "Incertae", replacement = "incertae") %>%
     dplyr::filter(rank != "rootrank", !startsWith(taxon, "unclassified_"),
-                  confidence >= min_confidence) %>%
-    dplyr::mutate_at("rank", factor, levels = c("domain",
-                                                "phylum",
-                                                "class",
-                                                "order",
-                                                "family",
-                                                "genus",
-                                                "species"),
-                     labels = c("kingdom",
-                                "phylum",
-                                "class",
-                                "order",
-                                "family",
-                                "genus",
-                                "species"))
+                  confidence >= min_confidence)
 }
 
 taxtable_dada2 <- function(tax, names = rownames(tax$tax),
@@ -627,7 +608,8 @@ taxtable_dada2 <- function(tax, names = rownames(tax$tax),
     dplyr::arrange(label) %>%
     dplyr::mutate_at("taxon", gsub, pattern = "Incertae", replacement = "incertae") %>%
     dplyr::filter(!is.na(taxon), confidence >= min_confidence) %>%
-    dplyr::mutate_at("rank", tolower)
+    dplyr::mutate_at("rank", tolower) %>%
+    dplyr::mutate_at("rank", rank_factor)
 }
 
 # fits an IDTAXA model to a fasta file with [UV]SEARCH/SINTAX-style taxonomy
