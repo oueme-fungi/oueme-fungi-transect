@@ -368,3 +368,15 @@ remove_nonconsensus_nongaps <- function(aln, gapfrac = 1) {
     # converting to XStringSet removes masked columns
     methods::as("RNAStringSet")
 }
+
+
+trim_LSU_intron <- function(aln) {
+  consensus <- DECIPHER::ConsensusSequence(
+    aln,
+    threshold = 0.5,
+    ambiguity = FALSE
+  )
+  consensus <- as.character(consensus)
+  site <- stringi::stri_locate_first_fixed(consensus, "CAAAUUUGGGUAUAG")[1, 'end']
+  IRanges::narrow(aln, start = 1, end = site)
+}

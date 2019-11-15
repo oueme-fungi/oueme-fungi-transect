@@ -1,16 +1,9 @@
 library(drake)
 library(magrittr)
 
-loadd(allseqs)
-
 loadd(aln_decipher_long)
-loadd(aln_mlocarna_long)
-aln_decipher_long %>% DECIPHER::ConsensusSequence(threshold = 0.5, ambiguity = FALSE) %>%
-  as.character() %>%
-  stringi::stri_locate_first_fixed("CAAAUUUGGGUAUAG") %>%
-  magrittr::extract(1, 'end')
 
-
+trim_LSU_intron(aln_decipher_long)
 
 loadd(fungi_tree_decipher_long)
 loadd(taxon_table)
