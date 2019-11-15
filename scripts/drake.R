@@ -621,7 +621,12 @@ plan <- drake_plan(
       tidyr::spread(key = "region", value = "seq") %>%
       dplyr::group_by(ITS2) %>%
       dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
-      dplyr::mutate(primer_ID = primer_ID),
+      dplyr::mutate(primer_ID = primer_ID) %>%
+      region_concat("LSU", c("LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")) %>%
+      region_concat("ITS", c("ITS1", "5_8S", "ITS2")) %>%
+      region_concat("long", c("ITS", "LSU")) %>%
+      region_concat("short", c("5_8S", "ITS2", "LSU1")) %>%
+      region_concat("32S", c("5_8S", "ITS2", "LSU")) ,
     transform = map(combined, .id = primer_ID)
   ),
   
@@ -654,7 +659,7 @@ plan <- drake_plan(
     transform = map(
       .data = !!filter(
         dada_meta,
-        region %in% c("ITS1", "5_8S", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")
+        region %in% c("ITS", "LSU", "32S", "long", "short")
       ),
       .id = c(seq_run, region)
     ),
@@ -667,17 +672,7 @@ plan <- drake_plan(
     make_allseq_table(list(conseq),
                       drake_combine(big_seq_table)) %>%
       dplyr::filter(!is.na(ITS2)) %>%
-      dplyr::mutate(
-        LSU = stringr::str_c(LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
-        `32S` = stringr::str_c(`5_8S`, ITS2, LSU),
-        long = stringr::str_c(ITS1, `32S`),
-        short = ifelse(
-          is.na(long),
-          short,
-          NA_character_
-        ),
-        ITS = stringr::str_c(ITS1, `5_8S`, ITS2)
-      ),
+      dplyr::mutate(full = dplyr::coalesce(long, short)),
     transform = combine(conseq, big_seq_table),
     format = "fst"
   ),

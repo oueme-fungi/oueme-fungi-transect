@@ -380,3 +380,12 @@ trim_LSU_intron <- function(aln) {
   site <- stringi::stri_locate_first_fixed(consensus, "CAAAUUUGGGUAUAG")[1, 'end']
   IRanges::narrow(aln, start = 1, end = site)
 }
+
+region_concat <- function(table, out_col, regions) {
+  if (!out_col %in% names(table)) return(table)
+  table[[out_col]] <- dplyr::coalesce(
+    table[[out_col]],
+    do.call(stringr::str_c, table[,regions])
+    )
+  table
+}
