@@ -181,14 +181,13 @@ itsx_meta <- datasets %>%
          join_derep = make.names(glue("join_derep_{primer_ID}")),
          join_derep_map = make.names(glue("join_derep_map_{primer_ID}")),
          itsxtrim = make.names(glue("itsxtrim_{primer_ID}")),
-         lsux_pos = make.names(glue("lsux_pos_{primer_ID}")),
-         search5_8S = make.names(glue("search5_8S_{primer_ID}"))) %T>%
+         lsux_pos = make.names(glue("lsux_pos_{primer_ID}"))) %T>%
          {flog.info("finished fourth mutate...")} %>%
   filter(file.exists(file.path(trim_dir, trim_file))) %>%
   filter(normalizePath(file.path(trim_dir, trim_file)) %in% normalizePath(in_files)) %>%
   filter(file.size(file.path(trim_dir, trim_file)) > 40) %>%
   verify(file.path(trim_dir, trim_file) %in% in_files) %>%
-  mutate_at(c("join_derep", "join_derep_map", "itsxtrim", "lsux_pos", "search5_8S"), syms)
+  mutate_at(c("join_derep", "join_derep_map", "itsxtrim", "lsux_pos"), syms)
 
 #### predada_meta ####
 # predada_meta has one row per region per well
@@ -197,7 +196,7 @@ itsx_meta <- datasets %>%
 # plate_ID is defined because it will be the index for dada_meta
 flog.info("Making predada_meta.")
 predada_meta <- itsx_meta %>%
-  group_by_at(c("seq_run", "regions", "plate", "well")) %>%
+  group_by_at(c("seq_run", "regions", "plate", "well", "primer_ID")) %>%
   summarize(trim_file = list(c(trim_file)),
             positions = list(c(positions))) %>%
   ungroup() %>%
@@ -223,7 +222,7 @@ if (!interactive()) {
 # The index is seq_run + region
 flog.info("Making dada_meta.")
 dada_meta <- predada_meta %>%
-  select(seq_run, region, range, range_ID) %>%
+  select(seq_run, region, range, range_ID, primer_ID) %>%
   unique() %>%
   arrange(seq_run, region) %>%
   mutate(region_derep = glue("region_derep_{seq_run}_{range_ID}"),
@@ -466,6 +465,23 @@ plan <- drake_plan(
     )
   ),
   
+  # raw ----
+  # Join the raw read info
+  raw = target(
+    tzara::summarize_sread(
+      list(regionx),
+      name = !!symbols_to_values(filter_file),
+      max_ee = 1.5 * !!eval(parse(text = unique(symbols_to_values(max_ee))))
+    ),
+    transform = combine(
+      regionx, filter_file, max_ee, seq_run, region, primer_ID,
+      .by = c(primer_ID, region),
+      .tag_in = step,
+      .id = c(primer_ID, region)
+    ),
+    format = "fst"
+  ),
+  
   # derep2----
   # Do a second round of dereplication on the filtered regions.
   derep2 = target({
@@ -575,97 +591,20 @@ plan <- drake_plan(
     transform = combine(nochim, .tag_in = step, .by = region)),
   
   # big_fasta ----
-  # write the ITS2 big_seq_table as a fasta file so that it can be clustered by
+  # write the big_seq_table as a fasta files so that they can be clustered by
   # VSEARCH.
   big_fasta = target(
     write_big_fasta(big_seq_table,
                     file_out(!!big_fasta_file)),
     transform = map(.data = !!region_meta, .id = region)),
   
-  # raw ----
-  # Join the raw read info (for long pacbio reads).
-  raw = target(
-    tzara::summarize_sread(
-      list(regionx),
-      name = !!symbols_to_values(filter_file),
-      max_ee = 1.5 * !!eval(parse(text = unique(symbols_to_values(max_ee))))
-    ),
-    transform = combine(
-      regionx, filter_file, max_ee, seq_run, region,
-      .by = c(seq_run, region),
-      .tag_in = step,
-      .id = c(seq_run, region)
-    ),
-    format = "fst"
-  ),
-  
   # combined ----
   # Replace raw reads which were mapped to a DADA2 ASV with the ASV,
-  # and put them all in one tibble.  We'll only do this for pacbio long reads.
+  # and put them all in one tibble.
   combined = target(
     tzara::combine_bigmaps(dplyr::bind_rows(dada_map),
                     dplyr::bind_rows(raw)),
-    transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
-    format = "fst"
-  ),
-  
-  # reconstructed ----
-  # 
-  big_reconstructed = target(
-    tzara::reconstruct(
-      seqtabs = drake_combine(dada_map),
-      rawtabs = drake_combine(raw),
-      # find the regions from the names of the dada_maps
-      regions_regex = "(dada_map|raw)_(pb|is|ps)_\\d{3}_",
-      regions_replace = "",
-      order = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2",
-                "D2", "LSU3", "D3", "LSU4"),
-      output = list(
-        long = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3",
-                 "D3", "LSU4"),
-        ITS = c("ITS1", "5_8S", "ITS2"),
-        LSU = c("LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4"),
-        `32S` = c("5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3",
-                  "LSU4")
-      ),
-      use_output = "second",
-      read_column = "seq.id",
-      asv_column = "dada.seq",
-      raw_column = "seq",
-      sample_column = "name",
-      sample_regex = "(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d",
-      ncpus = ignore(dada_cpus),
-      multithread = ignore(dada_cpus)) %>%
-      dplyr::mutate(hash = tzara::seqhash(long)),
-    transform = combine(dada_map, raw, .by = seq_run, .tag_in = step),
-    format = "fst"
-  ),
-  
-  reconstructed = target(
-    tzara::reconstruct(
-      seqtabs = drake_combine(dada_map),
-      # find the regions from the names of the dada_maps
-      regions_regex = "(dada_map|raw)_(pb|is|ps)_\\d{3}_",
-      regions_replace = "",
-      order = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2",
-                "D2", "LSU3", "D3", "LSU4"),
-      output = list(
-        long = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3",
-                 "D3", "LSU4"),
-        ITS = c("ITS1", "5_8S", "ITS2"),
-        LSU = c("LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4"),
-        `32S` = c("5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3",
-                  "LSU4")
-      ),
-      use_output = "second",
-      read_column = "seq.id",
-      asv_column = "dada.seq",
-      sample_column = "name",
-      sample_regex = "(pb|is)_\\d{3}_\\d{3}-[A-H]1?\\d",
-      ncpus = ignore(dada_cpus),
-      multithread = ignore(dada_cpus)) %>%
-      dplyr::mutate(hash = tzara::seqhash(long)),
-    transform = combine(dada_map, .by = seq_run, .tag_in = step),
+    transform = combine(dada_map, raw, .by = primer_ID, .tag_in = step),
     format = "fst"
   ),
   
@@ -673,14 +612,33 @@ plan <- drake_plan(
   # Calculate consensus sequences for full ITS and LSU for each ITS2 ASV with
   # with at least 3 sequences.
   preconseq = target(
-    combined_pb_500 %>%
-      tidyr::extract(name, c("seq_run", "plate", "well", "region"), "([pi][sb]_\\d{3})_(\\d{3})-([A-H]\\d{1,2})-(.+)\\.qfilt\\.fastq\\.gz") %>%
+    combined %>%
+      tidyr::extract(
+        name,
+        c("seq_run", "plate", "well", "region"),
+        "([pi][sb]_\\d{3})_(\\d{3})-([A-H]\\d{1,2})-(.+)\\.qfilt\\.fastq\\.gz"
+      ) %>%
       tidyr::spread(key = "region", value = "seq") %>%
       dplyr::group_by(ITS2) %>%
-      dplyr::filter(!is.na(ITS2), dplyr::n() >= 3)),
+      dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
+      dplyr::mutate(primer_ID = primer_ID),
+    transform = map(combined, .id = primer_ID)
+  ),
   
   conseq = target(
     preconseq %>%
+      # for LSU1 and 5.8S, use only long reads if there are enough
+      # if there are not enough, use short reads
+      dplyr::mutate(
+        !! region := if (region %in% c("5_8S", "LSU1")) {
+        if (sum(seq_run == "pb_500" && !is.na(.data[[region]])) >= 3) {
+          ifelse(seq_run == "pb_500", .data[[region]], NA_character_)
+        } else {
+          ifelse(seq_run == "pb_500", NA_character_, .data[[region]])
+        }
+      } else {
+        .data[[region]]
+      }  ) %>%
       dplyr::filter(sum(!is.na(.data[[region]])) >= 3) %>%
       dplyr::summarize(
         nreads = dplyr::n(),
@@ -694,25 +652,32 @@ plan <- drake_plan(
         nchar(.[[region]]) >= min_length
       ),
     transform = map(
-      .data = !!filter(regions, region %in% c("ITS1", "5_8S",
-                                              "LSU1", "D1", "LSU2", "D2",
-                                              "LSU3", "D3", "LSU4")),
-      .id = region
+      .data = !!filter(
+        dada_meta,
+        region %in% c("ITS1", "5_8S", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")
+      ),
+      .id = c(seq_run, region)
     ),
     format = "fst"
   ),
   
   # allseqs ----
-  # make a data frame of all consensus sequences and ASVs; each row is an ITS2 ASV,
-  # or if 
+  # make a data frame of all consensus sequences and ASVs; each row is an ITS2 ASV
   allseqs = target(
     make_allseq_table(list(conseq),
                       drake_combine(big_seq_table)) %>%
       dplyr::filter(!is.na(ITS2)) %>%
-      dplyr::mutate(LSU = stringr::str_c(LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
-                    `32S` = stringr::str_c(`5_8S`, ITS2, LSU),
-                    long = stringr::str_c(ITS1, `32S`),
-                    ITS = stringr::str_c(ITS1, `5_8S`, ITS2)),
+      dplyr::mutate(
+        LSU = stringr::str_c(LSU1, D1, LSU2, D2, LSU3, D3, LSU4),
+        `32S` = stringr::str_c(`5_8S`, ITS2, LSU),
+        long = stringr::str_c(ITS1, `32S`),
+        short = ifelse(
+          is.na(long),
+          short,
+          NA_character_
+        ),
+        ITS = stringr::str_c(ITS1, `5_8S`, ITS2)
+      ),
     transform = combine(conseq, big_seq_table),
     format = "fst"
   ),
@@ -987,6 +952,45 @@ plan <- drake_plan(
                         refinements = 10,
                         processors = ignore(raxml_cpus)),
   
+  aln_decipher_LSU =
+    allseqs %>%
+    dplyr::select(hash, long, LSU, ITS1) %>%
+    dplyr::filter(complete.cases(.), startsWith(long, ITS1)) %>%
+    unique() %$%
+    set_names(LSU, hash) %>%
+    dplyr::filter(!duplicated(LSU)) %>%
+    chartr("T", "U", .) %>%
+    Biostrings::RNAStringSet() %>%
+    DECIPHER::AlignSeqs(iterations = 10,
+                        refinements = 10,
+                        processors = ignore(raxml_cpus)),
+  
+  aln_decipher_LSU_trim = trim_LSU_intron(aln_decipher_LSU),
+  
+  raxml_decipher_LSU = {
+    if (!dir.exists(!!raxml_decipher_out_dir))
+      dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
+    wd <- setwd(!!raxml_decipher_out_dir)
+    result <- 
+      aln_decipher_LSU_trim %>%
+      Biostrings::DNAStringSet() %>%
+      ape::as.DNAbin() %>%
+      as.matrix() %>%
+      ips::raxml(
+        DNAbin = .,
+        m = "GTRGAMMA",
+        f = "a",
+        N = "autoMRE_IGN",
+        p = 12345,
+        x = 827,
+        k = TRUE,
+        file = "decipher_LSU",
+        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
+        threads = ignore(raxml_cpus))
+    setwd(wd)
+    result
+  },
+  
   raxml_decipher_long = {
     if (!dir.exists(!!raxml_decipher_out_dir))
       dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
@@ -1186,10 +1190,9 @@ plan <- drake_plan(
       knitr_in(!!file.path(rmd_dir, "qual-check.Rmd")),
       output_file = file_out(!!file.path(out_dir, "qual-check.pdf")),
       output_dir = !!out_dir)},
-  trace = TRUE,
-  max_expand = if (interactive()) 9 else NULL
-) %>%
-  filter(!(step %in% c("raw", "combined", "reconstructed")) | seq_run == '"pb_500"')
+  # max_expand = if (interactive()) 9 else NULL,
+  trace = TRUE
+)
 tictoc::toc()
 
 if (!interactive()) saveRDS(plan, plan_file)
@@ -1213,47 +1216,7 @@ if (interactive()) {
                   targets_only = TRUE)
 }
 
-if (interactive()) {
-  dconfig <- drake_config(plan)
-  vis_drake_graph(dconfig)
-}
-
 remove(snakemake)
 
 save(list = ls(),
      file = drakedata_file)
-
-drake_plan_file_io <- function(plan) {
-  if ("file_in" %in% names(plan)) {
-    plan$file_in <-
-      pmap_chr(plan,
-               function(file_in, ...)
-                 deparse(eval(file_in, envir = list(...)))
-      )
-    plan$command <-
-      glue_data(plan,
-                "{{",
-                "file_in({file_in})",
-                "{command}",
-                "}}",
-                .sep = "\n"
-      )
-  }
-  if ("file_out" %in% names(plan)) {
-    plan$file_out <-
-      pmap_chr(plan,
-               function(file_out, ...)
-                 deparse(eval(file_out, envir = list(...)))
-      )
-    plan$command <-
-      glue_data(plan,
-                "{{",
-                "file_out({file_out})",
-                "{command}",
-                "}}",
-                .sep = "\n"
-      )
-  }
-  return(plan)
-}
-

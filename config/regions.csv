@@ -4,7 +4,7 @@ ITS2,,ITS2,ITS2,3,50,500,,,
 LSU,,LSU1,LSU4,3,500,2999,,,rdp_train.LSU
 5_8S,,5_8S,5_8S,3,50,200,,,
 32S,,5_8S,LSU4,3,600,2999,,,
-short,,full,full,3,50,2999,,,
+short,,full,full,3,50,2999,,,"unite.ITS,warcup.ITS"
 long,,full,full,3,500,2999,,,
 ITS,,ITS1,ITS2,3,100,1500,,,"unite.ITS,warcup.ITS"
 LSU1,,LSU1,LSU1,3,50,200,,,
