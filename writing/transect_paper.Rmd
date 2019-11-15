@@ -99,13 +99,14 @@ DNA for short amplicons was amplified using the primer pairs gITS7[@ihrmark2012]
     
   - Mohammad's pipeline:
   
-  - Brendan's pipeline:
+Circular consensus sequence (CCS) basecalls were made using the `ccs` command from SMRTtools version 5.0.1  [@pacificbiosciences2019].
+The resulting sequences were demultiplexed and sequencing primers were removed using `cutadapt` version 1.18 [@martin2011].
+
+- Brendan's pipeline:
       - Ion Torrent
           - used demultiplexing from SciLife (standard IonXpress)
-          - primers removed with `cutadapt` [@martin2011]
+          - primers removed with 
       - PacBio
-          - CCS basecalls re-done with `ccs` from SMRTtools version 5.0.1 [@pacificbiosciences2019]
-          - demultiplexed and primers removed with `cutadapt` [@martin2011]
       - Illumina MiSeq
           - pending
   
@@ -119,10 +120,15 @@ ITS1 (for the entire read prior to the 5' end of 5.8S), 5.8S, ITS2, LSU1, D1, LS
 where the four "LSU" regions represent the conserved regions of the 28S rRNA between the "D" regions.
 The process of extracting the regions is automated in the new R package `LSUx`, available on github and conda-forge (**but not yet**).
 
+Each of the extracted regions was independently filtered for length (table **X**) and a maximum of three expected errors using the `filterAndTrim` function from DADA2 [@callahan2016, @callahan2018].
+Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2.
+The error model for DADA2 denoising was fit using only the 5.8S RNA region.
+Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons).
+Chimeras within each region were removed using `removeBimeraDenovoTable` from DADA2.
 
-      - extracted regions independently quality filtered by max expected error using `dada2::filterAndTrim()`
-      - dereplicated using `dada2::derepFastq()`
-      - denoised with `dada2::dada()`
+The ITS2 region was used to identify full-length amplicons ASVs, due to the fact that it was the only full-length region/domain shared by both long and short amplicons.
+
+
       - de novo chimera removal using `dada2::removeBimeraDenovo()`
       - full length amplicons reconstructed from ASVs of extracted domains (r package tzara -- available on github and conda)
           - when a read is mapped to ASVs for all regions, they are concatenated.
