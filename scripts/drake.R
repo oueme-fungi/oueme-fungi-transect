@@ -212,18 +212,7 @@ predada_meta <- itsx_meta %>%
          filter_file = glue("{seq_run}_{plate}-{well}-{region}{range}.qfilt.fastq.gz")) %>%
   mutate_at("positions", lapply, syms)
 
-if (interactive()) {
-  #use a subset
-  itsx_meta %<>%
-    group_by(seq_run, plate) %>%
-    mutate(filesize = file.size(file.path(trim_dir, trim_file))) %>%
-    arrange(desc(filesize), .by_group = TRUE) %>%
-    dplyr::slice(1:4) %>%
-    ungroup()
-  
-  predada_meta %<>%
-    semi_join(itsx_meta, by = "trim_file")
-} else {
+if (!interactive()) {
   saveRDS(itsx_meta, itsx_meta_file)
   saveRDS(predada_meta, predada_meta_file)
 }
@@ -1165,7 +1154,8 @@ plan <- drake_plan(
       knitr_in(!!file.path(rmd_dir, "qual-check.Rmd")),
       output_file = file_out(!!file.path(out_dir, "qual-check.pdf")),
       output_dir = !!out_dir)},
-  trace = TRUE
+  trace = TRUE,
+  max_expand = if (interactive()) 9 else NULL
 ) %>%
   filter(!(step %in% c("raw", "combined", "reconstructed")) | seq_run == '"pb_500"')
 tictoc::toc()
