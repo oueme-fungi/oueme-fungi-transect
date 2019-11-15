@@ -755,6 +755,16 @@ plan <- drake_plan(
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
     format = "fst"),
   
+  taxon_table = target(
+    drake_combine(taxon) %>%
+     combine_taxon_tables(allseqs),
+    transform = combine(taxon)
+  ),
+  
+  taxon_labels = target(
+    make_taxon_labels(taxon_table)
+  ),
+  
   # funguild_db ----
   # Download the FUNGuild database
   funguild_db = FUNGuildR::get_funguild_db(),
@@ -770,32 +780,6 @@ plan <- drake_plan(
   # Read the map between plate locations and samples
   platemap = target(
     read_platemap(file_in(!!platemap_file), platemap_sheet),
-    format = "fst"),
-  
-  
-  # taxon_LSUcons_rdp----
-  # Assign taxonomy to the consensus LSU sequences.
-  taxon_LSUcons_rdp = target(
-    allseqs$LSU %>%
-      unique() %>%
-      stringr::str_replace_all("U", "T") %>%
-      sintax(db = file_in("reference/rdp_train.LSU.fasta.gz"),
-             sintax_cutoff = 0.9,
-             multithread = ignore(dada_cpus)) %>%
-      dplyr::mutate_at("seq", stringr::str_replace_all, "T", "U"),
-    format = "fst"),
-  
-  # cons_tax----
-  # Make names which combine the ITS2 and LSU identifications to put on the tree
-  # Also make hash names, because PASTA will destroy non-alphanumeric names
-  cons_tax  = target(
-    allseqs %>%
-      dplyr::left_join(dplyr::select(taxon_ITS2_unite, ITS2 = seq, name),
-                       by = "ITS2") %>%
-      dplyr::left_join(dplyr::select(taxon_LSUcons_rdp, LSU = seq, name),
-                       suffix = c("_ITS2", "_LSU"),
-                       by = "LSU") %>%
-      tidyr::unite("name", name_ITS2, name_LSU, sep = "/"),
     format = "fst"),
   
   # long_consensus----

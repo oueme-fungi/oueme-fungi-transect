@@ -1,9 +1,6 @@
 library(drake)
 library(magrittr)
 
-taxon_targets <- drake_cache()$list() %>%
-  purrr::keep(stringr::str_detect, "taxon_(ITS|LSU)_(rdp_train|unite|warcup)_(ITS[12]?|LSU)_(sintax|idtaxa|dada2)")
-
 loadd(allseqs)
 
 loadd(aln_decipher_long)
@@ -13,89 +10,33 @@ aln_decipher_long %>% DECIPHER::ConsensusSequence(threshold = 0.5, ambiguity = F
   stringi::stri_locate_first_fixed("CAAAUUUGGGUAUAG") %>%
   magrittr::extract(1, 'end')
 
-taxtable <- 
-  taxon_targets %>%
-  tibble::tibble(name = .) %>%
-  tidyr::extract(
-    col = name,
-    into = c("region", "reference", "ref_region", "method"),
-    regex = "taxon_(32S|5_8S|ITS[12]?|LSU|long)_(unite|warcup|rdp_train)_(ITS[12]?|LSU)_(idtaxa|dada2|sintax)",
-    remove = FALSE
-  ) %>%
-  dplyr::mutate(
-    tax = lapply(name, readd, character_only = TRUE)
-  ) %>%
-  tidyr::unnest("tax") %>%
-  dplyr::filter(
-        !is.na(rank),
-        !is.na(label),
-        confidence >= 0.5,
-        !startsWith(taxon, "unidentified"),
-        !endsWith(taxon, "incertae_sedis"),
-        reference != "warcup" | rank != "kingdom"
-      ) %>%
-  dplyr::mutate_at(
-    "rank",
-    factor,
-    levels = c("kingdom", "phylum", "class", "order", "family", "genus")
-    ) %>%
-  dplyr::group_by(label, rank) %>%
-  dplyr::mutate(
-    n_tot = dplyr::n(),
-    n_diff = dplyr::n_distinct(taxon, na.rm = TRUE)
-  ) %>%
-  dplyr::left_join(
-    dplyr::select(allseqs, label = "hash", n_reads = "nreads"),
-    by = "label"
-  )
 
-taxmap_labels <- taxtable %>%
+
+loadd(fungi_tree_decipher_long)
+loadd(taxon_table)
+
+wide_taxon_table <- 
+  taxon_table %>%
+  dplyr::filter(label %in% fungi_tree_decipher_long$tip.label) %>%
+  dplyr::select(label, rank, taxon,n_reads) %>%
   dplyr::group_by(label, rank, n_reads) %>%
-  dplyr::summarize(
-    taxon = 
-      table(taxon) %>%
-      paste0(names(.), collapse = "/") %>%
-      gsub(pattern = "(.+/.+)", replacement = "<\\1>") %>%
-      gsub(pattern = "(mycota|mycetes|ales|aceae)", replacement = "") %>%
-      gsub(pattern = "incertae_sedis", replacement = "i_s") %>%
-      gsub(pattern = "Fungi\\b", replacement = "F") %>%
-      gsub(pattern = "Basidio\\b", replacement = "B") %>%
-      gsub(pattern = "Asco\\b", replacement = "A") %>%
-      gsub(pattern = "Chytridio\\b", replacement = "Chy") %>%
-      gsub(pattern = "Zygo\\b", replacement = "Z")
-  ) %>%
-  dplyr::group_by(label, n_reads) %>%
-  dplyr::arrange(rank) %>%
-  dplyr::summarize(tip_label = paste(label[1],
-                                     format(n_reads[1], width = 5),
-                                     paste0(taxon, collapse = "-")))
+  dplyr::summarize(taxon = list(unique(taxon))) %>%
+  tidyr::pivot_wider(names_from = "rank", values_from = "taxon") %>%
+  dplyr::ungroup()
 
-surefungi <-
-  taxtable %>%
-  dplyr::filter(
-    rank == "phylum",
-    n_tot >= 6,
-    n_diff == 1,
-    any(grepl("mycota", taxon))
-  ) %$%
-  label %>%
-  unique()
-
-tulasnella <-
-  taxtable %>%
-  dplyr::filter(
-    rank == "family",
-    taxon == "Tulasnellaceae"
-  ) %$%
-  label %>%
-  unique()
-
-surefungi <- setdiff(surefungi, tulasnella)
+tree4d <-
+  phylobase::phylo4d(
+    fungi_tree_decipher_long,
+    tip.data = wide_taxon_table,
+    check.node.labels = "asdata",
+    label.type = "column",
+    label.column = "label",
+    missing.data = "OK",
+    extra.data = "OK"
+  )
 
 loadd(raxml_decipher_long)
 
-fungi_tree <- ape::getMRCA(raxml_decipher_long$bipartitions, surefungi %>% intersect(raxml_decipher_long$bipartitions$tip.label)) %>%
-  ape::extract.clade(phy = raxml_decipher_long$bipartitions)
 
 loadd(aln_decipher_long)
 
@@ -114,23 +55,14 @@ aln_fungi_mlocarna_long <-
   Biostrings::RNAStringSet() %>%
   Biostrings::writeXStringSet("output/fungi_mlocarna_long.fasta")
   
-fungi_tree %>%
+ape::read.tree("data/raxml/locarna/RAxML_bipartitions.locarna_long") %>%
   inset2("tip.label",
          plyr::mapvalues(.$tip.label, 
-                         taxmap_labels$label,
-                         taxmap_labels$tip_label,
+                         taxon_labels$label,
+                         taxon_labels$tip_label,
                          warn_missing = FALSE)) %>%
-  castor::write_tree("output/labeled_fungi_decipher_long.tree")
+  castor::write_tree("output/locarna_long.tree")
 
-
-longtree <- raxml_decipher_long$bipartitions %>%
-  inset2("tip.label",
-         plyr::mapvalues(.$tip.label, 
-                         taxmap_labels$label,
-                         taxmap_labels$tip_label,
-                         warn_missing = FALSE))
-
-castor::write_tree(longtree, "output/labeled_decipher_long.tree")
 
 lsutree <- castor::read_tree(file = "RAxML_bipartitions.lsu",
                               include_node_labels = TRUE) %>%
