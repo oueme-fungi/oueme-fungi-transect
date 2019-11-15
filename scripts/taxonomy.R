@@ -716,3 +716,89 @@ relabel_tree <- function(tree, old, new) {
   tree
 }
 
+# If all members of the clade are assigned uniquely to one taxon, then assign
+# that taxon
+# Otherwise, if there exists one clade that is at least one of the possibilities
+# for all of the members, then assign that one.
+clade_taxon <- function(tree, tax, node, rank) {
+  tips <- tree$tip.label[phangorn::Descendants(tree, node, type = "tips")[[1]]]
+  taxa <- dplyr::filter(tax, label %in% tips, rank == !!rank) %>%
+    dplyr::group_by(label)
+  
+  # If there are no relevant taxon assignments, then we can't do anything.
+  if (nrow(taxa) == 0) return(NA_character_)
+  # If only one thing is assigned, then assign that.
+  if (dplyr::n_distinct(taxa$taxon) == 1) return(unique(taxa$taxon))
+  best_taxon <- unique(taxa$taxon[taxa$n_diff == 1])
+  if (length(best_taxon) > 1) return(NA_character_)
+  consensus_taxon <- 
+    dplyr::group_map(taxa, ~ unique(.$taxon)) %>%
+    purrr::reduce(intersect)
+  if (length(consensus_taxon) != 1) return(NA_character_)
+  consensus_taxon
+}
+
+
+# create an environment to hold the current state of the taxonomic assignment
+# between branching recursive calls to phylotax_
+new_phylotax_env <- function(tree, taxa, parent = parent.frame()) {
+  rlang::child_env(
+    .parent = parent,
+    node_taxa = tibble::tibble(
+      node = integer(),
+      rank = taxa$rank[FALSE],
+      taxon = character()
+    ),
+    tip_taxa = dplyr::filter(taxa, label %in% tree$tip.label)
+  )
+}
+
+
+phylotax_ <- function(tree, taxa, node, ranks, e) {
+  if (length(ranks) == 0) return()
+  
+  parents <- phangorn::Ancestors(tree, node, type = "all")
+  for (rank in ranks) {
+    r <- rank_factor(rank)
+    if (any(e$node_taxa$node %in% parents & e$node_taxa$rank == rank)) next
+    taxon <- clade_taxon(tree, e$tip_taxa, node, r)
+    if (is.na(taxon)) {
+      futile.logger::flog.debug("Could not assign a %s to node %d.", rank, node)
+      for (n in phangorn::Children(tree, node)) {
+        if (n > length(tree$tip.label))
+          phylotax_(tree, e$tip_taxa, n, ranks, e)
+      }
+      break
+    } else {
+      futile.logger::flog.info("Assigned node %d to %s %s.", node, rank, taxon)
+      ranks <- ranks[-1]
+      e$node_taxa <- dplyr::bind_rows(
+        e$node_taxa,
+        tibble::tibble(node = node, rank = r, taxon = taxon)
+      )
+      tips <- tree$tip.label[phangorn::Descendants(tree, node, type = "tips")[[1]]]
+      wrongTaxa <- e$tip_taxa %>%
+        dplyr::filter(
+          label %in% tips,
+          rank == r,
+          taxon != !!taxon
+        ) %>%
+        dplyr::select(-rank, -taxon, -n_tot, -n_diff, -n_reads, -confidence)
+      # remove assignments which are not consistent with the one we just chose
+      e$tip_taxa <- dplyr::bind_rows(
+        dplyr::filter(e$tip_taxa, rank < r),
+        dplyr::filter(e$tip_taxa, rank >= r) %>%
+          dplyr::anti_join(wrongTaxa, by = names(wrongTaxa))
+      )
+    }
+  }
+}
+
+# Assign taxon labels to nodes in a tree when there is a consensus of IDs on
+# descendent tips.
+phylotax <- function(tree, taxa) {
+  e <- new_phylotax_env(tree, taxa)
+  ranks <- sort(unique(taxa$rank))
+  phylotax_(tree, taxa, phangorn::getRoot(tree), ranks, e)
+  as.list(e)
+}

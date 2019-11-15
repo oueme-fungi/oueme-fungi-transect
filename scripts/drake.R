@@ -1011,52 +1011,100 @@ plan <- drake_plan(
     result
     },
   
-  # DECIPHER has a fast progressive alignment algorithm that calculates RNA
-  # secondary structure
-  aln_LSU =
-    DECIPHER::AlignSeqs(consensus_LSU,
-                        iterations = 10, refinements = 10,
-                        processors = ignore(dada_cpus)),
+  labeled_tree_decipher_long =
+    relabel_tree(
+      tree = raxml_decipher_long$bipartitions,
+      old = taxon_labels$label,
+      new = taxon_labels$tip_label
+    ) %T>%
+    castor::write_tree(file_out("data/trees/decipher_long.tree")),
+  
+  labeled_tree_mlocarna_long =
+    relabel_tree(
+      tree = raxml_mlocarna_long$bipartitions,
+      old = taxon_labels$label,
+      new = taxon_labels$tip_label
+    ) %T>%
+    castor::write_tree(file_out("data/trees/mlocarna_long.tree")),
   
   
+  # Tulasnella is on a long branch because of a high divergence rate.
+  # it ends up with Metazoa in the tree.  Exclude it.
+  tulasnella =
+    taxon_table %>%
+    dplyr::filter(
+      rank == "family",
+      taxon == "Tulasnellaceae"
+    ) %$%
+    label %>%
+    unique(),
   
-  # write_lsualn----
-  # write the aligned consensus for PASTA.
-  # also touch a file to mark that we really do need to re-run PASTA.
-  write_aln_LSU = {
-    Biostrings::writeXStringSet(aln_LSU,
-                                file_out(aln_file_LSU))
-    Sys.setFileTime(file.path(pasta_dir, ".dopasta"), Sys.time())
-  },
+  # find the sequences that were confidently identified as fungi
+  # (and placed in a phylum).  We extract the common ancestor of these
+  surefungi =
+    taxon_table %>%
+    dplyr::group_by(label) %>%
+    dplyr::filter(
+      rank == "phylum",
+      n_tot >= 6,
+      n_diff == 1,
+      grepl("mycota", taxon)
+    ) %$%
+    label %>%
+    unique() %>%
+    setdiff(tulasnella),
+  
+  # find the most abundant sequence which we are confident is a plant
+  bestplant =
+    taxon_table %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(rank == "phylum",
+                  taxon == "Chlorophyta",
+                  n_tot == 6,
+                  n_diff == 1) %>%
+    dplyr::filter(n_reads == max(n_reads)) %$%
+    label[1],
+  
+  # root the tree within plants.  This isn't accurate, but it should guarantee
+  # that it is not rooted within fungi.
+  tree_decipher_long = 
+    ape::root(raxml_decipher_long$bipartitions,
+              bestplant),
+  
+  # Extract the minimally inclusive clade including all confidently identified
+  # fungi (except Tulasnella).
+  fungi_tree_decipher_long =
+    ape::getMRCA(
+      phy = tree_decipher_long,
+      tip = intersect(surefungi, tree_decipher_long$tip.label)
+    ) %>%
+    ape::extract.clade(phy = tree_decipher_long),
+  
+  taxon_phy = phylotax(
+    tree = fungi_tree_decipher_long,
+    taxa = taxon_table
+  ),
+  
+  physeq = assemble_physeq(
+    platemap,
+    datasets,
+    relabel_seqtable(big_seq_table_ITS2),
+    fungi_tree_decipher_long),
 
-  write_aln_32S = 
-    write_clustalw_ss(aln = aln_32S$alignment@unmasked,
-                      sec_str = aln_32S$SS_cons,
-                      file = file_out(aln_file_32S)),
-  
-  # longtree----
-  # read the long amplicon tree in
-  longtree = {
-    lt = ape::read.tree(file_in(longtree_file))
-    phyloseq::taxa_names(lt) <-
-      tibble::tibble(hash = phyloseq::taxa_names(lt)) %>%
-      dplyr::left_join(allseqs) %$%
-      hash
-    lt},
-  
-  physeq = assemble_physeq(platemap, datasets, relabel_seqtable(big_seq_table_ITS2)),#, longtree),
-  
   longphyseq = physeq %>%
-    phyloseq::prune_samples(samples = phyloseq::sample_data(.)$dataset == "long-pacbio"
-                            & phyloseq::sample_data(.)$sample_type == "Sample"
-                            & (phyloseq::sample_data(.)$qual == "X" | phyloseq::sample_data(.)$year == "2015")
-                            & rowSums(phyloseq::otu_table(.)) > 0),
+    phyloseq::prune_samples(
+      samples = phyloseq::sample_data(.)$dataset == "long-pacbio"
+      & phyloseq::sample_data(.)$sample_type == "Sample"
+      & (phyloseq::sample_data(.)$qual == "X" | phyloseq::sample_data(.)$year == "2015")
+      & rowSums(phyloseq::otu_table(.)) > 0
+      ),
   
   shortphyseq = physeq %>%
-    phyloseq::prune_samples(samples = phyloseq::sample_data(.)$dataset == "short-pacbio"
-                            & phyloseq::sample_data(.)$sample_type == "Sample"
-                            & (phyloseq::sample_data(.)$qual == "X" | phyloseq::sample_data(.)$year == "2015")
-                            & rowSums(phyloseq::otu_table(.)) > 0),
+    phyloseq::prune_samples(
+      samples = phyloseq::sample_data(.)$dataset == "short-pacbio"
+      & phyloseq::sample_data(.)$sample_type == "Sample"
+      & (phyloseq::sample_data(.)$qual == "X" | phyloseq::sample_data(.)$year == "2015")
+      & rowSums(phyloseq::otu_table(.)) > 0),
   
   unif_dist = phyloseq::distance(longphyseq, "unifrac"),
   bc_dist_long = phyloseq::distance(longphyseq, "bray"),

@@ -28,10 +28,9 @@ tree4d <-
     extra.data = "OK"
   )
 
-loadd(raxml_decipher_long)
 
 
-loadd(aln_decipher_long)
+system.time(pt <- phylotax(fungi_tree_decipher_long, taxon_table))
 
 aln_decipher_long[fungi_tree$tip.label] %>%
   Biostrings::RNAMultipleAlignment() %>%
