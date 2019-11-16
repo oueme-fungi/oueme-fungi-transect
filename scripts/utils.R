@@ -75,6 +75,17 @@ exp_try <- function(x, t, max) {
                       })
 }
 
+#### combine FST targets into a disk.frame using symlinks ####
+combine_diskframe <- function(..., dir = drake_tempfile()) {
+  shards <- rlang::ensyms(...)
+  cache <- drake_cache()
+  for (i in seq_along(shards)) {
+    shardfile <- cache$file_return_key(rlang::expr_text(shards[[i]]))
+    file.symlink(shardfile, file.path(dir, paste0(i, ".fst")))
+  }
+  disk.frame::disk.frame(dir)
+}
+
 
 is_outdated <- function(task, dconfig) {
   assertthat::assert_that(assertthat::is.string(task))
