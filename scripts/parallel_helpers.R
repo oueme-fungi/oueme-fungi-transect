@@ -22,8 +22,8 @@ local_cpus <- function() {
 max_cpus <- function() {
   if (is_slurm()) {
     slurminfo <- system("sinfo -O cpus", intern = TRUE)[-1]
-    slurminfo <- as.integer(slurminfo)
-    return(max(slurminfo))
+    slurminfo <- readr::parse_number(slurminfo)
+    return(max(slurminfo, na.rm = TRUE))
   } else {
     return(local_cpus())
   }
