@@ -503,7 +503,7 @@ rule translate_references:
         expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
                ref_root = config['ref_root'],
                db = ['warcup', 'unite'],
-               region = ['ITS', 'ITS1', 'ITS2'],
+               region = ['ITS'],
                method = ['sintax', 'dada2']),
         expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
                ref_root = config['ref_root'],
