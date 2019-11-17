@@ -37,6 +37,7 @@ if (length(itsx_targets)) {
   #   -or-
   # - it would use less than twice as much total CPU time, compared to running locally
   if (is_slurm()
+      && local_cpus() < max_cpus()
       && ((local_cpus() < itsx_cpus)
           || (length(itsx_targets) / itsx_jobs * (itsx_jobs * itsx_cpus + local_cpus()) <
               2 * length(itsx_targets) * itsx_cpus))) {
@@ -49,13 +50,12 @@ if (length(itsx_targets)) {
                           timeout = 1800) # the master can take a while to send everything.
     flog.info(" Making ITSx and LSUx shards (SLURM with %d worker(s))...", itsx_jobs)
   } else {
-    itsx_cpus <- 1
-    itsx_jobs <- local_cpus() %/% itsx_cpus
-    itsx_cpus <- local_cpus() %/% itsx_jobs
+    itsx_jobs <- max(local_cpus() %/% itsx_cpus, 1)
+    itsx_cpus <- max(local_cpus() %/% itsx_jobs, 1)
     itsx_parallelism <- if (itsx_jobs > 1) "clustermq" else "loop"
     options(clustermq.scheduler = "multicore")
     itsx_template = list()
-    cat("Making ITSx and LSUx shards (local with %d worker(s))...", itsx_jobs)
+    flog.info("Making ITSx and LSUx shards (local with %d worker(s) of %d cpus each)...", itsx_jobs, itsx_cpus)
   }
   tictoc::tic()
   dconfig <- drake::drake_config(plan,

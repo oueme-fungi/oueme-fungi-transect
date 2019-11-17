@@ -604,7 +604,7 @@ rule ITSx:
         preITSx = ".preITSx",
         script = "{rdir}/drake-02-ITSx.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: 1
+    threads: maxthreads
     resources:
         walltime=360
     log: "{logdir}/ITSx.log".format_map(config)
