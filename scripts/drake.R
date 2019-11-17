@@ -226,10 +226,11 @@ dada_meta <- predada_meta %>%
   unique() %>%
   arrange(seq_run, region) %>%
   mutate(region_derep = glue("region_derep_{seq_run}_{range_ID}"),
-         error_model = glue("err_{seq_run}_5_8S")) %>%
+         error_model = glue("err_{seq_run}_5_8S"),
+         preconseq = glue("preconseq_{primer_ID}")) %>%
   left_join(datasets %>% select(-regions), by = "seq_run") %>%
   left_join(regions, by = c("region", "range")) %>%
-  mutate_at(c("region_derep", "error_model"), syms)
+  mutate_at(c("region_derep", "error_model", "preconseq"), syms)
 if (!interactive()) {
   saveRDS(dada_meta, dada_meta_file)
 }
@@ -661,7 +662,7 @@ plan <- drake_plan(
         dada_meta,
         region %in% c("ITS", "LSU", "32S", "long", "short")
       ),
-      .id = c(seq_run, region)
+      .id = c(primer_ID, region)
     ),
     format = "fst"
   ),
