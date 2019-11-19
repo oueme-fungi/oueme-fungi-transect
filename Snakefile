@@ -542,11 +542,11 @@ checkpoint drake_plan:
         plan              = "{plandir}/plan.rds".format_map(config),
         itsx_meta         = "{plandir}/itsx_meta.rds".format_map(config),
         predada_meta      = "{plandir}/predada_meta.rds".format_map(config),
-        dada_meta         = "{plandir}/dada_meta.rds".format_map(config),
-        taxonomy_meta     = "{plandir}/taxonomy_meta.rds".format_map(config),
-        drakedata         = "{plandir}/drake.Rdata".format_map(config),
-        taxonomy_meta_csv = "{plandir}/taxonomy_meta.csv".format_map(config),
-        tids              = "{plandir}/tids.txt".format_map(config)
+       # dada_meta         = "{plandir}/dada_meta.rds".format_map(config),
+       # taxonomy_meta     = "{plandir}/taxonomy_meta.rds".format_map(config),
+        drakedata         = "{plandir}/drake.Rdata".format_map(config)
+       # taxonomy_meta_csv = "{plandir}/taxonomy_meta.csv".format_map(config),
+       # tids              = "{plandir}/tids.txt".format_map(config)
     input:
         demux_find('pb_500_001'),
         demux_find('pb_500_002'),

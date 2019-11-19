@@ -212,76 +212,75 @@ if (!interactive()) {
   saveRDS(predada_meta, predada_meta_file)
 }
 
-#### dada_meta ####
-# dada_meta has one row per region per sequencing run
-# it is used for targets err, dada, dadamap, seq_table, and nochim
-# The index is seq_run + region
-flog.info("Making dada_meta.")
-dada_meta <- predada_meta %>%
-  select(seq_run, region, range, range_ID, primer_ID) %>%
-  unique() %>%
-  arrange(seq_run, region) %>%
-  mutate(region_derep = glue("region_derep_{seq_run}_{range_ID}"),
-         error_model = glue("err_{seq_run}_5_8S"),
-         preconseq = glue("preconseq_{primer_ID}")) %>%
-  left_join(datasets %>% select(-regions), by = "seq_run") %>%
-  left_join(regions, by = c("region", "range")) %>%
-  mutate_at(c("region_derep", "error_model", "preconseq"), syms)
-if (!interactive()) {
-  saveRDS(dada_meta, dada_meta_file)
-}
-
-#### region_meta ####
-# region_meta has one row per region
-# it is used in target big_fasta.
-# the index is region
-flog.info("Making region_meta.")
-region_meta <- regions %>%
-  select(region) %>%
-  mutate(big_seq_table = glue("big_seq_table_{region}"),
-         big_fasta_file = glue("{cluster_dir}/{region}.fasta.gz")) %>%
-  mutate_at("big_seq_table", syms) %>%
-  unique()
-
-#### taxonomy_meta ####
-# taxonomy_meta has one row per region and reference DB
-# it is used in target taxon,
-# and mapped to target guilds_table
-# The index is tax_ID (Taxonomy ID)
-flog.info("Making taxonomy_meta.")
-taxonomy_meta <- dada_meta %>%
-  mutate_if(is.list, as.character) %>%
-  select_at(names(regions)) %>%
-  separate_rows(reference, sep = " *, *") %>%
-  separate(reference, c("reference", "refregion"), sep = "\\.") %>%
-  filter(!is.na(reference)) %>%
-  crossing(methods) %>%
-  mutate(methodfile = ifelse(method == "idtaxa", "sintax", method),
-         reference_file = glue("{ref_dir}/{reference}.{refregion}.{methodfile}.fasta.gz"),
-         refdb = glue("refdb_{method}_{reference}_{refregion}"),
-         tax_ID = glue("{region}_{reference}_{refregion}_{method}"),
-         big_seq_table = glue("big_seq_table_{region}")) %>%
-  arrange(tax_ID) %>%
-  mutate_at(c("big_seq_table", "refdb"), syms)
-if (!interactive()) {
-  saveRDS(taxonomy_meta, taxonomy_meta_file)
-  mutate_if(taxonomy_meta, is.list, as.character) %>%
-    readr::write_csv(taxonomy_meta_csv_file)
-  readr::write_lines(taxonomy_meta$tax_ID, tids_file)
-}
-
-#### ref_meta ####
-# ref_meta has one row per (region specific) reference database.
-# it is used for target dbprep
-# and mapped to target classifier
-flog.info("Making ref_meta.")
-ref_meta <- select(taxonomy_meta, "reference", "refregion", "method", "reference_file") %>%
-  unique() %>%
-  mutate(ref_ID = glue("{reference}_{refregion}"))
+# #### dada_meta ####
+# # dada_meta has one row per region per sequencing run
+# # it is used for targets err, dada, dadamap, seq_table, and nochim
+# # The index is seq_run + region
+# flog.info("Making dada_meta.")
+# dada_meta <- predada_meta %>%
+#   select(seq_run, region, range, range_ID, primer_ID) %>%
+#   unique() %>%
+#   arrange(seq_run, region) %>%
+#   mutate(region_derep = glue("region_derep_{seq_run}_{range_ID}"),
+#          error_model = glue("err_{seq_run}_5_8S"),
+#          preconseq = glue("preconseq_{primer_ID}")) %>%
+#   left_join(datasets %>% select(-regions), by = "seq_run") %>%
+#   left_join(regions, by = c("region", "range")) %>%
+#   mutate_at(c("region_derep", "error_model", "preconseq"), syms)
+# if (!interactive()) {
+#   saveRDS(dada_meta, dada_meta_file)
+# }
+# 
+# #### region_meta ####
+# # region_meta has one row per region
+# # it is used in target big_fasta.
+# # the index is region
+# flog.info("Making region_meta.")
+# region_meta <- regions %>%
+#   select(region) %>%
+#   mutate(big_seq_table = glue("big_seq_table_{region}"),
+#          big_fasta_file = glue("{cluster_dir}/{region}.fasta.gz")) %>%
+#   mutate_at("big_seq_table", syms) %>%
+#   unique()
+# 
+# #### taxonomy_meta ####
+# # taxonomy_meta has one row per region and reference DB
+# # it is used in target taxon,
+# # and mapped to target guilds_table
+# # The index is tax_ID (Taxonomy ID)
+# flog.info("Making taxonomy_meta.")
+# taxonomy_meta <- dada_meta %>%
+#   mutate_if(is.list, as.character) %>%
+#   select_at(names(regions)) %>%
+#   separate_rows(reference, sep = " *, *") %>%
+#   separate(reference, c("reference", "refregion"), sep = "\\.") %>%
+#   filter(!is.na(reference)) %>%
+#   crossing(methods) %>%
+#   mutate(methodfile = ifelse(method == "idtaxa", "sintax", method),
+#          reference_file = glue("{ref_dir}/{reference}.{refregion}.{methodfile}.fasta.gz"),
+#          refdb = glue("refdb_{method}_{reference}_{refregion}"),
+#          tax_ID = glue("{region}_{reference}_{refregion}_{method}"),
+#          big_seq_table = glue("big_seq_table_{region}")) %>%
+#   arrange(tax_ID) %>%
+#   mutate_at(c("big_seq_table", "refdb"), syms)
+# if (!interactive()) {
+#   saveRDS(taxonomy_meta, taxonomy_meta_file)
+#   mutate_if(taxonomy_meta, is.list, as.character) %>%
+#     readr::write_csv(taxonomy_meta_csv_file)
+#   readr::write_lines(taxonomy_meta$tax_ID, tids_file)
+# }
+# 
+# #### ref_meta ####
+# # ref_meta has one row per (region specific) reference database.
+# # it is used for target dbprep
+# # and mapped to target classifier
+# flog.info("Making ref_meta.")
+# ref_meta <- select(taxonomy_meta, "reference", "refregion", "method", "reference_file") %>%
+#   unique() %>%
+#   mutate(ref_ID = glue("{reference}_{refregion}"))
 
 #### drake plan ####
-bigsplit <- 5
-shard <- 1:bigsplit
+shard <- 1L:bigsplit
 
 flog.info("\nbuilding plan...")
 tictoc::tic()
