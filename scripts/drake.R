@@ -265,13 +265,13 @@ plan <- drake_plan(
   ),
   derep1 = target(
     dada2::derepFastq(
-      file.path(trim_dir, file_meta$trim_file),
+      file_meta$trim_file,
       qualityType = "FastqQuality",
       verbose = TRUE,
       n = 1e4
     ) %>%
       # add the names of the sequences
-      tzara::add_derep_names(file.path(trim_dir, file_meta$trim_file)) %>%
+      tzara::add_derep_names(file_meta$trim_file) %>%
       # we will not run dada on these, so we don't need the quality
       # information.  Removing it drastically reduces the size in memory.
       magrittr::inset2("quals", NULL),
@@ -371,7 +371,7 @@ plan <- drake_plan(
     if (nrow(positions) > 0) {
       pos <- dplyr::group_by(positions, trim_file)
       tzara::extract_region(
-        seq = file.path(trim_dir, dplyr::group_keys(pos)$trim_file),
+        seq = dplyr::group_keys(pos)$trim_file,
         region = region_start,
         region2 = region_end,
         positions = dplyr::group_split(pos)
