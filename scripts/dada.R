@@ -79,3 +79,36 @@ write_big_fasta <- function(big_seq_table, filename) {
     Biostrings::DNAStringSet(magrittr::set_names(seq, header)) %T>%
     Biostrings::writeXStringSet(filepath = filename, compress = "gzip")
 }
+
+derepShortReadQ <- function(reads, n = 1e+06, verbode = FALSE, qualityType = "Auto") {
+  UseMethod("derep")
+}
+
+derepShortReadQ.list <- function(reads, n = 1e+06, verbose = FALSE, qualityType = "Auto") {
+  assertthat::assert_that(
+    all(purrr::map_lgl(reads, methods::is, "ShortReadQ"))
+  )
+  dir <- tempdir()
+  fnames <- tempfile(seq_along(reads), dir, ".fastq.gz")
+  for (i in seq_along(reads)) {
+    ShortRead::writeFastq(reads[[i]], fnames[i], compress = TRUE, qualityType = qualityType)
+  }
+  dada2::derepFastq(fnames, n = n, verbose = verbose, qualityType = qualityType)
+}
+
+derepShortReadQ.ShortReadQ <- function(reads, n = 1e+06, verbose = FALSE, qualityType = "Auto") {
+  fname <- tempfile(1, fileext = ".fastq.gz")
+  ShortRead::writeFastq(reads, fname, compress = TRUE, qualityType = qualityType)
+  dada2::derepFastq(fname, n = n, verbose = verbose, qualityType = qualityType)
+}
+
+filterReads <- function(reads, maxLen = Inf, minLen = 0,
+                        maxEE = Inf) {
+  assertthat::assert_that(methods::is(reads, "ShortReadQ"))
+  reads <- reads[ShortRead::width(reads) <= maxLen]
+  reads <- reads[ShortRead::width(reads) >= minLen]
+  ee <- rowSums(10 ^ (-1 * (methods::as(reads@quality, "matrix") / 10)),
+                na.rm = TRUE)
+  reads <- reads[ee <= maxEE]
+  reads
+}
