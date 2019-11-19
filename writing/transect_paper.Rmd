@@ -123,36 +123,36 @@ The process of extracting the regions is automated in the new R package `LSUx`, 
 Each of the extracted regions was independently filtered for length (table **X**) and a maximum of three expected errors using the `filterAndTrim` function from DADA2 [@callahan2016, @callahan2018].
 Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2.
 The error model for DADA2 denoising was fit using only the 5.8S RNA region.
-Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons).
+Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, **different sequencing technologies**).
 Chimeras within each region were removed using `removeBimeraDenovoTable` from DADA2.
 
-The ITS2 region was used to identify full-length amplicons ASVs, due to the fact that it was the only full-length region/domain shared by both long and short amplicons.
+The ITS2 region was used to identify full-length amplicon ASVs, due to the fact that it was the only full-length region/domain shared by both long and short amplicons.
+For each ITS2 ASV from the long amplicon data set, the denoised sequences for the other regions corresponding to the same sequencing reads were concatenated to form a set of full-length reads.
+For reads which were not assigned a denoised sequence for every region, the raw read for the region was used instead.
+Because ITS2 is one of the most variable regions in the amplified regions, reads with identical ITS2 regions are expected have extremely similar sequences in the other regions, unless they are chimeric.
+Thus, the concatenated regions for each ASV were aligned in R using the DECIPHER package [@wright2015], and outlier sequences (chimeras) were removed from each alignment using the odseq package [@jehl2015].
+The consensus of the remaining aligned sequences was assigned as the full-length ASV sequence.
+Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleotide >50% at a given position) were removed.
+The process of assigning consensus full-length ASVs was carried out using the new `tzara` package for R, available on github ([https://github.com/brendanf/tzara]), CRAN (not yet), and bioconda (not yet).
+
+# Taxonomy assignment
+
+New taxonomic annotations of the Ribosomal Data Project's LSU fungal training set (RDP) version 11.5 [@cole2014] and Warcup ITS training set [@wang2007] were created, conforming to the taxonomic classification system used in the Unite database version 8 [@nilsson2019a].
+In particular, the classification for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c.
+Although this system is not formally published, it seems to be in use for non-fungal eukaryotes in the Unite database, and it is a system with only purportedly monophyletic taxa and a uniform set of taxon ranks.
+These make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as @adl2019.
+FASTA format files of the re-annotated RDP and Warcup training sets are available at (*somewhere*).
+
+Taxonomic assignment was performed to genus level on the ITS and LSU regions using Unite/Warcup and RDP, respectively, as taxonomic references.
+For each region/reference combination, taxonomy was assigned using three algorithms:
+the RDP Naïve Bayesian Classifier (NBC) as implemented in DADA2;
+SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016];
+and IDTAXA [@murali2018].
+Each ASV thus was thus given nine taxonomic assignments (three region/reference combinations $\times$ three algorithms).
 
 
-      - de novo chimera removal using `dada2::removeBimeraDenovo()`
-      - full length amplicons reconstructed from ASVs of extracted domains (r package tzara -- available on github and conda)
-          - when a read is mapped to ASVs for all regions, they are concatenated.
-          - bimera detection on each trio of variable-conserved-variable domains (e.g., ITS1-5.8S-ITS2, ITS2-LSU1-D1, etc.); reads which are detected at bimera for any trio are discarded.
 
-      - taxonomy assignment
-          - three methods: 
-              - IDTAXA [@murali2018]
-              - SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016]
-              - RDP Naïve Bayesian Classifier (NBC) [@wang2007] as implemented in DADA2
-          - three databases:
-              - UNITE version 8 [@nilsson2019a]
-                  - extracted ITS1 and ITS2 using ITSx [@Nilsson2010; @bengtsson-palme2013]
-                  - trained three classifiers: full (for ITS, 5_8S, full amplicons), ITS1, ITS2.
-              - RDP fungal LSU training set 11.5 [@cole2014]
-                  - used to identify long amplicon, LSU
-                  - taxonomy for non-fungi looked up from NCBI based on accession numbers
-              - RDP Warcup fungal ITS training set [@wang2007]
-                  - ITS1 and ITS2 extracted as for Unite;
-          - taxonomic classification in the three datasets were standardized to @tedersoo2017c
-              - full classification to genus level available in supplementary material
-              - apparently used by Unite for nonfungi; @tedersoo2018 used by Unite for fungi
-              - groups monophyletic
-              - SINTAX and NBC require a ranked system, as opposed to more accepted classifications like @adl2019
+
       - ecological guild assigned using FUNGuild [@nguyen2016funguild]
       - alignment as RNA in DECIPHER (iterative progressive alignment with RNS secondary structure prediction) [@wright2015]
       - tree using RAxML 8.2 [@stamatakis2014]; GTR+GAMMA; rapid bootstrapping with MRE-IGN stopping criterion [@pattengale2010].
