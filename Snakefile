@@ -165,7 +165,7 @@ rule tagfiles:
         gits7_tags = config['gits7_tags'],
         lr5_tags = config['lr5_tags'],
         dataset = config['dataset'],
-        script = "{config[rdir]}/tags.extract.R"
+        script = "{rdir}/tags.extract.R".format_map(config)
     output:
         expand("{tagdir}/{seqrun}.fasta", tagdir = config['tagdir'], seqrun = datasets['seq_run'])
     resources:
@@ -173,7 +173,7 @@ rule tagfiles:
     conda: "config/conda/drake.yaml"
     log: "{logdir}/tagfiles.log".format_map(config)
     script:
-        "{config[rdir]}/tags.extract.R"
+        "{rdir}/tags.extract.R".format_map(config)
 
 # look up the primers/barcodes file based on the plate ID.
 def find_barcode(wildcards):
@@ -218,7 +218,7 @@ checkpoint pacbio_demux:
            -m 1\\
            --trimmed-only\\
            -o {params.rpattern}\\
-           - 2>{log} is:open 
+           - 2>{log}
          """
 
 # Return a closure which calls checkpoints.pacbio_demux.get() to indicate to Snakemake that this rule is
@@ -266,8 +266,6 @@ rule pacbio_singledemux:
             gzip - >>{output.fastq}
         done &&
         zcat {output.fastq} | sed -nr '/^@/s/^@([^;]+;sample:(.+))/\1\t\2/ p' >{output.key}
-
-            
         """
 
 
@@ -282,7 +280,7 @@ def ion_platekey(seqrun):
 
 # Find the demultiplexed .bam file (named by barcode index) which corresponds to a particular sample (named by well)
 def find_ion_bam(wildcards):
-    # load the relevant platekey is:open 
+    # load the relevant platekey
     platekey = ion_platekey(wildcards.seqrun)
     # find the id which corresponds to the desired
     num = platekey.loc[lambda x: x['well'] == wildcards.well, 'id'].get_values()[0]
@@ -358,7 +356,7 @@ def ion_find(seqrun, plate):
 localrules: unite_download
 rule unite_download:
     output: "{ref_root}/unite.raw.fasta.gz".format_map(config)
-    input: 
+    input:
       zip = HTTP.remote(config['unite_url'], allow_redirects = True, keep_local = True)
     shadow: "shallow"
     shell:
@@ -427,7 +425,6 @@ rule itsx_reference:
     log: "{logdir}/{{dbname}}_ITSx.log".format_map(config)
     shell:
         """
-        
         (   zcat {input} >temp.fasta &&
             fasta-splitter --n-parts {params.shards}\
                            temp.fasta &&

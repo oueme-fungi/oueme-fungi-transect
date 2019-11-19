@@ -4,6 +4,6 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - bam2fastq
+  - bam2fastx
   - bax2bam
   - pbccs
