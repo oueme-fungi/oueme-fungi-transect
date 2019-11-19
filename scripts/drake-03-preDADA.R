@@ -10,13 +10,15 @@ library(backports)
 library(futile.logger)
 setup_log("predada")
 options(clustermq.scheduler = "multicore")
+library(disk.frame)
+setup_disk.frame(workers = 1)
 
 #### pre-DADA2 ####
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
 dada_cpus <- local_cpus()
 predada_targets <- c(
-  purrr::keep(od, startsWith, "derep2_")
+  purrr::keep(od, startsWith, "filter_")
 )
 if (length(predada_targets)) {
   flog.info("Making pre-dada targets (loop)...")

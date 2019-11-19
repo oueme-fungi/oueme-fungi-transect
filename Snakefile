@@ -218,7 +218,7 @@ checkpoint pacbio_demux:
            -m 1\\
            --trimmed-only\\
            -o {params.rpattern}\\
-           - 2>{log} is:open 
+           - 2>{log} 
          """
 
 # Return a closure which calls checkpoints.pacbio_demux.get() to indicate to Snakemake that this rule is
@@ -282,7 +282,7 @@ def ion_platekey(seqrun):
 
 # Find the demultiplexed .bam file (named by barcode index) which corresponds to a particular sample (named by well)
 def find_ion_bam(wildcards):
-    # load the relevant platekey is:open 
+    # load the relevant platekey
     platekey = ion_platekey(wildcards.seqrun)
     # find the id which corresponds to the desired
     num = platekey.loc[lambda x: x['well'] == wildcards.well, 'id'].get_values()[0]
