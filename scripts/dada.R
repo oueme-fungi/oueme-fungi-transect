@@ -80,8 +80,8 @@ write_big_fasta <- function(big_seq_table, filename) {
     Biostrings::writeXStringSet(filepath = filename, compress = "gzip")
 }
 
-derepShortReadQ <- function(reads, n = 1e+06, verbode = FALSE, qualityType = "Auto") {
-  UseMethod("derep")
+derepShortReadQ <- function(reads, n = 1e+06, verbose = FALSE, qualityType = "Auto") {
+  UseMethod("derepShortReadQ")
 }
 
 derepShortReadQ.list <- function(reads, n = 1e+06, verbose = FALSE, qualityType = "Auto") {
@@ -89,7 +89,7 @@ derepShortReadQ.list <- function(reads, n = 1e+06, verbose = FALSE, qualityType 
     all(purrr::map_lgl(reads, methods::is, "ShortReadQ"))
   )
   dir <- tempdir()
-  fnames <- tempfile(seq_along(reads), dir, ".fastq.gz")
+  fnames <- tempfile(as.character(seq_along(reads)), dir, ".fastq.gz")
   for (i in seq_along(reads)) {
     ShortRead::writeFastq(reads[[i]], fnames[i], compress = TRUE, qualityType = qualityType)
   }
@@ -97,7 +97,7 @@ derepShortReadQ.list <- function(reads, n = 1e+06, verbose = FALSE, qualityType 
 }
 
 derepShortReadQ.ShortReadQ <- function(reads, n = 1e+06, verbose = FALSE, qualityType = "Auto") {
-  fname <- tempfile(1, fileext = ".fastq.gz")
+  fname <- tempfile("reads", fileext = ".fastq.gz")
   ShortRead::writeFastq(reads, fname, compress = TRUE, qualityType = qualityType)
   dada2::derepFastq(fname, n = n, verbose = verbose, qualityType = qualityType)
 }
