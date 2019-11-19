@@ -4,3 +4,4 @@
 *.gz filter=lfs diff=lfs merge=lfs -text
 *.phy filter=lfs diff=lfs merge=lfs -text
 RAxML_* filter=lfs diff=lfs merge=lfs -text
+*.tree filter=lfs diff=lfs merge=lfs -text
