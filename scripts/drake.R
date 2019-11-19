@@ -5,10 +5,18 @@ if (interactive()) {
   flog.info("Creating drake plan in interactive session...")
   library(here)
   base_dir <- here()
-  r_dir <- here("scripts")
-  data_dir <- here("data")
-  lab_dir <- here("config")
-  seq_dir <- here("sequences")
+  if (base_dir == getwd()) {
+    base_dir = "."
+    r_dir <- "scripts"
+    data_dir <- "data"
+    lab_dir <- "config"
+    seq_dir <- "sequences"
+  } else {
+    r_dir <- here("scripts")
+    data_dir <- here("data")
+    lab_dir <- here("config")
+    seq_dir <- here("sequences")
+  }
   trim_dir <- file.path(seq_dir, "trim")
   region_dir <- file.path(seq_dir, "regions")
   filter_dir <- file.path(seq_dir, "filter")
@@ -29,10 +37,7 @@ if (interactive()) {
   ref_dir <- here("reference")
   rmd_dir <- here("writing")
   out_dir <- here("output")
-  in_files <- list.files(path = trim_dir,
-                         pattern = "\\.trim\\.fastq\\.gz$",
-                         full.names = TRUE, recursive = TRUE)
-  in_files <- in_files[!grepl("is_057", in_files)]
+  demux_file <- file.path(plan_dir, "demux_hash.dat")
   dataset_file <- file.path(lab_dir, "datasets.csv")
   regions_file <- file.path(lab_dir, "regions.csv")
   methods_file <- file.path(lab_dir, "taxonomy_methods.csv")
@@ -99,8 +104,7 @@ if (interactive()) {
   taxonomy_meta_csv_file <- snakemake@output$taxonomy_meta_csv
   tids_file <- snakemake@output$tids
   prereqs <- unlist(snakemake@input)
-  in_files <- stringr::str_subset(prereqs,
-                                  pattern = "\\.trim\\.fastq\\.gz$")
+  demux_file <- snakemake@input$demux
   bigsplit <- snakemake@config$bigsplit
   plan_file <- snakemake@output[["plan"]]
   itsx_meta_file <- snakemake@output[["itsx_meta"]]
@@ -152,6 +156,15 @@ regions <- read_csv(regions_file, col_types = "cccciiiiic") %>%
 flog.info("Loading taxonomic assignment methods file.")
 methods <- read_csv(methods_file, col_types = "ci")
 
+demux_meta <- read_delim(
+  demux_file,
+  delim = " ",
+  col_names = c("md5", "trim_file"),
+  col_types = "cc",
+  trim_ws = TRUE
+)
+
+
 # "meta" dataframes containing definitions for each instance of mapped targets
 
 #### itsx_meta ####
@@ -169,12 +182,10 @@ itsx_meta <- datasets %>%
   mutate(well = list(tidyr::crossing(Row = LETTERS[1:8], Col = 1:12) %>%
                        transmute(well = paste0(Row, Col)))) %>%
   unnest(well) %>%
-  mutate(trim_file = glue("{seq_run}_{plate}/{seq_run}_{plate}-{well}{direction}.trim.fastq.gz")) %>%
-  filter(file.exists(file.path(trim_dir, trim_file))) %>%
-  filter(normalizePath(file.path(trim_dir, trim_file)) %in% normalizePath(in_files)) %>%
-  filter(file.size(file.path(trim_dir, trim_file)) > 40) %>%
-  mutate(md5 = tools::md5sum(file.path(trim_dir, trim_file))) %>%
-  verify(file.path(trim_dir, trim_file) %in% in_files)
+  mutate(trim_file = glue("{trim_dir}/{seq_run}_{plate}/{seq_run}_{plate}-{well}{direction}.trim.fastq.gz") %>%
+           unclass()) %>%
+  inner_join(demux_meta, by = "trim_file") %>%
+  filter(file.size(trim_file) > 40)
 
 #### positions_meta ####
 positions_meta <- select(itsx_meta, "seq_run", "primer_ID") %>%

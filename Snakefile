@@ -533,6 +533,27 @@ rule translate_references:
 # therefore we cut the workflow up into chunks with simple dependency relations and dispatch them to SLURM
 # from Snakemake.
 
+# Hash all of the demultiplexed files so Drake will know if they have changed.
+localrules: hash_demux
+rule hash_demux:
+  output:
+    "{plandir}/demux_hash.dat".format_map(config)
+  input:
+    demux_find('pb_500_001'),
+    demux_find('pb_500_002'),
+    demux_find('pb_483_001'),
+    demux_find('pb_483_002'),
+    ion_find('is_057', '001')
+  threads: maxthreads
+  resources:
+    walltime = 60
+  shell:
+    """
+cat << ENDENDEND | xargs -P {threads} -n 10 md5sum >{output}
+{input}
+ENDENDEND
+    """
+    
 # Configure the drake plan
 # This does not build any targets, but it does most of the preliminary work, including calculating which targets
 # are outdated.
@@ -548,11 +569,6 @@ checkpoint drake_plan:
        # taxonomy_meta_csv = "{plandir}/taxonomy_meta.csv".format_map(config),
        # tids              = "{plandir}/tids.txt".format_map(config)
     input:
-        demux_find('pb_500_001'),
-        demux_find('pb_500_002'),
-        demux_find('pb_483_001'),
-        demux_find('pb_483_002'),
-        ion_find('is_057', '001'),
         "{rdir}/dada.R".format_map(config),
         "{rdir}/extract_regions.R".format_map(config),
         "{rdir}/inferrnal.R".format_map(config),
@@ -564,6 +580,7 @@ checkpoint drake_plan:
         "{rdir}/raxml.R".format_map(config),
         "{rdir}/taxonomy.R".format_map(config),
         "{rdir}/utils.R".format_map(config),
+        demux = rules.hash_demux.output,
         dataset  = config['dataset'],
         regions  = config['regions'],
         methods  = config['methods'],
