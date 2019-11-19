@@ -1148,12 +1148,6 @@ tictoc::toc()
 
 if (!interactive()) saveRDS(plan, plan_file)
 
-remove(itsx_meta)
-remove(predada_meta)
-remove(dada_meta)
-remove(taxonomy_meta)
-remove(regions)
-
 flog.info("\nCalculating outdated targets...")
 tictoc::tic()
 dconfig <- drake_config(plan, jobs_preprocess = local_cpus())
