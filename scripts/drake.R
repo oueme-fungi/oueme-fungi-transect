@@ -49,13 +49,6 @@ if (interactive()) {
   rdp_patch_file <- file.path(ref_dir, "rdp_patch.csv")
   cm_5.8S <- file.path(ref_dir, "RF00002.cm")
   cm_32S <- file.path(ref_dir, "fungi_32S_LR5.cm")
-  plan_file <- file.path(plan_dir, "plan.rds")
-  itsx_meta_file <- file.path(plan_dir, "itsx_meta.rds")
-  predada_meta_file <- file.path(plan_dir, "predada_meta.rds")
-  dada_meta_file <- file.path(plan_dir, "dada_meta.rds")
-  taxonomy_meta_file <- file.path(plan_dir, "taxonomy_meta.rds")
-  taxonomy_meta_csv_file <- file.path(plan_dir, "taxonomy_meta.csv")
-  tid_file <- file.path(plan_dir, "tids.txt")
   drakedata_file <- file.path(plan_dir, "drake.Rdata")
   #longtree_file <- file.path(pasta_dir, "pasta_raxml.tree")
   bigsplit <- 80L
@@ -95,15 +88,7 @@ if (interactive()) {
   raxml_locarna_out_dir <- snakemake@config$raxml_locarna_dir
   raxml_decipher_out_dir <- snakemake@config$raxml_decipher_dir
   plan_dir <- snakemake@config$plandir
-  plan_file <- snakemake@output$plan
-  itsx_meta_file <- snakemake@output$itsx_meta
-  predada_meta_file <- snakemake@output$predada_meta
-  dada_meta_file <- snakemake@output$dada_meta
-  taxonomy_meta_file <- snakemake@output$taxonomy_meta
   drakedata_file <- snakemake@output$drakedata
-  taxonomy_meta_csv_file <- snakemake@output$taxonomy_meta_csv
-  tids_file <- snakemake@output$tids
-  prereqs <- unlist(snakemake@input)
   demux_file <- snakemake@input$demux
   bigsplit <- snakemake@config$bigsplit
   plan_file <- snakemake@output[["plan"]]
@@ -209,11 +194,6 @@ predada_meta <- select(itsx_meta, seq_run, regions, primer_ID) %>%
   mutate_at("positions", syms) %>%
   left_join(regions, by = "region")
 
-if (!interactive()) {
-  saveRDS(itsx_meta, itsx_meta_file)
-  saveRDS(predada_meta, predada_meta_file)
-}
-
 #### dada_meta ####
 # dada_meta has one row per region per sequencing run
 # it is used for targets err, dada, dadamap, seq_table, and nochim
@@ -229,9 +209,6 @@ dada_meta <- predada_meta %>%
   left_join(datasets %>% select(-regions), by = "seq_run") %>%
   left_join(regions, by = c("region", "range")) %>%
   mutate_at(c("region_derep", "error_model", "preconseq"), syms)
-if (!interactive()) {
-  saveRDS(dada_meta, dada_meta_file)
-}
 
 #### region_meta ####
 # region_meta has one row per region
@@ -265,12 +242,6 @@ taxonomy_meta <- dada_meta %>%
          big_seq_table = glue("big_seq_table_{region}")) %>%
   arrange(tax_ID) %>%
   mutate_at(c("big_seq_table", "refdb"), syms)
-if (!interactive()) {
-  saveRDS(taxonomy_meta, taxonomy_meta_file)
-  mutate_if(taxonomy_meta, is.list, as.character) %>%
-    readr::write_csv(taxonomy_meta_csv_file)
-  readr::write_lines(taxonomy_meta$tax_ID, tids_file)
-}
 
 #### ref_meta ####
 # ref_meta has one row per (region specific) reference database.
@@ -1161,8 +1132,6 @@ trace = TRUE)
 #   trace = TRUE
 # )
 tictoc::toc()
-
-if (!interactive()) saveRDS(plan, plan_file)
 
 flog.info("\nCalculating outdated targets...")
 tictoc::tic()
