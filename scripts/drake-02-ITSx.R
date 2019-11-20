@@ -18,7 +18,7 @@ setup_log("ITSx")
 # failing that, do all the shards locally on the cores we have.
 
 # Note: not actually using ITSx anymore
-itsx_targets <- stringr::str_subset(plan$target, "^lsux_shard")
+itsx_targets <- stringr::str_subset(plan$target, "^lsux_")
 itsx_targets <- subset_outdated(itsx_targets, dconfig)
 # hmmer can use multiple processes per job; it tends to become I/O bound after about 4.
 itsx_cpus <- 4L

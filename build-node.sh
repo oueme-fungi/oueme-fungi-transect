@@ -21,6 +21,6 @@ snakemake -pr --jobs $SLURM_JOB_CPUS_PER_NODE\
   --keep-going\
   --use-conda\
   --shadow-prefix /scratch\
-  .preDADA
+  .raxml
 
 #exit $out
