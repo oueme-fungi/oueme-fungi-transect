@@ -41,6 +41,10 @@ output:
 ```{r setup, include=FALSE}
 library("knitr")
 library("tikzDevice")
+tryCatch(
+  tinytex::tinytex_root(),
+  error = function(e) tinytex::install_tinytex()
+  )
 knitr::opts_chunk$set(dev="tikz",
                       # dev.args = list(pointsize=32),
                       echo=FALSE,
@@ -80,14 +84,32 @@ The remainder of each sample was dried at 40°C with an electric dehydrator with
 
   - Need to get methods from Nourou
 
-## DNA extraction, PCR, and sequencing
+## DNA extraction, amplification, and sequencing
 
 After field lysis, DNA was extracted using the Zymo Research Soil/Fecal Prep kit **check name**.
-DNA for short amplicons was amplified using the primer pairs gITS7[@ihrmark2012]--ITS4[@white1990amplification].
-  - short amplicon : gITS7 -- ITS4 (multiplexing index on gITS7)
-  - short PCR protocol:
-  - long amplicon : ITS1 -- LR5 (multiplexing index on both ends)
-  - long PCR protocol:
+DNA was quantified using PicoGreen *according to the manufacturer's protocol*?
+
+Two different regions of rDNA were amplified (figure).
+The short amplicon (approximately 300 bp) included the full ITS2 region as well as parts of the flanking 5.8S and LSU rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4A [@larena1999] as the reverse primer.
+
+DNA for short amplicons was amplified using gITS7 [@ihrmark2012] as the forward primer and a equimolar mix of ITS4 [@white1990amplification] and ITS4A [@larena1999] as the reverse primer (hereafter ITS4m).
+gITS7 primers were indexed for multiplexing (**supp info**).
+Amplification was performed by polymerase chain reaction (PCR) in 60µl reactions containing 200 µM dNTP mix, 250 µM indexed gITS7 primer, 150 µM ITS4m, 2 mM McCl2, 0.3 U *taq* polymerase (Dream *Taq*, Thermo Fisher) and 10--20 ng purified DNA in Dream *Taq* buffer.
+The reaction conditions were 10 min at 95°, followed by 35 cycles of 60 s at 95°, 45 s at 56°, and 50 s at 72°, and finally 3 min at 72°.
+Each reaction was split into three aliquots and amplified separately to reduce the effect of PCR stochasticity (**ref**), and then pooled after amplification.
+
+```{tikz rDNA_amplicons, fig.cap = "rDNA amplicons", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
+
+```
+
+
+DNA for long amplicons was extracted using ITS1 [@white1990amplification] for the forward primer and LR5 [@vilgalys1990] as the reverse primer.
+Both primers were indexed for multiplexing (**supp info**).
+PCR was performed in 60 µL reactions as for the short amplicons, but with 500 µM of each of the two primers.
+Reaction conditions were 10 min at 95°, 30 cycles of 45 s at 95°, 45 s at 59°, and 90 s at 72°, and finally 10 min at 72°.
+Each reaction was split into three aliquots as for short amplicons.
+
+
   - short amplicon : same library sequenced with PacBio RS II and Ion Proton S5
   - long amplicon : PacBio RS II
   

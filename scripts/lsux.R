@@ -257,7 +257,7 @@ LSUx <- function(seq, cm_5.8S, cm_32S, glocal = TRUE, ITS1 = FALSE, cpu) {
   futile.logger::flog.info("Extracting LSU regions.", name = "LSUx")
   pos <- extract_LSU(aln = aln$alignment, rf = aln$RF)
   pos <- dplyr::mutate_at(pos, "seq_name", stringr::str_replace, "^[^|]*\\|", "")
-  pos <- dplyr::mutate_if(pos, is.integer, add, cms$seq_from - 1L)
+  pos <- dplyr::mutate_if(pos, is.integer, '+', cms$seq_from - 1L)
   if (isTRUE(ITS1)) {
     no_ITS1 <- pos$`5_8S_start` == 1 | is.na(pos$`5_8S_start`)
     if (all(no_ITS1)) {

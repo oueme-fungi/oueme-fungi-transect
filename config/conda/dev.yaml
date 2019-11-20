@@ -43,6 +43,7 @@ dependencies:
   - r-lintr
   - r-roxygen2
   - r-devtools
+  - r-pdftools
   - r-pryr
   - infernal=1.1.2
   - locarna=2.0.0

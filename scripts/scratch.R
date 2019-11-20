@@ -1128,3 +1128,9 @@ for (region in c("ITS1", "ITS2", "ITS", "LSU"))
       }
     }
         
+seq <- Biostrings::DNAStringSet(
+  Biostrings::readQualityScaledDNAStringSet(
+    "sequences/trim/pb_500_001/pb_500_001-H6f.trim.fastq.gz"
+  )
+)
+LSUx(seq, cm_5.8S = "reference/RF00002.cm", cm_32S = "reference/fungi_32S_LR5.cm", cpu = 3)
