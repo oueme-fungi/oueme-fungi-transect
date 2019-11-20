@@ -597,7 +597,7 @@ rule preITSx:
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-01-preITSx.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: 4
+    threads: maxthreads
     resources:
         walltime=60
     log: "{logdir}/preITSx.log".format_map(config)

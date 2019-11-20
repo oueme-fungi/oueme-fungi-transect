@@ -11,7 +11,7 @@ library(futile.logger)
 setup_log("preITSx")
 options(clustermq.scheduler = "multicore")
 
-preitsx_cpus <- 2 # mostly for memory
+preitsx_cpus <- 1
 preitsx_jobs <- max(local_cpus() %/% preitsx_cpus, 1)
 preitsx_cpus <- max(local_cpus() %/% preitsx_jobs, 1)
 
@@ -39,7 +39,7 @@ if (length(preitsx_targets)) {
   
   dod <- drake::outdated(dconfig)
   
-  drake::make(plan)
+  drake::make(config = dconfig)
   
   tictoc::toc()
   if (any(dod %in% drake::failed())) {
