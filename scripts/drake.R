@@ -331,7 +331,7 @@ plan <- drake_plan(
   ),
   
   derep_by = target(
-    derep_map %>%
+    derep_submap %>%
       dplyr::group_by_at(c("seq_run", "plate", "well")) %>%
       dplyr::group_indices(),
     transform = map(derep_submap, .id = seq_run)
