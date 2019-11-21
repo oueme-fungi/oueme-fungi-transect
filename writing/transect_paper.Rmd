@@ -89,25 +89,23 @@ The remainder of each sample was dried at 40°C with an electric dehydrator with
 After field lysis, DNA was extracted using the Zymo Research Soil/Fecal Prep kit **check name**.
 DNA was quantified using PicoGreen *according to the manufacturer's protocol*?
 
-Two different regions of rDNA were amplified (figure).
-The short amplicon (approximately 300 bp) included the full ITS2 region as well as parts of the flanking 5.8S and LSU rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4A [@larena1999] as the reverse primer.
+Two different regions of the nuclear ribosomal DNA were amplified (figure \@ref(fig:rDNA)).
+The short amplicon (approximately 300 bp) included the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) ribosomal RNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4A [@larena1999] (hereafter ITS4m) as the reverse primer.
+The long amplicon (approximately 1550 bp) included approximately 12 bp at the 3' end of the ribosomal small subunit (SSU) RNA, the full ITS region including the 5.8S rRNA, and approximately 950 bp at the 5' end of the LSU, including the first three variable domains.
 
-DNA for short amplicons was amplified using gITS7 [@ihrmark2012] as the forward primer and a equimolar mix of ITS4 [@white1990amplification] and ITS4A [@larena1999] as the reverse primer (hereafter ITS4m).
-gITS7 primers were indexed for multiplexing (**supp info**).
-Amplification was performed by polymerase chain reaction (PCR) in 60µl reactions containing 200 µM dNTP mix, 250 µM indexed gITS7 primer, 150 µM ITS4m, 2 mM McCl2, 0.3 U *taq* polymerase (Dream *Taq*, Thermo Fisher) and 10--20 ng purified DNA in Dream *Taq* buffer.
+The gITS7 primers for the short amplicon were indexed for multiplexing (**supp info**).
+Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200 µM dNTP mix, 250 µM indexed gITS7 primer, 150 µM ITS4m, 2 mM McCl2, 0.1 U *Taq* polymerase (Dream *Taq*, Thermo Fisher) and 3--7 ng purified DNA in Dream *Taq* buffer.
 The reaction conditions were 10 min at 95°, followed by 35 cycles of 60 s at 95°, 45 s at 56°, and 50 s at 72°, and finally 3 min at 72°.
-Each reaction was split into three aliquots and amplified separately to reduce the effect of PCR stochasticity (**ref**), and then pooled after amplification.
+Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity (**ref**), which were pooled after amplification.
 
-```{tikz rDNA_amplicons, fig.cap = "rDNA amplicons", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
+```{tikz rDNA, fig.cap = "rDNA amplicons", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
 
 ```
 
-
-DNA for long amplicons was extracted using ITS1 [@white1990amplification] for the forward primer and LR5 [@vilgalys1990] as the reverse primer.
-Both primers were indexed for multiplexing (**supp info**).
-PCR was performed in 60 µL reactions as for the short amplicons, but with 500 µM of each of the two primers.
+Both primers for the long amplicon were indexed for multiplexing (**supp info**).
+PCR was performed as for the short amplicons, but with 500 µM of each of the two primers.
 Reaction conditions were 10 min at 95°, 30 cycles of 45 s at 95°, 45 s at 59°, and 90 s at 72°, and finally 10 min at 72°.
-Each reaction was split into three aliquots as for short amplicons.
+Each reaction was performed in three technical replicates as for short amplicons.
 
 
   - short amplicon : same library sequenced with PacBio RS II and Ion Proton S5
@@ -118,31 +116,23 @@ Each reaction was split into three aliquots as for short amplicons.
   - Two workflows for short reads:
     - Mohammad's workflow in Pipecraft
     - Brendan's workflow using Snakemake/Drake
-    
-  - Mohammad's pipeline:
   
 Circular consensus sequence (CCS) basecalls were made using the `ccs` command from SMRTtools version 5.0.1  [@pacificbiosciences2019].
 The resulting sequences were demultiplexed and sequencing primers were removed using `cutadapt` version 1.18 [@martin2011].
 
-- Brendan's pipeline:
-      - Ion Torrent
-          - used demultiplexing from SciLife (standard IonXpress)
-          - primers removed with 
-      - PacBio
-      - Illumina MiSeq
-          - pending
-  
-Raw reads were divided into regions/domains by matching to covariance models, which account for both nucleotide sequence and RNA secondary structure.
+Raw reads were divided into regions/domains by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure [@eddy1994].
 First, the 5.8S rRNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013].
 This approach was able to identify both the 5' and 3' ends of the 5.8S rRNA more consistently and quickly than ITSx [@bengtsson-palme2013; data not shown].
-Each read was then aligned to a CM based on the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017, @cole2014] using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
-The seed alignment was truncated at the LR5 primer site, and the reference line was modified to annotate the 5.8S RNA, ITS2 region, and the divergent "D" domains of the 28S RNA as defined by @raue1988.
-The alignment for each read was then split into alternating more-conserved and less-conserved regions according to these annotations:
-ITS1 (for the entire read prior to the 5' end of 5.8S), 5.8S, ITS2, LSU1, D1, LSU2, D2, LSU3, D3, LSU4,
-where the four "LSU" regions represent the conserved regions of the 28S rRNA between the "D" regions.
-The process of extracting the regions is automated in the new R package `LSUx`, available on github and conda-forge (**but not yet**).
+Each read was then aligned to a CM based on a modification of the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017, @cole2014] using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
+The seed alignment modified by truncation at the LR5 primer site, and the reference line was modified to annotate the 5.8S RNA, ITS2 region, and the divergent "D" domains of the 28S RNA as defined by @raue1988.
+The CM alignment for each read was then split into alternating more-conserved and less-conserved regions according to these annotations:
+ITS1, 5.8S, ITS2, LSU1, D1, LSU2, D2, LSU3, D3, LSU4,
+where the four "LSU" regions represent the conserved regions of the 28S rRNA flanking the "D" regions.
+For short amplicons, only 5.8S, ITS2, and LSU1 were extracted.
+No attempt was made to remove the short fragment of the SSU from the 5' end of ITS1 in the long amplicons; this is too short to be reliably detected by a CM or the HMMs employed by ITSx.
+The process of extracting the regions is automated in the new R package `LSUx`, available on github, CRAN, and bioconda (**but not yet**).
 
-Each of the extracted regions was independently filtered for length (table **X**) and a maximum of three expected errors using the `filterAndTrim` function from DADA2 [@callahan2016, @callahan2018].
+Each of the extracted regions was independently filtered for length (table **X**) and a maximum of three expected errors.
 Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2.
 The error model for DADA2 denoising was fit using only the 5.8S RNA region.
 Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, **different sequencing technologies**).
@@ -155,9 +145,10 @@ Because ITS2 is one of the most variable regions in the amplified regions, reads
 Thus, the concatenated regions for each ASV were aligned in R using the DECIPHER package [@wright2015], and outlier sequences (chimeras) were removed from each alignment using the odseq package [@jehl2015].
 The consensus of the remaining aligned sequences was assigned as the full-length ASV sequence.
 Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleotide >50% at a given position) were removed.
-The process of assigning consensus full-length ASVs was carried out using the new `tzara` package for R, available on github ([https://github.com/brendanf/tzara]), CRAN (not yet), and bioconda (not yet).
+A similar process was used to generate a consensus ITS (ITS1--5.8S--ITS2) and LSU (LSU1--D1--LSU2--D2--LSU3--D3--LSU4) sequence for each ASV.
+The process of assigning consensus full-length ASVs was carried out using the new `tzara` package for R, available on github (https://github.com/brendanf/tzara), CRAN (not yet), and bioconda (not yet).
 
-# Taxonomy assignment
+### Taxonomy assignment
 
 New taxonomic annotations of the Ribosomal Data Project's LSU fungal training set (RDP) version 11.5 [@cole2014] and Warcup ITS training set [@wang2007] were created, conforming to the taxonomic classification system used in the Unite database version 8 [@nilsson2019a].
 In particular, the classification for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c.
@@ -172,6 +163,18 @@ SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016];
 and IDTAXA [@murali2018].
 Each ASV thus was thus given nine taxonomic assignments (three region/reference combinations $\times$ three algorithms).
 
+## Alignment and phylogenetic inference
+
+Long amplicon ASVs were aligned as RNA using DECIPHER [@wright2015].
+As attempt was made to refine this alignment using Pasta [@mirarab2014a], but the resulting maximum liklihood (ML) trees did not improve on the ML achieved using the original alignment from DECIPHER.
+Since ML is the optimization criterion used by Pasta, the original DECIPHER alignment was retained.
+A final ML tree was produced using RAxML version 8.2.12 [@stamatakis2014] using the GTR+GAMMA model and rapid bootstrapping with the MRE_IGN stopping criterion.
+
+The tree was rooted outside the fungi by using the most abundant ASV which was confidently assigned to the Chlorophyta by all 6 applicable taxonomic assignment methods.
+Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset.
+Inspection of the tree along with taxonomic assignments revealed that the genus *Tulasnella* (Basidiomycota), which is known to have accelerated evolution in the rDNA [@moncalvo2006], was nested within the Metazoa, so it was excluded from further analysis.
+The kingdom Fungi was then identified as the minimal clade containing all remaining ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
+ASVs falling outside this clade were excluded from further analysis.
 
 
 
@@ -184,8 +187,6 @@ Each ASV thus was thus given nine taxonomic assignments (three region/reference 
           - concatenate ITS1 to beginning of alignment
           - create guide tree using alignment of only conserved, gap-free columns in preliminary alignment, using UPGMA in DECIPHER [@wright2016]
           - realign nonconserved sites using MLocARNA (progressive simultaneous alignment and folding) from LocARNA 2.0.0RC8 [@will2007; @will2012; @will2013]. -->
-
-      - alignment/tree for long amplicons built iteratively with PASTA[@mirarab2014; @mirarab2014a]. Fastree tree, mafft align, OPAL merge, RaxML final tree
           
 ## Statistics
 
