@@ -92,7 +92,7 @@ combine_dynamic_diskframe <- function(dd, dir = drake_tempfile()) {
   cache <- drake_cache()
   for (i in seq_along(dd)) {
     shardfile <- file.path(cache$path_return, dd[i])
-    stopifnot(file.exists(dd[i]))
+    stopifnot(file.exists(shardfile))
     file.link(shardfile, file.path(dir, paste0(i, ".fst")))
   }
   disk.frame::disk.frame(dir)
@@ -119,4 +119,27 @@ n_outdated <- function(tasks, dconfig) {
 
 subset_outdated <- function(tasks, dconfig) {
   tasks[which_outdated(tasks, dconfig)]
+}
+
+#### Works like readd, but takes multiple arguments and makes a list
+readd_list <- function(...) {
+  out <- lapply(
+    as.character(match.call(expand.dots = FALSE)$...),
+    readd,
+    character_only = TRUE
+  )
+  names(out) <- as.character(match.call(expand.dots = FALSE)$...)
+  out
+}
+
+readd_c <- function(...) {
+  call <- match.call()
+  call[[1]] <- readd_list
+  do.call(c, eval(call))
+}
+
+readd_bind_rows <- function(...) {
+  call <- match.call()
+  call[[1]] <- readd_list
+  dplyr::bind_rows(readd_list(...))
 }
