@@ -89,6 +89,13 @@ rule all:
         ".drake_finish"
         #{outdir}/tech_compare.pdf".format_map(config)
 
+localrules: repair
+rule repair:
+    input: "{rdir}/repair.R".format_map(config)
+    threads: 1
+    conda: "config/conda/drake.yaml"
+    script: "{rdir}/repair.R".format_map(config)
+
 # endpoint target: convert all pacbio movies to Sequel format
 localrules: convertmovies
 rule convertmovies:
@@ -101,9 +108,9 @@ rule convertmovies:
 # convert a raw RSII-format (.h5) movie to the Sequel format (.bam)
 rule bax2bam:
     output:
-        expand("{moviedir}/{{movie}}.{movietype}.bam",
+        temp(expand("{moviedir}/{{movie}}.{movietype}.bam",
                moviedir = config['moviedir'],
-               movietype = ["subreads", "scraps"])
+               movietype = ["subreads", "scraps"]))
     input:
         lambda wildcards: glob("{rawdir}/**/rawdata/**/Analysis_Results/{wildcards.movie}.*.h5"
                                .format(wildcards = wildcards,
@@ -122,7 +129,7 @@ rule bax2bam:
 # generate a circular consensus sequence from raw PacBio reads
 rule ccs:
     output:
-          "{ccsdir}/{{movie}}.ccs.bam".format_map(config)
+          temp("{ccsdir}/{{movie}}.ccs.bam".format_map(config))
     input:
          "{moviedir}/{{movie}}.subreads.bam".format_map(config)
     resources:
@@ -138,7 +145,7 @@ rule ccs:
 localrules: ccs2fastq
 rule ccs2fastq:
     output:
-        "{fastqdir}/{{seqplate}}.fastq.gz".format_map(config)
+        temp("{fastqdir}/{{seqplate}}.fastq.gz".format_map(config))
     input:
          lambda wildcards: expand("{ccsdir}/{movie}.ccs.bam",
                                   ccsdir = config['ccsdir'],
@@ -296,7 +303,7 @@ def find_ion_bam(wildcards):
 localrules: bam2fastq, ion_trim
 # convert a demultiplexed IonTorrent .bam file to .fastq.gz
 rule bam2fastq:
-    output: "{demuxdir}/{{seqrun}}_{{plate,\d+}}-{{well,[A-H]\d+}}.demux.fastq.gz".format_map(config)
+    output: temp("{demuxdir}/{{seqrun}}_{{plate,\d+}}-{{well,[A-H]\d+}}.demux.fastq.gz".format_map(config))
     input: find_ion_bam
     resources:
         walltime=5
