@@ -11,7 +11,6 @@ library(futile.logger)
 setup_log("predada")
 options(clustermq.scheduler = "multicore")
 library(disk.frame)
-setup_disk.frame(workers = 1)
 
 #### pre-DADA2 ####
 # single-threaded targets after itsx
@@ -31,7 +30,9 @@ if (length(predada_targets)) {
        elapsed = 3600, #1 hour
        keep_going = FALSE,
        cache_log_file = TRUE,
-       targets = predada_targets
+       targets = predada_targets,
+       caching = "worker",
+       memory_strategy = "preclean"
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
