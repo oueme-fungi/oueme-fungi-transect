@@ -207,9 +207,13 @@ dada_meta <- predada_meta %>%
   mutate(derep2 = glue("derep2_{seq_run}_{region}"),
          derep_groups = glue("derep_groups_{seq_run}"),
          error_model = glue("err_{seq_run}_5_8S"),
-         preconseq = glue("preconseq_{primer_ID}")) %>%
+         preconseq = glue("preconseq_{primer_ID}"),
+         position_map = glue("position_map_{seq_run}")) %>%
   left_join(datasets %>% select(-regions), by = "seq_run") %>%
-  mutate_at(c("derep2", "derep_groups", "error_model", "preconseq"), syms)
+  mutate_at(
+    c("derep2", "derep_groups", "error_model", "preconseq", "position_map"),
+    syms
+    )
 
 err_meta <- dada_meta %>%
   filter(region == "5_8S") %>%
@@ -218,6 +222,7 @@ err_meta <- dada_meta %>%
 conseq_meta <- dada_meta %>%
   filter(region %in% c("ITS1", "ITS", "LSU", "32S", "long", "short")) %>%
   select(region, primer_ID, preconseq) %>%
+  left_join(regions %>% select(region, min_length), by = "region") %>%
   unique()
 
 #### region_meta ####
@@ -351,15 +356,14 @@ plan <- drake_plan(
   positions = target({
     ids <- unique(derep_submap$map)
     lsux_pos %>%
-     dplyr::filter(seq_name %in% ids) %>%
+      dplyr::filter(seq_name %in% ids) %>%
       as.data.frame(row.names = NULL) %>%
-    dplyr::left_join(
-      derep_submap,
-      .,
-      by = c("map" = "seq_name")) %>%
+      dplyr::left_join(
+        derep_submap,
+        .,
+        by = c("map" = "seq_name")) %>%
       dplyr::rename(seq = seq.id) %>%
-      gather_regions()
-    },
+      gather_regions()},
     transform = map(lsux_pos, derep_submap, derep_by, .id = seq_run),
     dynamic = group(derep_submap, .by = derep_by, .trace = derep_by)
   ),
@@ -367,6 +371,13 @@ plan <- drake_plan(
   position_trace = target(
     get_trace(paste0("derep_by_", seq_run), positions),
     transform = map(positions, seq_run, .id = seq_run)
+  ),
+  
+  position_map = target(
+    dplyr::select(positions, "seq_run", "plate", "well") %>%
+      unique(),
+    transform = map(positions, .id = seq_run),
+    dynamic = map(positions)
   ),
   
   # derep2----
@@ -423,7 +434,8 @@ plan <- drake_plan(
   dada = target(
     readd(derep2) %>%
       set_names(
-        derep_groups %>%
+        readd(position_map) %>%
+          dplyr::bind_rows() %>%
           dplyr::mutate(region = region) %>%
           glue::glue_data("{seq_run}_{plate}_{well}_{region}")
       ) %>%
@@ -435,7 +447,7 @@ plan <- drake_plan(
         BAND_SIZE = band_size,
         pool = eval(rlang::parse_expr(pool))),
     transform = map(
-      .data = !!select(dada_meta, derep2, derep_groups, region, hgp, band_size,
+      .data = !!select(dada_meta, derep2, derep_groups, position_map, region, hgp, band_size,
                        pool, seq_run, primer_ID, error_model, min_length_post,
                        max_length_post),
       .tag_in = step,
