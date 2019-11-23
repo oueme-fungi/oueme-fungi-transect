@@ -39,8 +39,10 @@ make_allseq_table <- function(conseqs, seq_tables,
   # make sure all the names are present in the consensus table, so that the
   # join will work
   for (n in names(seq_tables)) {
-    if (!n %in% names(conseqs)) conseqs[[n]] <- NA_character_
+    if (!n %in% names(conseqs)) seq_tables[[n]] <- NULL
   }
+  
+  seq_tables <- purrr::compact(seq_tables)
   
   seq_tables <- purrr::imap(seq_tables,
                             ~ tibble::tibble(x = colnames(.x)) %>%
