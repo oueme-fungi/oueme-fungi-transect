@@ -461,7 +461,8 @@ plan <- drake_plan(
   seq_table = target(
     dada2::makeSequenceTable(purrr::compact(dada)) %>%
       magrittr::extract(,nchar(colnames(.)) >= min_length_post &
-                          nchar(colnames(.)) <= max_length_post),
+                          nchar(colnames(.)) <= max_length_post,
+                        drop = FALSE),
     transform = map(dada, .tag_in = step, .id = c(seq_run, region))
   ),
 
@@ -673,7 +674,7 @@ plan <- drake_plan(
     chartr(old = "T", new = "U") %>%
     Biostrings::RNAStringSet(),
   cons_LSU = allseqs %>%
-    dplyr::select(LSU, ITS1, hash) %>%
+    dplyr::select(LSU, long, ITS1, hash) %>%
     dplyr::filter(
       complete.cases(.),
       endsWith(long, LSU)
@@ -865,9 +866,9 @@ plan <- drake_plan(
     allseqs %>%
     dplyr::select(hash, long, LSU, ITS1) %>%
     dplyr::filter(complete.cases(.), startsWith(long, ITS1)) %>%
-    unique() %$%
+    unique() %>%
+    dplyr::filter(!duplicated(LSU)) %$%
     set_names(LSU, hash) %>%
-    dplyr::filter(!duplicated(LSU)) %>%
     chartr("T", "U", .) %>%
     Biostrings::RNAStringSet() %>%
     DECIPHER::AlignSeqs(iterations = 10,
@@ -1051,7 +1052,6 @@ plan <- drake_plan(
                                           break.pts = 0:13 - 0.5,
                                           cutoff = FALSE),
 trace = TRUE)
-#   # seq_count ----
 #   # Count the sequences in each fastq file
 #   seq_count = target(
 #     tibble::tibble(
