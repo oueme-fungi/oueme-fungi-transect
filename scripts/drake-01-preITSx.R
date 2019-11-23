@@ -34,7 +34,8 @@ if (length(preitsx_targets)) {
     caching = "worker",
     cache_log_file = TRUE,
     targets = preitsx_targets,
-    memory_strategy = "preclean"
+    memory_strategy = "preclean",
+    console_log_file = get_logfile("preITSx")
   )
   
   dod <- drake::outdated(dconfig)

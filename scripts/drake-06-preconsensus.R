@@ -31,8 +31,8 @@ if (length(targets) > 0) {
        elapsed = 3600, #1 hour
        keep_going = FALSE,
        cache_log_file = TRUE,
-       targets = targets
-
+       targets = targets,
+       console_log_file = get_logfile("pretaxonomy")
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)

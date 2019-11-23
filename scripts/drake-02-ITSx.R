@@ -66,7 +66,8 @@ if (length(itsx_targets)) {
        jobs_preprocess = local_cpus(),
        caching = "worker",
        cache_log_file = TRUE,
-       targets = itsx_targets
+       targets = itsx_targets,
+       console_log_file = get_logfile("ITSx")
   )
   
   dod <- drake::outdated(dconfig)

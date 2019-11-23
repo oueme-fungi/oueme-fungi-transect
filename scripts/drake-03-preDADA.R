@@ -32,7 +32,8 @@ if (length(predada_targets)) {
        cache_log_file = TRUE,
        targets = predada_targets,
        caching = "worker",
-       memory_strategy = "preclean"
+       memory_strategy = "preclean",
+       console_log_file = get_logfile("predada")
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)

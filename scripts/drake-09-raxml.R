@@ -37,7 +37,8 @@ if (length(targets)) {
     keep_going = TRUE,
     caching = "worker",
     cache_log_file = TRUE,
-    targets = targets
+    targets = targets,
+    console_log_file = get_logfile("raxml")
   )
   tictoc::toc()
   #  flog.info("Determining outdated targets...")

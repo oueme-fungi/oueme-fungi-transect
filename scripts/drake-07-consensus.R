@@ -41,7 +41,8 @@ if (length(targets) > 0) {
        keep_going = FALSE,
        caching = "worker",
        cache_log_file = TRUE,
-       targets = targets
+       targets = targets,
+       console_log_file = get_logfile("consensus")
   )
   tictoc::toc()
   flog.info("Finding outdated targets...")
