@@ -200,7 +200,8 @@ predada_meta <- select(itsx_meta, seq_run, regions, primer_ID) %>%
 # The index is seq_run + region
 flog.info("Making dada_meta.")
 dada_meta <- predada_meta %>%
-  select(seq_run, region, primer_ID, positions, min_length_post, max_length_post) %>%
+  select(seq_run, region, reference, primer_ID, positions, min_length_post,
+         max_length_post) %>%
   unique() %>%
   arrange(seq_run, region) %>%
   mutate(derep2 = glue("derep2_{seq_run}_{region}"),
@@ -215,7 +216,7 @@ err_meta <- dada_meta %>%
   select(seq_run, region, derep2, tech, hgp, band_size, pool)
 
 conseq_meta <- dada_meta %>%
-  filter(region %in% c("ITS", "LSU", "32S", "long", "short")) %>%
+  filter(region %in% c("ITS1", "ITS", "LSU", "32S", "long", "short")) %>%
   select(region, primer_ID, preconseq) %>%
   unique()
 
@@ -240,7 +241,7 @@ region_meta <- dada_meta %>%
 flog.info("Making taxonomy_meta.")
 taxonomy_meta <- dada_meta %>%
   mutate_if(is.list, as.character) %>%
-  select_at(names(regions)) %>%
+  select(region, reference) %>%
   separate_rows(reference, sep = " *, *") %>%
   separate(reference, c("reference", "refregion"), sep = "\\.") %>%
   filter(!is.na(reference)) %>%
@@ -435,7 +436,8 @@ plan <- drake_plan(
         pool = eval(rlang::parse_expr(pool))),
     transform = map(
       .data = !!select(dada_meta, derep2, derep_groups, region, hgp, band_size,
-                       pool, seq_run, primer_ID, error_model),
+                       pool, seq_run, primer_ID, error_model, min_length_post,
+                       max_length_post),
       .tag_in = step,
       .id = c(seq_run, region)
     )
@@ -580,9 +582,11 @@ plan <- drake_plan(
   # DECIPHER.
   refdb_dada2 = target(
     file_in(reference_file),
-    transform = map(.data = !!filter(ref_meta, method == "dada2"),
-                    .tag_out = refdb,
-                    .id = ref_ID)),
+    transform = map(
+      .data = !!filter(ref_meta, method == "dada2"),
+      .tag_out = refdb,
+      .id = ref_ID)
+  ),
 
 
   refdb_sintax = target(
