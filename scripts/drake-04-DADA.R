@@ -5,12 +5,11 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-targets <- purrr::keep(od, startsWith, "nochim")
+targets <- purrr::keep(od, startsWith, "chimeras_")
 targets <- subset_outdated(targets, dconfig)
 library(magrittr)
 library(backports)
 library(futile.logger)
-library(clustermq)
 options(clustermq.scheduler = "multicore")
 setup_log("dada")
 

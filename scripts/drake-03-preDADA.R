@@ -17,7 +17,7 @@ library(disk.frame)
 # for local runs, ITSx targets will also run here.
 dada_cpus <- local_cpus()
 predada_targets <- c(
-  purrr::keep(od, startsWith, "filter_")
+  purrr::keep(od, startsWith, "derep2_")
 )
 if (length(predada_targets)) {
   flog.info("Making pre-dada targets (loop)...")
