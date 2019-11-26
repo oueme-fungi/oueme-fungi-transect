@@ -324,7 +324,7 @@ plan <- drake_plan(
       cm_32S = file_in(!!cm_32S),
       glocal = TRUE,
       ITS1 = TRUE,
-      cpu = ignore(itsx_cpus)
+      cpu = ignore(ncpus)
     ) %>%
       dplyr::mutate_at("seq_name", as.integer) %>%
       as.data.frame(),
@@ -413,7 +413,7 @@ plan <- drake_plan(
     dada2::learnErrors(
       fls = dereps,
       nbases = 1e9,
-      multithread = ignore(dada_cpus),
+      multithread = ignore(ncpus),
       randomize = TRUE,
       errorEstimationFunction = err.fun,
       HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(hgp)),
@@ -442,7 +442,7 @@ plan <- drake_plan(
       robust_dada(
         derep = .,
         err = error_model,
-        multithread = ignore(dada_cpus),
+        multithread = ignore(ncpus),
         HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(hgp)),
         BAND_SIZE = band_size,
         pool = eval(rlang::parse_expr(pool))),
@@ -474,12 +474,12 @@ plan <- drake_plan(
     } else if (is.matrix(seq_table)) {
       dada2::isBimeraDenovoTable(
         seq_table,
-        multithread = ignore(dada_cpus)
+        multithread = ignore(ncpus)
       )
     } else {
       dada2::isBimeraDenovo(
         seq_table,
-        multithread = ignore(dada_cpus)
+        multithread = ignore(ncpus)
       )
     },
     transform = map(seq_table, .id = c(seq_run, region))),
@@ -561,7 +561,7 @@ plan <- drake_plan(
             seq = .data[[region]],
             nread = nread,
             names = tzara::seqhash(ITS2),
-            ncpus = ignore(dada_cpus))
+            ncpus = ignore(ncpus))
           ),
         nread = sum(nread)
       ) %>%
@@ -624,7 +624,7 @@ plan <- drake_plan(
     taxonomy(seq = seqs,
              reference = refdb,
              method = method,
-             multithread = ignore(dada_cpus)) %>%
+             multithread = ignore(ncpus)) %>%
       taxtable(names = names(seqs))
     },
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
@@ -700,7 +700,7 @@ plan <- drake_plan(
     cmalign(cmfile = file_in(!!cm_32S),
             seq = cons_32S,
             glocal = TRUE,
-            cpu = ignore(dada_cpus)),
+            cpu = ignore(ncpus)),
 
   # cmaln_long
   # Concatenate ITS1 (padded with gaps) to the beginning of the Infernal 32S
@@ -757,7 +757,7 @@ plan <- drake_plan(
     DECIPHER::DistanceMatrix(
       aln_32S_conserv,
       type = "dist",
-      processors = ignore(dada_cpus)
+      processors = ignore(ncpus)
     ),
 
   # Make a UPGMA guide tree for mlocarna based on the aligned positions in
@@ -767,7 +767,7 @@ plan <- drake_plan(
       myDistMatrix = dist_32S_conserv,
       collapse = -1, #break polytomies
       type = "dendrogram",
-      processors = ignore(dada_cpus)
+      processors = ignore(ncpus)
     ) %T>%
     DECIPHER::WriteDendrogram(
       file = file_out(!!guide_tree_file)
@@ -782,7 +782,7 @@ plan <- drake_plan(
     mlocarna_realign(
       alignment = file_in(!!cmaln_file_long),
       target_dir = file_out(!!mlocarna_pp_dir),
-      cpus = ignore(raxml_cpus),
+      cpus = ignore(ncpus),
       only_dps = TRUE
     )
     mirror_dir(!!mlocarna_pp_dir, !!mlocarna_result_dir)
@@ -844,7 +844,7 @@ plan <- drake_plan(
         file = "locarna_long",
         dir = !!raxml_locarna_out_dir,
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(raxml_cpus)
+        threads = ignore(ncpus)
       )
     setwd(wd)
     result
@@ -860,7 +860,7 @@ plan <- drake_plan(
     Biostrings::RNAStringSet() %>%
     DECIPHER::AlignSeqs(iterations = 10,
                         refinements = 10,
-                        processors = ignore(dada_cpus)),
+                        processors = ignore(ncpus)),
 
   aln_decipher_LSU =
     allseqs %>%
@@ -873,7 +873,7 @@ plan <- drake_plan(
     Biostrings::RNAStringSet() %>%
     DECIPHER::AlignSeqs(iterations = 10,
                         refinements = 10,
-                        processors = ignore(dada_cpus)),
+                        processors = ignore(ncpus)),
 
   aln_decipher_LSU_trim = trim_LSU_intron(aln_decipher_LSU),
 
@@ -896,7 +896,7 @@ plan <- drake_plan(
         k = TRUE,
         file = "decipher_LSU",
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(raxml_cpus))
+        threads = ignore(ncpus))
     setwd(wd)
     result
   },
@@ -920,7 +920,7 @@ plan <- drake_plan(
         k = TRUE,
         file = "decipher_long",
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(raxml_cpus))
+        threads = ignore(ncpus))
     setwd(wd)
     result
     },
@@ -930,12 +930,12 @@ plan <- drake_plan(
     dplyr::select(hash, full) %>%
     dplyr::filter(complete.cases(.)) %>%
     dplyr::filter(!duplicated(full)) %$%
-    set_names(LSU, hash) %>%
+    set_names(full, hash) %>%
     chartr("T", "U", .) %>%
     Biostrings::RNAStringSet() %>%
     DECIPHER::AlignSeqs(iterations = 10,
                         refinements = 10,
-                        processors = ignore(raxml_cpus)),
+                        processors = ignore(ncpus)),
   
   raxml_decipher_full = {
     if (!dir.exists(!!raxml_decipher_out_dir))
@@ -957,7 +957,7 @@ plan <- drake_plan(
         backbone = raxml_decipher_LSU$bestTree,
         file = "decipher_full",
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(raxml_cpus))
+        threads = ignore(ncpus))
     setwd(wd)
     result
   },

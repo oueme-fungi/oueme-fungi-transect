@@ -21,16 +21,16 @@ setup_log("ITSx")
 itsx_targets <- stringr::str_subset(plan$target, "^lsux_")
 itsx_targets <- subset_outdated(itsx_targets, dconfig)
 # hmmer can use multiple processes per job; it tends to become I/O bound after about 4.
-itsx_cpus <- 4L
-itsx_cpus <- min(itsx_cpus, max_cpus())
-itsx_jobs <- bigsplit
+ncpus <- 4L
+ncpus <- min(ncpus, max_cpus())
+njobs <- bigsplit
 
 if (length(itsx_targets)) {
   # send two jobs per target to help with load balancing
   # this will tend to be one Ion Torrent job (long, first) and one PacBio job (short, second)
-  itsx_jobs <- max(ceiling(length(itsx_targets) / 2), itsx_jobs)
+  njobs <- max(ceiling(length(itsx_targets) / 2), njobs)
   # in any case never send more jobs than there are targets
-  itsx_jobs <- min(itsx_jobs, length(itsx_targets))
+  njobs <- min(njobs, length(itsx_targets))
   
   # do it as SLURM jobs if possible and
   # - we don't have enough local cores to run 1 job locally
@@ -38,30 +38,30 @@ if (length(itsx_targets)) {
   # - it would use less than twice as much total CPU time, compared to running locally
   if (is_slurm()
       && local_cpus() < max_cpus()
-      && ((local_cpus() < itsx_cpus)
-          || (length(itsx_targets) / itsx_jobs * (itsx_jobs * itsx_cpus + local_cpus()) <
-              2 * length(itsx_targets) * itsx_cpus))) {
+      && ((local_cpus() < ncpus)
+          || (length(itsx_targets) / njobs * (njobs * ncpus + local_cpus()) <
+              2 * length(itsx_targets) * ncpus))) {
     itsx_parallelism <- "clustermq"
     options(clustermq.scheduler = "slurm",
             clustermq.template = "slurm_clustermq.tmpl")
     itsx_template <- list(log_file = glue::glue("logs/itsx-%A_%a.log"),
-                          ncpus = itsx_cpus,
+                          ncpus = ncpus,
                           memory = 7*1024,
                           timeout = 1800) # the master can take a while to send everything.
-    flog.info(" Making ITSx and LSUx shards (SLURM with %d worker(s))...", itsx_jobs)
+    flog.info(" Making ITSx and LSUx shards (SLURM with %d worker(s))...", njobs)
   } else {
-    itsx_jobs <- max(local_cpus() %/% itsx_cpus, 1)
-    itsx_cpus <- max(local_cpus() %/% itsx_jobs, 1)
-    itsx_parallelism <- if (itsx_jobs > 1) "clustermq" else "loop"
+    njobs <- max(local_cpus() %/% ncpus, 1)
+    ncpus <- max(local_cpus() %/% njobs, 1)
+    itsx_parallelism <- if (njobs > 1) "clustermq" else "loop"
     options(clustermq.scheduler = "multicore")
     itsx_template = list()
-    flog.info("Making ITSx and LSUx shards (local with %d worker(s) of %d cpus each)...", itsx_jobs, itsx_cpus)
+    flog.info("Making ITSx and LSUx shards (local with %d worker(s) of %d cpus each)...", njobs, ncpus)
   }
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = itsx_parallelism,
        template = itsx_template,
-       jobs = itsx_jobs,
+       jobs = njobs,
        elapsed = 3600*6, #6 hours
        jobs_preprocess = local_cpus(),
        caching = "worker",

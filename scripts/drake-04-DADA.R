@@ -17,10 +17,10 @@ setup_log("dada")
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
 jobs <- min(max(local_cpus() %/% 8, 1), length(targets))
-dada_cpus <- max(local_cpus() %/% jobs, 1)
+ncpus <- max(local_cpus() %/% jobs, 1)
 
 if (length(targets) > 0) {
-  flog.info("Making %d dada targets with %d jobs of %d cores...", length(targets), jobs, dada_cpus)
+  flog.info("Making %d dada targets with %d jobs of %d cores...", length(targets), jobs, ncpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "clustermq",

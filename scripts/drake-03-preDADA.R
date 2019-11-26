@@ -15,7 +15,7 @@ library(disk.frame)
 #### pre-DADA2 ####
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
-dada_cpus <- local_cpus()
+ncpus <- local_cpus()
 predada_targets <- c(
   purrr::keep(od, startsWith, "derep2_")
 )

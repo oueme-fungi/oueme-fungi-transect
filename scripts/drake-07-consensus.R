@@ -22,15 +22,15 @@ targets <- subset_outdated(targets, dconfig)
 if (!file.exists(cmaln_file_long)) targets <- c(targets, "cmaln_long")
 if (!file.exists(guide_tree_file)) targets <- c(targets, "guidetree_32S")
 
-dada_cpus <- max(local_cpus() %/% 2L, 1L)
-jobs <- max(1, local_cpus() %/% dada_cpus)
+ncpus <- max(local_cpus() %/% 2L, 1L)
+jobs <- max(1, local_cpus() %/% ncpus)
 
 if (length(targets) > 0) {
   jobs <- min(max(local_cpus() %/% 8, 1), length(targets))
-  dada_cpus <- max(local_cpus() %/% jobs, 1)
+  ncpus <- max(local_cpus() %/% jobs, 1)
   parallelism <- if(jobs > 1) "clustermq" else "loop"
   flog.info("Building %d consensus and taxonomy targets with %d jobs of %d cores...",
-            length(targets), jobs, dada_cpus)
+            length(targets), jobs, ncpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = parallelism,

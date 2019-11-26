@@ -11,9 +11,9 @@ library(futile.logger)
 setup_log("preITSx")
 options(clustermq.scheduler = "multicore")
 
-preitsx_cpus <- 1
-preitsx_jobs <- max(local_cpus() %/% preitsx_cpus, 1)
-preitsx_cpus <- max(local_cpus() %/% preitsx_jobs, 1)
+ncpus <- 1
+njobs <- max(local_cpus() %/% ncpus, 1)
+ncpus <- max(local_cpus() %/% njobs, 1)
 
 #### Pre-ITSx targets ####
 # These are computationally easy, but some take a lot of memory.
@@ -27,7 +27,7 @@ if (length(preitsx_targets)) {
     plan,
     parallelism = "clustermq",
     jobs_preprocess = local_cpus(),
-    jobs = preitsx_jobs,
+    jobs = njobs,
     retries = 2,
     elapsed = 3600, # 1 hour
     keep_going = FALSE,

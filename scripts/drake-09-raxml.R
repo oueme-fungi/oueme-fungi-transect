@@ -21,10 +21,10 @@ setup_log("raxml")
 # so these need to be sent to nodes with multiple cores (and incidentally a lot
 # of memory)
 
-raxml_cpus <- local_cpus()
+ncpus <- local_cpus()
 if (length(targets)) {
   flog.info(
-    "Building %d RAxML targets with %d cores...", length(targets), raxml_cpus
+    "Building %d RAxML targets with %d cores...", length(targets), ncpus
   )
   tictoc::tic()
   drake::make(
