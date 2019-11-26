@@ -924,6 +924,45 @@ plan <- drake_plan(
     setwd(wd)
     result
     },
+  
+  aln_decipher_full =
+    allseqs %>%
+    dplyr::select(hash, full) %>%
+    dplyr::filter(complete.cases(.)) %>%
+    dplyr::filter(!duplicated(full)) %$%
+    set_names(LSU, hash) %>%
+    chartr("T", "U", .) %>%
+    Biostrings::RNAStringSet() %>%
+    DECIPHER::AlignSeqs(iterations = 10,
+                        refinements = 10,
+                        processors = ignore(raxml_cpus)),
+  
+  raxml_decipher_full = {
+    if (!dir.exists(!!raxml_decipher_out_dir))
+      dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
+    wd <- setwd(!!raxml_decipher_out_dir)
+    result <-
+      aln_decipher_full %>%
+      Biostrings::DNAStringSet() %>%
+      ape::as.DNAbin() %>%
+      as.matrix() %>%
+      ips::raxml(
+        DNAbin = .,
+        m = "GTRGAMMA",
+        f = "a",
+        N = "autoMRE_IGN",
+        p = 12345,
+        x = 827,
+        k = TRUE,
+        backbone = raxml_decipher_LSU$bestTree,
+        file = "decipher_full",
+        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
+        threads = ignore(raxml_cpus))
+    setwd(wd)
+    result
+  },
+    
+    
 
   labeled_tree_decipher_long =
     relabel_tree(
