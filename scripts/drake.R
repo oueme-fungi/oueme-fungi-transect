@@ -860,7 +860,7 @@ plan <- drake_plan(
     Biostrings::RNAStringSet() %>%
     DECIPHER::AlignSeqs(iterations = 10,
                         refinements = 10,
-                        processors = ignore(raxml_cpus)),
+                        processors = ignore(dada_cpus)),
 
   aln_decipher_LSU =
     allseqs %>%
@@ -873,7 +873,7 @@ plan <- drake_plan(
     Biostrings::RNAStringSet() %>%
     DECIPHER::AlignSeqs(iterations = 10,
                         refinements = 10,
-                        processors = ignore(raxml_cpus)),
+                        processors = ignore(dada_cpus)),
 
   aln_decipher_LSU_trim = trim_LSU_intron(aln_decipher_LSU),
 
