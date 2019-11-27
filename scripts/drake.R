@@ -929,7 +929,9 @@ plan <- drake_plan(
     allseqs %>%
     dplyr::select(hash, full) %>%
     dplyr::filter(complete.cases(.)) %>%
-    dplyr::filter(!duplicated(full)) %$%
+    dplyr::arrange(dplyr::desc(nchar(full))) %>%
+    dplyr::filter(!duplicated(full)) %>%
+    dplyr::filter(!duplicated(hash)) %$%
     set_names(full, hash) %>%
     chartr("T", "U", .) %>%
     Biostrings::RNAStringSet() %>%
