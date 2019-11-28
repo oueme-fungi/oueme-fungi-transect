@@ -2,6 +2,7 @@ hash,type,name
 c5f3c99a61379f14,import,accno_c12n_table
 cdd7357e49ca30f5,target,allseqs
 73d9fe53838be79f,target,aln_32S_conserv
+3bb0ef3095fbe061,target,aln_decipher_full
 859e8e68186821ef,target,aln_decipher_long
 2d08b7e0c46cec26,target,aln_decipher_LSU
 3db8760c9e0fdbcf,target,aln_decipher_LSU_trim
@@ -12547,6 +12548,7 @@ b105e8acc8917d80,import,dplyr::bind_rows
 14aa291172acde95,import,dplyr::coalesce
 2e6e8d9083aedff5,import,dplyr::case_when
 ad27dc26f0ff4d3b,import,dplyr::do
+ea44ed324d2df9b1,import,dplyr::desc
 e36a7d7902158c56,import,dplyr::everything
 45bb99dd7c555194,import,dplyr::filter
 257dac3dce9797cb,import,dplyr::first
