@@ -132,7 +132,7 @@ setup_log("drakeplan")
 
 # load the dataset and region definitions
 flog.info("Loading datasets file.")
-datasets <- read_csv(dataset_file, col_types = "cccicccccic")
+datasets <- read_csv(dataset_file, col_types = "cccicccccicc")
 flog.info("Loading regions file.\n")
 regions <- read_csv(regions_file, col_types = "cccciiiiic") %>%
   mutate_at("range", replace_na, "") %>%
@@ -204,19 +204,19 @@ dada_meta <- predada_meta %>%
          max_length_post) %>%
   unique() %>%
   arrange(seq_run, region) %>%
+  left_join(datasets %>% select(-regions), by = "seq_run") %>%
   mutate(derep2 = glue("derep2_{seq_run}_{region}"),
          derep_groups = glue("derep_groups_{seq_run}"),
-         error_model = glue("err_{seq_run}_5_8S"),
+         error_model = glue("err_{seq_run}_{err_region}"),
          preconseq = glue("preconseq_{primer_ID}"),
          position_map = glue("position_map_{seq_run}")) %>%
-  left_join(datasets %>% select(-regions), by = "seq_run") %>%
   mutate_at(
     c("derep2", "derep_groups", "error_model", "preconseq", "position_map"),
     syms
     )
 
 err_meta <- dada_meta %>%
-  filter(region == "5_8S") %>%
+  filter(region == err_region) %>%
   select(seq_run, region, derep2, tech, hgp, band_size, pool)
 
 conseq_meta <- dada_meta %>%
@@ -852,21 +852,36 @@ plan <- drake_plan(
 
   aln_decipher_long =
     allseqs %>%
-    dplyr::select(hash, long, ITS1) %>%
-    dplyr::filter(complete.cases(.), startsWith(long, ITS1)) %>%
-    unique() %$%
+    dplyr::select(hash, long, ITS1, ITS2) %>%
+    dplyr::filter(
+      complete.cases(.),
+      startsWith(long, ITS1),
+      stringi::stri_detect_fixed(long, ITS2)
+    ) %>%
+    unique() %>%
+    dplyr::arrange(hash) %>%
+    dplyr::filter(!duplicated(long)) %$%
     set_names(long, hash) %>%
     chartr("T", "U", .) %>%
     Biostrings::RNAStringSet() %>%
     DECIPHER::AlignSeqs(iterations = 10,
                         refinements = 10,
                         processors = ignore(ncpus)),
+  
+  aln_decipher_long_trim = trim_LSU_intron(aln_decipher_long),
 
   aln_decipher_LSU =
     allseqs %>%
-    dplyr::select(hash, long, LSU, ITS1) %>%
-    dplyr::filter(complete.cases(.), startsWith(long, ITS1)) %>%
+    dplyr::select(hash, long, LSU, ITS1, ITS2) %>%
+    dplyr::filter(
+      complete.cases(.),
+      startsWith(long, ITS1),
+      endsWith(long, LSU),
+      stringi::stri_detect_fixed(long, ITS2)
+    ) %>%
     unique() %>%
+    dplyr::arrange(hash) %>%
+    dplyr::filter(!duplicated(long)) %>%
     dplyr::filter(!duplicated(LSU)) %$%
     set_names(LSU, hash) %>%
     chartr("T", "U", .) %>%
@@ -906,7 +921,7 @@ plan <- drake_plan(
       dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
     wd <- setwd(!!raxml_decipher_out_dir)
     result <-
-      aln_decipher_long %>%
+      aln_decipher_long_trim %>%
       Biostrings::DNAStringSet() %>%
       ape::as.DNAbin() %>%
       as.matrix() %>%
@@ -918,6 +933,7 @@ plan <- drake_plan(
         p = 12345,
         x = 827,
         k = TRUE,
+        backbone = raxml_decipher_LSU$bestTree,
         file = "decipher_long",
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
         threads = ignore(ncpus))
