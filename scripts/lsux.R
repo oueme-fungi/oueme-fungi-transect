@@ -410,11 +410,18 @@ trim_LSU_intron <- function(aln) {
   IRanges::narrow(aln, start = 1, end = site)
 }
 
-region_concat <- function(table, out_col, regions) {
+region_concat <- function(table, out_col, regions, key_col = NULL) {
   if (!out_col %in% names(table)) return(table)
   table[[out_col]] <- dplyr::coalesce(
     do.call(stringr::str_c, table[,regions]),
     table[[out_col]]
     )
+  if (!is.null(key_col)) {
+    table[[out_col]] <- ifelse(
+      stringi::stri_detect_fixed(table[[out_col]], table[[key_col]]),
+      table[[out_col]],
+      NA_character_
+    )
+  }
   table
 }

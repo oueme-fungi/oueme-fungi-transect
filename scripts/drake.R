@@ -525,12 +525,13 @@ plan <- drake_plan(
       dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
       dplyr::group_by_at(regions) %>%
       dplyr::summarize(nread = dplyr::n()) %>%
+      dplyr::ungroup() %>%
       dplyr::mutate(primer_ID = symbols_to_values(primer_ID)) %>%
       region_concat("LSU", c("LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")) %>%
-      region_concat("ITS", c("ITS1", "5_8S", "ITS2")) %>%
-      region_concat("long", c("ITS", "LSU")) %>%
-      region_concat("short", c("5_8S", "ITS2", "LSU1")) %>%
-      region_concat("32S", c("5_8S", "ITS2", "LSU")) %>%
+      region_concat("ITS", c("ITS1", "5_8S", "ITS2"), "ITS2") %>%
+      region_concat("long", c("ITS", "LSU"), "ITS2") %>%
+      region_concat("short", c("5_8S", "ITS2", "LSU1"), "ITS2") %>%
+      region_concat("32S", c("5_8S", "ITS2", "LSU"), "ITS2") %>%
       dplyr::group_by(ITS2)
     },
     transform = combine(
@@ -556,12 +557,15 @@ plan <- drake_plan(
         .data[[region]]
       }  ) %>%
       dplyr::filter(sum(nread[!is.na(.data[[region]])]) >= 3) %>%
+      dplyr::group_by_at(c("ITS2", !!region)) %>%
+      dplyr::summarize(nread = sum(nread)) %>%
+      dplyr::group_by(ITS2) %>%
       dplyr::summarize(
         !! region := as.character(
           tzara::cluster_consensus(
             seq = .data[[region]],
             nread = nread,
-            names = tzara::seqhash(ITS2),
+            names = tzara::seqhash(.data[[region]]),
             ncpus = ignore(ncpus))
           ),
         nread = sum(nread)
