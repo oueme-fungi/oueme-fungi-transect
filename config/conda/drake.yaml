@@ -46,5 +46,6 @@ dependencies:
   - locarna=2.0.0
   - raxml=8.2.12
   - epa-ng=0.3.6
+  - gappa=0.5.1
   - snakemake-minimal=5.5.4
   - pandas=0.25.1
