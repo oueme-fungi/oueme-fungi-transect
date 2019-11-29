@@ -882,7 +882,7 @@ plan <- drake_plan(
       complete.cases(.),
       startsWith(long, ITS1),
       endsWith(long, LSU),
-      stringi::stri_detect_fixed(long, ITS2)
+      stringi::stri_detect_fixed(long, chartr("T", "U", ITS2))
     ) %>%
     unique() %>%
     dplyr::arrange(hash) %>%
