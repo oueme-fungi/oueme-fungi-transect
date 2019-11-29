@@ -413,8 +413,8 @@ trim_LSU_intron <- function(aln) {
 region_concat <- function(table, out_col, regions) {
   if (!out_col %in% names(table)) return(table)
   table[[out_col]] <- dplyr::coalesce(
-    table[[out_col]],
-    do.call(stringr::str_c, table[,regions])
+    do.call(stringr::str_c, table[,regions]),
+    table[[out_col]]
     )
   table
 }
