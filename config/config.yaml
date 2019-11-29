@@ -50,6 +50,7 @@ cm_32S:   'reference/fungi_32S_LR5.cm'
 
 platemap_sheet: 'Concentration samples'
 bigsplit: 80
+smallsplit: 12
 ropt: '--no-save --no-environ --no-restore'
 
 unite_url: 'https://files.plutof.ut.ee/doi/C2/20/C22034350E32D6AD7E5D1AF3F8BC487E34DA0BE25602B0E748906005CE6ADA97.zip'

@@ -1,16 +1,4 @@
 library(futile.logger)
-
-if (interactive()) {
-  flog.info("Creating drake plan in interactive session...")
-  config <- yaml::read_yaml("config/config.yaml")
-} else if (exists("snakemake")) {
-  flog.info("Creating drake plan in snakemake session...")
-  snakemake@source(".Rprofile", echo = FALSE)
-  config <- snakemake@config
-} else {
-  stop("Can't find Snakemake object in non-interactive session!")
-}
-
 library(magrittr)
 library(tidyverse)
 library(rlang)
@@ -18,6 +6,18 @@ library(glue)
 library(drake)
 library(assertr)
 library(disk.frame)
+
+if (interactive()) {
+  flog.info("Creating drake plan in interactive session...")
+  config <- yaml::read_yaml("config/config.yaml")
+  config$bigsplit <- config$smallsplit
+} else if (exists("snakemake")) {
+  flog.info("Creating drake plan in snakemake session...")
+  snakemake@source(".Rprofile", echo = FALSE)
+  config <- snakemake@config
+} else {
+  stop("Can't find Snakemake object in non-interactive session!")
+}
 
 
 #### read scripts and configs ####
@@ -183,7 +183,7 @@ ref_meta <- select(taxonomy_meta, "reference", "refregion", "method", "reference
 flog.info("Assembling plan...")
 tictoc::tic()
 plan <- drake_plan(
-  shard = 1L:config$bigsplit,
+  shard = 1L:!!config$bigsplit,
   file_meta = target(
     dplyr::filter(itsx_meta, .data[["primer_ID"]] == primer_ID) %>%
       dplyr::sample_n(nrow(.)),
@@ -229,7 +229,7 @@ plan <- drake_plan(
   ),
   
   lsux = target(
-    drake_slice(join_derep$fasta, index = shard, slices = config$bigsplit) %>%
+    drake_slice(join_derep$fasta, index = shard, slices = !!config$bigsplit) %>%
     LSUx(
       cm_5.8S = file_in(!!config$cm_5_8S),
       cm_32S = file_in(!!config$cm_32S),
@@ -569,7 +569,7 @@ plan <- drake_plan(
   # platemap ----
   # Read the map between plate locations and samples
   platemap = target(
-    read_platemap(file_in(!!config$platemap), config$platemap_sheet),
+    read_platemap(file_in(!!config$platemap), !!config$platemap_sheet),
     format = "fst"),
 
   # long_consensus----
@@ -1087,6 +1087,7 @@ if (interactive()) {
   vis_drake_graph(dconfig,
                   # group = "step", clusters = plansteps,
                   targets_only = TRUE)
+  make(plan, target = "raxml_decipher_long", max_expand = config$smallsplit)
 }
 
 remove(snakemake)
