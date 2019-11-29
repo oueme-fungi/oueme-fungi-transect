@@ -14,42 +14,6 @@ HTTP = HTTPRemoteProvider()
 
 configfile: "config/config.yaml"
 
-# single part directory names are given in config.yaml
-# this puts together the ones which are composed of previous values
-config['moviedir']   = "{seqdir}/rawmovie".format_map(config)
-config['ccsdir']     = "{seqdir}/ccs".format_map(config)
-config['fastqdir']   = "{seqdir}/rawfastq".format_map(config)
-config['demuxdir']   = "{seqdir}/demux".format_map(config)
-config['trimdir']    = "{seqdir}/trim".format_map(config)
-config['regiondir']  = "{seqdir}/regions".format_map(config)
-config['filterdir']  = "{seqdir}/filter".format_map(config)
-config['clusterdir'] = "{datadir}/clusters".format_map(config)
-config['locarnadir'] = "{datadir}/mlocarna".format_map(config)
-config['pastadir']   = "{datadir}/pasta".format_map(config)
-config['plandir']    = "{datadir}/plan".format_map(config)
-config['tagdir']     = "{labdir}/tags".format_map(config)
-
-config['dataset']    = '{labdir}/datasets.csv'.format_map(config)
-config['regions']    = '{labdir}/regions.csv'.format_map(config)
-config['methods']    = '{labdir}/taxonomy_methods.csv'.format_map(config)
-config['platemap']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
-config['gits7_tags'] = '{labdir}/Hectors_tag_primer_plates.xlsx'.format_map(config)
-config['lr5_tags']   = '{labdir}/Brendan_soil2.xlsx'.format_map(config)
-
-config['cm_5_8S'] = '{ref_root}/RF00002.cm'.format_map(config)
-config['cm_32S']  = '{ref_root}/fungi_32S_LR5.cm'.format_map(config)
-
-config['cmaln_long']   = "{locarnadir}/long_cmalign.aln".format_map(config),
-config['guide_tree']   = "{locarnadir}/32S_guide.tree".format_map(config),
-config['mlocarna_pp_dir'] = "{locarnadir}/consensus_pp".format_map(config)
-config['mlocarna_dir'] = "{locarnadir}/consensus".format_map(config)
-config['makelocarna']  = "{rdir}/snakemakelocarna.sh".format_map(config)
-config['makelocarna_profile'] = "{configdir}/snakemakelocarnaUPPMAX".format_map(config)
-config['makelocarna_conda'] = "{condadir}/snakemakelocarna.yaml".format_map(config)
-config['mlocarna_aln'] = "{mlocarna_dir}/results/result.stk".format_map(config)
-config['raxml_locarna_dir']    = "{datadir}/raxml/locarna".format_map(config)
-config['raxml_decipher_dir']    = "{datadir}/raxml/decipher".format_map(config)
-
 # Find the maximum number of cores available to a single node on SLURM,
 # or if we aren't in a SLURM environment, how many we have on the local machine.
 try:
@@ -541,7 +505,7 @@ rule translate_references:
 localrules: hash_demux
 rule hash_demux:
   output:
-    "{plandir}/demux_hash.dat".format_map(config)
+    config['demux_file']
   input:
     demux_find('pb_500_001'),
     demux_find('pb_500_002'),

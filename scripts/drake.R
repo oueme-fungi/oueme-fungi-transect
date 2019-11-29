@@ -1,106 +1,12 @@
 library(futile.logger)
 
-# define or input file names and parameters
 if (interactive()) {
   flog.info("Creating drake plan in interactive session...")
-  library(here)
-  base_dir <- here()
-  if (base_dir == getwd()) {
-    base_dir = "."
-    r_dir <- "scripts"
-    data_dir <- "data"
-    lab_dir <- "config"
-    seq_dir <- "sequences"
-  } else {
-    r_dir <- here("scripts")
-    data_dir <- here("data")
-    lab_dir <- here("config")
-    seq_dir <- here("sequences")
-  }
-  trim_dir <- file.path(seq_dir, "trim")
-  region_dir <- file.path(seq_dir, "regions")
-  filter_dir <- file.path(seq_dir, "filter")
-  cluster_dir <- file.path(data_dir, "clusters")
-  pasta_dir <- file.path(data_dir, "pasta")
-  locarna_dir <- file.path(data_dir, "mlocarna")
-  cmaln_file_long <- file.path(locarna_dir, "long_cmalign.aln")
-  guide_tree_file <- file.path(locarna_dir, "32S_guide.tree")
-  mlocarna_pp_dir <- file.path(locarna_dir, "consensus_pp")
-  mlocarna_result_dir <- file.path(locarna_dir, "consensus")
-  makelocarna <- file.path(r_dir, "snakemakelocarna.sh")
-  makelocarna_profile <- file.path(lab_dir, "snakemakelocarnaUPPMAX")
-  makelocarna_conda <- file.path(lab_dir, "conda", "snakemakelocarna.yaml")
-  mlocarna_aln_file <- file.path(mlocarna_result_dir, "results", "result.stk")
-  raxml_locarna_out_dir <- file.path(data_dir, "raxml_locarna")
-  raxml_decipher_out_dir <- file.path(data_dir, "raxml_decipher")
-  plan_dir <- file.path(data_dir, "plan")
-  ref_dir <- here("reference")
-  rmd_dir <- here("writing")
-  out_dir <- here("output")
-  demux_file <- file.path(plan_dir, "demux_hash.dat")
-  dataset_file <- file.path(lab_dir, "datasets.csv")
-  regions_file <- file.path(lab_dir, "regions.csv")
-  methods_file <- file.path(lab_dir, "taxonomy_methods.csv")
-  platemap_file <- file.path(lab_dir, "Brendan_soil2.xlsx")
-  platemap_sheet <- "Concentration samples"
-  rdp_file <- file.path(ref_dir, "rdp.LSU.fasta.gz")
-  unite_file <- file.path(ref_dir, "unite.fasta.gz")
-  unite_patch_file <- file.path(ref_dir, "unite_patch.csv")
-  rdp_patch_file <- file.path(ref_dir, "rdp_patch.csv")
-  cm_5.8S <- file.path(ref_dir, "RF00002.cm")
-  cm_32S <- file.path(ref_dir, "fungi_32S_LR5.cm")
-  drakedata_file <- file.path(plan_dir, "drake.Rdata")
-  #longtree_file <- file.path(pasta_dir, "pasta_raxml.tree")
-  bigsplit <- 80L
+  config <- yaml::read_yaml("config/config.yaml")
 } else if (exists("snakemake")) {
   flog.info("Creating drake plan in snakemake session...")
   snakemake@source(".Rprofile", echo = FALSE)
-  r_dir <- snakemake@config$rdir
-  dataset_file <- snakemake@input$dataset
-  regions_file <- snakemake@input$regions
-  methods_file <- snakemake@input$methods
-  platemap_file <- snakemake@input$platemap
-  platemap_sheet <- snakemake@config$platemap_sheet
-  target <- sub("^.", "", snakemake@output)
-  trim_dir <- snakemake@config$trimdir
-  region_dir <- snakemake@config$regiondir
-  filter_dir <- snakemake@config$filterdir
-  ref_dir <- snakemake@config$ref_root
-  rdp_file <- snakemake@config$rdp_file
-  rdp_patch_file <- snakemake@config$rdp_patch_file
-  unite_file <- snakemake@config$unite_file
-  unite_patch_file <- snakemake@config$unite_patch_file
-  cm_5.8S <- snakemake@config$cm_5_8S
-  cm_32S <- snakemake@config$cm_32S
-  rmd_dir <- snakemake@config$rmddir
-  out_dir <- snakemake@config$outdir
-  cluster_dir <- snakemake@config$clusterdir
-  pasta_dir <- snakemake@config$pastadir
-  locarna_dir <- snakemake@config$locarnadir
-  cmaln_file_long <- snakemake@config$cmaln_long
-  guide_tree_file <- snakemake@config$guide_tree
-  mlocarna_aln_file <- snakemake@config$mlocarna_aln
-  mlocarna_pp_dir <- snakemake@config$mlocarna_pp_dir
-  mlocarna_result_dir <- snakemake@config$mlocarna_dir
-  makelocarna <- snakemake@config$makelocarna
-  makelocarna_profile <- snakemake@config$makelocarna_profile
-  makelocarna_conda <- snakemake@config$makelocarna_conda
-  raxml_locarna_out_dir <- snakemake@config$raxml_locarna_dir
-  raxml_decipher_out_dir <- snakemake@config$raxml_decipher_dir
-  plan_dir <- snakemake@config$plandir
-  drakedata_file <- snakemake@output$drakedata
-  demux_file <- snakemake@input$demux
-  bigsplit <- snakemake@config$bigsplit
-  plan_file <- snakemake@output[["plan"]]
-  itsx_meta_file <- snakemake@output[["itsx_meta"]]
-  predada_meta_file <- snakemake@output[["predada_meta"]]
-  dada_meta_file <- snakemake@output[["dada_meta"]]
-  taxonomy_meta_file <- snakemake@output[["taxonomy_meta"]]
-  pid_file <- snakemake@output[["pids"]]
-  tid_file <- snakemake@output[["tids"]]
-  drakedata_file <- snakemake@output[["drakedata"]]
-  #longtree_file <- snakemake@output[["pasta"]][["tree"]]
-  logfile <- file(snakemake@log[[1]], open = "at")
+  config <- snakemake@config
 } else {
   stop("Can't find Snakemake object in non-interactive session!")
 }
@@ -116,33 +22,34 @@ library(disk.frame)
 
 #### read scripts and configs ####
 # load various pipeline functions
-source(file.path(r_dir, "dada.R"))
-source(file.path(r_dir, "extract_regions.R"))
-source(file.path(r_dir, "inferrnal.R"))
-source(file.path(r_dir, "locarrna.R"))
-source(file.path(r_dir, "lsux.R"))
-source(file.path(r_dir, "mantel.R"))
-source(file.path(r_dir, "parallel_helpers.R"))
-source(file.path(r_dir, "plate_check.R"))
-source(file.path(r_dir, "raxml.R"))
-source(file.path(r_dir, "taxonomy.R"))
-source(file.path(r_dir, "utils.R"))
+source(file.path(config$rdir, "dada.R"))
+source(file.path(config$rdir, "extract_regions.R"))
+source(file.path(config$rdir, "inferrnal.R"))
+source(file.path(config$rdir, "locarrna.R"))
+source(file.path(config$rdir, "lsux.R"))
+source(file.path(config$rdir, "mantel.R"))
+source(file.path(config$rdir, "parallel_helpers.R"))
+source(file.path(config$rdir, "plate_check.R"))
+source(file.path(config$rdir, "raxml.R"))
+source(file.path(config$rdir, "taxonomy.R"))
+source(file.path(config$rdir, "utils.R"))
 
 setup_log("drakeplan")
 
 # load the dataset and region definitions
 flog.info("Loading datasets file.")
-datasets <- read_csv(dataset_file, col_types = "cccicccccicc")
+datasets <- read_csv(config$dataset, col_types = "cccicccccicc")
 flog.info("Loading regions file.\n")
-regions <- read_csv(regions_file, col_types = "cccciiiiic") %>%
+regions <- read_csv(config$regions, col_types = "cccciiiiic") %>%
   mutate_at("range", replace_na, "") %>%
   mutate(min_length_post = coalesce(min_length_post, min_length),
          max_length_post = coalesce(max_length_post, max_length))
 flog.info("Loading taxonomic assignment methods file.")
-methods <- read_csv(methods_file, col_types = "ci")
+methods <- read_csv(config$methods, col_types = "ci")
 
+flog.info("Loading table of demultiplexed files.")
 demux_meta <- read_delim(
-  demux_file,
+  config$demux_file,
   delim = " ",
   col_names = c("md5", "trim_file"),
   col_types = "cc",
@@ -168,12 +75,13 @@ itsx_meta <- datasets %>%
   mutate(well = list(tidyr::crossing(Row = LETTERS[1:8], Col = 1:12) %>%
                        transmute(well = paste0(Row, Col)))) %>%
   unnest(well) %>%
-  mutate(trim_file = glue("{trim_dir}/{seq_run}_{plate}/{seq_run}_{plate}-{well}{direction}.trim.fastq.gz") %>%
+  mutate(trim_file = glue("{config$trimdir}/{seq_run}_{plate}/{seq_run}_{plate}-{well}{direction}.trim.fastq.gz") %>%
            unclass()) %>%
   inner_join(demux_meta, by = "trim_file") %>%
   filter(file.size(trim_file) > 40)
 
 #### positions_meta ####
+flog.info("Making positions_meta.")
 positions_meta <- select(itsx_meta, "seq_run", "primer_ID") %>%
   unique() %>%
   mutate(lsux_pos = glue("lsux_pos_{primer_ID}"),
@@ -216,10 +124,12 @@ dada_meta <- predada_meta %>%
     syms
     )
 
+flog.info("Making err_meta.")
 err_meta <- dada_meta %>%
   filter(region == err_region) %>%
   select(seq_run, region, derep2, tech, hgp, band_size, pool)
 
+flog.info("Making conseq_meta.")
 conseq_meta <- dada_meta %>%
   filter(region %in% c("ITS1", "ITS", "LSU", "32S", "long", "short")) %>%
   select(region, primer_ID, preconseq) %>%
@@ -235,7 +145,7 @@ region_meta <- dada_meta %>%
   select(region) %>%
   unique() %>%
   mutate(big_seq_table = glue("big_seq_table_{region}"),
-         big_fasta_file = glue("{cluster_dir}/{region}.fasta.gz")) %>%
+         big_fasta_file = glue("{config$cluster_dir}/{region}.fasta.gz")) %>%
   mutate_at("big_seq_table", syms) %>%
   unique()
 
@@ -253,7 +163,7 @@ taxonomy_meta <- dada_meta %>%
   filter(!is.na(reference)) %>%
   crossing(methods) %>%
   mutate(methodfile = ifelse(method == "idtaxa", "sintax", method),
-         reference_file = glue("{ref_dir}/{reference}.{refregion}.{methodfile}.fasta.gz"),
+         reference_file = glue("{config$ref_root}/{reference}.{refregion}.{methodfile}.fasta.gz"),
          refdb = glue("refdb_{method}_{reference}_{refregion}"),
          tax_ID = glue("{region}_{reference}_{refregion}_{method}"),
          big_seq_table = glue("big_seq_table_{region}")) %>%
@@ -270,10 +180,10 @@ ref_meta <- select(taxonomy_meta, "reference", "refregion", "method", "reference
   mutate(ref_ID = glue("{reference}_{refregion}"))
 
 #### drake plan ####
-flog.info("\nbuilding plan...")
+flog.info("Assembling plan...")
 tictoc::tic()
 plan <- drake_plan(
-  shard = 1L:bigsplit,
+  shard = 1L:config$bigsplit,
   file_meta = target(
     dplyr::filter(itsx_meta, .data[["primer_ID"]] == primer_ID) %>%
       dplyr::sample_n(nrow(.)),
@@ -319,10 +229,10 @@ plan <- drake_plan(
   ),
   
   lsux = target(
-    drake_slice(join_derep$fasta, index = shard, slices = bigsplit) %>%
+    drake_slice(join_derep$fasta, index = shard, slices = config$bigsplit) %>%
     LSUx(
-      cm_5.8S = file_in(!!cm_5.8S),
-      cm_32S = file_in(!!cm_32S),
+      cm_5.8S = file_in(!!config$cm_5_8S),
+      cm_32S = file_in(!!config$cm_32S),
       glocal = TRUE,
       ITS1 = TRUE,
       cpu = ignore(ncpus)
@@ -659,7 +569,7 @@ plan <- drake_plan(
   # platemap ----
   # Read the map between plate locations and samples
   platemap = target(
-    read_platemap(file_in(!!platemap_file), platemap_sheet),
+    read_platemap(file_in(!!config$platemap), config$platemap_sheet),
     format = "fst"),
 
   # long_consensus----
@@ -702,7 +612,7 @@ plan <- drake_plan(
   # Align conserved positions and annotate conserved secondary structure of the
   # 32S consensus using Infernal.
   cmaln_32S =
-    cmalign(cmfile = file_in(!!cm_32S),
+    cmalign(cmfile = file_in(!!config$cm_32S),
             seq = cons_32S,
             glocal = TRUE,
             cpu = ignore(ncpus)),
@@ -748,7 +658,7 @@ plan <- drake_plan(
         ref = stringr::str_pad(chartr("v", ".", cmaln_32S$RF),
                                max(nchar(.$aln)), "left", "-"),
         seq_names = .$hash,
-        file = file_out(!!cmaln_file_long)
+        file = file_out(!!config$cmaln_long)
       )
     },
 
@@ -775,7 +685,7 @@ plan <- drake_plan(
       processors = ignore(ncpus)
     ) %T>%
     DECIPHER::WriteDendrogram(
-      file = file_out(!!guide_tree_file)
+      file = file_out(!!config$guide_tree)
     ),
 
   # create the pair probability files for mlocarna
@@ -785,12 +695,12 @@ plan <- drake_plan(
   # same directory.
   mlocarna_pp_long = {
     mlocarna_realign(
-      alignment = file_in(!!cmaln_file_long),
-      target_dir = file_out(!!mlocarna_pp_dir),
+      alignment = file_in(!!config$cmaln_long),
+      target_dir = file_out(!!config$mlocarna_pp_dir),
       cpus = ignore(ncpus),
       only_dps = TRUE
     )
-    mirror_dir(!!mlocarna_pp_dir, !!mlocarna_result_dir)
+    mirror_dir(!!config$mlocarna_pp_dir, !!config$mlocarna_dir)
   },
 
   # realign the consensus sequences using mlocarna
@@ -813,26 +723,26 @@ plan <- drake_plan(
   # of drake.
   realign_long = {
     mlocarna_pp_long
-    file_out(!!mlocarna_aln_file)
+    file_out(!!config$mlocarna_aln)
     mlocarna_realign(
-      alignment = file_in(!!cmaln_file_long),
-      guide_tree = file_in(!!guide_tree_file),
-      target_dir = file_out(!!mlocarna_result_dir),
+      alignment = file_in(!!config$cmaln_long),
+      guide_tree = file_in(!!config$guide_tree),
+      target_dir = file_out(!!config$mlocarna_dir),
       stockholm = TRUE,
       consensus_structure = "alifold",
       cpus = 1,
       skip_pp = TRUE,
-      pw_aligner = normalizePath(file_in(!!makelocarna)),
+      pw_aligner = normalizePath(file_in(!!config$makelocarna)),
       pw_aligner_options = paste(
-        "--profile", normalizePath(!!makelocarna_profile),
-        "--conda", normalizePath(!!makelocarna_conda)
+        "--profile", normalizePath(!!config$makelocarna_profile),
+        "--conda", normalizePath(!!config$makelocarna_conda)
       )
     )
   },
 
   # read the mlocarna output
   aln_locarna_long =
-    read_stockholm_msa(file_in(!!mlocarna_aln_file)),
+    read_stockholm_msa(file_in(!!config$mlocarna_aln)),
 
   # make a tree based on the realigned consensus using RAxML
   raxml_locarna_long = {
@@ -847,7 +757,7 @@ plan <- drake_plan(
         x = 827,
         k = TRUE,
         file = "locarna_long",
-        dir = !!raxml_locarna_out_dir,
+        dir = !!config$raxml_locarna_out_dir,
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
         threads = ignore(ncpus)
       )
@@ -898,9 +808,9 @@ plan <- drake_plan(
   aln_decipher_LSU_trim = trim_LSU_intron(aln_decipher_LSU),
 
   raxml_decipher_LSU = {
-    if (!dir.exists(!!raxml_decipher_out_dir))
-      dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
-    wd <- setwd(!!raxml_decipher_out_dir)
+    if (!dir.exists(!!config$raxml_decipher_dir))
+      dir.create(!!config$raxml_decipher_dir, recursive = TRUE)
+    wd <- setwd(!!config$raxml_decipher_dir)
     result <-
       aln_decipher_LSU_trim %>%
       Biostrings::DNAStringSet() %>%
@@ -922,9 +832,9 @@ plan <- drake_plan(
   },
 
   raxml_decipher_long = {
-    if (!dir.exists(!!raxml_decipher_out_dir))
-      dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
-    wd <- setwd(!!raxml_decipher_out_dir)
+    if (!dir.exists(!!config$raxml_decipher_dir))
+      dir.create(!!config$raxml_decipher_dir, recursive = TRUE)
+    wd <- setwd(!!config$raxml_decipher_dir)
     result <-
       aln_decipher_long_trim %>%
       Biostrings::DNAStringSet() %>%
@@ -961,9 +871,9 @@ plan <- drake_plan(
                         processors = ignore(ncpus)),
   
   raxml_decipher_full = {
-    if (!dir.exists(!!raxml_decipher_out_dir))
-      dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
-    wd <- setwd(!!raxml_decipher_out_dir)
+    if (!dir.exists(!!config$raxml_decipher_dir))
+      dir.create(!!config$raxml_decipher_dir, recursive = TRUE)
+    wd <- setwd(!!config$raxml_decipher_dir)
     result <-
       aln_decipher_full %>%
       Biostrings::DNAStringSet() %>%
@@ -1156,11 +1066,11 @@ trace = TRUE)
 #   # qstats_knit----
 #   # knit a report about the quality stats.
 #   qstats_knit = {
-#     if (!dir.exists(!!out_dir)) dir.create(!!out_dir, recursive = TRUE)
+#     if (!dir.exists(!!config$outdir)) dir.create(!!config$outdir, recursive = TRUE)
 #     rmarkdown::render(
-#       knitr_in(!!file.path(rmd_dir, "qual-check.Rmd")),
-#       output_file = file_out(!!file.path(out_dir, "qual-check.pdf")),
-#       output_dir = !!out_dir)},
+#       knitr_in(!!file.path(config$rmddir, "qual-check.Rmd")),
+#       output_file = file_out(!!file.path(config$outdir, "qual-check.pdf")),
+#       output_dir = !!config$outdir)},
 #   # max_expand = if (interactive()) 9 else NULL,
 #   trace = TRUE
 # )
@@ -1182,4 +1092,4 @@ if (interactive()) {
 remove(snakemake)
 
 save(list = ls(),
-     file = drakedata_file)
+     file = config$drakedata)
