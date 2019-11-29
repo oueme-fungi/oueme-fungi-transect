@@ -15,13 +15,12 @@ library(magrittr)
 library(backports)
 library(futile.logger)
 setup_log("pretaxonomy")
-library(clustermq)
 options(clustermq.scheduler = "multicore")
 
 #### pre-taxonomy ####
 # single-threaded targets after dada2, before taxonomy.
 if (length(targets) > 0) {
-  flog.info("Making pre-taxonomy targets with %d jobs of one core each...")
+  flog.info("Making pre-taxonomy targets with %d jobs of one core each...", local_cpus())
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "clustermq",
@@ -31,8 +30,8 @@ if (length(targets) > 0) {
        elapsed = 3600, #1 hour
        keep_going = FALSE,
        cache_log_file = TRUE,
-       targets = targets
-
+       targets = targets,
+       console_log_file = get_logfile("pretaxonomy")
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)

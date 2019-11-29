@@ -26,7 +26,8 @@ if (any(targets %in% od)) {
        elapsed = 3600, #1 hour
        keep_going = FALSE,
        cache_log_file = TRUE,
-       targets = pretaxon_targets
+       targets = pretaxon_targets,
+       console_log_file = get_logfile("taonomy-refs")
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)

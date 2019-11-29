@@ -3,7 +3,7 @@
 #' @param conseqs (list of \code{\link[tibble]{tibble}}) ASVs for one region 
 #'   (in the column named by \code{conseq_key}) and the corresponding consensus
 #'   sequences for a linked region, as well as the number of reads for the ASV 
-#'   (in column \code{nreads}).
+#'   (in column \code{nread}).
 #' @param seq_tables (named list of character matrix, as returned by 
 #'   \code{\link[dada2]{makeSequenceTable}}) ASV matrices for the same (and
 #'   optionally additional) regions as given in \code{conseqs}.  The list names
@@ -30,7 +30,7 @@ make_allseq_table <- function(conseqs, seq_tables,
                               seq_table_prefix = "big_seq_table_") {
   conseqs <- purrr::reduce(conseqs,
                            dplyr::full_join,
-                           by = c(conseq_key, "nreads"))
+                           by = c(conseq_key, "nread"))
   
   names(seq_tables) <- stringr::str_replace(names(seq_tables),
                                             seq_table_prefix,
@@ -39,8 +39,10 @@ make_allseq_table <- function(conseqs, seq_tables,
   # make sure all the names are present in the consensus table, so that the
   # join will work
   for (n in names(seq_tables)) {
-    if (!n %in% names(conseqs)) conseqs[[n]] <- NA_character_
+    if (!n %in% names(conseqs)) seq_tables[[n]] <- NULL
   }
+  
+  seq_tables <- purrr::compact(seq_tables)
   
   seq_tables <- purrr::imap(seq_tables,
                             ~ tibble::tibble(x = colnames(.x)) %>%
@@ -78,4 +80,104 @@ write_big_fasta <- function(big_seq_table, filename) {
     dplyr::arrange(desc(f)) %$%
     Biostrings::DNAStringSet(magrittr::set_names(seq, header)) %T>%
     Biostrings::writeXStringSet(filepath = filename, compress = "gzip")
+}
+
+# Use a temp file to dereplicate ShortReadQ objects using dada
+derepShortReadQ <- function(reads, n = 1e+06, verbose = FALSE, qualityType = "Auto") {
+  UseMethod("derepShortReadQ")
+}
+
+derepShortReadQ.list <- function(reads, n = 1e+06, verbose = FALSE, qualityType = "Auto") {
+  nonnulls <- which(purrr::map_lgl(reads, is.null))
+  assertthat::assert_that(
+    all(purrr::map_lgl(reads[nonnulls], methods::is, "ShortReadQ"))
+  )
+  dir <- tempdir()
+  fnames <- tempfile(as.character(seq_along(reads[nonnulls])), dir, ".fastq.gz")
+  on.exit(unlink(fnames))
+  for (i in seq_along(nonnulls)) {
+    ShortRead::writeFastq(reads[[nonnulls[i]]], fnames[i], compress = TRUE, qualityType = qualityType)
+  }
+  derep <- dada2::derepFastq(fnames, n = n, verbose = verbose, qualityType = qualityType)
+  out <- vector("list", length(reads))
+  out[nonnulls] <- derep
+  out
+}
+
+derepShortReadQ.ShortReadQ <- function(reads, n = 1e+06, verbose = FALSE, qualityType = "Auto") {
+  if (length(reads) == 0) return(NULL)
+  fname <- tempfile("reads", fileext = ".fastq.gz")
+  on.exit(unlink(fname))
+  ShortRead::writeFastq(reads, fname, compress = TRUE, qualityType = qualityType)
+  dada2::derepFastq(fname, n = n, verbose = verbose, qualityType = qualityType)
+}
+
+filterReads <- function(reads, maxLen = Inf, minLen = 0,
+                        maxEE = Inf) {
+  assertthat::assert_that(methods::is(reads, "ShortReadQ"))
+  reads <- reads[ShortRead::width(reads) <= maxLen]
+  reads <- reads[ShortRead::width(reads) >= minLen]
+  ee <- rowSums(10 ^ (-1 * (methods::as(reads@quality, "matrix") / 10)),
+                na.rm = TRUE)
+  reads <- reads[ee <= maxEE]
+  reads
+}
+
+extract_and_derep <- function(positions, trim_file, region_start, region_end,
+                              max_length, min_length, max_ee) {
+  if (nrow(positions) == 0) return(NULL)
+  pos <- dplyr::group_by(positions, trim_file)
+  filter <- 
+    tzara::extract_region(
+      seq = dplyr::group_keys(pos)$trim_file,
+      region = region_start,
+      region2 = region_end,
+      positions = dplyr::group_split(pos)
+    ) %>%
+    filterReads(
+      maxLen = max_length,
+      minLen = min_length,
+      maxEE = max_ee
+    )
+  if (length(filter) == 0) return(NULL)
+  derepShortReadQ(
+    reads = filter,
+    n = 1e4,
+    qualityType = "FastqQuality",
+    verbose = TRUE
+  ) %>%
+    inset2("names", as.character(filter@id))
+}
+
+
+# call dada, but be tolerant of NULL inputs
+robust_dada <- function(derep, ...) {
+  UseMethod("robust_dada")
+}
+
+robust_dada.derep <- function(derep, ...) {
+  dada2::data(derep, ...)
+}
+
+robust_dada.list <- function(derep, ...) {
+  nonnulls <- which(!vapply(derep, is.null, TRUE))
+  assertthat::assert_that(
+    all(vapply(derep[nonnulls], methods::is, TRUE, "derep"))
+  )
+  dada <- dada2::dada(derep[nonnulls], ...)
+  if (methods::is(dada, "dada")) {
+    dada <- list(dada)
+  }
+  out <- vector("list", length(derep))
+  out[nonnulls] <- dada
+  names(out) <- names(derep)
+  out
+}
+
+robust_dada.character <- function(derep, ...) {
+  existing <- which(!vapply(derep, file.exists), TRUE)
+  dada <- dada2::dada(derep[existing], ...)
+  out <- vector("list", length(derep))
+  out[existing] <- dada
+  out
 }

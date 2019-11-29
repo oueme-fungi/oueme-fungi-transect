@@ -24,7 +24,8 @@ if (length(od)) {
        elapsed = 600, # 10 minutes
        keep_going = FALSE,
        caching = "worker",
-       cache_log_file = TRUE
+       cache_log_file = TRUE,
+       console_log_file = get_logfile("finish")
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)

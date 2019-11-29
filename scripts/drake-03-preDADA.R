@@ -10,11 +10,12 @@ library(backports)
 library(futile.logger)
 setup_log("predada")
 options(clustermq.scheduler = "multicore")
+library(disk.frame)
 
 #### pre-DADA2 ####
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
-dada_cpus <- local_cpus()
+ncpus <- local_cpus()
 predada_targets <- c(
   purrr::keep(od, startsWith, "derep2_")
 )
@@ -29,7 +30,10 @@ if (length(predada_targets)) {
        elapsed = 3600, #1 hour
        keep_going = FALSE,
        cache_log_file = TRUE,
-       targets = predada_targets
+       targets = predada_targets,
+       caching = "worker",
+       memory_strategy = "preclean",
+       console_log_file = get_logfile("predada")
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)

@@ -1134,3 +1134,134 @@ seq <- Biostrings::DNAStringSet(
   )
 )
 LSUx(seq, cm_5.8S = "reference/RF00002.cm", cm_32S = "reference/fungi_32S_LR5.cm", cpu = 3)
+loadd(preconseq)
+
+# combine_diskframe test ----
+library(drake)
+library(magrittr)
+clean(dataset, observations, all_data, types, means)
+
+combine_diskframe <- function(..., dir = drake_tempfile()) {
+  dir.create(dir)
+  shards <- rlang::ensyms(...)
+  cache <- drake_cache()
+  for (i in seq_along(shards)) {
+    shardfile <- cache$file_return_key(rlang::expr_text(shards[[i]]))
+    file.link(shardfile, file.path(dir, paste0(i, ".fst")))
+  }
+  disk.frame::disk.frame(dir)
+}
+
+create_tabular_data <- function(x, n) {
+  data.frame(
+    type = sample(letters[1:3], n, replace = TRUE),
+    size = runif(n),
+    stringsAsFactors = FALSE
+  )
+}
+
+dataset = 1:3
+plan <- drake_plan(
+  observations = target(
+    create_tabular_data(dataset, 5),
+    transform = map(dataset = !!dataset),
+    format = "fst"
+  ),
+
+  all_data = target(
+    combine_diskframe(observations),
+    transform = combine(observations),
+    format = "diskframe"
+  ),
+
+  result = target(
+    all_data %>%
+      as.data.frame() %>%
+      dplyr::group_by(type) %>%
+      dplyr::summarize(mean = mean(size))
+  )
+)
+
+make(plan)
+readd(observations_1L)
+readd(observations_2L)
+readd(observations_3L)
+readd(all_data)
+readd(result)
+
+# combine_dynamic_diskframe test ----
+library(drake)
+library(magrittr)
+library(disk.frame)
+
+combine_dynamic_diskframe <- function(dd, dir = drake_tempfile()) {
+  dir.create(dir)
+  cache <- drake_cache()
+  for (i in seq_along(dd)) {
+    shardfile <- file.path(cache$path_return, dd[i])
+    stopifnot(file.exists(shardfile))
+    file.link(shardfile, file.path(dir, paste0(i, ".fst")))
+  }
+  disk.frame::disk.frame(dir)
+}
+
+create_tabular_data <- function(x, n) {
+  data.frame(
+    type = sample(letters[1:3], n, replace = TRUE),
+    size = runif(n),
+    stringsAsFactors = FALSE
+  )
+}
+
+plan <- drake_plan(
+  dataset = 1:3,
+  observations = target(
+    create_tabular_data(dataset, 5),
+    dynamic = map(dataset),
+    format = "fst"
+  ),
+  
+  all_data = target(
+    combine_dynamic_diskframe(observations),
+    format = "diskframe"
+  ),
+  
+  result = target(
+    all_data %>%
+      as.data.frame() %>%
+      dplyr::group_by(type) %>%
+      dplyr::summarize(mean = mean(size))
+  )
+)
+
+make(plan)
+readd(all_data)
+readd(result)
+
+# just a diskframe test ----
+library(drake)
+library(magrittr)
+n <- 200
+observations = data.frame(
+  type = sample(letters[1:3], n, replace = TRUE),
+  size = runif(n),
+  stringsAsFactors = FALSE
+)
+
+plan <- drake_plan(
+  all_data = target(
+    observations,
+    format = "diskframe"
+  ),
+  result = target(
+    all_data %>%
+      disk.frame::chunk_group_by(type) %>%
+      disk.frame::chunk_summarize(mean = mean(size)) %>%
+      as.data.frame()
+  )
+)
+
+make(plan)
+readd(result)
+
+sess

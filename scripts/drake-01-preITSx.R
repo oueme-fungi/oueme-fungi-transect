@@ -9,25 +9,33 @@ library(magrittr)
 library(backports)
 library(futile.logger)
 setup_log("preITSx")
+options(clustermq.scheduler = "multicore")
+
+ncpus <- 1
+njobs <- max(local_cpus() %/% ncpus, 1)
+ncpus <- max(local_cpus() %/% njobs, 1)
 
 #### Pre-ITSx targets ####
-# These are computationally easy, but some take a lot of memory, and would be
-# inefficient to send to SLURM workers.  It's better to just do them locally.
-preitsx_targets <- c(stringr::str_subset(od, "^split_fasta_"),
-                     stringr::str_subset(od, "^join_derep_map"))
+# These are computationally easy, but some take a lot of memory.
+# run them locally with 2 cores (worth of memory) each
+preitsx_targets <- c(stringr::str_subset(od, "^split_derep_"),
+                     stringr::str_subset(od, "^derep_submap_"))
 if (length(preitsx_targets)) {
   flog.info("\nMaking targets to prepare for ITSx...")
   tictoc::tic()
   dconfig <- drake::drake_config(
     plan,
-    parallelism = "loop",
+    parallelism = "clustermq",
     jobs_preprocess = local_cpus(),
+    jobs = njobs,
     retries = 2,
     elapsed = 3600, # 1 hour
     keep_going = FALSE,
     caching = "worker",
     cache_log_file = TRUE,
-    targets = preitsx_targets
+    targets = preitsx_targets,
+    memory_strategy = "preclean",
+    console_log_file = get_logfile("preITSx")
   )
   
   dod <- drake::outdated(dconfig)

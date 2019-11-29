@@ -6,7 +6,7 @@ if (exists("snakemake")) {
 }
 
 targets <- c(
-  purrr::keep(plan$target, startsWith, "raxml_")
+  purrr::keep(plan$target, startsWith, "raxml_decipher_")
 )
 targets <- subset_outdated(targets, dconfig)
 
@@ -21,10 +21,10 @@ setup_log("raxml")
 # so these need to be sent to nodes with multiple cores (and incidentally a lot
 # of memory)
 
-raxml_cpus <- local_cpus()
+ncpus <- local_cpus()
 if (length(targets)) {
   flog.info(
-    "Building %d RAxML targets with %d cores...", length(targets), raxml_cpus
+    "Building %d RAxML targets with %d cores...", length(targets), ncpus
   )
   tictoc::tic()
   drake::make(
@@ -37,7 +37,8 @@ if (length(targets)) {
     keep_going = TRUE,
     caching = "worker",
     cache_log_file = TRUE,
-    targets = targets
+    targets = targets,
+    console_log_file = get_logfile("raxml")
   )
   tictoc::toc()
   #  flog.info("Determining outdated targets...")

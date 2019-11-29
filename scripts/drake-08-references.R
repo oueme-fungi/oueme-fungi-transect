@@ -5,7 +5,7 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-dada_cpus <- local_cpus()
+ncpus <- local_cpus()
 
 target <- get_target(default = "refdb_unite_ITS")
 target <- sub("taxref", "", target)

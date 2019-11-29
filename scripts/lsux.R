@@ -115,12 +115,23 @@ read_stockholm_msa <- function(stockholm) {
 }
 
 map_position <- function(alignment, x) {
-  if (length(x) == 1 && is.na(x)) return(rep(NA_integer_, nrow(alignment)))
-  assertthat::assert_that(assertthat::is.count(x),
-                          x >= 1,
-                          methods::is(alignment, "MultipleAlignment"),
-                          x <= ncol(alignment))
-  if (x == 1L) return(rep(1L, nrow(alignment)))
+  UseMethod("map_position")
+}
+
+map_position.MultipleAlignment <- function(alignment, x) {
+  map_position.character(as.character(alignment), x)
+}
+
+map_position.character <- function(alignment, x) {
+  if (length(x) == 1 && is.na(x)) return(rep(NA_integer_, length(alignment)))
+  widths <- unique(nchar(alignment))
+  assertthat::assert_that(
+    assertthat::is.count(x),
+    x >= 1,
+    length(widths) == 1,
+    x <= widths
+  )
+  if (x == 1L) return(rep(1L, length(alignment)))
   
   trimaln <- substr(alignment, 1L, x)
   gapcounts <- stringr::str_count(trimaln, "[.-]")
@@ -142,9 +153,9 @@ extract_rf_region <- function(rf, n, names) {
   out
 }
 
-
 gap_free_width <- function(x, gapchars = ".-") {
   if (methods::is(x, "MultipleAlignment")) x <- x@unmasked
+  if (is.character(x)) x <- Biostrings::BStringSet(x)
   assertthat::assert_that(methods::is(x, "XStringSet"))
   Biostrings::width(x) - c(Biostrings::letterFrequency(x, gapchars))
 }
@@ -157,12 +168,30 @@ gap_free_width <- function(x, gapchars = ".-") {
 #   rf <- aln$RF
 #   aln <- aln$alignment
 
-extract_LSU <- function(aln, rf, include_incomplete = FALSE) {
+extract_LSU <- function(aln, rf, include_incomplete = FALSE, ...) {
+  UseMethod("extract_LSU")
+}
+
+extract_LSU.MultipleAlignment <- function(aln, rf, include_incomplete = FALSE, ...) {
+  
+  extract_LSU.character(
+    aln = as.character(aln@unmasked),
+    rf = rf,
+    include_incomplete = include_incomplete,
+    seq_name = names(aln@unmasked),
+    ...
+  )
+}
+
+extract_LSU.character = function(aln, rf, include_incomplete = FALSE,
+                                 seq_name = names(aln),
+                                 length = gap_free_width(aln),
+                                 ...) {
   limits <- extract_rf_region(rf, c(1:9, LETTERS[1:10]),
                               c("5_8S", paste0("LSU", 1:18)))
   
-  outhead <- tibble::tibble(seq_name = names(aln@unmasked),
-                            length = gap_free_width(aln@unmasked))
+  outhead <- tibble::tibble(seq_name = seq_name,
+                            length = length)
   
   out <- tibble::tibble(.rows = nrow(outhead))
   
@@ -381,11 +410,18 @@ trim_LSU_intron <- function(aln) {
   IRanges::narrow(aln, start = 1, end = site)
 }
 
-region_concat <- function(table, out_col, regions) {
+region_concat <- function(table, out_col, regions, key_col = NULL) {
   if (!out_col %in% names(table)) return(table)
   table[[out_col]] <- dplyr::coalesce(
-    table[[out_col]],
-    do.call(stringr::str_c, table[,regions])
+    do.call(stringr::str_c, table[,regions]),
+    table[[out_col]]
     )
+  if (!is.null(key_col)) {
+    table[[out_col]] <- ifelse(
+      stringi::stri_detect_fixed(table[[out_col]], table[[key_col]]),
+      table[[out_col]],
+      NA_character_
+    )
+  }
   table
 }

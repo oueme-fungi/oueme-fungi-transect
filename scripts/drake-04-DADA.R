@@ -5,12 +5,11 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-targets <- purrr::keep(od, startsWith, "nochim")
+targets <- purrr::keep(od, startsWith, "chimeras_")
 targets <- subset_outdated(targets, dconfig)
 library(magrittr)
 library(backports)
 library(futile.logger)
-library(clustermq)
 options(clustermq.scheduler = "multicore")
 setup_log("dada")
 
@@ -18,10 +17,10 @@ setup_log("dada")
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
 jobs <- min(max(local_cpus() %/% 8, 1), length(targets))
-dada_cpus <- max(local_cpus() %/% jobs, 1)
+ncpus <- max(local_cpus() %/% jobs, 1)
 
 if (length(targets) > 0) {
-  flog.info("Making %d dada targets with %d jobs of %d cores...", length(targets), jobs, dada_cpus)
+  flog.info("Making %d dada targets with %d jobs of %d cores...", length(targets), jobs, ncpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "clustermq",
@@ -32,7 +31,8 @@ if (length(targets) > 0) {
        keep_going = FALSE,
        caching = "worker",
        cache_log_file = TRUE,
-       targets = targets
+       targets = targets,
+       console_log_file = get_logfile("dada")
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)

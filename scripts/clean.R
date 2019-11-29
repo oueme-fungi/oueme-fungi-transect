@@ -9,6 +9,9 @@ cached <- cached[!startsWith(cached, "p-")]
 cached <- cached[!startsWith(cached, "n-")]
 flog.info("%d cached targets", length(cached))
 cached <- setdiff(cached, plan$target)
+for (t in plan$target[vapply(plan$dynamic, is.language, TRUE)]) {
+  cached <- setdiff(cached, grepl(paste0(t, "_[0-9a-f]{8}"), cached))
+} 
 flog.info("Checking current disk space taken by cache...")
 space <- system2("du", args = c("-sh", dc$path), stdout = TRUE)
 flog.info(space)
