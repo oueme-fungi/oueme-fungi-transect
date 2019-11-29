@@ -16,8 +16,8 @@ setup_log("dada")
 #### DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-jobs <- min(max(local_cpus() %/% 8, 1), length(targets))
-ncpus <- max(local_cpus() %/% jobs, 1)
+jobs <- 1
+ncpus <- local_cpus()
 
 if (length(targets) > 0) {
   flog.info("Making %d dada targets with %d jobs of %d cores...", length(targets), jobs, ncpus)
