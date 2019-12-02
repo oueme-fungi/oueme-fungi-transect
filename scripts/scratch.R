@@ -1274,13 +1274,9 @@ short_aln <- Biostrings::readDNAStringSet("data/raxml/decipher/short_aln.fasta")
 
 newtree <- gappa_graft(epa_ng_result)
 
-allDesc <- phangorn::allDescendants(newtree)
-endtips <- allDesc %>%
-  purrr::map_lgl(~all(. <= ape::Ntip(newtree)) &
-                   length(.) > 1) %>%
-  which()
-grafts <- purrr::keep(endtips, ~all(newtree$tip.label[allDesc[[.]]] %in% names(short_aln)))
-polygraft <- newtree
-polygraft$edge.length[grafts] <- 0
-polygraft <- ape::di2multi(newtree)
-rax3 <- ips::raxml(as.matrix(ape::as.DNAbin(c(aln, short_aln))), m = "GTRGAMMA", f = "d", N = "autoMRE_IGN", p = 12345, x = 12345, backbone = polygraft, file = "full", exec = "raxmlHPC-PTHREADS-SSE3")
+polytree <- grafts_to_polytomies(newtree, tree)
+
+rax3 <- ips::raxml(as.matrix(ape::as.DNAbin(c(aln, short_aln))),
+                   m = "GTRGAMMA", f = "a", N = "autoMRE_IGN",
+                   p = 12345, x = 12345, backbone = polytree, file = "full",
+                   exec = "raxmlHPC-PTHREADS-SSE3")

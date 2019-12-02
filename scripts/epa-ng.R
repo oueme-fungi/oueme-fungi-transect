@@ -1,3 +1,4 @@
+# Run EPA-NG to place aligned short reads onto a tree based on long sequences
 epa_ng <- function(ref_msa, tree, query, outdir = tempdir(), model, threads, exec = "epa-ng", redo = FALSE) {
   
   ref_msa_file <- tempfile("reference", fileext = ".fasta")
@@ -110,6 +111,8 @@ is_jplace <- function(jplace) {
     )
 }
 
+# run "gappa examine graft" to add short reads to a tree based on placement
+# results (e.g. from EPA)
 gappa_graft <- function(jplace, outdir = tempdir(), threads = NULL,
                         allow_file_overwriting = FALSE, verbose = FALSE) {
   if (is.character(jplace) && all(file.exists(jplace))) {
@@ -137,4 +140,19 @@ gappa_graft <- function(jplace, outdir = tempdir(), threads = NULL,
   ape::read.tree(out_file)
 }
 
-
+# Delete the branch leading to sequences placed on a tree using EPA-NG and
+# GAPPA, so that the tree can be used as a guide tree for RAxML to determine
+# relationships between the short reads.
+grafts_to_polytomies <- function(graft_tree, base_tree) {
+  allDesc <- phangorn::allDescendants(graft_tree)
+  endtips <- allDesc %>%
+    purrr::map_lgl(~all(. <= ape::Ntip(graft_tree)) &
+                     length(.) > 1) %>%
+    which()
+  grafts <- purrr::keep(
+    endtips,
+    ~!any(graft_tree$tip.label[allDesc[[.]]] %in% base_tree$tip.label)
+  )
+  graft_tree$edge.length[graft_tree$edge[,2] %in% grafts] <- 0
+  ape::di2multi(graft_tree)
+}
