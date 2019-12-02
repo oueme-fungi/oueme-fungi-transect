@@ -431,6 +431,7 @@ plan <- drake_plan(
     regions <- unique(dada_map[["region"]])
     dada_map %>%
       dplyr::select(seq.id, seq_run, plate, well, region, dada.seq) %>%
+      dplyr::mutate_at("dada.seq", chartr, old = "T", new = "U") %>%
       tidyr::spread(key = "region", value = "dada.seq") %>%
       dplyr::group_by(ITS2) %>%
       dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
