@@ -145,7 +145,7 @@ region_meta <- dada_meta %>%
   select(region) %>%
   unique() %>%
   mutate(big_seq_table = glue("big_seq_table_{region}"),
-         big_fasta_file = glue("{config$cluster_dir}/{region}.fasta.gz")) %>%
+         big_fasta_file = glue("{config$clusterdir}/{region}.fasta.gz")) %>%
   mutate_at("big_seq_table", syms) %>%
   unique()
 

@@ -532,7 +532,7 @@ ENDENDEND
 localrules: drake_plan
 checkpoint drake_plan:
     output:
-        drakedata         = "{plandir}/drake.Rdata".format_map(config)
+        drakedata         = config['drakedata']
     input:
         "{rdir}/dada.R".format_map(config),
         "{rdir}/extract_regions.R".format_map(config),

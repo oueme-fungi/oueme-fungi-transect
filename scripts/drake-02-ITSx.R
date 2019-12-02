@@ -23,7 +23,7 @@ itsx_targets <- subset_outdated(itsx_targets, dconfig)
 # hmmer can use multiple processes per job; it tends to become I/O bound after about 4.
 ncpus <- 4L
 ncpus <- min(ncpus, max_cpus())
-njobs <- bigsplit
+njobs <- config$bigsplit
 
 if (length(itsx_targets)) {
   # send two jobs per target to help with load balancing

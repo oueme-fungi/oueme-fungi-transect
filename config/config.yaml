@@ -24,6 +24,7 @@ raxml_locarna_dir:  'data/raxml/locarna'
 raxml_decipher_dir: 'data/raxml/decipher'
 pastadir:           'data/pasta'
 plandir:            'data/plan'
+drakedata:          'data/plan/drake.Rdata'
 demux_file:         'data/plan/demux_hash.dat'
 
 labdir:     'config'
