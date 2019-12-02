@@ -76,10 +76,11 @@ rule bax2bam:
                moviedir = config['moviedir'],
                movietype = ["subreads", "scraps"]))
     input:
-        lambda wildcards: glob("{rawdir}/**/rawdata/**/Analysis_Results/{wildcards.movie}.*.h5"
+        lambda wildcards: glob("{rawdir}/**/rawdata/**/Analysis_Results/{wildcards.movie}.*.bax.h5"
                                .format(wildcards = wildcards,
                                        rawdir = config['rawdir']),
                                recursive = True)
+    shadow: "shallow"
     conda: "config/conda/pacbio.yaml"
     group: "pacbio"
     params:
@@ -98,12 +99,13 @@ rule ccs:
          "{moviedir}/{{movie}}.subreads.bam".format_map(config)
     resources:
         walltime=120
+    shadow: "shallow"
     conda: "config/conda/pacbio.yaml"
     group: "pacbio"
     threads: 4
     log: "{logdir}/ccs_{{movie}}.log".format_map(config)
     shell:
-         "ccs --polish --numThreads={threads} {input} &>{log}"
+         "ccs --numThreads {threads} {input} {output} &>{log}"
 
 # convert all circular consensus files for a sequencing run to fastq.gz format
 localrules: ccs2fastq
@@ -115,12 +117,14 @@ rule ccs2fastq:
                                   ccsdir = config['ccsdir'],
                                   movie = moviefiles[wildcards.seqplate])
     conda: "config/conda/pacbio.yaml"
+    params:
+        prefix = "{fastqdir}/{{seqplate}}".format_map(config)
     group: "pacbio"
     log: "{logdir}/ccs2fastq_{{seqplate}}.log".format_map(config)
     resources:
         walltime=10
     shell:
-         "bam2fastq -o {output} {input} &>{log}"
+         "bam2fastq -o {params.prefix} {input} &>{log}"
 
 # endpoint target: generate all PacBio fastq files
 rule pacbio_fastq:
