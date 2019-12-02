@@ -67,6 +67,16 @@ if (opts_chunk$get("dev") == "tikz") {
 write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
 ```
 # Introduction
+Send this outline by Thursday Dec 5
+Meet Monday Dec 2 about 
+
+## Introduction to ECM communities
+
+## Turnover scale in ECM forests
+New ecosystem type
+
+## Long reads vs short reads/phylogenetic methods
+Phylogenetic methods
 
 # Methods
 
@@ -107,9 +117,10 @@ PCR was performed as for the short amplicons, but with 500 µM of each of the tw
 Reaction conditions were 10 min at 95°, 30 cycles of 45 s at 95°, 45 s at 59°, and 90 s at 72°, and finally 10 min at 72°.
 Each reaction was performed in three technical replicates as for short amplicons.
 
-
-  - short amplicon : same library sequenced with PacBio RS II and Ion Proton S5
-  - long amplicon : PacBio RS II
+Amplicons were purified using SPRI beads [Vesterinen et al 2016] and quantified fluorometrically using PicoGreen dsDNA (Quant-iT) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan) according to the manufacturer's protocol.
+100 ng of DNA from each sample (or the total PCR product if less than 100 ng) was pooled into two libraries each for long and short amplicons.
+Each library was sequenced using a Pacific Biosciences RS II sequences.
+Short amplicon libraries were sequenced on two SMRT cells each, while long amplicon libraries were sequenced on four SMRT cells each.
   
 ## Bioinformatics
 
@@ -124,21 +135,19 @@ Raw reads were divided into regions/domains by matching to covariance models (CM
 First, the 5.8S rRNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013].
 This approach was able to identify both the 5' and 3' ends of the 5.8S rRNA more consistently and quickly than ITSx [@bengtsson-palme2013; data not shown].
 Each read was then aligned to a CM based on a modification of the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017, @cole2014] using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
-The seed alignment modified by truncation at the LR5 primer site, and the reference line was modified to annotate the 5.8S RNA, ITS2 region, and the divergent "D" domains of the 28S RNA as defined by @raue1988.
-The CM alignment for each read was then split into alternating more-conserved and less-conserved regions according to these annotations:
+The reference line in the CM alignment for each read were then used to split the reads into alternating more-conserved and less-conserved regionss:
 ITS1, 5.8S, ITS2, LSU1, D1, LSU2, D2, LSU3, D3, LSU4,
 where the four "LSU" regions represent the conserved regions of the 28S rRNA flanking the "D" regions.
 For short amplicons, only 5.8S, ITS2, and LSU1 were extracted.
-No attempt was made to remove the short fragment of the SSU from the 5' end of ITS1 in the long amplicons; this is too short to be reliably detected by a CM or the HMMs employed by ITSx.
+No attempt was made to remove the approximately 12 bp fragment of the SSU from the 5' end of ITS1 in the long amplicons; it was too short to be reliably detected by a CM or the HMMs employed by ITSx.
 The process of extracting the regions is automated in the new R package `LSUx`, available on github, CRAN, and bioconda (**but not yet**).
 
 Each of the extracted regions was independently filtered for length (table **X**) and a maximum of three expected errors.
-Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2.
+Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2 version `r packageVersion("dada2")`.
 The error model for DADA2 denoising was fit using only the 5.8S RNA region.
 Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, **different sequencing technologies**).
 Chimeras within each region were removed using `removeBimeraDenovoTable` from DADA2.
 
-The ITS2 region was used to identify full-length amplicon ASVs, due to the fact that it was the only full-length region/domain shared by both long and short amplicons.
 For each ITS2 ASV from the long amplicon data set, the denoised sequences for the other regions corresponding to the same sequencing reads were concatenated to form a set of full-length reads.
 For reads which were not assigned a denoised sequence for every region, the raw read for the region was used instead.
 Because ITS2 is one of the most variable regions in the amplified regions, reads with identical ITS2 regions are expected have extremely similar sequences in the other regions, unless they are chimeric.
@@ -151,8 +160,8 @@ The process of assigning consensus full-length ASVs was carried out using the ne
 ### Taxonomy assignment
 
 New taxonomic annotations of the Ribosomal Data Project's LSU fungal training set (RDP) version 11.5 [@cole2014] and Warcup ITS training set [@wang2007] were created, conforming to the taxonomic classification system used in the Unite database version 8 [@nilsson2019a].
-In particular, the classification for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c.
-Although this system is not formally published, it seems to be in use for non-fungal eukaryotes in the Unite database, and it is a system with only purportedly monophyletic taxa and a uniform set of taxon ranks.
+In particular, the classification for fungi was according to @tedersoo2018, and for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c.
+Although the latter system is not formally published, it seems to be in use for non-fungal eukaryotes in the Unite database, and it is a system with only purportedly monophyletic taxa and a uniform set of taxon ranks.
 These make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as @adl2019.
 FASTA format files of the re-annotated RDP and Warcup training sets are available at (*somewhere*).
 
@@ -176,12 +185,6 @@ Inspection of the tree along with taxonomic assignments revealed that the genus 
 The kingdom Fungi was then identified as the minimal clade containing all remaining ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
 ASVs falling outside this clade were excluded from further analysis.
 
-
-
-      - ecological guild assigned using FUNGuild [@nguyen2016funguild]
-      - alignment as RNA in DECIPHER (iterative progressive alignment with RNS secondary structure prediction) [@wright2015]
-      - tree using RAxML 8.2 [@stamatakis2014]; GTR+GAMMA; rapid bootstrapping with MRE-IGN stopping criterion [@pattengale2010].
-
 <!--
           - preliminary alignment of 32S to RDP covariance model with `cmalign` from Infernal (aligns only conserved regions)
           - concatenate ITS1 to beginning of alignment
@@ -189,6 +192,9 @@ ASVs falling outside this clade were excluded from further analysis.
           - realign nonconserved sites using MLocARNA (progressive simultaneous alignment and folding) from LocARNA 2.0.0RC8 [@will2007; @will2012; @will2013]. -->
           
 ## Statistics
+
+Ecological community dissimilarity matrices were calculated using methods "bray" (both long and short amplicons) and "unifrac" (only long amplicons) in `phyloseq` version `r packageVersion("phyloseq")`.
+Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12 m, 
 
 # Results
 
