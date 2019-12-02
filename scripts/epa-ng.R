@@ -1,4 +1,4 @@
-epa_ng <- function(ref_msa, tree, query, outdir = tempdir(), model, threads, exec = "epa-ng") {
+epa_ng <- function(ref_msa, tree, query, outdir = tempdir(), model, threads, exec = "epa-ng", redo = FALSE) {
   
   ref_msa_file <- tempfile("reference", fileext = ".fasta")
   if (methods::is(ref_msa, "XStringSet")) {
@@ -67,20 +67,27 @@ epa_ng <- function(ref_msa, tree, query, outdir = tempdir(), model, threads, exe
   
   if (!dir.exists(outdir)) {
     dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
+    on.exit(unlink(outdir, recursive = TRUE))
+  }
+  
+  if (length(model) == 1 && file.exists(model)) {
+    model_file <- model
+  } else {
+    model_file <- tempfile("info")
+    on.exit(unlink(model_file))
+    writeLines(model, model_file)
   }
   
   args <- c(
     "--ref-msa", ref_msa_file,
     "--query", query_file,
     "--tree", tree_file,
-    "--outdir", outdir
+    "--outdir", outdir,
+    "--model", model_file
   )
   
-  for (m in model) {
-    args <- c(
-      args,
-      "--model", model
-    )
+  if (isTRUE(redo)) {
+    args <- c(args, "--redo")
   }
   
   if (!missing(threads) && !is.null(threads)) {
@@ -92,4 +99,42 @@ epa_ng <- function(ref_msa, tree, query, outdir = tempdir(), model, threads, exe
   }
   
   system2(exec, args = args)
+  jsonlite::read_json(file.path(outdir, "epa_result.jplace"))
 }
+
+is_jplace <- function(jplace) {
+  is.list(jplace) &&
+    setequal(
+      names(jplace),
+      c("tree", "placements", "metadata", "version", "fields")
+    )
+}
+
+gappa_graft <- function(jplace, outdir = tempdir(), threads = NULL,
+                        allow_file_overwriting = FALSE, verbose = FALSE) {
+  if (is.character(jplace) && all(file.exists(jplace))) {
+    jplace_file <- jplace
+  } else if (is_jplace(jplace)) {
+    jplace_file <- tempfile("result", fileext = ".jplace")
+    jsonlite::write_json(jplace, jplace_file, auto_unbox = TRUE)
+    on.exit(unlink(jplace_file))
+  }
+  
+  out_file <- sub(".jplace", ".newick", jplace_file)
+  
+  args <- c(
+    "examine", "graft",
+    "--jplace-path", jplace_file,
+    "--out-dir", outdir
+  )
+  
+  if (!is.null(threads)) args <- c(args, "--threads", threads)
+  if (isTRUE(allow_file_overwriting)) args <- c(args, "--allow-file-overwriting")
+  if (isTRUE(verbose)) args <- c(args, "--verbose")
+  
+  if (missing(outdir)) on.exit(unlink(out_file))
+  system2("gappa", args)
+  ape::read.tree(out_file)
+}
+
+

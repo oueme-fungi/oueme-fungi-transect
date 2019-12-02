@@ -1264,4 +1264,23 @@ plan <- drake_plan(
 make(plan)
 readd(result)
 
-sess
+tree <- ape::read.tree("data/raxml/decipher/RAxML_bestTree.decipher_long")
+aln <- Biostrings::readDNAStringSet("data/raxml/decipher/long_aln.fasta") %>%
+  magrittr::extract(names(.) %in% tree$tip.label)
+tree <- ape::keep.tip(tree, names(aln)) %T>%
+  ape::write.tree("data/raxml/decipher/test_long.tree")
+Biostrings::writeXStringSet(aln, "data/raxml/decipher/long_aln.fasta")
+short_aln <- Biostrings::readDNAStringSet("data/raxml/decipher/short_aln.fasta")
+
+newtree <- gappa_graft(epa_ng_result)
+
+allDesc <- phangorn::allDescendants(newtree)
+endtips <- allDesc %>%
+  purrr::map_lgl(~all(. <= ape::Ntip(newtree)) &
+                   length(.) > 1) %>%
+  which()
+grafts <- purrr::keep(endtips, ~all(newtree$tip.label[allDesc[[.]]] %in% names(short_aln)))
+polygraft <- newtree
+polygraft$edge.length[grafts] <- 0
+polygraft <- ape::di2multi(newtree)
+rax3 <- ips::raxml(as.matrix(ape::as.DNAbin(c(aln, short_aln))), m = "GTRGAMMA", f = "d", N = "autoMRE_IGN", p = 12345, x = 12345, backbone = polygraft, file = "full", exec = "raxmlHPC-PTHREADS-SSE3")
