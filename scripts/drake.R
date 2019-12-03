@@ -22,6 +22,7 @@ if (interactive()) {
 
 #### read scripts and configs ####
 # load various pipeline functions
+
 source(file.path(config$rdir, "dada.R"))
 source(file.path(config$rdir, "extract_regions.R"))
 source(file.path(config$rdir, "inferrnal.R"))
@@ -33,6 +34,8 @@ source(file.path(config$rdir, "plate_check.R"))
 source(file.path(config$rdir, "raxml.R"))
 source(file.path(config$rdir, "taxonomy.R"))
 source(file.path(config$rdir, "utils.R"))
+source(file.path(config$rdir, "epa-ng.R"))
+source(file.path(config$rdir, "mafft.R"))
 
 setup_log("drakeplan")
 
@@ -574,199 +577,6 @@ plan <- drake_plan(
     read_platemap(file_in(!!config$platemap), !!config$platemap_sheet),
     format = "fst"),
 
-  # long_consensus----
-  # get the long amplicon consensus and convert to RNAStringSet.
-  # Use the sequence hashes as the name, so that names will be robust
-  # make sure that we only use sequences that actually match the long sequence.
-  cons_32S = allseqs %>%
-    dplyr::select("32S", ITS1, long, hash) %>%
-    dplyr::filter(
-      complete.cases(.),
-      endsWith(long, `32S`)
-    ) %>%
-    dplyr::select("32S", hash) %>%
-    unique() %>%
-    assertr::assert(assertr::is_uniq, hash) %$%
-    rlang::set_names(`32S`, hash) %>%
-    chartr(old = "T", new = "U") %>%
-    Biostrings::RNAStringSet(),
-  cons_LSU = allseqs %>%
-    dplyr::select(LSU, long, ITS1, hash) %>%
-    dplyr::filter(
-      complete.cases(.),
-      endsWith(long, LSU)
-    ) %>%
-    dplyr::select(LSU, hash) %>%
-    unique() %$%
-    rlang::set_names(LSU, hash) %>%
-    chartr(old = "T", new = "U") %>%
-    Biostrings::RNAStringSet(),
-  cons_long = allseqs %>%
-    dplyr::select(long, ITS1, hash) %>%
-    dplyr::filter(complete.cases(.)) %>%
-    dplyr::select(long, hash) %>%
-    unique() %$%
-    rlang::set_names(long, hash) %>%
-    chartr(old = "T", new = "U") %>%
-    Biostrings::RNAStringSet(),
-
-  # cmaln_32S
-  # Align conserved positions and annotate conserved secondary structure of the
-  # 32S consensus using Infernal.
-  cmaln_32S =
-    cmalign(cmfile = file_in(!!config$cm_32S),
-            seq = cons_32S,
-            glocal = TRUE,
-            cpu = ignore(ncpus)),
-
-  # cmaln_long
-  # Concatenate ITS1 (padded with gaps) to the beginning of the Infernal 32S
-  # alignment to make a preliminary long amplicon alignment with conserved
-  # 5.8S/LSU secondary structure annotations.
-  cmaln_long =
-    dplyr::inner_join(
-      allseqs %>%
-        dplyr::select(hash, long, ITS1) %>%
-        dplyr::filter(complete.cases(.), startsWith(long, ITS1)) %>%
-        unique(),
-      tibble::tibble(
-        hash = cmaln_32S$names,
-        aln = as.character(cmaln_32S$alignment@unmasked)
-      ),
-      by = "hash"
-    ) %>%
-    dplyr::mutate(
-      ITS1 = chartr("T", "U", ITS1),
-      ITS1 = stringr::str_pad(ITS1, max(nchar(ITS1)), "right", "-"),
-      aln = stringr::str_c(ITS1, aln)
-    ) %>% {
-      write_clustalw_ss(
-        aln = magrittr::set_names(.$aln, .$hash) %>%
-          Biostrings::RNAStringSet(),
-        sec_str = paste0(
-          # The first four bases after the ITS1 primer are paired to other
-          # parts of SSU, so should not be paired in the rest of the amplicon.
-          # Otherwise, we have no structure information for the ITS1 region (it
-          # does not have eukaryote-wide or fungi-wide conserved structure)
-          stringr::str_pad(
-            "xxxx",
-            max(nchar(.$ITS1)),
-            "right",
-            "-"),
-          cmaln_32S$SS_cons
-        ),
-        # Don't take the alignment in the variable regions as
-        # conserved.
-        ref = stringr::str_pad(chartr("v", ".", cmaln_32S$RF),
-                               max(nchar(.$aln)), "left", "-"),
-        seq_names = .$hash,
-        file = file_out(!!config$cmaln_long)
-      )
-    },
-
-  # guidetree_32S ----
-  # Take only the conserved, gap-free positions in the 32S alignment
-  aln_32S_conserv =
-    remove_nonconsensus_nongaps(cmaln_32S),
-
-  # Generate a distance matrix from the conserved 32S alignment.
-  dist_32S_conserv =
-    DECIPHER::DistanceMatrix(
-      aln_32S_conserv,
-      type = "dist",
-      processors = ignore(ncpus)
-    ),
-
-  # Make a UPGMA guide tree for mlocarna based on the aligned positions in
-  # the Infernal alignment for 32S.
-  guidetree_32S =
-    DECIPHER::IdClusters(
-      myDistMatrix = dist_32S_conserv,
-      collapse = -1, #break polytomies
-      type = "dendrogram",
-      processors = ignore(ncpus)
-    ) %T>%
-    DECIPHER::WriteDendrogram(
-      file = file_out(!!config$guide_tree)
-    ),
-
-  # create the pair probability files for mlocarna
-  # this only needs to be redone if the sequences change, and it can be
-  # efficiently done in parallel
-  # It is made in a mirror directory, because mlocarna will write a file to the
-  # same directory.
-  mlocarna_pp_long = {
-    mlocarna_realign(
-      alignment = file_in(!!config$cmaln_long),
-      target_dir = file_out(!!config$mlocarna_pp_dir),
-      cpus = ignore(ncpus),
-      only_dps = TRUE
-    )
-    mirror_dir(!!config$mlocarna_pp_dir, !!config$mlocarna_dir)
-  },
-
-  # realign the consensus sequences using mlocarna
-  # this is a progressive alignment, where each locarna alignment is single
-  # threaded, and the ones closer to the root of the tree take a lot longer.
-  # it is efficient to do this in parallel near the beginning, but only one or
-  # a few cores can be utilized at the end; mlocarna itself does not execute
-  # them in parallel at all.
-  # snakemakelocarna.sh is a wrapper for locarna which writes empty files for
-  # every locarna call (thus spoofing mlocarna into thinking that it is working)
-  # while collecting the dependency structure of the calls.  On the last call, it
-  # submits all the calls as separate single-threaded jobs on SLURM using
-  # Snakemake.
-  # This requires a lot of configuration to work properly on a given cluster
-  # system; see files in makelocarna_profile.
-  # (default "config/snakemakelocarnaUPPMAX")
-  # This will always fail on the first run, because it does not wait for all of
-  # the locarna calls to complete.  Check the cluster queue and make sure
-  # all of the jobs have completed, then this rule should pass on the next run
-  # of drake.
-  realign_long = {
-    mlocarna_pp_long
-    file_out(!!config$mlocarna_aln)
-    mlocarna_realign(
-      alignment = file_in(!!config$cmaln_long),
-      guide_tree = file_in(!!config$guide_tree),
-      target_dir = file_out(!!config$mlocarna_dir),
-      stockholm = TRUE,
-      consensus_structure = "alifold",
-      cpus = 1,
-      skip_pp = TRUE,
-      pw_aligner = normalizePath(file_in(!!config$makelocarna)),
-      pw_aligner_options = paste(
-        "--profile", normalizePath(!!config$makelocarna_profile),
-        "--conda", normalizePath(!!config$makelocarna_conda)
-      )
-    )
-  },
-
-  # read the mlocarna output
-  aln_locarna_long =
-    read_stockholm_msa(file_in(!!config$mlocarna_aln)),
-
-  # make a tree based on the realigned consensus using RAxML
-  raxml_locarna_long = {
-      raxml_RNA(
-        RNAaln = aln_locarna_long$alignment,
-        S = aln_locarna_long$SS_cons,
-        m = "GTRGAMMA",
-        A = "S16",
-        f = "a",
-        N = "autoMRE_IGN",
-        p = 12345,
-        x = 827,
-        k = TRUE,
-        file = "locarna_long",
-        dir = !!config$raxml_locarna_out_dir,
-        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(ncpus)
-      )
-    setwd(wd)
-    result
-  },
-
   aln_decipher_long =
     allseqs %>%
     dplyr::select(hash, long, ITS1, ITS2) %>%
@@ -858,47 +668,77 @@ plan <- drake_plan(
     result
     },
   
-  aln_decipher_full =
+  aln_mafft_full =
     allseqs %>%
     dplyr::select(hash, full) %>%
     dplyr::filter(complete.cases(.)) %>%
     dplyr::arrange(dplyr::desc(nchar(full))) %>%
     dplyr::filter(!duplicated(full)) %>%
-    dplyr::filter(!duplicated(hash)) %$%
+    dplyr::filter(!duplicated(hash)) %>%
+    dplyr::filter(!hash %in% names(aln_decipher_long)) %$%
     set_names(full, hash) %>%
-    chartr("T", "U", .) %>%
-    Biostrings::RNAStringSet() %>%
-    DECIPHER::AlignSeqs(iterations = 10,
-                        refinements = 10,
-                        processors = ignore(ncpus)),
+    chartr("U", "T", .) %>%
+    Biostrings::DNAStringSet() %>%
+    mafft_add(
+      x = aln_decipher_long,
+      y = .,
+      add = "add",
+      method = "10merpair",
+      maxiterate = "1000",
+      thread = ignore(ncpus),
+      quiet = FALSE,
+      exec = Sys.which("mafft")
+    ),
   
-  raxml_decipher_full = {
-    if (!dir.exists(!!config$raxml_decipher_dir))
-      dir.create(!!config$raxml_decipher_dir, recursive = TRUE)
-    wd <- setwd(!!config$raxml_decipher_dir)
+  epa_full = 
+    epa_ng(
+      ref_msa = aln_mafft_full[names(aln_mafft_full) %in% names(aln_decipher_long)],
+      tree = raxml_decipher_long$bestTree,
+      query = aln_mafft_full[!names(aln_mafft_full) %in% names(aln_decipher_long)],
+      model = raxml_decipher_long$info,
+      threads = ignore(ncpus),
+      exec = which("epa-ng")
+    ),
+  
+  graft_full =
+    gappa_graft(
+      jplace = epa_full,
+      threads = ignore(ncpus),
+      verbose = TRUE
+    ),
+  
+  guidetree_full =
+    graft_to_polytomies(graft_full, raxml_decipher_long$bestTree),
+  
+  raxml_epa_full = {
+    if (!dir.exists(!!raxml_decipher_out_dir))
+      dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
+    wd <- setwd(!!raxml_decipher_out_dir)
     result <-
-      aln_decipher_full %>%
-      Biostrings::DNAStringSet() %>%
+      aln_mafft_full %>%
       ape::as.DNAbin() %>%
       as.matrix() %>%
       ips::raxml(
         DNAbin = .,
         m = "GTRGAMMA",
-        f = "a",
-        N = "autoMRE_IGN",
+        f = "d",
         p = 12345,
-        x = 827,
-        k = TRUE,
-        backbone = raxml_decipher_LSU$bestTree,
-        file = "decipher_full",
+        backbone = guidetree_full,
+        file = "epa_long",
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
         threads = ignore(ncpus))
     setwd(wd)
     result
   },
+  
+  labeled_tree_decipher_LSU =
+    relabel_tree(
+      tree = raxml_decipher_LSU$bipartitions,
+      old = taxon_labels$label,
+      new = taxon_labels$tip_label
+    ) %T>%
+    castor::write_tree(file_out("data/trees/decipher_LSU.tree")),
     
-    
-
   labeled_tree_decipher_long =
     relabel_tree(
       tree = raxml_decipher_long$bipartitions,
@@ -906,14 +746,14 @@ plan <- drake_plan(
       new = taxon_labels$tip_label
     ) %T>%
     castor::write_tree(file_out("data/trees/decipher_long.tree")),
-
-  labeled_tree_mlocarna_long =
+  
+  labeled_tree_epa_full =
     relabel_tree(
-      tree = raxml_mlocarna_long$bipartitions,
+      tree = raxml_epa_full$bestTree,
       old = taxon_labels$label,
       new = taxon_labels$tip_label
     ) %T>%
-    castor::write_tree(file_out("data/trees/mlocarna_long.tree")),
+    castor::write_tree(file_out("data/trees/epa_full.tree")),
 
 
   # Tulasnella is on a long branch because of a high divergence rate.
@@ -955,29 +795,29 @@ plan <- drake_plan(
 
   # root the tree within plants.  This isn't accurate, but it should guarantee
   # that it is not rooted within fungi.
-  tree_decipher_long =
-    ape::root(raxml_decipher_long$bipartitions,
+  tree_epa_full =
+    ape::root(raxml_epa_full$bipartitions,
               bestplant),
 
   # Extract the minimally inclusive clade including all confidently identified
   # fungi (except Tulasnella).
-  fungi_tree_decipher_long =
+  fungi_tree_epa_full =
     ape::getMRCA(
-      phy = tree_decipher_long,
-      tip = intersect(surefungi, tree_decipher_long$tip.label)
+      phy = tree_epa_full,
+      tip = intersect(surefungi, tree_epa_full$tip.label)
     ) %>%
-    ape::extract.clade(phy = tree_decipher_long),
+    ape::extract.clade(phy = tree_epa_full),
 
   taxon_phy = phylotax(
-    tree = fungi_tree_decipher_long,
+    tree = fungi_tree_epa_full,
     taxa = taxon_table
   ),
 
-  physeq = assemble_physeq(
+  physeq_all = assemble_physeq(
     platemap,
     datasets,
     relabel_seqtable(big_seq_table_ITS2),
-    fungi_tree_decipher_long),
+    fungi_tree_epa_full),
 
   longphyseq = physeq %>%
     phyloseq::prune_samples(

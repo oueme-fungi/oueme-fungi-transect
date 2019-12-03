@@ -6,7 +6,8 @@ if (exists("snakemake")) {
 }
 
 targets <- c(
-  purrr::keep(plan$target, startsWith, "raxml_decipher_long")
+  purrr::keep(plan$target, startsWith, "raxml_"),
+  "physeq_all"
 )
 targets <- subset_outdated(targets, dconfig)
 
@@ -41,25 +42,7 @@ if (length(targets)) {
     console_log_file = get_logfile("raxml")
   )
   tictoc::toc()
-  #  flog.info("Determining outdated targets...")
-  #  tictoc::tic()
-  #  dod <- exp_try(drake::outdated(dconfig), 30, 300)
-  #  tictoc::toc()
-  #  flog.info("Making targets...")
-  #  tictoc::tic()
-  #  drake::make(config = dconfig)
-  #  tictoc::toc()
   if (any(targets %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-}
-
-  if (!file.exists(mlocarna_aln_file)) {
-    flog.info("Creating	%s.", mlocarna_aln_file)
-    tictoc::tic()
-    drake_build(realign_long, dconfig)
-    tictoc::toc()
-  }
 } else flog.info("RAxML targets are up-to-date.")
-Sys.setFileTime(mlocarna_aln_file, Sys.time())
-
