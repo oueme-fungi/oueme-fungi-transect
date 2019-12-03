@@ -1264,6 +1264,35 @@ plan <- drake_plan(
 make(plan)
 readd(result)
 
+long_aln <- Biostrings::readDNAMultipleAlignment("data/raxml/decipher/decipher_long.phy", format = "phylip") %>%
+  Biostrings::DNAStringSet()
+
+short_reads <- Biostrings::readDNAStringSet("data/raxml/decipher/short.fasta")
+
+full_aln4 <- mafft_add(
+  long_aln,
+  short_reads[1:1000],
+  add = "add",
+  method = "10merpair",
+  maxiterate = "1000",
+  thread = 3,
+  quiet = FALSE,
+  exec = Sys.which("mafft")
+)
+
+full_aln2 <- ips::mafft(
+  long_aln,
+  short_reads[1:100],
+  add = "addfragments",
+  gt = ape::read.tree("data/raxml/decipher/RAxML_bestTree.decipher_long"),
+  method = "localpair",
+  maxiterate = 1000,
+  thread = 3,
+  quiet = FALSE,
+  exec = Sys.which("mafft")
+)
+
+
 tree <- ape::read.tree("data/raxml/decipher/RAxML_bestTree.decipher_long")
 aln <- Biostrings::readDNAStringSet("data/raxml/decipher/long_aln.fasta") %>%
   magrittr::extract(names(.) %in% tree$tip.label)

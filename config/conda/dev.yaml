@@ -51,6 +51,7 @@ dependencies:
   - raxml=8.2.12
   - epa-ng=0.3.6
   - gappa=0.5.1
+  - mafft=7.453
   - itsx=1.1b
   - defaults::qt
   - snakemake-minimal=5.5.4

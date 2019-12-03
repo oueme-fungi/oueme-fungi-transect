@@ -47,5 +47,6 @@ dependencies:
   - raxml=8.2.12
   - epa-ng=0.3.6
   - gappa=0.5.1
+  - mafft=7.453
   - snakemake-minimal=5.5.4
   - pandas=0.25.1
