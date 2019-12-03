@@ -127,6 +127,8 @@ source(file.path(r_dir, "plate_check.R"))
 source(file.path(r_dir, "raxml.R"))
 source(file.path(r_dir, "taxonomy.R"))
 source(file.path(r_dir, "utils.R"))
+source(file.path(r_dir, "epa-ng.R"))
+source(file.path(r_dir, "mafft.R"))
 
 setup_log("drakeplan")
 
@@ -946,47 +948,77 @@ plan <- drake_plan(
     result
     },
   
-  aln_decipher_full =
+  aln_mafft_full =
     allseqs %>%
     dplyr::select(hash, full) %>%
     dplyr::filter(complete.cases(.)) %>%
     dplyr::arrange(dplyr::desc(nchar(full))) %>%
     dplyr::filter(!duplicated(full)) %>%
-    dplyr::filter(!duplicated(hash)) %$%
+    dplyr::filter(!duplicated(hash)) %>%
+    dplyr::filter(!hash %in% names(aln_decipher_long))%$%
     set_names(full, hash) %>%
-    chartr("T", "U", .) %>%
-    Biostrings::RNAStringSet() %>%
-    DECIPHER::AlignSeqs(iterations = 10,
-                        refinements = 10,
-                        processors = ignore(ncpus)),
+    chartr("U", "T", .) %>%
+    Biostrings::DNAStringSet() %>%
+    mafft_add(
+      x = aln_decipher_long,
+      y = .,
+      add = "add",
+      method = "10merpair",
+      maxiterate = "1000",
+      thread = ignore(ncpus),
+      quiet = FALSE,
+      exec = Sys.which("mafft")
+    ),
   
-  raxml_decipher_full = {
+  epa_full = 
+    epa_ng(
+      ref_msa = aln_mafft_full[names(aln_mafft_full) %in% names(aln_decipher_long)],
+      tree = raxml_decipher_long$bestTree,
+      query = aln_mafft_full[!names(aln_mafft_full) %in% names(aln_decipher_long)],
+      model = raxml_decipher_long$info,
+      threads = ignore(ncpus),
+      exec = which("epa-ng")
+    ),
+  
+  graft_full =
+    gappa_graft(
+      jplace = epa_full,
+      threads = ignore(ncpus),
+      verbose = TRUE
+    ),
+  
+  guidetree_full =
+    graft_to_polytomies(graft_full, raxml_decipher_long$bestTree),
+  
+  raxml_epa_full ={
     if (!dir.exists(!!raxml_decipher_out_dir))
       dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
     wd <- setwd(!!raxml_decipher_out_dir)
     result <-
-      aln_decipher_full %>%
-      Biostrings::DNAStringSet() %>%
+      aln_mafft_full %>%
       ape::as.DNAbin() %>%
       as.matrix() %>%
       ips::raxml(
         DNAbin = .,
         m = "GTRGAMMA",
-        f = "a",
-        N = "autoMRE_IGN",
+        f = "d",
         p = 12345,
-        x = 827,
-        k = TRUE,
-        backbone = raxml_decipher_LSU$bestTree,
-        file = "decipher_full",
+        backbone = guidetree_full,
+        file = "epa_long",
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
         threads = ignore(ncpus))
     setwd(wd)
     result
   },
+  
+  labeled_tree_decipher_LSU =
+    relabel_tree(
+      tree = raxml_decipher_LSU$bipartitions,
+      old = taxon_labels$label,
+      new = taxon_labels$tip_label
+    ) %T>%
+    castor::write_tree(file_out("data/trees/decipher_LSU.tree")),
     
-    
-
   labeled_tree_decipher_long =
     relabel_tree(
       tree = raxml_decipher_long$bipartitions,
@@ -994,14 +1026,14 @@ plan <- drake_plan(
       new = taxon_labels$tip_label
     ) %T>%
     castor::write_tree(file_out("data/trees/decipher_long.tree")),
-
-  labeled_tree_mlocarna_long =
+  
+  labeled_tree_epa_full =
     relabel_tree(
-      tree = raxml_mlocarna_long$bipartitions,
+      tree = raxml_epa_full$bestTree,
       old = taxon_labels$label,
       new = taxon_labels$tip_label
     ) %T>%
-    castor::write_tree(file_out("data/trees/mlocarna_long.tree")),
+    castor::write_tree(file_out("data/trees/epa_full.tree")),
 
 
   # Tulasnella is on a long branch because of a high divergence rate.
@@ -1043,29 +1075,29 @@ plan <- drake_plan(
 
   # root the tree within plants.  This isn't accurate, but it should guarantee
   # that it is not rooted within fungi.
-  tree_decipher_long =
-    ape::root(raxml_decipher_long$bipartitions,
+  tree_epa_full =
+    ape::root(raxml_epa_full$bipartitions,
               bestplant),
 
   # Extract the minimally inclusive clade including all confidently identified
   # fungi (except Tulasnella).
-  fungi_tree_decipher_long =
+  fungi_tree_epa_full =
     ape::getMRCA(
-      phy = tree_decipher_long,
-      tip = intersect(surefungi, tree_decipher_long$tip.label)
+      phy = tree_epa_full,
+      tip = intersect(surefungi, tree_epa_full$tip.label)
     ) %>%
-    ape::extract.clade(phy = tree_decipher_long),
+    ape::extract.clade(phy = tree_epa_full),
 
   taxon_phy = phylotax(
-    tree = fungi_tree_decipher_long,
+    tree = fungi_tree_epa_full,
     taxa = taxon_table
   ),
 
-  physeq = assemble_physeq(
+  physeq_all = assemble_physeq(
     platemap,
     datasets,
     relabel_seqtable(big_seq_table_ITS2),
-    fungi_tree_decipher_long),
+    fungi_tree_epa_full),
 
   longphyseq = physeq %>%
     phyloseq::prune_samples(
