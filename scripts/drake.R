@@ -675,12 +675,12 @@ plan <- drake_plan(
     dplyr::arrange(dplyr::desc(nchar(full))) %>%
     dplyr::filter(!duplicated(full)) %>%
     dplyr::filter(!duplicated(hash)) %>%
-    dplyr::filter(!hash %in% names(aln_decipher_long)) %$%
+    dplyr::filter(!hash %in% names(aln_decipher_long_trim)) %$%
     set_names(full, hash) %>%
     chartr("U", "T", .) %>%
     Biostrings::DNAStringSet() %>%
     mafft_add(
-      x = aln_decipher_long,
+      x = Biostrings::DNAStringSet(aln_decipher_long_trim),
       y = .,
       add = "add",
       method = "10merpair",
