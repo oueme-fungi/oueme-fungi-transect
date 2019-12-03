@@ -545,6 +545,8 @@ checkpoint drake_plan:
         "{rdir}/raxml.R".format_map(config),
         "{rdir}/taxonomy.R".format_map(config),
         "{rdir}/utils.R".format_map(config),
+        "{rdir}/epa-ng.R".format_map(config),
+        "{rdir}/mafft.R".format_map(config),
         demux = rules.hash_demux.output,
         dataset  = config['dataset'],
         regions  = config['regions'],
@@ -714,9 +716,6 @@ rule raxml:
         touch(".raxml")
     input:
         ".consensus",
-        makelocarna = config['makelocarna'],
-        cmaln_long = config['cmaln_long'],
-        guide_tree = config['guide_tree'],
         drakedata = "{plandir}/drake.Rdata".format_map(config),
         script = "{rdir}/drake-09-raxml.R".format_map(config)
     log: "{logdir}/raxml.log".format_map(config)

@@ -620,9 +620,9 @@ plan <- drake_plan(
   aln_decipher_LSU_trim = trim_LSU_intron(aln_decipher_LSU),
 
   raxml_decipher_LSU = {
-    if (!dir.exists(!!config$raxml_decipher_dir))
-      dir.create(!!config$raxml_decipher_dir, recursive = TRUE)
-    wd <- setwd(!!config$raxml_decipher_dir)
+    if (!dir.exists(!!config$raxml_dir))
+      dir.create(!!config$raxml_dir, recursive = TRUE)
+    wd <- setwd(!!config$raxml_dir)
     result <-
       aln_decipher_LSU_trim %>%
       Biostrings::DNAStringSet() %>%
@@ -644,9 +644,9 @@ plan <- drake_plan(
   },
 
   raxml_decipher_long = {
-    if (!dir.exists(!!config$raxml_decipher_dir))
-      dir.create(!!config$raxml_decipher_dir, recursive = TRUE)
-    wd <- setwd(!!config$raxml_decipher_dir)
+    if (!dir.exists(!!config$raxml_dir))
+      dir.create(!!config$raxml_dir, recursive = TRUE)
+    wd <- setwd(!!config$raxml_dir)
     result <-
       aln_decipher_long_trim %>%
       Biostrings::DNAStringSet() %>%
@@ -711,9 +711,9 @@ plan <- drake_plan(
     graft_to_polytomies(graft_full, raxml_decipher_long$bestTree),
   
   raxml_epa_full = {
-    if (!dir.exists(!!raxml_decipher_out_dir))
-      dir.create(!!raxml_decipher_out_dir, recursive = TRUE)
-    wd <- setwd(!!raxml_decipher_out_dir)
+    if (!dir.exists(!!config$raxml_dir))
+      dir.create(!!config$raxml_dir, recursive = TRUE)
+    wd <- setwd(!!config$raxml_dir)
     result <-
       aln_mafft_full %>%
       ape::as.DNAbin() %>%
