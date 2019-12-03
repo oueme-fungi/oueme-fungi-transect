@@ -15,12 +15,10 @@ options(clustermq.scheduler = "multicore")
 #### Taxonomy targets from DADA2 pipeline ####
 # dada is internally parallel, so these need to be sent to nodes with multiple
 # cores (and incidentally a lot of memory)
-targets <- c("cmaln_long", "guidetree_32S", "taxon_table",
+targets <- c("taxon_table",
              plan$target %>% purrr::keep(startsWith, "aln_decipher_"))
 
 targets <- subset_outdated(targets, dconfig)
-if (!file.exists(cmaln_file_long)) targets <- c(targets, "cmaln_long")
-if (!file.exists(guide_tree_file)) targets <- c(targets, "guidetree_32S")
 
 ncpus <- max(local_cpus() %/% 2L, 1L)
 jobs <- max(1, local_cpus() %/% ncpus)
@@ -57,22 +55,7 @@ if (length(targets) > 0) {
   if (any(od %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-  if (!file.exists(cmaln_file_long)) {
-    flog.info("Creating %s.", cmaln_file_long)
-    tictoc::tic()
-    drake_build(cmaln_long, dconfig)
-    tictoc::toc()
-  }
-  if (!file.exists(guide_tree_file)) {
-    flog.info("Creating	%s.", guide_tree_file)
-    tictoc::tic()
-    drake_build(guidetree_32S, dconfig)
-    tictoc::toc()
-  }
 
 } else {
   flog.info("Consensus targets are up-to-date.")
 }
-
-Sys.setFileTime(cmaln_file_long, Sys.time())
-Sys.setFileTime(guide_tree_file, Sys.time())
