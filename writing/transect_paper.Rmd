@@ -70,13 +70,52 @@ write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
 
 ## Introduction to ECM communities
 
+- Ectomycorrhizas (ECM) are a symbiosis between fungi and plant roots.
+- x% of plants, y% of fungi
+- The plants are often ecologically and economically important trees (Pinaceae, Fagaceae, Dipterocarpaceae, Amherstiae)
+- The fungi provide nutrients and protection from pathogens, the plant provides sugar.
+- Many well-known mushrooms are produced by ECM (Amanita, Cantharellus, Boletus) but many ECM produce inconspicuous (Tomentella) or no (Cenococcum) fruit bodies.
+- Anyway the fruitbodies are ephemeral, so study of ECM communities requires looking at vegetative structures.
+- Not easy to culture, so we need molecular methods.
+
 ## Turnover scale in ECM forests
 
+- @lilleskov2004 - autocorrelation only <2.6 m at most sites.  Based on Sanger sequencing root tips in temperate forests.
+
 - Meta analysis @Bahram2013
-    - 
+  - Includes data from Benin (same site? ask Nourou/Leho) but this is unpublished
+  - conclude that there is greater range of distance decay in tropical forests; because of less host availability? older forests?  *Russulaceae*?
+  - 65 m in Benin
+
+- @pickles2012a
+  - T-RFLP of root tips, temperate forest
+  - Autocorrelation < 3.4 m
+
+- Data from African wooded savannas - @tedersoo2011 but only southern band
+  - Irregular sampling with no samples nearer than 8m
+  - based on sanger sequencing root tips
+  - Significant Moran's I only in <10m class
 
 ## Long reads vs short reads/phylogenetic methods
-Phylogenetic methods
+
+- Clustering vs. phylogenetic methods
+    - Clustering-based OTU approach may both "clump" and "split" species.
+    - Distance-based clustering conflates intra-species variation and sequencing error
+    - Denoising (DADA2 [@callahan2017], Deblur [@amir2017], UNOISE2 [@edgar2016]) attempts to control for sequencing error while leaving intra-species variation.
+    - Phylogenetic community distance measures like UNIFRAC [@wong2016; look for earlier reference] are relatively insensitive to species/OTU delimitation, but require a phylogenetic tree.
+
+- Short reads
+    - 454 [@buee2009], Ion Torrent, Illumina [@schmidt2013].
+    - For fungi, frequently ITS1 or ITS2 [@schoch2012]
+    - Dependent on matching to database for taxonomic placement.
+    - Phylogenetic placement algorithms [@matsen2010; @berger2011] are not easy to apply because ITS is not in most LSU alignments (different situation than V4/V5 of 18S)
+    - Possible to place on taxonomy-based tree [@tedersoo2018]
+
+- Long reads
+    - Can include both LSU/SSU and ITS in same amplicon for better taxonomic placement [@Tedersoo2018]
+    - can build tree directly
+    - short reads from same location can be mapped to tree.
+    - Sequencing depth tradeoff [@Kennedy2018]
 
 # Methods
 
@@ -84,15 +123,18 @@ Phylogenetic methods
 
 Sampling was conducted at two sites approximately 30 km apart in the _Forêt Reservée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
 Both locations were located in woodlands dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
-At each site, 25 soil samples were collected at intervals of 1 m.
+At each site, 25 soil samples were collected at intervals of 1 m in May 2015.
+Additional samples were collected from one third of the sample locations (3-m spacing) one year later in June 2016.
 For each sample, any coarse organic debris was removed from the soil surface and a sample of approximately 5cm×5cm×5cm was extracted with a knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
 Approximately 50 mg total of soil was collected from two locations in the homogenized soil and placed in Xpedition lysis solution (Zymo Research) and lysed in the field using a handheld bead-beater (Terralyzer; Zymo Research).
 The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis.
 
+
 ## Soil Chemistry
 
   - Need to get methods from Nourou
+  - Or just not use it?
 
 ## DNA extraction, amplification, and sequencing
 
