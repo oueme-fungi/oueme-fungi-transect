@@ -684,7 +684,7 @@ plan <- drake_plan(
       y = .,
       add = "add",
       method = "10merpair",
-      maxiterate = "1000",
+      maxiterate = "2",
       thread = ignore(ncpus),
       quiet = FALSE,
       exec = Sys.which("mafft")
