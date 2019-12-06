@@ -697,7 +697,7 @@ plan <- drake_plan(
       query = aln_mafft_full[!names(aln_mafft_full) %in% names(aln_decipher_long)],
       model = raxml_decipher_long$info,
       threads = ignore(ncpus),
-      exec = which("epa-ng")
+      exec = Sys.which("epa-ng")
     ),
   
   graft_full =
@@ -708,7 +708,7 @@ plan <- drake_plan(
     ),
   
   guidetree_full =
-    graft_to_polytomies(graft_full, raxml_decipher_long$bestTree),
+    grafts_to_polytomies(graft_full, raxml_decipher_long$bestTree),
   
   raxml_epa_full = {
     if (!dir.exists(!!config$raxml_dir))
@@ -722,6 +722,7 @@ plan <- drake_plan(
         DNAbin = .,
         m = "GTRGAMMA",
         f = "d",
+        N = 1,
         p = 12345,
         backbone = guidetree_full,
         file = "epa_long",
