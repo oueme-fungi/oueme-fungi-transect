@@ -258,7 +258,7 @@ def find_ion_bam(wildcards):
     # load the relevant platekey
     platekey = ion_platekey(wildcards.seqrun)
     # find the id which corresponds to the desired
-    num = platekey.loc[lambda x: x['well'] == wildcards.well, 'id'].get_values()[0]
+    num = platekey.loc[lambda x: x['well'] == wildcards.well, 'id'].array[0]
     # find the name of the dataset
     dset = datasets.loc[lambda x: x['seq_run'] == wildcards.seqrun, 'dataset'][0]
     return glob("{rawdir}/{dset}/{seqrun}/rawdata/*/IonXpress_{num}*.bam".format(rawdir = config['rawdir'],
@@ -317,7 +317,7 @@ def ion_find(seqrun, plate):
                                 .format(rawdir = config['rawdir'],
                                         dset = dset,
                                         seqrun = seqrun))]
-    wells = platekey.loc[ids, 'well'].get_values()
+    wells = platekey.loc[ids, 'well'].array
     return [("{trimdir}/{seqrun}_{plate}/{seqrun}_{plate}-{well}.trim.fastq.gz"
              .format(trimdir = config['trimdir'],
                      seqrun = seqrun,
