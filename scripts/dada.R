@@ -127,6 +127,8 @@ extract_and_derep <- function(positions, trim_file, region_start, region_end,
                               max_length, min_length, max_ee) {
   if (nrow(positions) == 0) return(NULL)
   pos <- dplyr::group_by(positions, trim_file)
+  filekey <- dplyr::select(positions, "trim_file", "seq") %>%
+    unique()
   regions <- 
     tzara::extract_region(
       seq = dplyr::group_keys(pos)$trim_file,
@@ -137,7 +139,7 @@ extract_and_derep <- function(positions, trim_file, region_start, region_end,
   qstats_region <- q_stats(
     regions,
     step = "lsux",
-    file = dplyr::group_keys(pos)$trim_file
+    file = plyr::mapvalues(regions@is, filekey$seq, filekey$trim_file)
   )
   filter <- filterReads(
     regions,
@@ -148,7 +150,7 @@ extract_and_derep <- function(positions, trim_file, region_start, region_end,
   qstats_filter <- q_stats(
     filter,
     step = "filter",
-    file = dplyr::group_keys(pos)$trim_file
+    file = plyr::mapvalues(filter@is, filekey$seq, filekey$trim_file)
   )
   qstats <- dplyr::bind_rows(qstats_region, qstats_filter)
   if (length(filter) == 0) return(structure(list(), qstats = qstats))
