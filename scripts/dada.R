@@ -139,7 +139,7 @@ extract_and_derep <- function(positions, trim_file, region_start, region_end,
   qstats_region <- q_stats(
     regions,
     step = "lsux",
-    file = plyr::mapvalues(regions@is, filekey$seq, filekey$trim_file)
+    file = plyr::mapvalues(regions@id, filekey$seq, filekey$trim_file)
   )
   filter <- filterReads(
     regions,
@@ -150,18 +150,21 @@ extract_and_derep <- function(positions, trim_file, region_start, region_end,
   qstats_filter <- q_stats(
     filter,
     step = "filter",
-    file = plyr::mapvalues(filter@is, filekey$seq, filekey$trim_file)
+    file = plyr::mapvalues(filter@id, filekey$seq, filekey$trim_file)
   )
   qstats <- dplyr::bind_rows(qstats_region, qstats_filter)
   if (length(filter) == 0) return(structure(list(), qstats = qstats))
-  derepShortReadQ(
+  out <- 
+    derepShortReadQ(
     reads = filter,
     n = 1e4,
     qualityType = "FastqQuality",
     verbose = TRUE
-  ) %>%
-    inset2("names", as.character(filter@id)) %>%
-    rlang::set_attrs(qstats = qstats)
+  )
+  
+  out[["names"]] <- as.character(filter@id)
+  attr(out, "qstats") <- qstats
+  out
 }
 
 
