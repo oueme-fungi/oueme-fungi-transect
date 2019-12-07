@@ -127,40 +127,53 @@ extract_and_derep <- function(positions, trim_file, region_start, region_end,
                               max_length, min_length, max_ee) {
   if (nrow(positions) == 0) return(NULL)
   pos <- dplyr::group_by(positions, trim_file)
-  filter <- 
+  regions <- 
     tzara::extract_region(
       seq = dplyr::group_keys(pos)$trim_file,
       region = region_start,
       region2 = region_end,
       positions = dplyr::group_split(pos)
-    ) %>%
-    filterReads(
-      maxLen = max_length,
-      minLen = min_length,
-      maxEE = max_ee
     )
-  if (length(filter) == 0) return(NULL)
+  qstats_region <- q_stats(
+    regions,
+    step = "lsux",
+    file = dplyr::group_keys(pos)$trim_file
+  )
+  filter <- filterReads(
+    regions,
+    maxLen = max_length,
+    minLen = min_length,
+    maxEE = max_ee
+  )
+  qstats_filter <- q_stats(
+    filter,
+    step = "filter",
+    file = dplyr::group_keys(pos)$trim_file
+  )
+  qstats <- dplyr::bind_rows(qstats_region, qstats_filter)
+  if (length(filter) == 0) return(structure(list(), qstats = qstats))
   derepShortReadQ(
     reads = filter,
     n = 1e4,
     qualityType = "FastqQuality",
     verbose = TRUE
   ) %>%
-    inset2("names", as.character(filter@id))
+    inset2("names", as.character(filter@id)) %>%
+    rlang::set_attrs(qstats = qstats)
 }
 
 
-# call dada, but be tolerant of NULL inputs
+# call dada, but be tolerant of NULL inputs and empty list inputs
 robust_dada <- function(derep, ...) {
   UseMethod("robust_dada")
 }
 
 robust_dada.derep <- function(derep, ...) {
-  dada2::data(derep, ...)
+  dada2::dada(derep, ...)
 }
 
 robust_dada.list <- function(derep, ...) {
-  nonnulls <- which(!vapply(derep, is.null, TRUE))
+  nonnulls <- which(!vapply(derep, is.null, TRUE) & vapply(derep, length, 1L) > 0)
   assertthat::assert_that(
     all(vapply(derep[nonnulls], methods::is, TRUE, "derep"))
   )

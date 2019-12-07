@@ -1309,3 +1309,25 @@ rax3 <- ips::raxml(as.matrix(ape::as.DNAbin(c(aln, short_aln))),
                    m = "GTRGAMMA", f = "a", N = "autoMRE_IGN",
                    p = 12345, x = 12345, backbone = polytree, file = "full",
                    exec = "raxmlHPC-PTHREADS-SSE3")
+
+readd(allseqs) %>%
+  dplyr::select(hash, full) %>%
+  dplyr::filter(complete.cases(.)) %>%
+  dplyr::arrange(dplyr::desc(nchar(full))) %>%
+  dplyr::filter(!duplicated(full)) %>%
+  dplyr::filter(!duplicated(hash)) %>%
+  dplyr::filter(!hash %in% names(readd(aln_decipher_long_trim))) %$%
+  set_names(full, hash) %>%
+  chartr("U", "T", .) %>%
+  Biostrings::DNAStringSet()
+
+mafft_add(
+  x = readd(aln_decipher_long_trim),
+  y = shortseqs[1:100],
+  add = "add",
+  method = "10merpair",
+  maxiterate = "1000",
+  thread = 1,
+  quiet = FALSE,
+  exec = Sys.which("mafft")
+)

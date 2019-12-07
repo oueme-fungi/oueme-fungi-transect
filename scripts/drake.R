@@ -424,6 +424,7 @@ plan <- drake_plan(
     dereplist <- dereplist[names(dadalist)]
     dadalist <- do.call(c, c(dadalist, use.names = FALSE))
     dereplist <- do.call(c, c(dereplist, use.names = FALSE))
+    dereplist[vapply(dereplist, length, 1L) == 0] <- list(NULL)
     names(dereplist) <- names(dadalist)
     dada_map <- tzara::dadamap(dereplist, dadalist) %>%
       tidyr::extract(
@@ -784,21 +785,21 @@ plan <- drake_plan(
     setdiff(tulasnella),
 
   # find the most abundant sequence which we are confident is a plant
-  bestplant =
+  best_nonfungus =
     taxon_table %>%
     dplyr::ungroup() %>%
-    dplyr::filter(rank == "phylum",
-                  taxon == "Chlorophyta",
+    dplyr::filter(rank == "kingdom",
+                  taxon != "Fungi",
                   n_tot == 6,
                   n_diff == 1) %>%
     dplyr::filter(n_reads == max(n_reads)) %$%
     label[1],
 
-  # root the tree within plants.  This isn't accurate, but it should guarantee
-  # that it is not rooted within fungi.
+  # root the tree outside the fungi.  This isn't accurate, but it ensures that
+  # the fungi can be indentified.
   tree_epa_full =
     ape::root(raxml_epa_full$bipartitions,
-              bestplant),
+              best_nonfungus),
 
   # Extract the minimally inclusive clade including all confidently identified
   # fungi (except Tulasnella).
@@ -808,6 +809,14 @@ plan <- drake_plan(
       tip = intersect(surefungi, tree_epa_full$tip.label)
     ) %>%
     ape::extract.clade(phy = tree_epa_full),
+  
+  labeled_fungi_tree_epa_full =
+    relabel_tree(
+      tree = fungi_tree_epa_full,
+      old = taxon_labels$label,
+      new = taxon_labels$tip_label
+    ) %T>%
+    castor::write_tree(file_out("data/trees/fungi_epa_full.tree")),
 
   taxon_phy = phylotax(
     tree = fungi_tree_epa_full,
@@ -866,7 +875,19 @@ plan <- drake_plan(
   bc_corr_short2 = vegan::mantel.correlog(bc_dist_short, spatial_dist_short2,
                                           break.pts = 0:13 - 0.5,
                                           cutoff = FALSE),
-trace = TRUE)
+  qstats = target(
+    bind_rows(
+      bind_rows(file_meta) %$%
+        lapply(trim_file, q_stats, step = "raw"),
+      c(derep2) %>%
+        purrr::map_dfr(attr, which = "qstats")
+    ) %>%
+      as.data.frame(),
+    transform = combine(file_meta, derep2),
+    format = "fst"
+  ),
+  trace = TRUE
+)
 #   # Count the sequences in each fastq file
 #   seq_count = target(
 #     tibble::tibble(
@@ -930,7 +951,8 @@ if (interactive()) {
   vis_drake_graph(dconfig,
                   # group = "step", clusters = plansteps,
                   targets_only = TRUE)
-  make(plan, target = "raxml_decipher_long", max_expand = config$smallsplit)
+  ncpus <- local_cpus()
+  make(plan, target = "raxml_epa_full", max_expand = config$smallsplit)
 }
 
 remove(snakemake)
