@@ -6,11 +6,7 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-targets <- c(
-  purrr::keep(plan$target, startsWith, "raxml_"),
-  "physeq_all"
-)
-targets <- subset_outdated(targets, dconfig)
+targets <- purrr::keep(od, startsWith, "raxml_")
 
 library(magrittr)
 library(backports)

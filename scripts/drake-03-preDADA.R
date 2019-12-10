@@ -22,7 +22,7 @@ predada_targets <- c(
   purrr::keep(od, startsWith, "qstats")
 )
 if (length(predada_targets)) {
-  flog.info("Making pre-dada targets (loop)...")
+  flog.info("Making pre-dada targets (%s with %d jobs)", options("clustermq.scheduler"), ncpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "clustermq",
