@@ -163,6 +163,16 @@ extract_and_derep <- function(positions, trim_file, region_start, region_end,
     )
   )
   qstats <- dplyr::bind_rows(qstats_region, qstats_filter)
+  if (nrow(qstats) == 0) {
+    qstats <- tibble::tibble(
+      file = dplyr::group_keys(pos)$trim_file,
+      length = NA_integer_,
+      minq = NA_integer_,
+      eexp = NA_real_,
+      erate = NA_real_,
+      p.noerr = NA_real_
+    )
+  }
   if (length(filter) == 0) return(structure(list(), qstats = qstats))
   out <- 
     derepShortReadQ(
