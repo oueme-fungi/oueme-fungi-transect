@@ -1,6 +1,7 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
+  od <- readLines(snakemake@input$flag)
 } else {
   load("drake.Rdata")
 }
@@ -35,3 +36,21 @@ if (length(od)) {
   }
 }
 flog.info("All targets are up-to-date.")
+
+cache1 <- drake_cache()
+
+cache2 <- drake_cache(".light")
+if (is.null(cache2)) cache2 <- new_cache(".light")
+cache2$import(
+  from = cache1,
+  list = c(
+    "taxon_table",
+    dplyr::filter(plan, step = "taxon")$target,
+    "raxml_decipher_LSU",
+    "raxml_decipher_long",
+    "raxml_epa_full",
+    dplyr::filter(plan, step = "big_seq_table")$target,
+    dplyr::filter(plan, step = "err")$target,
+    dplyr::filter(plan, step = "chimeras")$target,
+  )
+)

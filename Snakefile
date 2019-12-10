@@ -554,13 +554,13 @@ checkpoint drake_plan:
         cm_5_8S  = config['cm_5_8S'],
         cm_32S   = config['cm_32S'],
         platemap = config['platemap'],
-        script = "{rdir}/drake.R".format_map(config)
+        script = "{rdir}/drake_plan_heavy.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime=1440
     log: "{logdir}/drakeplan.log".format_map(config)
-    script: "{rdir}/drake.R".format_map(config)
+    script: "{rdir}/drake_plan_heavy.R".format_map(config)
 
 
 # Dereplicate the sequences in the fastq.gz files and split them into equal-size groups for region detection using ITSx

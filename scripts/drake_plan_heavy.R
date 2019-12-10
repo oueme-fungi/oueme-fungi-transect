@@ -282,11 +282,6 @@ plan <- drake_plan(
     dynamic = group(derep_submap, .by = derep_by, .trace = derep_by)
   ),
   
-  position_trace = target(
-    get_trace(paste0("derep_by_", seq_run), positions),
-    transform = map(positions, seq_run, .id = seq_run)
-  ),
-  
   position_map = target(
     dplyr::select(positions, "seq_run", "plate", "well") %>%
       unique(),
@@ -557,27 +552,6 @@ plan <- drake_plan(
     transform = combine(taxon)
   ),
 
-  taxon_labels = target(
-    make_taxon_labels(taxon_table)
-  ),
-
-  # funguild_db ----
-  # Download the FUNGuild database
-  funguild_db = FUNGuildR::get_funguild_db(),
-
-  # guilds_table ----
-  # Assign ecological guilds to the ASVs based on taxonomy.
-  guilds_table = target(
-    FUNGuildR::funguild_assign(taxon, db = funguild_db),
-    transform = map(taxon, tax_ID, .tag_in = step, .id = tax_ID),
-    format = "fst"),
-
-  # platemap ----
-  # Read the map between plate locations and samples
-  platemap = target(
-    read_platemap(file_in(!!config$platemap), !!config$platemap_sheet),
-    format = "fst"),
-
   aln_decipher_long =
     allseqs %>%
     dplyr::select(hash, long, ITS1, ITS2) %>%
@@ -733,211 +707,40 @@ plan <- drake_plan(
     result
   },
   
-  labeled_tree_decipher_LSU =
-    relabel_tree(
-      tree = raxml_decipher_LSU$bipartitions,
-      old = taxon_labels$label,
-      new = taxon_labels$tip_label
-    ) %T>%
-    castor::write_tree(file_out("data/trees/decipher_LSU.tree")),
-    
-  labeled_tree_decipher_long =
-    relabel_tree(
-      tree = raxml_decipher_long$bipartitions,
-      old = taxon_labels$label,
-      new = taxon_labels$tip_label
-    ) %T>%
-    castor::write_tree(file_out("data/trees/decipher_long.tree")),
-  
-  labeled_tree_epa_full =
-    relabel_tree(
-      tree = raxml_epa_full$bestTree,
-      old = taxon_labels$label,
-      new = taxon_labels$tip_label
-    ) %T>%
-    castor::write_tree(file_out("data/trees/epa_full.tree")),
-
-
-  # Tulasnella is on a long branch because of a high divergence rate.
-  # it ends up with Metazoa in the tree.  Exclude it.
-  tulasnella =
-    taxon_table %>%
-    dplyr::filter(
-      rank == "family",
-      taxon == "Tulasnellaceae"
-    ) %$%
-    label %>%
-    unique(),
-
-  # find the sequences that were confidently identified as fungi
-  # (and placed in a phylum).  We extract the common ancestor of these
-  surefungi =
-    taxon_table %>%
-    dplyr::group_by(label) %>%
-    dplyr::filter(
-      rank == "phylum",
-      n_tot >= 6,
-      n_diff == 1,
-      grepl("mycota", taxon)
-    ) %$%
-    label %>%
-    unique() %>%
-    setdiff(tulasnella),
-
-  # find the most abundant sequence which we are confident is a plant
-  best_nonfungus =
-    taxon_table %>%
-    dplyr::ungroup() %>%
-    dplyr::filter(rank == "kingdom",
-                  taxon != "Fungi",
-                  n_tot == 6,
-                  n_diff == 1) %>%
-    dplyr::filter(n_reads == max(n_reads)) %$%
-    label[1],
-
-  # root the tree outside the fungi.  This isn't accurate, but it ensures that
-  # the fungi can be indentified.
-  tree_epa_full =
-    ape::root(raxml_epa_full$bipartitions,
-              best_nonfungus),
-
-  # Extract the minimally inclusive clade including all confidently identified
-  # fungi (except Tulasnella).
-  fungi_tree_epa_full =
-    ape::getMRCA(
-      phy = tree_epa_full,
-      tip = intersect(surefungi, tree_epa_full$tip.label)
-    ) %>%
-    ape::extract.clade(phy = tree_epa_full),
-  
-  labeled_fungi_tree_epa_full =
-    relabel_tree(
-      tree = fungi_tree_epa_full,
-      old = taxon_labels$label,
-      new = taxon_labels$tip_label
-    ) %T>%
-    castor::write_tree(file_out("data/trees/fungi_epa_full.tree")),
-
-  taxon_phy = phylotax(
-    tree = fungi_tree_epa_full,
-    taxa = taxon_table
-  ),
-
-  physeq_all = assemble_physeq(
-    platemap,
-    datasets,
-    relabel_seqtable(big_seq_table_ITS2),
-    fungi_tree_epa_full),
-
-  longphyseq = physeq %>%
-    phyloseq::prune_samples(
-      samples = phyloseq::sample_data(.)$dataset == "long-pacbio"
-      & phyloseq::sample_data(.)$sample_type == "Sample"
-      & (phyloseq::sample_data(.)$qual == "X" | phyloseq::sample_data(.)$year == "2015")
-      & rowSums(phyloseq::otu_table(.)) > 0
-      ),
-
-  shortphyseq = physeq %>%
-    phyloseq::prune_samples(
-      samples = phyloseq::sample_data(.)$dataset == "short-pacbio"
-      & phyloseq::sample_data(.)$sample_type == "Sample"
-      & (phyloseq::sample_data(.)$qual == "X" | phyloseq::sample_data(.)$year == "2015")
-      & rowSums(phyloseq::otu_table(.)) > 0),
-
-  unif_dist = phyloseq::distance(longphyseq, "unifrac"),
-  bc_dist_long = phyloseq::distance(longphyseq, "bray"),
-  bc_dist_short = phyloseq::distance(shortphyseq, "bray"),
-  spatial_dist_long = phyloseq::sample_data(longphyseq) %>%
-    with(x + 30000 * as.integer(site) + 100000 * as.integer(year)) %>%
-    dist,
-  spatial_dist_long2 = spatial_dist_long + ifelse(spatial_dist_long > 50000, -100000, 100000),
-  spatial_dist_short = phyloseq::sample_data(shortphyseq) %>%
-    with(x + 30000 * as.integer(site) + 100000 * as.integer(year)) %>%
-    dist,
-  spatial_dist_short2 = spatial_dist_short + ifelse(spatial_dist_short > 50000, -100000, 100000),
-  unif_corr = vegan::mantel.correlog(unif_dist, spatial_dist,
-                                     break.pts = 0:13 - 0.5,
-                                     cutoff = FALSE),
-  bc_corr_long = vegan::mantel.correlog(bc_dist_long, spatial_dist_long,
-                                        break.pts = 0:13 - 0.5,
-                                        cutoff = FALSE),
-  bc_corr_short = vegan::mantel.correlog(bc_dist_short, spatial_dist_short,
-                                         break.pts = 0:13 - 0.5,
-                                         cutoff = FALSE),
-
-
-  unif_corr2 = vegan::mantel.correlog(unif_dist, spatial_dist2,
-                                      break.pts = 0:13 - 0.5,
-                                      cutoff = FALSE),
-  bc_corr_long2 = vegan::mantel.correlog(bc_dist_long, spatial_dist_long2,
-                                         break.pts = 0:13 - 0.5,
-                                         cutoff = FALSE),
-  bc_corr_short2 = vegan::mantel.correlog(bc_dist_short, spatial_dist_short2,
-                                          break.pts = 0:13 - 0.5,
-                                          cutoff = FALSE),
-  qstats = target(
-    bind_rows(
-      bind_rows(file_meta) %$%
-        lapply(trim_file, q_stats, step = "raw"),
-      c(derep2) %>%
-        purrr::map_dfr(attr, which = "qstats")
-    ) %>%
-      as.data.frame(),
-    transform = combine(file_meta, derep2),
+  qstats_derep2 = target(
+    attr(derep2, "qstats") %>% as.data.frame(),
+    transform = map(derep2, .id = FALSE),
+    dynamic = map(derep2),
     format = "fst"
   ),
+  
+  raw_fastq = list.files(
+    config$fastqdir,
+    pattern = "*.fastq.gz",
+    full.names = TRUE
+  ),
+  
+  qstats_raw = target(
+    q_stats(raw_fastq) %>% as.data.frame(),
+    dynamic = map(raw_fastq),
+    format = "fst"
+  ),
+  
+  qstats_demux = target(
+    q_stats(file_meta$trim_file) %>% as.data.frame(),
+    transform = map(file_meta, .id = FALSE),
+    dynamic = map(file_meta),
+    format = "fst"
+  ),
+  
+  qstats = target(
+    combine_dynamic_diskframe(c(qstats_raw, qstats_demux, qstats_derep2)),
+    transform = combine(qstats_derep2, qstats_demux),
+    format = "diskframe"
+  ),
+  
   trace = TRUE
 )
-#   # Count the sequences in each fastq file
-#   seq_count = target(
-#     tibble::tibble(
-#       file = file_in(fq_file),
-#       reads = system(glue::glue("zcat {file} | grep -c '^@'", file = fq_file),
-#                      intern = TRUE) %>%
-#         as.integer),
-#     transform = map(fq_file = !!c(file.path(trim_dir, itsx_meta$trim_file),
-#                                   file.path(region_dir, predada_meta$region_file),
-#                                   file.path(filter_dir, predada_meta$filter_file)),
-#                     .tag_in = step),
-#     format = "fst"),
-#
-#   # seq_counts----
-#   # merge all the sequence counts into one data.frame
-#   seq_counts = target(
-#     dplyr::bind_rows(seq_count),
-#     transform = combine(seq_count),
-#     format = "fst"),
-#
-#   # qstats----
-#   # calculate quality stats for the different regions
-#   qstats = target(
-#     q_stats(file_in(!!file.path(region_dir, region_file))),
-#     transform = map(.data = !!predada_meta,
-#                     .tag_in = step,
-#                     .id = c(well_ID, region)),
-#     format = "fst"),
-#   #qstats_join----
-#   # join all the quality stats into one data.frame
-#   qstats_join = target(
-#     dplyr::bind_rows(qstats) %>%
-#       tidyr::extract(
-#         col = "file",
-#         into = c("seq_run", "plate", "well", "direction", "region"),
-#         regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.trim\\.fastq\\.gz") %>%
-#       dplyr::left_join(datasets),
-#     transform = combine(qstats),
-#     format = "fst"),
-#   # qstats_knit----
-#   # knit a report about the quality stats.
-#   qstats_knit = {
-#     if (!dir.exists(!!config$outdir)) dir.create(!!config$outdir, recursive = TRUE)
-#     rmarkdown::render(
-#       knitr_in(!!file.path(config$rmddir, "qual-check.Rmd")),
-#       output_file = file_out(!!file.path(config$outdir, "qual-check.pdf")),
-#       output_dir = !!config$outdir)},
-#   # max_expand = if (interactive()) 9 else NULL,
-#   trace = TRUE
-# )
 tictoc::toc()
 
 flog.info("\nCalculating outdated targets...")
