@@ -20,5 +20,13 @@ q_stats.character <- function(sreadq, ..., qualityType = "FastqQuality") {
     assertthat::is.string(sreadq),
     file.exists(sreadq)
   )
-  q_stats.ShortReadQ(ShortRead::readFastq(sreadq, qualityType = qualityType), file = sreadq, ...)
+  fqs <- ShortRead::FastqStreamer(sreadq, n = 10000)
+  on.exit(close(fqs))
+  out <- list()
+  while (length(fq <- ShortRead::yield(fqs, qualityType = qualityType))) {
+    out <- c(out, list(
+      q_stats.ShortReadQ(fq, file = sreadq, ...)
+    ))
+  }
+  dplyr::bind_rows(out)
 }
