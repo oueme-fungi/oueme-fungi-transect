@@ -715,8 +715,8 @@ plan <- drake_plan(
   ),
   
   raw_fastq = list.files(
-    config$fastqdir,
-    pattern = "*.fastq.gz",
+    file_in(!!config$fastqdir),
+    pattern = ".fastq.gz",
     full.names = TRUE
   ),
   

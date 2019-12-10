@@ -19,7 +19,7 @@ library(disk.frame)
 ncpus <- local_cpus()
 predada_targets <- c(
   purrr::keep(od, startsWith, "derep2_"),
-  purrr::keep(od, startsWith, "qstats_")
+  purrr::keep(od, startsWith, "qstats")
 )
 if (length(predada_targets)) {
   flog.info("Making pre-dada targets (loop)...")
