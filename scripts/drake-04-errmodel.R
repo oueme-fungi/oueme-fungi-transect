@@ -6,36 +6,38 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
+targets <- purrr::keep(od, startsWith, "err_")
 library(magrittr)
 library(backports)
 library(futile.logger)
-setup_log("predada")
 options(clustermq.scheduler = "multicore")
-library(disk.frame)
+setup_log("errmodel")
 
-#### pre-DADA2 ####
-# single-threaded targets after itsx
-# for local runs, ITSx targets will also run here.
+#### err pipeline ####
+# dada is internally parallel, so these need to be sent to nodes with multiple
+# cores (and incidentally a lot of memory)
+jobs <- 1
 ncpus <- local_cpus()
-predada_targets <- c(
-  purrr::keep(od, startsWith, "derep2_"),
-  purrr::keep(od, startsWith, "qstats_")
-)
-if (length(predada_targets)) {
-  flog.info("Making pre-dada targets (loop)...")
+
+if (length(targets) > 0) {
+  flog.info(
+    "Making %d error model targets with %d jobs of %d cores...",
+    length(targets),
+    jobs,
+    ncpus
+  )
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "clustermq",
        jobs_preprocess = local_cpus(),
-       jobs = local_cpus(),
-       retries = 2,
-       elapsed = 3600, #1 hour
+       jobs = jobs,
+       retries = 1,
+       elapsed = 3600*6, #6 hours
        keep_going = FALSE,
-       cache_log_file = TRUE,
-       targets = predada_targets,
        caching = "worker",
-       memory_strategy = "preclean",
-       console_log_file = get_logfile("predada")
+       cache_log_file = TRUE,
+       targets = targets,
+       console_log_file = get_logfile("errmodel")
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
@@ -44,7 +46,7 @@ if (length(predada_targets)) {
     if (interactive()) stop() else quit(status = 1)
   }
   od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
-} else flog.info("Pre-DADA2 targets are up-to-date.")
+} else flog.info("error models are up-to-date.")
 
 if (exists("snakemake")) {
   writeLines(od, snakemake@output$flag)

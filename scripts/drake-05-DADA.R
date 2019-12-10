@@ -1,12 +1,12 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
+  od <- readLines(snakemake@input$flag)
 } else {
   load("drake.Rdata")
 }
 
 targets <- purrr::keep(od, startsWith, "chimeras_")
-targets <- subset_outdated(targets, dconfig)
 library(magrittr)
 library(backports)
 library(futile.logger)
@@ -40,4 +40,9 @@ if (length(targets) > 0) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
+  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
 } else flog.info("DADA targets are up-to-date.")
+
+if (exists("snakemake")) {
+  writeLines(od, snakemake@output$flag)
+}

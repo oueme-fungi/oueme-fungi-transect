@@ -111,7 +111,7 @@ rule ccs:
 localrules: ccs2fastq
 rule ccs2fastq:
     output:
-        temp("{fastqdir}/{{seqplate}}.fastq.gz".format_map(config))
+        "{fastqdir}/{{seqplate}}.fastq.gz".format_map(config)
     input:
          lambda wildcards: expand("{ccsdir}/{movie}.ccs.bam",
                                   ccsdir = config['ccsdir'],
@@ -193,7 +193,7 @@ checkpoint pacbio_demux:
            -m 1\\
            --trimmed-only\\
            -o {params.rpattern}\\
-           - 2>{log} 
+           - 2>{log}
          """
 
 # Return a closure which calls checkpoints.pacbio_demux.get() to indicate to Snakemake that this rule is
@@ -525,7 +525,7 @@ cat << ENDENDEND | xargs -P {threads} -n 10 md5sum >{output}
 {input}
 ENDENDEND
     """
-    
+
 # Configure the drake plan
 # This does not build any targets, but it does most of the preliminary work, including calculating which targets
 # are outdated.
@@ -566,7 +566,7 @@ checkpoint drake_plan:
 # Dereplicate the sequences in the fastq.gz files and split them into equal-size groups for region detection using ITSx
 rule preITSx:
     output:
-        flag = touch(".preITSx")
+        flag = ".preITSx"
     input:
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-01-preITSx.R".format_map(config)
@@ -582,10 +582,10 @@ rule preITSx:
 localrules: ITSx
 rule ITSx:
     output:
-        flag = touch(".ITSx")
+        flag = ".ITSx"
     input:
         drakedata = rules.drake_plan.output.drakedata,
-        preITSx = ".preITSx",
+        flag = rules.preITSx.output.flag,
         script = "{rdir}/drake-02-ITSx.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: maxthreads
@@ -596,10 +596,11 @@ rule ITSx:
 
 # Recombine the ITSx results, split the fastq files into different regions, and do quality filtering.
 rule preDADA:
-    output: touch(".preDADA")
+    output:
+        flag = ".preDADA"
     input:
         drakedata = rules.drake_plan.output.drakedata,
-        ITSx      = rules.ITSx.output.flag,
+        flag      = rules.ITSx.output.flag,
         script    = "{rdir}/drake-03-preDADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: maxthreads
@@ -608,19 +609,35 @@ rule preDADA:
     log: "{logdir}/preDADA.log".format_map(config)
     script: "{rdir}/drake-03-preDADA.R".format_map(config)
 
-# Dereplicate, denoise, and remove chimeras for each region/plate combination
-rule DADA:
-    output: touch(".DADA")
+# Fit error model for each sequencing run
+rule errmodel:
+    output:
+        flag = ".errmodel"
     input:
         drakedata = rules.drake_plan.output.drakedata,
-        preDADA   = ".preDADA",
-        script    = "{rdir}/drake-04-DADA.R".format_map(config)
+        flag   = rules.preDADA.output.flag,
+        script    = "{rdir}/drake-04-errmodel.R".format_map(config)
+    conda: "config/conda/drake.yaml"
+    threads: maxthreads
+    resources:
+        walltime = 120
+    log: "{logdir}/errmodel.log".format_map(config)
+    script: "{rdir}/drake-04-errmodel.R".format_map(config)
+
+# Dereplicate, denoise, and remove chimeras for each region/plate combination
+rule DADA:
+    output:
+        flag = ".DADA"
+    input:
+        drakedata = rules.drake_plan.output.drakedata,
+        flag   = rules.errmodel.output.flag,
+        script    = "{rdir}/drake-05-DADA.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: maxthreads
     resources:
         walltime = 120
     log: "{logdir}/DADA.log".format_map(config)
-    script: "{rdir}/drake-04-DADA.R".format_map(config)
+    script: "{rdir}/drake-05-DADA.R".format_map(config)
 
 
 regions_table = datasets.assign(regions=datasets.regions.str.split(',')).explode('regions')
@@ -632,14 +649,14 @@ def region_inputs(wildcards):
     return expand('.nochim_{seq_run}_{region}', zip, seq_run = region_meta.seq_run, region = region_meta.regions)
 
 # combine the dada results for each region
-localrules: region_table
-rule region_table:
+localrules: preconsensus
+rule preconsensus:
     output:
-        touch(".preconsensus")#,
+        flag = ".preconsensus"#,
         #bigfasta = "{datadir}/clusters/{{region}}.fasta.gz".format_map(config)
     input:
         drakedata = rules.drake_plan.output.drakedata,
-        dada      = ".DADA",
+        flag      = rules.DADA.output.flag,
         script = "{rdir}/drake-06-preconsensus.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: maxthreads
@@ -697,11 +714,10 @@ consensus_table = regions_table.loc[regions_table.seq_run == "pb_500"]
 # and build a guide tree based on LSU
 rule consensus:
     output:
-        flag    = touch(".consensus")
+        flag    = ".consensus"
     input:
-        ".DADA",
-        ".preconsensus",
         rules.translate_references.output,
+        flag = rules.preconsensus.output.flag,
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-07-consensus.R".format_map(config)
     conda: "config/conda/drake.yaml"
@@ -713,9 +729,9 @@ rule consensus:
 
 rule raxml:
     output:
-        touch(".raxml")
+        flag = ".raxml"
     input:
-        ".consensus",
+        flag = rules.consensus.output.flag,
         drakedata = "{plandir}/drake.Rdata".format_map(config),
         script = "{rdir}/drake-09-raxml.R".format_map(config)
     log: "{logdir}/raxml.log".format_map(config)
@@ -729,14 +745,14 @@ rule raxml:
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
 localrules: finish
 rule finish:
-    output: touch(".drake_finish")
+    output: ".drake_finish"
     input:
-#        pasta     = rules.pasta.output.tree,
         drakedata = rules.drake_plan.output.drakedata,
-        raxml  = ".raxml"
+        flag      = rules.raxml.output.flag,
+        script    = "{rdir}/drake-10-finish.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime = 60
     log: "{logdir}/drake_finish.log".format_map(config)
-    script: "{rdir}/drake-09-finish.R".format_map(config)
+    script: "{rdir}/drake-10-finish.R".format_map(config)

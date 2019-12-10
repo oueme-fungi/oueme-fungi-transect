@@ -1,6 +1,7 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
+  od <- readLines(snakemake@input$flag)
 } else {
   load("drake.Rdata")
 }
@@ -45,4 +46,9 @@ if (length(targets)) {
   if (any(targets %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
+  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
 } else flog.info("RAxML targets are up-to-date.")
+
+if (exists("snakemake")) {
+  writeLines(od, snakemake@output$flag)
+}

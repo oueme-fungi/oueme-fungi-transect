@@ -19,7 +19,8 @@ ncpus <- max(local_cpus() %/% njobs, 1)
 # These are computationally easy, but some take a lot of memory.
 # run them locally with 2 cores (worth of memory) each
 preitsx_targets <- c(stringr::str_subset(od, "^split_derep_"),
-                     stringr::str_subset(od, "^derep_submap_"))
+                     stringr::str_subset(od, "^derep_submap_"),
+                     stringr::str_subset(od, "^qstats_(raw|demux)"))
 if (length(preitsx_targets)) {
   flog.info("\nMaking targets to prepare for ITSx...")
   tictoc::tic()
@@ -46,4 +47,9 @@ if (length(preitsx_targets)) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
+  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
 } else flog.info("\n All pre-itsx targets are up-to-date.")
+
+if (exists("snakemake")) {
+  writeLines(od, snakemake@output$flag)
+}

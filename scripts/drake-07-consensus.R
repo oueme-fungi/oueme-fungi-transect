@@ -1,6 +1,7 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
+  od <- readLines(snakemake@input$flag)
 } else {
   load("drake.Rdata")
 
@@ -18,7 +19,7 @@ options(clustermq.scheduler = "multicore")
 targets <- c("taxon_table",
              plan$target %>% purrr::keep(startsWith, "aln_decipher_"))
 
-targets <- subset_outdated(targets, dconfig)
+targets <- intersect(targets, od)
 
 ncpus <- max(local_cpus() %/% 2L, 1L)
 jobs <- max(1, local_cpus() %/% ncpus)
@@ -55,7 +56,9 @@ if (length(targets) > 0) {
   if (any(od %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
+  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+} else flog.info("Consensus targets are up-to-date.")
 
-} else {
-  flog.info("Consensus targets are up-to-date.")
+if (exists("snakemake")) {
+  writeLines(od, snakemake@output$flag)
 }

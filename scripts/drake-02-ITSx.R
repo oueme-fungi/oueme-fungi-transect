@@ -1,6 +1,7 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
+  od <- readLines(snakemake@input$flag)
 } else {
   load("drake.Rdata")
 }
@@ -18,9 +19,10 @@ setup_log("ITSx")
 # failing that, do all the shards locally on the cores we have.
 
 # Note: not actually using ITSx anymore
-itsx_targets <- stringr::str_subset(plan$target, "^lsux_")
-itsx_targets <- subset_outdated(itsx_targets, dconfig)
-# hmmer can use multiple processes per job; it tends to become I/O bound after about 4.
+itsx_targets <- stringr::str_subset(od, "^lsux_")
+
+# hmmer and cmalign can use multiple processes per job;
+# it tends to become I/O bound after about 4.
 ncpus <- 4L
 ncpus <- min(ncpus, max_cpus())
 njobs <- config$bigsplit
@@ -76,4 +78,9 @@ if (length(itsx_targets)) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
+  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
 } else flog.info("ITSx targets are up-to-date.")
+
+if (exists("snakemake")) {
+  writeLines(od, snakemake@output$flag)
+}

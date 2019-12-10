@@ -1,15 +1,14 @@
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
+  od <- readLines(snakemake@input$flag)
   outputs <- unique(unlist(snakemake@output))
 } else {
   load("drake.Rdata")
   outputs <- "data/clusters/ITS2.fasta.gz"
 }
 
-targets <- purrr::keep(plan$target, startsWith, "big_fasta")
-targets <- subset_outdated(targets, dconfig)
-outputs <- setdiff(outputs, ".pretaxonomy")
+targets <- purrr::keep(od, startsWith, "big_fasta")
 
 library(magrittr)
 library(backports)
@@ -18,9 +17,9 @@ setup_log("pretaxonomy")
 options(clustermq.scheduler = "multicore")
 
 #### pre-taxonomy ####
-# single-threaded targets after dada2, before taxonomy.
+# single-threaded targets after dada2, before consensus.
 if (length(targets) > 0) {
-  flog.info("Making pre-taxonomy targets with %d jobs of one core each...", local_cpus())
+  flog.info("Making pre-consensus targets with %d jobs of one core each...", local_cpus())
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "clustermq",
@@ -39,6 +38,9 @@ if (length(targets) > 0) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
-} else flog.info("Pre-taxonomy targets are up-to-date.")
+  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+} else flog.info("Pre-consensus targets are up-to-date.")
 
-for (f in outputs) Sys.setFileTime(f, Sys.time())
+if (exists("snakemake")) {
+  writeLines(od, snakemake@output$flag)
+}
