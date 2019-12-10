@@ -7,12 +7,25 @@ q_stats.ShortReadQ <- function(sreadq, ...){
   q <- as(sreadq@quality, "matrix")
   minq <- matrixStats::rowMins(q, na.rm = TRUE)
   q <- 10^(-q/10)
-  tibble::tibble(...,
-                 length = ShortRead::width(sreadq),
-                 minq = minq,
-                 eexp = Matrix::rowSums(q, na.rm = TRUE),
-                 erate = eexp/length,
-                 p.noerr = exp(Matrix::rowSums(log1p(-q), na.rm = TRUE)))
+  out <- tibble::tibble(
+    ...,
+    length = ShortRead::width(sreadq),
+    minq = minq,
+    eexp = Matrix::rowSums(q, na.rm = TRUE),
+    erate = eexp/length,
+    p.noerr = exp(Matrix::rowSums(log1p(-q), na.rm = TRUE))
+  )
+  if (nrow(out) == 0) {
+    out <- tibble::tibble(
+      ...,
+      length = NA_integer_,
+      minq = NA_integer_,
+      eexp = NA_real_,
+      erate = NA_real_,
+      p.noerr = NA_real_
+    )
+  }
+  out
 }
 
 q_stats.character <- function(sreadq, ..., qualityType = "FastqQuality") {
@@ -28,5 +41,17 @@ q_stats.character <- function(sreadq, ..., qualityType = "FastqQuality") {
       q_stats.ShortReadQ(fq, file = sreadq, ...)
     ))
   }
-  dplyr::bind_rows(out)
+  out <- dplyr::bind_rows(out)
+  
+  if (nrow(out) == 0) {
+    out <- tibble::tibble(
+      ...,
+      length = NA_integer_,
+      minq = NA_integer_,
+      eexp = NA_real_,
+      erate = NA_real_,
+      p.noerr = NA_real_
+    )
+  }
+  out
 }
