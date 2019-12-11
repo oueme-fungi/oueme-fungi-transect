@@ -392,7 +392,8 @@ plan <- drake_plan(
         multithread = ignore(ncpus)
       )
     },
-    transform = map(seq_table, .id = c(seq_run, region))),
+    transform = map(seq_table, .tag_in = step, .id = c(seq_run, region))
+  ),
 
   # big_seq_table ----
   # Join all the sequence tables for each region

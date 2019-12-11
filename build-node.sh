@@ -9,10 +9,11 @@
 #SBATCH -t 4-00:00:00
 #SBATCH -J oueme-fungi-transect
 #SBATCH -C usage_mail
-#SBATCH -M snowy
+#SBATCH -M rackham
 #SBATCH --mail-type=ALL
 #SBATCH --output="logs/snakemake-%j.log"
 #SBATCH --error="logs/snakemake-%j.log"
+#SBATCH --reservation=job_might_be_killed
 
 ## texlive from conda isn't functional
 module load texlive &&
@@ -21,6 +22,6 @@ snakemake -pr --jobs $SLURM_JOB_CPUS_PER_NODE\
   --keep-going\
   --use-conda\
   --shadow-prefix /scratch\
-  .raxml
+  finish
 
 #exit $out
