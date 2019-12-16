@@ -780,14 +780,6 @@ plan <- drake_plan(
     DECIPHER::AlignProfiles(
       pattern = aln_decipher_long,
       subject = aln_decipher_short,
-      p.struct = DECIPHER::PredictDBN(
-        aln_decipher_long,
-        processors = ignore(ncpus)
-      ),
-      s.struct = DECIPHER::PredictDBN(
-        aln_decipher_short,
-        processors = ignore(ncpus)
-      ),
       terminalGap = 0,
       processors = ignore(ncpus)
     ),
