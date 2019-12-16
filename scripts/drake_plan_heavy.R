@@ -568,7 +568,8 @@ plan <- drake_plan(
       complete.cases(.),
       startsWith(long, ITS1),
       endsWith(long, LSU),
-      stringi::stri_detect_fixed(long, chartr("T", "U", ITS2))
+      stringi::stri_detect_fixed(long, chartr("T", "U", ITS2)),
+      !hash %in% allchimeras_ITS2
     ) %>%
     unique() %>%
     dplyr::arrange(hash) %>%
@@ -616,7 +617,8 @@ plan <- drake_plan(
     dplyr::filter(
       complete.cases(.),
       startsWith(long, ITS1),
-      stringi::stri_detect_fixed(long, ITS2)
+      stringi::stri_detect_fixed(long, ITS2),
+      !hash %in% allchimeras_ITS2
     ) %>%
     unique() %>%
     dplyr::arrange(hash) %>%
@@ -758,7 +760,7 @@ plan <- drake_plan(
     dplyr::filter(
       complete.cases(.),
       stringi::stri_detect_fixed(short, chartr("T", "U", ITS2)),
-      !hash %in% chimeras_short
+      !hash %in% allchimeras_ITS2
     ) %>%
     unique() %>%
     dplyr::arrange(hash) %>%
