@@ -7,14 +7,14 @@
 relabel_seqtable <- function(seqtable) {
   seqtable %>%
     # set the new column names
-    magrittr::set_colnames(tzara::seqhash(colnames(.))) %>%
+    magrittr::set_colnames(tzara::seqhash(chartr("T", "U", colnames(.)))) %>%
     # convert to a tibble for easier name column operations
     tibble::as_tibble(rownames = "file") %>%
     # parse the filename
     tidyr::extract(
       col = "file",
       into = c("seq_run", "plate", "well", "direction", "region"),
-      regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)([fr]?)-([:alnum:]+)\\.qfilt\\.fastq\\.gz") %>%
+      regex = "([a-z]+_\\d+)_(\\d+)_([A-H]1?\\d)([fr]?)_([a-zA-Z0-9]+).*") %>%
     # create the ID
     tidyr::unite("ID", seq_run, plate, well, sep = "") %>%
     # remove unnecessary columns
@@ -28,7 +28,7 @@ relabel_seqtable <- function(seqtable) {
     as.matrix
 }
 
-assemble_physeq <- function(platemap, datasets, seqtable, tree) {
+assemble_physeq <- function(platemap, datasets, seqtable, tree, chimeras) {
   samp <- platemap %>%
     dplyr::mutate_at("primer_pair", tolower) %>%
     dplyr::left_join(
@@ -44,9 +44,43 @@ assemble_physeq <- function(platemap, datasets, seqtable, tree) {
     tidyr::unite("ID", seq_run, plate, well, sep = "", remove = FALSE) %>%
     tibble::column_to_rownames("ID") %>%
     phyloseq::sample_data()
-  
-  asvtab <- seqtable %>%
+  asvs <- setdiff(intersect(colnames(seqtable), tree$tip.label), chimeras)
+  asvtab <- seqtable[,asvs] %>%
     phyloseq::otu_table(taxa_are_rows = FALSE)
   
-  phyloseq::phyloseq(samp, asvtab)#, tree)
+  phyloseq::phyloseq(samp, asvtab, ape::keep.tip(tree, asvs))
+}
+
+
+max_cophenetic <- function(tree) {
+  max_coph <- max_depth <- numeric(length(tree$tip.label) + tree$Nnode)
+  # tips have no depth or cophenetic distance
+  max_coph[seq_along(tree$tip.label)] <- 0
+  max_depth[seq_along(tree$tip.label)] <- 0
+  
+  for (i in seq.int(length(max_coph), length(tree$tip.label) + 1, -1)) {
+    edges <- which(tree$edge[,1] == i)
+    if (length(edges) == 0) {
+      max_coph[i] <- max_depth[i] <- 0
+    } else {
+      max_depth[i] <- max(max_depth[tree$edge[edges,2]] + tree$edge.length[edges])
+      if (length(edges) == 1) {
+        max_coph[i] <- max_coph[tree$edge[edges,2]]
+      } else {
+        max_coph[i] <- max(
+          max_coph[tree$edge[edges,2]],
+          sum(
+            sort(
+              max_depth[tree$edge[edges,2]] + tree$edge.length[edges],
+              decreasing = TRUE
+            )[1:2]
+          )
+        )
+      }
+    }
+  }
+  tibble::tibble(
+    max_depth,
+    max_coph
+  )
 }
