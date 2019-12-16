@@ -394,6 +394,14 @@ plan <- drake_plan(
     transform = map(seq_table, .tag_in = step, .id = c(seq_run, region))
   ),
 
+  allchimeras = target(
+    names(which(c(chimeras))) %>%
+      chartr("T", "U", .) %>%
+      tzara::seqhash() %>%
+      unname(),
+    transform = combine(chimeras, .tag_in = step, .by = region)
+  ),
+
   # big_seq_table
   # Join all the sequence tables for each region
   big_seq_table = target(
@@ -749,7 +757,8 @@ plan <- drake_plan(
     dplyr::select(hash, short, ITS2) %>%
     dplyr::filter(
       complete.cases(.),
-      stringi::stri_detect_fixed(short, chartr("T", "U", ITS2))
+      stringi::stri_detect_fixed(short, chartr("T", "U", ITS2)),
+      !hash %in% chimeras_short
     ) %>%
     unique() %>%
     dplyr::arrange(hash) %>%

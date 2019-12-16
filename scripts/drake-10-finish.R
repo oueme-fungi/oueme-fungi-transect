@@ -54,6 +54,7 @@ cache2$import(
     "raxml_epa_decipher_unconst_full",
     dplyr::filter(plan, step == "big_seq_table")$target,
     dplyr::filter(plan, step == "err")$target,
-    dplyr::filter(plan, step == "chimeras")$target
+    dplyr::filter(plan, step == "chimeras")$target,
+    dplyr::filter(plan, step == "allchimeras")$target
   )
 )
