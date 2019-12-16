@@ -44,11 +44,14 @@ if (is.null(cache2)) cache2 <- drake::new_cache(".light")
 cache2$import(
   from = cache1,
   list = c(
+    "allseqs",
     "taxon_table",
     dplyr::filter(plan, step == "taxon")$target,
     "raxml_decipher_LSU",
     "raxml_decipher_long",
     "raxml_epa_full",
+    "raxml_decipher_unconst_long",
+    "raxml_epa_decipher_unconst_full",
     dplyr::filter(plan, step == "big_seq_table")$target,
     dplyr::filter(plan, step == "err")$target,
     dplyr::filter(plan, step == "chimeras")$target
