@@ -767,7 +767,7 @@ plan <- drake_plan(
     dplyr::filter(
       !duplicated(short),
       !hash %in% names(aln_decipher_long)
-    ) %>%
+    ) %$%
     set_names(short, hash) %>%
     chartr("T", "U", .) %>%
     Biostrings::RNAStringSet() %>%
