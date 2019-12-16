@@ -710,9 +710,10 @@ make_taxon_labels <- function(t) {
 
 #### relabel_tree ####
 # replaces tree tip labels from old with labels from new
-relabel_tree <- function(tree, old, new) {
+relabel_tree <- function(tree, old, new, chimeras = character(0)) {
+  tree <- ape::drop.tip(tree, intersect(chimeras, tree$tip.label))
   tree$tip.label <-
-    plyr::mapvalues(tree$tip.label, old, new, warn_missing = FALSE)
+    plyr::mapvalues(tree$tip.label, old, paste0('"', new, '"'), warn_missing = FALSE)
   tree
 }
 
