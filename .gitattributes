@@ -5,3 +5,4 @@
 *.phy filter=lfs diff=lfs merge=lfs -text
 RAxML_* filter=lfs diff=lfs merge=lfs -text
 *.tree filter=lfs diff=lfs merge=lfs -text
+*.docx filter=lfs diff=lfs merge=lfs -text
