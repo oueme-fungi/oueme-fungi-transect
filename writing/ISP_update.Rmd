@@ -1,0 +1,179 @@
+---
+title: "ISP 1-month followup"
+author: "Brendan Furneaux"
+date: "12 Dec 2019"
+output:
+  beamer_presentation:
+    latex_engine: xelatex
+---
+
+```{r setup, include = FALSE}
+library(magrittr)
+library(tidyverse)
+library(here)
+library(glue)
+library(Biostrings)
+library(ShortRead)
+library(ggplot2)
+library("scales")
+library(drake)
+
+cache <- drake_cache(here(".light"))
+knitr::opts_chunk$set(echo = FALSE, device = "tikz")
+theme_set(theme_bw(base_size = 24) + theme(legend.direction = "vertical"))
+```
+
+# Read number from long PacBio vs. IonTorrent (ITS2)
+```{r, message=FALSE}
+loadd(big_seq_table_ITS2, cache = cache)
+asv_table <- big_seq_table_ITS2 %>%
+  tibble::as_tibble(rownames = "filename") %>%
+  tidyr::gather(key = "seq", value = "reads", -1) %>%
+  dplyr::filter(reads >= 1) %>%
+  tidyr::extract(col = "filename",
+                 into = c("seq.run", "plate", "well", "dir", "region"),
+                 regex = "([a-z]+_\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
+  dplyr::group_by(seq.run, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  tidyr::spread(key = seq.run, value = reads, fill = 0)
+
+otu <- read_tsv(here("data/clusters/ITS2.table")) %>%
+  column_to_rownames("#OTU ID") %>%
+  as.matrix() %>%
+  t() %>%
+  as_tibble(rownames = "sample") %>%
+  tidyr::extract(
+    col = "sample",
+    into = c("seq_run", "plate", "well"),
+    regex = "([a-z]{2}_\\d{3})_(\\d{3})([A-H]1?\\d)"
+  ) %>%
+  tidyr::gather(key = "seq", value = "reads", -(1:3)) %>%
+  dplyr::filter(reads >= 1) %>%
+  dplyr::group_by(seq_run, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  tidyr::spread(key = seq_run, value = reads, fill = 0)
+  
+big_table <- bind_rows(
+  mutate(asv_table, type = "ASV"),
+  mutate(otu, type = "OTU")
+)
+big_table %>%
+  filter(is_057 > 0, pb_500 > 0) %>%
+  ggplot(aes(x = is_057, y = pb_500)) +
+  geom_point(alpha = 0.2) +
+  scale_x_log10() +
+  scale_y_log10() +
+  xlab("Ion Torrent Short Reads") +
+  ylab("PacBio Long Reads") +
+  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
+           data = big_table %>% filter(is_057 == 0, pb_500 > 0)) +
+  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
+           data = big_table %>% filter(pb_500 == 0, is_057 > 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
+                    mean(log10(is_057[is_057 >= 1])), slope = 1),
+              linetype = 2L, alpha = 0.5) +
+  facet_wrap(~type)
+```
+
+# Read number from short PacBio vs. IonTorrent (ITS2)
+```{r}
+big_table %>% 
+  filter(is_057 > 0, pb_483 > 0) %>%
+  ggplot(aes(x = is_057, y = pb_483)) +
+  geom_point(alpha = 0.2) +
+  scale_x_log10() +
+  scale_y_log10() +
+  xlab("Ion Torrent Short Reads") +
+  ylab("PacBio Short Reads") +
+  geom_rug(aes(y = pb_483, x = 1), sides = "l", alpha = 0.2,
+           data = big_table %>% filter(is_057 == 0, pb_483 > 0)) +
+  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
+           data = big_table %>% filter(pb_483 == 0, is_057 > 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_483[pb_483 >= 1])) -
+                    mean(log10(is_057[is_057 >= 1])), slope = 1),
+              linetype = 2L, alpha = 0.5) +
+  facet_wrap(~type)
+
+```
+
+
+
+# Read number from long vs. short PacBio ASVs (ITS2)
+```{r}
+big_table %>% 
+  filter(pb_483 > 0, pb_500 > 0) %>%
+  ggplot(aes(x = pb_483, y = pb_500)) +
+  geom_point(alpha = 0.2) +
+  scale_x_log10() +
+  scale_y_log10() +
+  xlab("PacBio Short Reads") +
+  ylab("PacBio Long Reads") +
+  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
+           data = big_table %>% filter(pb_483 == 0, pb_500 > 0)) +
+  geom_rug(aes(y = pb_483), sides = "b", alpha = 0.2,
+           data = big_table %>% filter(pb_500 == 0, pb_483 > 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
+                    mean(log10(pb_483[pb_483 >= 1])), slope = 1),
+              linetype = 2L, alpha = 0.5) +
+  facet_wrap(~type)
+```
+
+# Mantel Correlograms - long vs. short PacBio
+
+```{r}
+loadd(
+  "correlog_bray_0_long.pacbio",                                 
+  "correlog_bray_0_short.ion",
+  "correlog_bray_0_short.pacbio",
+  "correlog_bray_1_long.pacbio",
+  "correlog_bray_1_short.ion",
+  "correlog_bray_1_short.pacbio",
+  "correlog_unifrac_0_long.pacbio",
+  "correlog_unifrac_0_short.ion",
+  "correlog_unifrac_0_short.pacbio",
+  "correlog_unifrac_1_long.pacbio",
+  "correlog_unifrac_1_short.ion",
+  "correlog_unifrac_1_short.pacbio",
+  cache = cache
+)
+bind_rows(as.data.frame(correlog_bray_0_long.pacbio$mantel.res) %>%
+            mutate(tdist = "same", seq_run = "long", metric = "Bray-Curtis"),
+          as.data.frame(correlog_bray_1_long.pacbio$mantel.res) %>%
+            mutate(tdist = "diff", seq_run = "long", metric = "Bray-Curtis"),
+          as.data.frame(correlog_bray_0_short.pacbio$mantel.res) %>%
+            mutate(tdist = "same", seq_run = "short", metric = "Bray-Curtis"),
+          as.data.frame(correlog_bray_1_short.pacbio$mantel.res) %>%
+            mutate(tdist = "diff", seq_run = "short", metric = "Bray-Curtis"),
+          as.data.frame(correlog_unifrac_0_long.pacbio$mantel.res) %>%
+            mutate(tdist = "same", seq_run = "long", metric = "UNIFRAC"),
+          as.data.frame(correlog_unifrac_1_long.pacbio$mantel.res) %>%
+            mutate(tdist = "diff", seq_run = "long", metric = "UNIFRAC"),
+          as.data.frame(correlog_unifrac_0_short.pacbio$mantel.res) %>%
+            mutate(tdist = "same", seq_run = "short", metric = "UNIFRAC"),
+          as.data.frame(correlog_unifrac_1_short.pacbio$mantel.res) %>%
+            mutate(tdist = "diff", seq_run = "short", metric = "UNIFRAC")) %>%
+  filter(complete.cases(.)) %>%
+  mutate(Significant = `Pr(corrected)` < 0.05) %>%
+  ggplot(aes(class.index, Mantel.cor, group = tdist, color = tdist, shape = Significant)) +
+  geom_point(size = 3) +
+  geom_line(alpha = 0.3, size = 1.5) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.5) +
+  # geom_line(aes(y = exp(predict(bc_fit)))) +
+  scale_y_continuous(limits = c(-0.05, NA), name = "Spatial Distance correlation") +
+  scale_color_discrete(name = "Year") +
+  xlab("distance (m)") +
+  facet_grid(seq_run ~ metric) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1))
+```
+
+# Progress since last time:
+
+ - Sent samples for Illumina sequences (including repurification).
+ - Run pipeline with Ion Torrent data (`r sum(asv_table$is_057 > 0)` ASVs, `r sum(otu$is_057 > 0)` 97% OTUs)
+ - Map short reads (both Pac Bio and Ion Torrent) into long-read tree using EPA.
+    - Resulting tree conflicts with taxonomic assignments (unlike long-read tree)
+    - Probably because aligning the short reads isn't very accurate.
+ - Write text for methods, outline for Introduction
