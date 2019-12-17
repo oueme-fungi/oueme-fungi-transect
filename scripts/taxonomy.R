@@ -659,7 +659,7 @@ combine_taxon_tables <- function(tables, allseqs) {
     tidyr::extract(
       col = name,
       into = c("region", "reference", "ref_region", "method"),
-      regex = "taxon_(32S|5_8S|ITS[12]?|LSU|long)_(unite|warcup|rdp_train)_(ITS[12]?|LSU)_(idtaxa|dada2|sintax)",
+      regex = "taxon_(32S|5_8S|ITS[12]?|LSU|long|short)_(unite|warcup|rdp_train)_(ITS[12]?|LSU)_(idtaxa|dada2|sintax)",
       remove = FALSE
     ) %>%
     tidyr::unnest("value") %>%
@@ -679,7 +679,10 @@ combine_taxon_tables <- function(tables, allseqs) {
     ) %>%
     dplyr::ungroup() %>%
     dplyr::left_join(
-      dplyr::select(allseqs, label = "hash", n_reads = "nread"),
+      dplyr::select(allseqs, label = "hash", n_reads = "nread") %>%
+        dplyr::group_by("hash") %>%
+        dplyr::summarize(n_reads = sum(n_reads)) %>%
+        dplyr::ungroup(),
       by = "label"
     )
 }
