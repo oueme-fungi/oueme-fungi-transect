@@ -20,7 +20,7 @@ author:
     Department of Ecology and Genetics,
     Uppsala University,
     Uppsala, Sweden
-date: "`r format(Sys.time(), '%B %d, %Y')`"
+date: "December 05, 2019"
 bibliography:
   - "all.bib"
   - "R.bib"
@@ -38,34 +38,7 @@ output:
       in_header: preamble.tex
 ---
 
-```{r setup, include=FALSE}
-library("knitr")
-library("tikzDevice")
-tryCatch(
-  tinytex::tinytex_root(),
-  error = function(e) tinytex::install_tinytex()
-  )
-knitr::opts_chunk$set(dev="tikz",
-                      # dev.args = list(pointsize=32),
-                      echo=FALSE,
-                      results='asis',
-                      fig.show='asis',
-                      external=TRUE)
-options(tikzDefaultEngine = "luatex",
-        tikzLualatexPackages = c(options("tikzXelatexPackages")$tikzXelatexPackages,
-                                "\\usepackage[version=4]{mhchem}\n",
-                                "\\usepackage{siunitx}\n",
-                                "\\DeclareSIUnit\\year{a}\n"))
 
-base.dir <- regmatches(getwd(), regexpr(".*oueme-fungi-transect", getwd()))
-if (opts_chunk$get("dev") == "tikz") {
-  # styles$Expression <- styles$LaTeX.Expression
-  # styles$Name <- styles$LaTeX.Name
-  # styles$Short.Name <- styles$LaTeX.Short.Name
-  # styles$Unit <- paste0("\\si{", styles$LaTeX.Unit, "}")
-}
-write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
-```
 # Introduction
 
 ## Introduction to ECM communities
@@ -149,9 +122,7 @@ Amplification was performed by polymerase chain reaction (PCR) in 20µl reaction
 The reaction conditions were 10 min at 95°, followed by 35 cycles of 60 s at 95°, 45 s at 56°, and 50 s at 72°, and finally 3 min at 72°.
 Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity (**ref**), which were pooled after amplification.
 
-```{tikz rDNA, fig.cap = "rDNA amplicons", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
-
-```
+![(\#fig:rDNA)rDNA amplicons](transect_paper_files/figure-docx/rDNA-1.pdf)
 
 Both primers for the long amplicon were indexed for multiplexing (**supp info**).
 PCR was performed as for the short amplicons, but with 500 µM of each of the two primers.
@@ -187,7 +158,7 @@ No attempt was made to remove the approximately 12 bp fragment of the SSU from t
 The process of extracting the regions is automated in the new R package `LSUx`, available on github, CRAN, and bioconda (**but not yet**).
 
 Each of the extracted regions was independently filtered for length (table **X**) and a maximum of three expected errors.
-Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2 version `r packageVersion("dada2")`.
+Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2 version 1.12.1.
 The error model for DADA2 denoising was fit using the 5.8S RNA region for long amplicons, and using the entire read for short amplicons.
 Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, different sequencing technologies).
 Chimeras within each region were removed using `removeBimeraDenovoTable` from DADA2.
@@ -250,7 +221,7 @@ ASVs falling outside this clade were excluded from further analysis.
           
 ## Statistics
 
-Ecological community dissimilarity matrices were calculated using methods "bray" (both long and short amplicons) and "unifrac" (only long amplicons) in `phyloseq` version `r packageVersion("phyloseq")`.
+Ecological community dissimilarity matrices were calculated using methods "bray" (both long and short amplicons) and "unifrac" (only long amplicons) in `phyloseq` version 1.26.0.
 Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12 m, 
 
 # Results
