@@ -1331,3 +1331,185 @@ mafft_add(
   quiet = FALSE,
   exec = Sys.which("mafft")
 )
+
+
+library(drake)
+
+cache1 <- new_cache("cache1")
+cache2 <- new_cache("cache2")
+
+plan1 <- drake_plan(
+  x = target(
+    rcauchy(1e6),
+    transform = map(l = !!letters[1:3], .id = l)
+  ),
+  y = target(
+    mean(x),
+    transform = map(x, .id = l)
+  )
+)
+make(plan1, cache = cache1)
+
+cache2$import(from = cache1, list = plan1$target[startsWith(plan1$target, "y")])
+# now copy cache2 to another machine, which does not have access to cache1
+
+plan2 = drake_plan(
+  y = target(trigger = trigger(mode = "blacklist"), transform = map(l = !!letters[1:3], .id = l)),
+  z = target(c(y), transform = combine(y))
+)
+
+make(plan2, cache = cache2)
+readd(z, cache = cache2)
+
+library(drake)
+options(clustermq.scheduler = "multisession")
+
+t = c(1, 1, 1, 10)
+
+plan = drake_plan(
+  x = target({
+    Sys.sleep(t)
+  },
+  transform = map(t = !!t, .id = FALSE)
+  )
+)
+log <- tempfile()
+make(plan, parallelism = "clustermq", jobs = 4, console_log_file = log, template = list(log_file = log))
+readLines(log)
+
+c(
+  "taxon_table",
+  dplyr::filter(plan, step == "taxon")$target,
+  "raxml_decipher_LSU",
+  "raxml_decipher_long",
+  "raxml_epa_full",
+  dplyr::filter(plan, step == "big_seq_table")$target,
+  dplyr::filter(plan, step == "err")$target,
+  dplyr::filter(plan, step == "chimeras")$target
+)
+
+cache <- drake_cache(".light")
+
+epa_backbone <- ape::read.tree("data/raxml/epa_long-backbone.tre")
+epa_short <-
+  Biostrings::readDNAStringSet("data/raxml/epa_short_unaln.fasta") %>%
+  Biostrings::RNAStringSet()
+
+epa_short_aln <- DECIPHER::AlignSeqs(
+  epa_short,
+  iterations = 10,
+  refinements = 10,
+  processors = 4
+)
+Biostrings::writeXStringSet(epa_short_aln, "data/raxml/epa_short_realn.fasta")
+epa_short_aln <- Biostrings::readRNAStringSet("data/raxml/epa_short_realn.fasta")
+long_aln <- Biostrings::readDNAMultipleAlignment(
+  "data/raxml/decipher/decipher_long.phy",
+  format = "phylip"
+)@unmasked %>%
+  Biostrings::RNAStringSet()
+
+full_aln <- DECIPHER::AlignProfiles(epa_short_aln, long_aln) %>%
+  DECIPHER::AdjustAlignment()
+
+mafft_full_aln <- Biostrings::readDNAMultipleAlignment(
+  "data/raxml/epa_long.phy", format = "phylip")
+
+loadd(raxml_decipher_long, cache = cache)
+
+epa_decipher_full <- epa_ng(full_aln[names(long_aln)], raxml_decipher_long$bestTree, full_aln[setdiff(names(full_aln), names(long_aln))], model = raxml_decipher_long$info, threads = 4)
+
+epa_decipher_full_graft <- gappa_graft(epa_decipher_full, threads = 4)
+
+loadd(taxon_labels, cache = cache)
+relabel_tree(epa_decipher_full_graft, taxon_labels$label, paste0('"', taxon_labels$tip_label, '"'), chimeras = readd(allchimeras_ITS2, cache = cache)) %>%
+  castor::write_tree("data/trees/labeled_epa_decipher.tree")
+  
+
+loadd(physeq_all, cache = cache)
+coph <- max_cophenetic(tree)[-seq_along(tree$tip.label),] %>%
+  dplyr::arrange(max_coph) %>%
+  dplyr::group_by(max_coph) %>%
+  dplyr::summarize(n = dplyr::n()) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(ASVs = length(tree$tip.label) - cumsum(n))
+ggplot(coph, aes(max_coph, ASVs)) + 
+  geom_vline(xintercept = 0.0042, linetype = 2, color = "gray") +
+  geom_step() + 
+  xlim(c(0, 0.05)) +
+  xlab("cophenetic distance threshold")
+
+
+eco_dist <- readd(dist_unifrac_long.pacbio, cache = cache)
+sp_dist <- readd(dist_spatial_0_long.pacbio, cache = cache)
+
+vg <- variogram_dist(
+  eco_dist = eco_dist,
+  sp_dist = sp_dist,
+  breaks = c(0:25 - 0.5, 30100)
+)
+vg$gamma[25]
+vgfit <- gstat::fit.variogram(
+  vg[-25,],
+  gstat::vgm(vg$gamma[25], "Exp", 3, 0.5),
+  fit.method = 2
+)
+
+library(ggplot2)
+tibble::tibble(
+  distance = unclass(sp_dist),
+  unifrac = unclass(eco_dist)
+) %>%
+  dplyr::filter(distance < 60000) %>%
+  ggplot(aes(distance, unifrac)) +
+  geom_hline(yintercept = cumsum(vgfit$psill), linetype = "dashed", color = "gray50") +
+  geom_vline(xintercept = vgfit$range[2], linetype = "dashed", color = "gray50") +
+  geom_smooth(fill = "blue") +
+  geom_point(shape = 1, alpha = 0.3, color = "blue") +
+  geom_line(data = gstat::variogramLine(vgfit, min = 1, maxdist = 30000, n = 1000, dist_vector = exp(seq(0, log(30000), length.out = 30))),
+            aes(dist, gamma), inherit.aes = FALSE, color = "red") +
+  scale_x_log10(expand = expand_scale(0, 0))
+vgfit
+sum(vgfit$psill)
+vg$gamma[25]
+tibble::tibble(
+  distance = unclass(sp_dist),
+  unifrac = unclass(eco_dist)
+) %>%
+  dplyr::filter(distance < 100) %>%
+  ggplot(aes(distance, unifrac)) +
+  geom_hline(yintercept = cumsum(vgfit$psill), linetype = "dashed", color = "gray50") +
+  geom_vline(xintercept = vgfit$range[2], linetype = "dashed", color = "gray50") +
+  geom_smooth(fill = "blue") +
+  geom_point(shape = 1, alpha = 0.3, color = "blue") +
+  geom_line(data = gstat::variogramLine(vgfit, maxdist = 25, n = 1000),
+            aes(dist, gamma), inherit.aes = FALSE, color = "red") +
+  scale_x_continuous(expand = expand_scale(0, 0))
+
+vgst <- 
+  tibble::tibble(
+  sp_dist = unclass(dist_spatial_0_long.pacbio),
+  eco_dist = unclass(dist_unifrac_long.pacbio),
+  timelag = sp_dist %/% 100000
+) %>%
+  dplyr::mutate(
+    sp_dist = sp_dist %% 100000
+  ) %>%
+  as.list() %>%
+  c(list(breaks = 0:25 - 0.5)) %>%
+  do.call(variogramST_dist, .)
+
+gstat::fit.StVariogram(
+  vgst,
+  gstat::vgmST(
+    "separable",
+    method = "Nelder-Mead",
+    space = gstat::vgm("Exp"),
+    time = gstat::vgm("Sph"),
+    sill = 0.8
+  )
+)
+plot(vgst)
+
+readd(taxon_table, cache = cache)
+readd(taxon_phy_long, cache = cache)$tip_taxa %>% View()
