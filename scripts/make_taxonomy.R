@@ -82,6 +82,11 @@ plan <- drake_plan(
     accno %>%
     unique(),
   
+  unite_prot_accno = 
+    dplyr::filter(raw_header_unite, startsWith(classifications, "Protista")) %$%
+    accno %>%
+    unique(),
+  
   rdp_seb_accno =
     dplyr::filter(raw_header_rdp_train, grepl("Sebacinales", classifications)) %$%
     accno %>%
@@ -100,6 +105,13 @@ plan <- drake_plan(
       retries = 1
     ),
   
+  unite_prot_taxdata = 
+    target(
+      taxa::lookup_tax_data(unite_prot_accno, type = "seq_id"),
+      transform = split(unite_prot_accno, slices = 15),
+      retries = 1
+    ),
+  
   rdp_nf_ncbiheader =
     target(
       purrr::map_dfr(list(rdp_nf_taxdata),
@@ -108,6 +120,13 @@ plan <- drake_plan(
     ),
   
   rdp_seb_ncbiheader = accno_c12n_table(rdp_seb_taxdata),
+  
+  unite_prot_ncbiheader =
+    target(
+      purrr::map_dfr(list(unite_prot_taxdata),
+                     accno_c12n_table),
+      transform = combine(unite_prot_taxdata)
+    ),
   
   rdp_nf_taxa =
     target(
@@ -118,6 +137,14 @@ plan <- drake_plan(
     ),
   
   rdp_seb_taxa = rdp_seb_taxdata$data$tax_data,
+  
+  unite_prot_taxa =
+    target(
+      list(unite_prot_taxdata) %>%
+        purrr::map_dfr(~ .$data$tax_data) %>%
+        unique(),
+      transform = combine(unite_prot_taxdata)
+    ),
   
   tedersoo_class =
     read_classification_tedersoo(file_in(tedersoo_file)),
@@ -142,6 +169,21 @@ plan <- drake_plan(
       keytaxa = unique(tedersoo_class$taxon_names)
     ),
   
+  unite_prot_reduced =
+    reduce_ncbi_taxonomy(
+      unite_prot_ncbiheader,
+      unite_prot_taxa,
+      ranks = c("kingdom", "phylum", "class", "order",
+                "family", "genus"),
+      keytaxa = unique(tedersoo_class$taxon_names)
+    ) %>%
+    dplyr::mutate_at(
+      "classifications",
+      stringr::str_replace_all,
+      "Bacillariophyta",
+      "Stramenopiles;Bacillariophyceae"
+    ),
+  
   reduced_header_rdp_train = target(
     raw_header_rdp_train %>%
       dplyr::filter(!duplicated(accno)) %>%
@@ -159,16 +201,30 @@ plan <- drake_plan(
           reduce_taxonomy()
       ) %>%
       dplyr::select(-c_seb, -c_nf),
-    transform = map(db = "rdp_train",
-                    .tag_in = !!rlang::sym("reduced_header"),
-                    .id = FALSE)
+    transform = map(db = "rdp_train", .tag_out = reduced_header, .id = FALSE)
   ),
   
-  reduced_header = target(
-    raw_header %>%
+  reduced_header_unite = target(
+    raw_header_unite %>%
+      dplyr::filter(!duplicated(accno)) %>%
+      dplyr::left_join(
+        dplyr::select(unite_prot_reduced, accno, c_prot = classifications),
+        by = "accno"
+      ) %>%
+      dplyr::mutate(
+        classifications =
+          dplyr::coalesce(c_prot, classifications) %>%
+          reduce_taxonomy()
+      ) %>%
+      dplyr::select(-c_prot),
+    transform = map(db = "unite", .tag_out = reduced_header, .id = FALSE)
+  ),
+  
+  reduced_header_warcup = target(
+    raw_header_warcup %>%
       dplyr::filter(!duplicated(accno)) %>%
       dplyr::mutate_at("classifications", reduce_taxonomy),
-    transform = map(raw_header = !!rlang::syms(c("raw_header_warcup", "raw_header_unite")), db = c("warcup", "unite"), .id = db)
+    transform = map(db = "warcup", .tag_out = reduced_header, .id = FALSE)
   ),
   
   class = target(

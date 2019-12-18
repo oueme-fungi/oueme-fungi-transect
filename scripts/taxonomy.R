@@ -50,6 +50,14 @@ replace_header <- function(in_fasta, out_fasta, new_header,
   new_header <- dplyr::select(old_header, accno) %>%
     dplyr::left_join(new_header, by = "accno")
   
+  bad_classifications <- is.na(new_header$classifications) |
+    startsWith(new_header$classifications, "Eukaryota") |
+    startsWith(new_header$classifications, "Chromista") |
+    startsWith(new_header$classifications, "Protista")
+  
+  fasta <- fasta[!bad_classifications]
+  new_header <- new_header[!bad_classifications,]
+  
   write_taxonomy(taxonomy = new_header, fasta = fasta, outfile = out_fasta,
                  format = out_format)
 }
@@ -78,6 +86,11 @@ reduce_taxonomy <- function(taxonomy) {
     stringr::str_replace_all(taxonomy,
                          "(^|;)[^A-Z;]*([A-Z]+[a-z0-9]+)[^;]*",
                          "\\1\\2") %>%
+    # remove all-lower-case entries (typically "uncultured soil fungus", etc.)
+    stringr::str_replace_all("(^|;)[^A-Z;]+($|;)", "\\1\\2") %>%
+    # remove extra semicolons
+    stringr::str_replace_all(";+", ";") %>%
+    stringr::str_replace_all("(^;|;$)", "") %>%
     # remove repeated taxa (due to removed incertae sedis or species epithet)
     stringr::str_replace_all("([A-Z]+[a-z0-9]+)(;\\1)+(;|$)", "\\1\\3")
 }
