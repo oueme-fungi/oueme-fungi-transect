@@ -1512,4 +1512,193 @@ gstat::fit.StVariogram(
 plot(vgst)
 
 readd(taxon_table, cache = cache)
-readd(taxon_phy_long, cache = cache)$tip_taxa %>% View()
+readd(taxon_phy_long, cache = cache)$tip_taxa %>%
+  dplyr::group_by_at(dplyr::vars(-n_reads)) %>%
+  dplyr::summarize(n_reads = sum(n_reads)) %>%
+  dplyr::ungroup()
+
+node_taxa <- readd(taxon_phy_long, cache = cache)$node_taxa
+tip_taxa <- readd(taxon_phy_long, cache = cache)$tip_taxa %>%
+  dplyr::group_by_at(dplyr::vars(-n_reads)) %>%
+  dplyr::summarize_at("n_reads", sum) %>%
+  dplyr::group_by(label, rank) %>%
+  dplyr::mutate(
+    n_diff = dplyr::n_distinct(taxon),
+    n_tot = dplyr::n(),
+    n_method = dplyr::n_distinct(method, na.rm = TRUE),
+    n_reference = dplyr::n_distinct(reference, na.rm = TRUE)
+  ) %>%
+  dplyr::ungroup()
+tree <- ape::keep.tip(
+  readd(fungi_tree_epa_full, cache = cache),
+  intersect(
+    readd(fungi_tree_epa_full, cache = cache)$tip.label,
+    readd(raxml_decipher_long, cache = cache)$bestTree$tip.label
+  )
+)
+
+taxon_table <- readd(taxon_table, cache = cache) %>%
+  dplyr::group_by_at(dplyr::vars(-n_reads)) %>%
+  dplyr::summarize_at("n_reads", sum) %>%
+  dplyr::ungroup() %>%
+  dplyr::select(-(region:method)) %>%
+  tidyr::extract(
+    col = name,
+    into = c("region", "reference", "ref_region", "method"),
+    regex = "taxon_(32S|5_8S|ITS[12]?|LSU|long|short)_(unite|warcup|rdp_train)_(ITS[12]?|LSU)_(idtaxa|dada2|sintax)",
+    remove = FALSE
+  ) %>%
+  dplyr::group_by(label, rank) %>%
+  dplyr::filter((!"ITS" %in% region) | region != "short") %>%
+  dplyr::mutate(
+    n_tot = dplyr::n(),
+    n_diff = dplyr::n_distinct(taxon, na.rm = TRUE),
+    n_method = dplyr::n_distinct(method, na.rm = TRUE),
+    n_reference = dplyr::n_distinct(reference, na.rm = TRUE)
+  ) %>%
+  dplyr::ungroup()
+
+confident_IDs <- taxon_table %>%
+  dplyr::filter(
+    n_method >= 2,
+    n_reference >= 2,
+    n_diff == 1
+  ) %>%
+  dplyr::group_by(label) %>%
+  dplyr::mutate(
+    is_fungi = "Fungi" %in% taxon | !"kingdom" %in% rank
+  ) %>%
+  dplyr::ungroup() %>%
+  dplyr::filter(
+    ifelse(
+      is_fungi,
+      rank == "genus",
+      rank == "kingdom"
+    )
+  ) %$%
+  label %>%
+  unique()
+
+taxon_table %>%
+  dplyr::filter(label %in% confident_IDs) %>%
+  dplyr::select(label, rank, taxon) %>%
+  unique() %>%
+  dplyr::arrange(rank) %>%
+  dplyr::group_by(label) %>%
+  dplyr::summarize(Taxonomy = paste(taxon, collapse = ";")) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(
+    Taxonomy = ifelse(
+      stringr::str_detect(Taxonomy, "^[A-Z][a-z]+mycota"),
+      paste0("Fungi;", Taxonomy),
+      Taxonomy
+    )
+  )
+
+# When a group is poly-/paraphyletic in the tree, there are several possibilities:
+# 1. The tree topology is wrong (solution: constrain tree to match taxonomy?)
+# 2. Something is misannotated in the database (unlikely if the ID comes from multiple databases)
+# 3. Taxonomy assignment is incorrect (unlikely if multiple methods agree)
+# 4. Taxon is really para/polyphyletic (most likely for smaller/less studied taxa)
+
+paraphy_groups <- node_taxa %>%
+  dplyr::group_by(taxon, rank) %>%
+  dplyr::filter(dplyr::n() > 1) %>%
+  dplyr::group_modify(~tidyr::crossing(node1 = .x$node, node2 = .x$node) %>%
+                        dplyr::filter(node2 > node1)) %>%
+  dplyr::mutate(
+    mrca = phangorn::mrca.phylo(
+      x = tree,
+      node = c(node1, node2),
+      full = TRUE
+    ),
+    n1 = phangorn::Descendants(tree, node1) %>%
+      purrr::map_int(length),
+    n2 = phangorn::Descendants(tree, node2) %>%
+      purrr::map_int(length),
+    tips = phangorn::Descendants(tree, mrca),
+    n3 = tips %>%
+      purrr::map_int(length)
+    
+  ) %>%
+  tidyr::unnest(tips) %>%
+  dplyr::mutate(
+    label = tree$tip.label[tips]
+  ) %>%
+  dplyr::left_join(tip_taxa, by = c("rank", "label"), suffix = c("", "_tip")) %>%
+  dplyr::filter(taxon != taxon_tip)
+  dplyr::mutate(
+    tips = tip_taxa %>%
+      dplyr::filter(
+        label %in% tree$tip.label[phangorn::Descendants(
+          tree,
+          node = mrca
+        )[[1]]]
+      ) %>%
+      dplyr::rename(tip_rank = rank, tip_taxon = taxon) %>%
+      list()
+  ) %>%
+  tidyr::unnest(tips) %>%
+  dplyr::filter(tip_rank == rank, tip_taxon != taxon)
+
+readd(taxon_phy_long, cache = cache)$tip_taxa
+
+guilds_long <-
+  tip_taxa %>%
+  dplyr::select(label, rank, n_diff, taxon) %>%
+  dplyr::mutate_at("rank", rank_factor) %>%
+  dplyr::arrange(rank) %>%
+  dplyr::group_by(label) %>%
+  dplyr::filter(dplyr::cumall(n_diff == 1)) %>%
+  unique() %>%
+  dplyr::ungroup() %>%
+  tidyr::spread(., key = rank, value = taxon) %>%
+  dplyr::mutate(
+    kingdom = dplyr::if_else(
+      !is.na(phylum) & endsWith(phylum, "mycota"),
+      "Fungi",
+      kingdom
+    )
+  ) %>%
+  dplyr::left_join(
+    .,
+    tidyr::gather(., key = "rank", value = "taxon", kingdom:genus) %>%
+      dplyr::group_by(label) %>%
+      dplyr::summarize(Taxonomy = paste(taxon, collapse = ";")),
+    by = "label"
+  ) %>%
+  FUNGuildR::funguild_assign(readd(funguild_db, cache = cache))
+
+ecm_tips <- guilds_long %>%
+  dplyr::filter(stringr::str_detect(guild, "Ectomycorrhizal"))
+
+guilds_all <-
+  taxon_table %>%
+  dplyr::select(label, rank, taxon, n_diff) %>%
+  unique() %>%
+  dplyr::arrange(rank) %>%
+  dplyr::group_by(label) %>%
+  dplyr::filter(dplyr::cumall(n_diff == 1)) %>%
+  dplyr::ungroup() %>%
+  tidyr::spread(., key = rank, value = taxon) %>%
+  dplyr::mutate(
+    kingdom = dplyr::if_else(
+      !is.na(phylum) & endsWith(phylum, "mycota"),
+      "Fungi",
+      kingdom
+    )
+  ) %>%
+  dplyr::left_join(
+    .,
+    tidyr::gather(., key = "rank", value = "taxon", kingdom:genus) %>%
+      dplyr::group_by(label) %>%
+      dplyr::summarize(Taxonomy = paste(taxon, collapse = ";")),
+    by = "label"
+  ) %>%
+  FUNGuildR::funguild_assign(readd(funguild_db, cache = cache))
+
+ecm_tips_all <- guilds_all %>%
+  dplyr::filter(stringr::str_detect(guild, "Ectomycorrhizal"))
+
+longtree <- ape::read.tree("data/trees/labeled_fungi_decipher_long.tree")
+longtree$tip.label <- substr(longtree$tip.label, start = 1, stop = 8)

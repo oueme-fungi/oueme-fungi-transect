@@ -673,9 +673,12 @@ combine_taxon_tables <- function(tables, allseqs) {
     ) %>%
     dplyr::mutate_at("rank", rank_factor) %>%
     dplyr::group_by(label, rank) %>%
+    dplyr::filter((!"ITS" %in% region) | region != "short") %>%
     dplyr::mutate(
       n_tot = dplyr::n(),
-      n_diff = dplyr::n_distinct(taxon, na.rm = TRUE)
+      n_diff = dplyr::n_distinct(taxon, na.rm = TRUE),
+      n_method = dplyr::n_distinct(method, na.rm = TRUE),
+      n_reference = dplyr::n_distinct(reference, na.rm = TRUE)
     ) %>%
     dplyr::ungroup() %>%
     dplyr::left_join(
@@ -753,7 +756,8 @@ new_phylotax_env <- function(tree, taxa, parent = parent.frame()) {
       rank = taxa$rank[FALSE],
       taxon = character()
     ),
-    tip_taxa = dplyr::filter(taxa, label %in% tree$tip.label)
+    tip_taxa = dplyr::filter(taxa, label %in% tree$tip.label),
+    tree = tree
   )
 }
 
@@ -788,11 +792,18 @@ phylotax_ <- function(tree, taxa, node, ranks, e) {
           taxon != !!taxon
         ) %>%
         dplyr::select(-rank, -taxon, -n_tot, -n_diff, -n_reads, -confidence)
+      newAssign <- tibble::tibble(
+        label = tips,
+        rank = r,
+        taxon,
+        method = "phylotax"
+      )
       # remove assignments which are not consistent with the one we just chose
       e$tip_taxa <- dplyr::bind_rows(
         dplyr::filter(e$tip_taxa, rank < r),
         dplyr::filter(e$tip_taxa, rank >= r) %>%
-          dplyr::anti_join(wrongTaxa, by = names(wrongTaxa))
+          dplyr::anti_join(wrongTaxa, by = names(wrongTaxa)),
+        newAssign
       )
     }
   }
@@ -805,4 +816,8 @@ phylotax <- function(tree, taxa) {
   ranks <- sort(unique(taxa$rank))
   phylotax_(tree, taxa, phangorn::getRoot(tree), ranks, e)
   as.list(e)
+}
+
+find_paraphyly <- function(phylotax) {
+  
 }
