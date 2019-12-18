@@ -21,6 +21,7 @@ dependencies:
   - r-phytools=0.6
   - r-phylobase=0.8.4
   - r-taxa=0.3.2
+  - r-taxize=0.9.91
   - r-castor=1.3.5
   - r-stringdist=0.9.5
   - bioconductor-odseq=1.10.0

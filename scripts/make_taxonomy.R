@@ -30,6 +30,7 @@ if (interactive()) {
 
 library(magrittr)
 library(drake)
+library(taxize)
 
 source(file.path(r_dir, "taxonomy.R"))
 source(file.path(r_dir, "parallel_helpers.R"))
@@ -81,10 +82,21 @@ plan <- drake_plan(
     accno %>%
     unique(),
   
+  rdp_seb_accno =
+    dplyr::filter(raw_header_rdp_train, grepl("Sebacinales", classifications)) %$%
+    accno %>%
+    unique(),
+  
   rdp_nf_taxdata = 
     target(
       taxa::lookup_tax_data(rdp_nf_accno, type = "seq_id"),
       transform = split(rdp_nf_accno, slices = 50),
+      retries = 1
+    ),
+  
+  rdp_seb_taxdata = 
+    target(
+      taxa::lookup_tax_data(rdp_seb_accno, type = "seq_id"),
       retries = 1
     ),
   
@@ -95,6 +107,8 @@ plan <- drake_plan(
       transform = combine(rdp_nf_taxdata)
     ),
   
+  rdp_seb_ncbiheader = accno_c12n_table(rdp_seb_taxdata),
+  
   rdp_nf_taxa =
     target(
       list(rdp_nf_taxdata) %>%
@@ -102,6 +116,8 @@ plan <- drake_plan(
         unique(),
       transform = combine(rdp_nf_taxdata)
     ),
+  
+  rdp_seb_taxa = rdp_seb_taxdata$data$tax_data,
   
   tedersoo_class =
     read_classification_tedersoo(file_in(tedersoo_file)),
@@ -117,19 +133,32 @@ plan <- drake_plan(
       )
     ),
   
+  rdp_seb_reduced =
+    reduce_ncbi_taxonomy(
+      rdp_seb_ncbiheader,
+      rdp_seb_taxa,
+      ranks = c("kingdom", "phylum", "class", "order",
+                "family", "genus"),
+      keytaxa = unique(tedersoo_class$taxon_names)
+    ),
+  
   reduced_header_rdp_train = target(
     raw_header_rdp_train %>%
       dplyr::filter(!duplicated(accno)) %>%
-    dplyr::left_join(dplyr::select(rdp_nf_reduced,
-                                   accno,
-                                   c_new = classifications),
-                     by = "accno") %>%
+      dplyr::left_join(
+        dplyr::select(rdp_nf_reduced, accno, c_nf = classifications),
+        by = "accno"
+      ) %>%
+      dplyr::left_join(
+        dplyr::select(rdp_seb_reduced, accno, c_seb = classifications),
+        by = "accno"
+      ) %>%
       dplyr::mutate(
         classifications =
-          dplyr::coalesce(c_new, classifications) %>%
+          dplyr::coalesce(c_seb, c_nf, classifications) %>%
           reduce_taxonomy()
       ) %>%
-      dplyr::select(-c_new),
+      dplyr::select(-c_seb, -c_nf),
     transform = map(db = "rdp_train",
                     .tag_in = !!rlang::sym("reduced_header"),
                     .id = FALSE)
