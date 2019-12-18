@@ -28,27 +28,36 @@ relabel_seqtable <- function(seqtable) {
     as.matrix
 }
 
-assemble_physeq <- function(platemap, datasets, seqtable, tree, chimeras) {
+assemble_physeq <- function(platemap, datasets, seqtable, tree = NULL, chimeras) {
   samp <- platemap %>%
     dplyr::mutate_at("primer_pair", tolower) %>%
     dplyr::left_join(
       datasets %>%
         dplyr::select(dataset, seq_run, tech, forward, reverse) %>%
         dplyr::mutate(
-          primer_pair = paste(stringr::str_replace(forward, "_tag.*$", ""),
-                              stringr::str_replace(reverse, "_tag.*$", ""),
-                              sep = "_")),
+          amplicon = stringr::str_extract(dataset, "^[a-z]+"),
+          primer_pair = paste(
+            stringr::str_replace(forward, "_tag.*$", ""),
+            stringr::str_replace(reverse, "_tag.*$", ""),
+            sep = "_")
+        ),
       by = "primer_pair") %>%
     dplyr::mutate_at(c("year", "site", "qual", "plate", "well", "primer_pair"),
                      factor) %>%
     tidyr::unite("ID", seq_run, plate, well, sep = "", remove = FALSE) %>%
     tibble::column_to_rownames("ID") %>%
     phyloseq::sample_data()
-  asvs <- setdiff(intersect(colnames(seqtable), tree$tip.label), chimeras)
-  asvtab <- seqtable[,asvs] %>%
+  asvs <- colnames(seqtable)
+  if (!is.null(tree)) asvs <- intersect(asvs, tree$tip.label)
+  asvs <- setdiff(asvs, chimeras)
+  asvtab <- seqtable[,asvs, drop = FALSE] %>%
     phyloseq::otu_table(taxa_are_rows = FALSE)
   
-  phyloseq::phyloseq(samp, asvtab, ape::keep.tip(tree, asvs))
+  if (is.null(tree)) {
+    phyloseq::phyloseq(samp, asvtab)
+  } else {
+    phyloseq::phyloseq(samp, asvtab, ape::keep.tip(tree, asvs))
+  }
 }
 
 

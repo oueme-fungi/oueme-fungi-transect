@@ -7,18 +7,34 @@ if (exists("snakemake")) {
 library(drake)
 library(magrittr)
 
+source(file.path(config$rdir, "variogram.R"))
+
+physeq_meta <-
+  tidyr::crossing(
+    dplyr::select(datasets, "seq_run", "tech", "dataset"),
+    metric = c("bray", "wunifrac")
+  ) %>%
+  dplyr::mutate(
+    amplicon = stringr::str_extract(dataset, "^[a-z]+"),
+    physeq_all = glue::glue("physeq_all_{metric}")
+  ) %>%
+  dplyr::filter(
+    seq_run != "is_057", # couldn't be demultiplexed
+    !(metric == "wunifrac" & amplicon == "short") # no good tree
+  ) %>%
+  dplyr::mutate_at("physeq_all", syms) %>%
+  dplyr::select(-dataset)
+
 correlog_meta <- tidyr::crossing(
-  dplyr::select(datasets, "dataset"),
-  metric = c("bray", "unifrac"),
+  physeq_meta,
   timelag = c("0", "1")
 ) %>%
   dplyr::mutate(
-    dist = glue::glue("dist_{metric}_{dataset}"),
-    dist_spatial = glue::glue("dist_spatial_{timelag}_{dataset}")
+    dist = glue::glue("dist_{metric}_{tech}_{amplicon}"),
+    dist_spatial = glue::glue("dist_spatial_{timelag}_{metric}_{tech}_{amplicon}")
   ) %>%
   dplyr::mutate_at(c("dist", "dist_spatial"), make.names) %>%
-  dplyr::mutate_at(c("dist", "dist_spatial"), rlang::syms) %>%
-  dplyr::rename(dataset2 = dataset)
+  dplyr::mutate_at(c("dist", "dist_spatial"), rlang::syms)
 
 plan2 <- drake_plan(
   # targets which are imported from first plan
@@ -70,42 +86,69 @@ plan2 <- drake_plan(
     read_platemap(file_in(!!config$platemap), !!config$platemap_sheet),
     format = "fst"),
   
-  labeled_tree_decipher_LSU =
+  tree_decipher_LSU = target(
+    raxml_decipher_LSU$bipartitions,
+    transform = map(outname = "decipher_LSU", group = "euk", .tag_out = c(euktree, tree))
+  ),
+  
+  tree_decipher_LSU_long = target(
+    raxml_decipher_long$bipartitions,
+    transform = map(outname = "decipher_LSU_long", group = "euk", .tag_out = c(euktree, tree))
+  ),
+  
+  # tree_epa_mafft_full = target(
+  #   raxml_epa_mafft_full$bestTree,
+  #   transform = map(outname = "epa_mafft_full", .tag_out = tree)
+  # ),
+  
+  labeled_tree = target(
     relabel_tree(
-      tree = raxml_decipher_LSU$bipartitions,
+      tree = tree,
       old = taxon_labels$label,
       new = taxon_labels$tip_label,
       chimeras = allchimeras_ITS2
     ) %T>%
-    castor::write_tree(file_out("data/trees/decipher_LSU.tree")),
+      castor::write_tree(file_out(!!glue::glue(
+        "data/trees/{outname}_{group}.tree",
+        outname = outname,
+        group = group
+      ))),
+    transform = map(tree, outname, group, .id = c(outname, group))
+  ),
   
-  labeled_tree_decipher_long =
+  phylo_labeled_tree = target(
     relabel_tree(
-      tree = raxml_decipher_long$bipartitions,
-      old = taxon_labels$label,
-      new = taxon_labels$tip_label,
-      chimeras = allchimeras_ITS2
-    ) %T>%
-    castor::write_tree(file_out("data/trees/decipher_long.tree")),
-  
-  labeled_tree_epa_full =
-    relabel_tree(
-      tree = raxml_epa_full$bestTree,
-      old = taxon_labels$label,
-      new = taxon_labels$tip_label,
-      chimeras = allchimeras_ITS2
-    ) %T>%
-    castor::write_tree(file_out("data/trees/epa_full.tree")),
-  
-  phylo_labeled_tree_epa_full =
-    relabel_tree(
-      tree = raxml_epa_full$bestTree,
+      tree = tree,
       old = phylotaxon_labels$label,
       new = phylotaxon_labels$tip_label,
       chimeras = allchimeras_ITS2
     ) %T>%
-    castor::write_tree(file_out("data/trees/epa_full_phylo.tree")),
+      castor::write_tree(file_out(!!glue::glue(
+        "data/trees/{outname}_{group}_phylo.tree",
+        outname = outname,
+        group = group
+      ))),
+    transform = map(tree, phylotaxon_labels, outname, group, .id = c(outname, group))
+  ),
   
+  # find the most abundant sequence which we are confident is not a fungus
+  best_nonfungus =
+    taxon_table %>%
+    dplyr::ungroup() %>%
+    dplyr::filter(rank == "kingdom",
+                  taxon != "Fungi",
+                  n_tot == 6,
+                  n_diff == 1) %>%
+    dplyr::filter(n_reads == max(n_reads)) %$%
+    label[1],
+  
+  # root the tree outside the fungi.  This is almost certainly not the correct
+  # root for Eukaryotes (inside Chlorophyta), but it ensures that
+  # the fungi can be indentified.
+  rooted_tree = target(
+    ape::root(tree, best_nonfungus),
+    transform = map(euktree, .id = outname)
+  ),
   
   # Tulasnella is on a long branch because of a high divergence rate.
   # it ends up with Metazoa in the tree.  Exclude it.
@@ -133,102 +176,90 @@ plan2 <- drake_plan(
     unique() %>%
     setdiff(tulasnella),
   
-  # find the most abundant sequence which we are confident is a plant
-  best_nonfungus =
-    taxon_table %>%
-    dplyr::ungroup() %>%
-    dplyr::filter(rank == "kingdom",
-                  taxon != "Fungi",
-                  n_tot == 6,
-                  n_diff == 1) %>%
-    dplyr::filter(n_reads == max(n_reads)) %$%
-    label[1],
-  
-  # root the tree outside the fungi.  This isn't accurate, but it ensures that
-  # the fungi can be indentified.
-  tree_epa_full =
-    ape::root(raxml_epa_full$bestTree,
-              best_nonfungus),
-  
   # Extract the minimally inclusive clade including all confidently identified
   # fungi (except Tulasnella).
-  fungi_tree_epa_full =
-    ape::getMRCA(
-      phy = tree_epa_full,
-      tip = intersect(surefungi, tree_epa_full$tip.label)
-    ) %>%
-    ape::extract.clade(phy = tree_epa_full) %>%
+  fungi_tree = target(
+    ape::getMRCA(rooted_tree, tip = intersect(surefungi, rooted_tree$tip.label)) %>%
+    ape::extract.clade(phy = rooted_tree) %>%
     ape::drop.tip(phy = ., intersect(.$tip.label, allchimeras_ITS2)),
-  
-  labeled_fungi_tree_epa_full =
-    relabel_tree(
-      tree = fungi_tree_epa_full,
-      old = taxon_labels$label,
-      new = taxon_labels$tip_label
-    ) %T>%
-    castor::write_tree(file_out("data/trees/fungi_epa_full.tree")),
-  
-  phylolabeled_fungi_tree_epa_full =
-    relabel_tree(
-      tree = fungi_tree_epa_full,
-      old = phylotaxon_labels$label,
-      new = phylotaxon_labels$tip_label
-    ) %T>%
-    castor::write_tree(file_out("data/trees/fungi_epa_full_phylo.tree")),
-  
-  taxon_phy = phylotax(
-    tree = fungi_tree_epa_full,
-    taxa = taxon_table
+    transform = map(rooted_tree, group = "fungi", .tag_out = tree, .id = outname)
   ),
   
-  taxon_phy_long = phylotax(
-    tree = ape::keep.tip(
-      fungi_tree_epa_full,
-      intersection(fungi_tree_epa_full)),
-    taxa = taxon_table
+  # labeled_fungi_tree = target(
+  #   relabel_tree(
+  #     tree = fungi_tree,
+  #     old = taxon_labels$label,
+  #     new = taxon_labels$tip_label
+  #   ) %T>%
+  #     castor::write_tree(
+  #       file_out(!!paste0("data/trees/fungi_", outname, ".tree"))
+  #     ),
+  #   transform = map(fungi_tree, outname, .id = outname)
+  # ),
+  # 
+  # phylolabeled_fungi_tree = target(
+  #   relabel_tree(
+  #     tree = fungi_tree,
+  #     old = phylotaxon_labels$label,
+  #     new = phylotaxon_labels$tip_label
+  #   ) %T>%
+  #     castor::write_tree(
+  #       file_out(!!paste0("data/trees/fungi_", outname, "_phylo.tree"))
+  #     ),
+  #   transform = map(fungi_tree, phylotaxon_labels, outname, .id = outname)
+  # ),
+  # 
+  phylotaxon = target(
+    phylotax(tree = tree, taxa = taxon_table),
+    transform = map(tree, .id = c(outname, group))
   ),
   
-  phylotaxon_labels = make_taxon_labels(taxon_phy$tip_taxa),
+  phylotaxon_labels = target(
+    make_taxon_labels(phylotaxon$tip_taxa),
+    transform = map(phylotaxon, .id = c(outname, group))
+  ),
   
-  physeq_all = assemble_physeq(
-    platemap,
-    datasets,
-    relabel_seqtable(big_seq_table_ITS2),
-    fungi_tree_epa_full,
-    chimeras = allchimeras_ITS2
+  physeq_all = target(
+    assemble_physeq(
+      platemap = platemap,
+      datasets = datasets,
+      seqtable = relabel_seqtable(big_seq_table_ITS2),
+      tree = if (metric == "wunifrac") fungi_tree_decipher_LSU_long else NULL,
+      chimeras = allchimeras_ITS2
+    ) %>%
+      phyloseq::prune_samples(
+        samples = phyloseq::sample_data(.)$sample_type == "Sample" &
+          (phyloseq::sample_data(.)$qual == "X" |
+             phyloseq::sample_data(.)$year == "2015") &
+          rowSums(phyloseq::otu_table(.)) > 0
+      ),
+    transform = map(metric = c("bray", "wunifrac"))
   ),
   
   physeq = target(
     physeq_all %>%
     phyloseq::prune_samples(
-      samples = phyloseq::sample_data(.)[["dataset"]] == dataset & 
-        phyloseq::sample_data(.)$sample_type == "Sample" &
-        (phyloseq::sample_data(.)$qual == "X" |
-           phyloseq::sample_data(.)$year == "2015") &
-        rowSums(phyloseq::otu_table(.)) > 0
+      samples = phyloseq::sample_data(.)[["tech"]] == tech &
+        phyloseq::sample_data(.)[["amplicon"]] == amplicon
     ),
-    transform = map(.data = !!datasets, .id = dataset)
+    transform = map(.data = !!physeq_meta, .id = c(metric, tech, amplicon))
   ),
   
   dist = target(
     phyloseq::distance(physeq, metric),
-    transform = cross(
-      physeq,
-      metric = c("unifrac", "bray"),
-      .id = c(metric, dataset)
-    )
+    transform = map(physeq, metric, .id = c(metric, tech, amplicon))
   ),
   
   dist_spatial_0 = target(
     phyloseq::sample_data(physeq) %>%
     with(x + 30000 * as.integer(site) + 100000 * as.integer(year)) %>%
     dist(),
-    transform = map(physeq, .id = dataset, .tag_out = "dist_spatial")
+    transform = map(physeq, .id = c(metric, tech, amplicon), .tag_out = "dist_spatial")
   ),
   
   dist_spatial_1 = target(
     dist_spatial_0 + ifelse(dist_spatial_0 > 50000, -100000, 100000),
-    transform = map(dist_spatial_0, .id = dataset, .tag_out = "dist_spatial")
+    transform = map(dist_spatial_0, .id = c(metric, tech, amplicon), .tag_out = "dist_spatial")
   ),
   
   correlog = target(
@@ -238,7 +269,26 @@ plan2 <- drake_plan(
       break.pts = 0:13 - 0.5,
       cutoff = FALSE
     ),
-    transform = map(.data = !!correlog_meta, .id = c(metric, timelag, dataset2))
+    transform = map(.data = !!correlog_meta, .id = c(metric, timelag, tech, amplicon))
+  ),
+  
+  variog = target(
+    variogram_dist(
+      eco_dist = dist,
+      sp_dist = dist_spatial,
+      breaks = c(0:13 - 0.5, 31000)
+    ),
+    transform = map(.data = !!dplyr::filter(correlog_meta, timelag == 0),
+                    .id = c(metric, tech, amplicon))
+  ),
+  
+  variofit = target(
+    gstat::fit.variogram(
+      variog[-25,],
+      gstat::vgm(variog$gamma[25], "Exp", 3, 0.5),
+      fit.method = 2
+    ),
+    transform = map(variog, .id = c(metric, tech, amplicon))
   ),
   trace = TRUE
 )
