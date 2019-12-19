@@ -41,9 +41,8 @@ cache1 <- drake::drake_cache()
 
 cache2 <- drake::drake_cache(".light")
 if (is.null(cache2)) cache2 <- drake::new_cache(".light")
-cache2$import(
-  from = cache1,
-  list = c(
+exports <- intersect(
+  c(
     "allseqs",
     "taxon_table",
     dplyr::filter(plan, step == "taxon")$target,
@@ -55,6 +54,12 @@ cache2$import(
     dplyr::filter(plan, step == "big_seq_table")$target,
     dplyr::filter(plan, step == "err")$target,
     dplyr::filter(plan, step == "chimeras")$target,
-    dplyr::filter(plan, step == "allchimeras")$target
-  )
+    dplyr::filter(plan, step == "allchimeras")$target,
+    "qstats"
+  ),
+  cache1$list()
+)
+cache2$import(
+  from = cache1,
+  list = exports
 )

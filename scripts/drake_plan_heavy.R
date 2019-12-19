@@ -509,8 +509,7 @@ plan <- drake_plan(
                       drake_combine(big_seq_table)) %>%
       dplyr::filter(!is.na(ITS2)) %>%
       dplyr::mutate(full = dplyr::coalesce(long, short)),
-    transform = combine(conseq, big_seq_table),
-    format = "fst"
+    transform = combine(conseq, big_seq_table)
   ),
 
   #### Plan section 4: Assign taxonomy to consensus sequences ####
@@ -549,8 +548,8 @@ plan <- drake_plan(
              multithread = ignore(ncpus)) %>%
       taxtable(names = names(seqs))
     },
-    transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
-    format = "fst"),
+    transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID)
+  ),
 
   taxon_table = target(
     drake_combine(taxon) %>%
@@ -862,9 +861,10 @@ plan <- drake_plan(
   ),
   
   qstats = target(
-    combine_dynamic_diskframe(c(qstats_raw, qstats_demux, qstats_derep2)),
-    transform = combine(qstats_derep2, qstats_demux),
-    format = "diskframe"
+    combine_dynamic_diskframe(c(qstats_raw, qstats_demux, qstats_derep2)) %>%
+      as.data.frame() %>%
+      tibble::as_tibble(),
+    transform = combine(qstats_derep2, qstats_demux)
   ),
   
   trace = TRUE
