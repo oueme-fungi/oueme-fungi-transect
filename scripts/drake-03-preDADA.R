@@ -43,7 +43,9 @@ if (length(predada_targets)) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
+  flog.info("Recalculating outdated targets...")
   od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+  flog.info("Finished.")
 } else flog.info("Pre-DADA2 targets are up-to-date.")
 
 if (exists("snakemake")) {

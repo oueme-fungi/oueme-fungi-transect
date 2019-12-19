@@ -56,7 +56,9 @@ if (length(targets) > 0) {
   if (any(od %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
+  flog.info("Recalculating outdated targets...")
   od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+  flog.info("Finished.")
 } else flog.info("Consensus targets are up-to-date.")
 
 if (exists("snakemake")) {

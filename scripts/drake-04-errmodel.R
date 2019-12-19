@@ -45,8 +45,10 @@ if (length(targets) > 0) {
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
+  flog.info("Recalculating outdated targets...")
   od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
-} else flog.info("error models are up-to-date.")
+  flog.info("Finished.")
+} else flog.info("Error models are up-to-date.")
 
 if (exists("snakemake")) {
   writeLines(od, snakemake@output$flag)
