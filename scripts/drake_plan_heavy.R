@@ -887,6 +887,7 @@ if (interactive()) {
 }
 
 remove(snakemake)
+remove(dconfig)
 
 save(list = ls(),
      file = config$drakedata)
