@@ -24,38 +24,51 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 bibliography:
   - "all.bib"
   - "R.bib"
-csl: fungal-ecology.csl
-panflute-filters: figurefilter
-panflute-path: '../../python'
+csl: molecular-ecology.csl
 output:
-  bookdown::word_document2: 
-    keep_md: yes
   bookdown::pdf_document2:
-    fig_crop: no
+    fig_crop: yes
     keep_tex: yes
     latex_engine: lualatex
     includes:
       in_header: preamble.tex
+  bookdown::word_document2: 
+    keep_md: yes
+    fig_crop: yes
 ---
 
 ```{r setup, include=FALSE}
 library("knitr")
 library("tikzDevice")
+library("ggplot2")
+library("tidyverse")
+library("drake")
+library("here")
 tryCatch(
   tinytex::tinytex_root(),
   error = function(e) tinytex::install_tinytex()
   )
-knitr::opts_chunk$set(dev="tikz",
-                      # dev.args = list(pointsize=32),
-                      echo=FALSE,
-                      results='asis',
-                      fig.show='asis',
-                      external=TRUE)
-options(tikzDefaultEngine = "luatex",
-        tikzLualatexPackages = c(options("tikzXelatexPackages")$tikzXelatexPackages,
-                                "\\usepackage[version=4]{mhchem}\n",
-                                "\\usepackage{siunitx}\n",
-                                "\\DeclareSIUnit\\year{a}\n"))
+knitr::opts_chunk$set(
+  dev = "pdf",
+  # dev.args = list(pointsize=32),
+  echo = FALSE,
+  # results = 'asis',
+  # fig.show = 'asis',
+  fig.width = 6,
+  fig.height = 4.5,
+  message = FALSE,
+  warning = FALSE,
+  external = TRUE
+)
+options(
+  tikzDefaultEngine = "luatex",
+  tikzXelatexPackages = c(options("tikzXelatexPackages")$tikzXelatexPackages,
+                          "\\usepackage[version=4]{mhchem}\n",
+                          "\\usepackage{siunitx}\n",
+                          "\\DeclareSIUnit\\year{a}\n",
+                          "\\usepackage{fontspec}"),
+  tikzMetricsDictionary = here("writing/transect_paper-tikzDictionary")
+)
 
 base.dir <- regmatches(getwd(), regexpr(".*oueme-fungi-transect", getwd()))
 if (opts_chunk$get("dev") == "tikz") {
@@ -65,6 +78,9 @@ if (opts_chunk$get("dev") == "tikz") {
   # styles$Unit <- paste0("\\si{", styles$LaTeX.Unit, "}")
 }
 write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
+cache = drake_cache(here(".light"))
+light_plan <- readRDS(here("data/plan/drake_light.rds"))
+theme_set(theme_bw())
 ```
 # Introduction
 
@@ -158,6 +174,8 @@ PCR was performed as for the short amplicons, but with 500 µM of each of the tw
 Reaction conditions were 10 min at 95°, 30 cycles of 45 s at 95°, 45 s at 59°, and 90 s at 72°, and finally 10 min at 72°.
 Each reaction was performed in three technical replicates as for short amplicons.
 
+Each PCR run also included a blank sample and a positive control consisting of freshly extracted DNA from a commercially purchased fruitbody of *Agaricus bisporus*.
+
 Amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically using PicoGreen dsDNA (Quant-iT) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan) according to the manufacturer's protocol.
 100 ng of DNA from each sample (or the total PCR product if less than 100 ng) was pooled into two libraries each for long and short amplicons.
 Each library was sequenced using Single Molecule Real Time (SMRT) sequencing on a Pacific Biosciences RS II sequencer at the Uppsala Genome Center (UGS) at SciLifeLab in Uppsala, Sweden.
@@ -167,10 +185,6 @@ Additionally the short amplicon libraries were combined and sequenced using an I
   
 ## Bioinformatics
 
-  - Two workflows for short reads:
-    - Mohammad's workflow in Pipecraft
-    - Brendan's workflow using Snakemake/Drake
-  
 Circular consensus sequence (CCS) basecalls for SMRT sequences were made using `ccs` version 3.4 [@pacificbiosciences2019] using the default settings.
 The resulting sequences were demultiplexed and sequencing primers were removed using `cutadapt` version 1.18 [@martin2011].
 Sequencing primers were similarly removed from the Ion Torrent sequences, but interference between the tagged gITS7 primers and the Ion XPress tags used in library prep made full demultiplexing of the Ion Torrent sequences impossible.
@@ -186,7 +200,21 @@ For short amplicons, only 5.8S, ITS2, and LSU1 were extracted.
 No attempt was made to remove the approximately 12 bp fragment of the SSU from the 5' end of ITS1 in the long amplicons; it was too short to be reliably detected by a CM or the HMMs employed by ITSx.
 The process of extracting the regions is automated in the new R package `LSUx`, available on github, CRAN, and bioconda (**but not yet**).
 
-Each of the extracted regions was independently filtered for length (table **X**) and a maximum of three expected errors.
+```{r region-length}
+datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc")
+regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
+regions %>%
+  select(Region = region, "Minimum length" = min_length, "Maximum length" = max_length) %>%
+  right_join(tibble(Region = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4"))) %>%
+  mutate_at("Region", str_replace_all, "_", ".") %>%
+  knitr::kable(
+    booktabs = TRUE,
+    caption = "Minimum and maximum allowed lengths for each extracted region."
+  )
+```
+
+
+Each of the extracted regions was independently filtered for length (Table \@ref(tab:region-length)) and a maximum of three expected errors.
 Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2 version `r packageVersion("dada2")`.
 The error model for DADA2 denoising was fit using the 5.8S RNA region for long amplicons, and using the entire read for short amplicons.
 Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, different sequencing technologies).
@@ -236,7 +264,7 @@ The branch leading to each of these polytomies was deleted by setting its length
 The resulting tree was used as a guide tree to construct a final ML tree in RAxML, using the GTR+GAMMA model, in order to resolve relationships between different sequences assigned to the same branch.
 No bootstrapping was performed on the final tree.
 
-The tree was rooted outside the fungi by using the most abundant ASV which was confidently assigned to the Chlorophyta by all 6 applicable taxonomic assignment methods.
+The tree was rooted outside the Fungi by using the most abundant ASV which was confidently assigned to a non-fungal kingdom by all 6 applicable taxonomic assignment methods.
 Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset.
 Inspection of the tree along with taxonomic assignments revealed that the genus *Tulasnella* (Basidiomycota), which is known to have accelerated evolution in the rDNA [@moncalvo2006], was nested within the Metazoa, so it was excluded from further analysis.
 The kingdom Fungi was then identified as the minimal clade containing all remaining ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
@@ -250,10 +278,254 @@ ASVs falling outside this clade were excluded from further analysis.
           
 ## Statistics
 
-Ecological community dissimilarity matrices were calculated using methods "bray" (both long and short amplicons) and "unifrac" (only long amplicons) in `phyloseq` version `r packageVersion("phyloseq")`.
-Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12 m, 
+Ecological community dissimilarity matrices were calculated using the species based Bray-Curtis metric (both long and short amplicons) and the phylogenetically based weighted UNIFRAC method (only long amplicons) in `phyloseq` version `r packageVersion("phyloseq")`.
+Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12 m.
+Separate correlograms were drawn for samples taken during the same year, and samples separated in time by one year, in order to assess the degree to which the soil community changes over the course of one year.
+
+Additionally, dissimilarities were plotted as a function of spatial distance up to 25 m and fit using an exponential variogram function using `gstat` version `r packageVersion("gstat")` using weighting .
+The mean dissimilarity between samples taken in different transects (distance $\approx$ 30 km) was also included as a single point for each year for the purposes of fitting the variogram function.
 
 # Results
+
+```{r read-counts}
+
+```
+
+- *Agaricus bisporus* from positive control was most abundant ASV in all sequencing runs
+  - only one ASV in both PacBio runs
+  - several ASVs in IonTorrent -- due to sequencing errors not controlled by DADA2 or intragenome variation only detected in deep sequencing?
+
+(ref:readcap) ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading.
+
+```{r pbl-vs-its, fig.cap="Comparison between read number for PacBio RSII long reads and Ion Proton S5 reads, by ASV (left) and 95% OTU (right). (ref:readcap)"}
+loadd(big_seq_table_ITS2, cache = cache)
+asv_table <- big_seq_table_ITS2 %>%
+  tibble::as_tibble(rownames = "filename") %>%
+  tidyr::gather(key = "seq", value = "reads", -1) %>%
+  dplyr::filter(reads >= 1) %>%
+  tidyr::extract(col = "filename",
+                 into = c("seq.run", "plate", "well", "dir", "region"),
+                 regex = "([a-z]+_\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
+  dplyr::group_by(seq.run, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  tidyr::spread(key = seq.run, value = reads, fill = 0)
+
+otu <- read_tsv(
+  here("data/clusters/ITS2.table"),
+  col_types = cols(
+    .default = col_integer(),
+    `#OTU ID` = col_character()
+  )
+) %>%
+  column_to_rownames("#OTU ID") %>%
+  as.matrix() %>%
+  t() %>%
+  as_tibble(rownames = "sample") %>%
+  tidyr::extract(
+    col = "sample",
+    into = c("seq_run", "plate", "well"),
+    regex = "([a-z]{2}_\\d{3})_(\\d{3})([A-H]1?\\d)"
+  ) %>%
+  tidyr::gather(key = "seq", value = "reads", -(1:3)) %>%
+  dplyr::filter(reads >= 1) %>%
+  dplyr::group_by(seq_run, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  tidyr::spread(key = seq_run, value = reads, fill = 0)
+  
+big_table <- bind_rows(
+  mutate(asv_table, type = "ASV"),
+  mutate(otu, type = "OTU")
+) %>%
+  select(-seq)
+
+comparisons <- crossing(
+  x = factor(datasets$seq_run, ordered = TRUE),
+  y = factor(datasets$seq_run, ordered = TRUE),
+  type = c("ASV", "OTU")
+) %>%
+  filter(y > x) %>%
+  mutate_all(as.character) %>%
+  mutate(
+    cross = paste(x, y, sep = "-")
+  ) %>%
+  group_by(cross, type) %>%
+  group_modify(function(d, g) {
+    big_table %>%
+      filter(type == g$type) %>%
+      select(!!d$x, !!d$y) %>%
+      filter(.data[[d$x]] > 0 & .data[[d$y]] > 0) %>%
+      mutate_all(log) %>%
+      lm() %>%
+      broom::glance() %>%
+      bind_cols(d, .)
+    })
+
+compR2 <- function(x, y, type) {
+  format(filter(comparisons, x == !!x, y == !!y, type == !!type)$r.squared, digits = 2, drop0trailing = FALSE)
+}
+
+big_table %>%
+  filter(is_057 > 0, pb_500 > 0) %>%
+  ggplot(aes(x = is_057, y = pb_500)) +
+  geom_point(alpha = 0.2, shape = 1) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 1e4)) +
+  coord_equal() +
+  xlab("Ion Torrent Short Reads") +
+  ylab("PacBio Long Reads") +
+  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
+           data = big_table %>% filter(is_057 == 0, pb_500 > 0)) +
+  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
+           data = big_table %>% filter(pb_500 == 0, is_057 > 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
+                    mean(log10(is_057[is_057 >= 1])), slope = 1),
+              linetype = 2L, alpha = 0.5) +
+  facet_wrap(~type)
+```
+
+
+- Figure \@ref(fig:pbl-vs-its)
+  - ASVs/OTUs are correlated between Ion Torrent and PacBio; 
+  ASVs $R^2 = `r compR2("is_057", "pb_500", "ASV")`$; 
+  OTUs $R^2 = `r compR2("is_057", "pb_500", "OTU")`$
+  - "hook" due to sampling effects with rare species
+  - lots of ASVs/OTUs detected in only one tech
+
+- Figure \@ref(fig:pbs-vs-its)
+  - very few PacBio OTUs undetected by Ion torrent from same library; only rare OTUS undetected by PacBio
+  - $R^2 = `r compR2("is_057", "pb_483", "OTU")`$
+  - sequencing technologies are comparable, but ASVs not so much
+  - not such good match with ASVs -- suggests DADA2 doesn't perform equally
+
+- Figure \@ref(fig:pbl-vs-pbs)
+  - No "hook", because depth is similar
+  - still lots of ASVs/OTUs detected by only one amplicon -- primer bias.
+
+```{r pbs-vs-its, message=FALSE, fig.cap="Comparison between read number for PacBio RSII short reads and Ion Proton S5 reads, by ASV (left) and 95% OTU (right). (ref:readcap)"}
+big_table %>% 
+  filter(is_057 > 0, pb_483 > 0) %>%
+  ggplot(aes(x = is_057, y = pb_483)) +
+  geom_point(alpha = 0.2, shape = 1) +
+  scale_x_log10() +
+  scale_y_log10(limits = c(1, 1e4)) +
+  xlab("Ion Torrent Short Reads") +
+  ylab("PacBio Short Reads") +
+  coord_equal() +
+  geom_rug(aes(y = pb_483, x = 1), sides = "l", alpha = 0.2,
+           data = big_table %>% filter(is_057 == 0, pb_483 > 0)) +
+  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
+           data = big_table %>% filter(pb_483 == 0, is_057 > 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_483[pb_483 >= 1])) -
+                    mean(log10(is_057[is_057 >= 1])), slope = 1),
+              linetype = 2L, alpha = 0.5) +
+  facet_wrap(~type)
+
+```
+
+
+```{r pbl-vs-pbs, message=FALSE, fig.cap="Comparison between read number for PacBio RSII long and short amplicon reads, by ASV (left) and 95% OTU (right). (ref:readcap)"}
+big_table %>% 
+  filter(pb_483 > 0, pb_500 > 0) %>%
+  ggplot(aes(x = pb_483, y = pb_500)) +
+  geom_point(alpha = 0.2, shape = 1) +
+  scale_x_log10() +
+  scale_y_log10() +
+  coord_equal() +
+  xlab("PacBio Short Reads") +
+  ylab("PacBio Long Reads") +
+  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
+           data = big_table %>% filter(pb_483 == 0, pb_500 > 0)) +
+  geom_rug(aes(y = pb_483), sides = "b", alpha = 0.2,
+           data = big_table %>% filter(pb_500 == 0, pb_483 > 0)) +
+  stat_smooth(method = "loess", formula = y ~ x) +
+  geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
+                    mean(log10(pb_483[pb_483 >= 1])), slope = 1),
+              linetype = 2L, alpha = 0.5) +
+  facet_wrap(~type)
+```
+
+(ref:correlog-cap) Mantel correlograms showing the correlation between Bray-Curtis (left two columnn) or weighted Unifrac (right column) dissimilarities and spatial distance, for short (left column) and long (right column) amplicons, and for the entire soil fungal community (top row) or only ECM taxa (bottom row).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
+
+```{r correlog-ecm, fig.cap="(ref:correlog-cap)"}
+
+light_plan %>%
+  filter(startsWith(target, "correlog")) %>%
+  select(target) %>%
+  separate(
+    target,
+    into = c("step", "guild", "metric", "tech", "amplicon", "tdist"),
+    sep = "_",
+    remove = FALSE
+  ) %>%
+  mutate(
+    tdist = paste(tdist, "year"),
+    guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("all Fungi", "ECM")),
+    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "Weighted UNIFRAC")),
+    amplicon = factor(amplicon, levels = c("short", "long"), labels = c("short amplicon", "long amplicon"))
+  ) %>%
+  mutate_at("target", purrr::map, readd, character_only = TRUE, cache = cache) %>%
+  mutate_at("target", purrr::map, "mantel.res") %>%
+  mutate_at("target", purrr::map, as.data.frame) %>%
+  unnest(target) %>%
+  filter(complete.cases(.)) %>%
+  mutate(Significant = `Pr(corrected)` < 0.05) %>%
+  ggplot(aes(class.index, Mantel.cor, group = tdist, color = tdist, shape = Significant)) +
+  geom_point(size = 3) +
+  geom_line(alpha = 0.3, size = 1.5) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.5) +
+  # geom_line(aes(y = exp(predict(bc_fit)))) +
+  scale_y_continuous(limits = c(-0.05, NA), name = "Mantel correlation") +
+  scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
+  scale_color_discrete(name = "Time lag") +
+  xlab("Distance (m)") +
+  facet_grid(guild ~ metric + amplicon) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1))
+```
+
+(ref:variog) Spatial variogram fits for community dissimilarities. Each point represents one pair of samples taken at the same time.  The blue line and shaded area represent a LOESS smooth of the data and its associated confidence interval, respectively.  The red line is an exponential fit for the relationship between community dissimilarity and spatial distance.  Horizontal dashed lines represent the values of the fit function at zero distance ("nugget") and infinite distance ("sill").  The vertical dashed line is at the characteristic distance of the fit function ("range").
+
+```{r variog, warning = FALSE, message = FALSE}
+variog_data <- light_plan %>%
+  filter(startsWith(target, "variofit")) %>%
+  select(target, dist, dist_spatial) %>%
+  separate("target", c("step", "guild", "metric", "tech", "amplicon"), sep = "_", remove = FALSE) %>%
+  mutate(
+    guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("all Fungi", "ECM")),
+    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "Weighted UNIFRAC")),
+    amplicon = factor(amplicon, levels = c("short", "long"), labels = c("short amplicon", "long amplicon"))
+  ) %>%
+  mutate_at(c("target", "dist", "dist_spatial"), lapply, readd, character_only = TRUE, cache = cache) %>%
+  mutate_at(c("dist", "dist_spatial"), lapply, unclass) %>%
+  mutate(sills = purrr::map(target, ~ cumsum(.$psill)),
+         range = purrr::map_dbl(target, ~.$range[2]),
+         vgline = purrr::map(target, gstat::variogramLine, maxdist = 25, n = 100))
+
+variog_points <- unnest(variog_data, c("dist", "dist_spatial")) %>%
+  filter(dist_spatial <= 20)
+variog_empir <- variog_points %>%
+  group_by(guild, metric, tech, amplicon, dist_spatial) %>%
+  summarize_at("dist", mean)
+variog_sills <- unnest(variog_data, "sills")
+variog_fitline <- unnest(select(variog_data,-"dist"), "vgline")
+  
+
+variog_points %>%
+  ggplot(aes(dist_spatial, dist)) +
+  geom_hline(data = variog_sills, aes(yintercept = sills), linetype = "dashed", color = "gray50") +
+  geom_vline(data = variog_data, aes(xintercept = range), linetype = "dashed", color = "gray50") +
+  geom_point(shape = 1, alpha = 0.2) +
+  geom_line(data = variog_empir, color = "blue", size = 1.5) +
+  geom_line(data = variog_fitline,
+            aes(dist, gamma), inherit.aes = FALSE, color = "red", size = 0.5) +
+  scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
+  ylab("Community dissimilarity") +
+  facet_grid(guild ~ metric + amplicon)
+  
+
+```
+
 
 # Discussion
 
