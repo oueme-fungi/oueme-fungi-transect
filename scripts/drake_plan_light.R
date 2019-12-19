@@ -9,14 +9,20 @@ library(magrittr)
 
 source(file.path(config$rdir, "variogram.R"))
 
+guild_metric_meta <- tidyr::crossing(
+  metric = c("bray", "wunifrac"),
+  guild = c("fungi", "ecm")
+)
+
 physeq_meta <-
   tidyr::crossing(
     dplyr::select(datasets, "seq_run", "tech", "dataset"),
-    metric = c("bray", "wunifrac")
+    guild_metric_meta
   ) %>%
   dplyr::mutate(
+    gm = glue::glue("{guild}_{metric}"),
     amplicon = stringr::str_extract(dataset, "^[a-z]+"),
-    physeq_all = glue::glue("physeq_all_{metric}")
+    physeq_all = glue::glue("physeq_all_{gm}")
   ) %>%
   dplyr::filter(
     seq_run != "is_057", # couldn't be demultiplexed
@@ -30,11 +36,13 @@ correlog_meta <- tidyr::crossing(
   timelag = c("0", "1")
 ) %>%
   dplyr::mutate(
-    dist = glue::glue("dist_{metric}_{tech}_{amplicon}"),
-    dist_spatial = glue::glue("dist_spatial_{timelag}_{metric}_{tech}_{amplicon}")
+    gmta = glue::glue("{gm}_{tech}_{amplicon}"),
+    dist = glue::glue("dist_{gmta}"),
+    dist_spatial = glue::glue("dist_spatial_{timelag}_{gmta}")
   ) %>%
   dplyr::mutate_at(c("dist", "dist_spatial"), make.names) %>%
-  dplyr::mutate_at(c("dist", "dist_spatial"), rlang::syms)
+  dplyr::mutate_at(c("dist", "dist_spatial"), rlang::syms) %>%
+  dplyr::select(-guild, -metric, -tech, -amplicon)
 
 plan2 <- drake_plan(
   # targets which are imported from first plan
@@ -219,7 +227,49 @@ plan2 <- drake_plan(
     transform = map(phylotaxon, .id = c(outname, group))
   ),
   
-  physeq_all = target(
+  guilds = target(
+    phylotaxon$tip_taxa %>%
+      dplyr::group_by(label, rank) %>%
+      dplyr::filter((!"ITS" %in% region) | region != "short") %>%
+      dplyr::mutate(
+        n_tot = dplyr::n(),
+        n_diff = dplyr::n_distinct(taxon, na.rm = TRUE),
+        n_method = dplyr::n_distinct(method, na.rm = TRUE),
+        n_reference = dplyr::n_distinct(reference, na.rm = TRUE)
+      ) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(label, rank, n_diff, taxon) %>%
+      dplyr::mutate_at("rank", rank_factor) %>%
+      dplyr::arrange(rank) %>%
+      dplyr::group_by(label) %>%
+      dplyr::filter(dplyr::cumall(n_diff == 1)) %>%
+      unique() %>%
+      dplyr::ungroup() %>%
+      tidyr::spread(., key = rank, value = taxon) %>%
+      dplyr::mutate(
+        kingdom = dplyr::if_else(
+          !is.na(phylum) & endsWith(phylum, "mycota"),
+          "Fungi",
+          kingdom
+        )
+      ) %>%
+      dplyr::left_join(
+        .,
+        tidyr::gather(., key = "rank", value = "taxon", kingdom:genus) %>%
+          dplyr::group_by(label) %>%
+          dplyr::summarize(Taxonomy = paste(taxon, collapse = ";")),
+        by = "label"
+      ) %>%
+      FUNGuildR::funguild_assign(funguild_db),
+    transform = map(phylotaxon, .id = c(outname, group))
+  ),
+  
+  ecm = target(
+      dplyr::filter(guilds, grepl("Ectomycorrhizal", guild)),
+      transform = map(guilds, .id = c(outname, group))
+  ),
+  
+  physeq = target(
     assemble_physeq(
       platemap = platemap,
       datasets = datasets,
@@ -231,35 +281,41 @@ plan2 <- drake_plan(
         samples = phyloseq::sample_data(.)$sample_type == "Sample" &
           (phyloseq::sample_data(.)$qual == "X" |
              phyloseq::sample_data(.)$year == "2015") &
-          rowSums(phyloseq::otu_table(.)) > 0
-      ),
-    transform = map(metric = c("bray", "wunifrac"))
-  ),
-  
-  physeq = target(
-    physeq_all %>%
-    phyloseq::prune_samples(
-      samples = phyloseq::sample_data(.)[["tech"]] == tech &
-        phyloseq::sample_data(.)[["amplicon"]] == amplicon
-    ),
-    transform = map(.data = !!physeq_meta, .id = c(metric, tech, amplicon))
+          rowSums(phyloseq::otu_table(.)) > 0 &
+          phyloseq::sample_data(.)[["tech"]] == tech &
+          phyloseq::sample_data(.)[["amplicon"]] == amplicon
+      ) %>%
+      phyloseq::prune_taxa(
+        taxa = if (guild == "ecm") ecm_decipher_LSU_long_fungi$label
+        else phyloseq::taxa_names(.)
+      ) %>%
+      phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0),
+    transform = map(.data = !!physeq_meta, .id = c(guild, metric, tech, amplicon))
   ),
   
   dist = target(
     phyloseq::distance(physeq, metric),
-    transform = map(physeq, metric, .id = c(metric, tech, amplicon))
+    transform = map(physeq, metric, .id = c(gm, tech, amplicon))
   ),
   
   dist_spatial_0 = target(
     phyloseq::sample_data(physeq) %>%
     with(x + 30000 * as.integer(site) + 100000 * as.integer(year)) %>%
     dist(),
-    transform = map(physeq, .id = c(metric, tech, amplicon), .tag_out = "dist_spatial")
+    transform = map(
+      physeq,
+      .id = c(gm, tech, amplicon),
+      .tag_out = "dist_spatial"
+      )
   ),
   
   dist_spatial_1 = target(
     dist_spatial_0 + ifelse(dist_spatial_0 > 50000, -100000, 100000),
-    transform = map(dist_spatial_0, .id = c(metric, tech, amplicon), .tag_out = "dist_spatial")
+    transform = map(
+      dist_spatial_0,
+      .id = c(gm, tech, amplicon),
+      .tag_out = "dist_spatial"
+      )
   ),
   
   correlog = target(
@@ -269,29 +325,31 @@ plan2 <- drake_plan(
       break.pts = 0:13 - 0.5,
       cutoff = FALSE
     ),
-    transform = map(.data = !!correlog_meta, .id = c(metric, timelag, tech, amplicon))
+    transform = map(.data = !!correlog_meta, .id = c(gmta, timelag))
   ),
   
   variog = target(
     variogram_dist(
       eco_dist = dist,
       sp_dist = dist_spatial,
-      breaks = c(0:13 - 0.5, 31000)
+      breaks = c(1:21 - 0.5, 31000)
     ),
     transform = map(.data = !!dplyr::filter(correlog_meta, timelag == 0),
-                    .id = c(metric, tech, amplicon))
+                    .id = c(gmta))
   ),
   
   variofit = target(
     gstat::fit.variogram(
-      variog[-25,],
-      gstat::vgm(variog$gamma[25], "Exp", 3, 0.5),
-      fit.method = 2
+      variog,
+      gstat::vgm(variog$gamma[22], "Exp", 3, variog$gamma[22]/2),
+      fit.method = 1
     ),
-    transform = map(variog, .id = c(metric, tech, amplicon))
+    transform = map(variog, .id = c(gmta))
   ),
   trace = TRUE
 )
+
+saveRDS(plan2, "data/plan/drake_light.rds")
 
 if (interactive()) {
   cache <- drake_cache(".light")
