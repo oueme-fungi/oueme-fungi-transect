@@ -26,24 +26,25 @@ bibliography:
   - "R.bib"
 csl: molecular-ecology.csl
 output:
+  bookdown::word_document2: 
+    keep_md: yes
   bookdown::pdf_document2:
     fig_crop: yes
     keep_tex: yes
     latex_engine: lualatex
     includes:
       in_header: preamble.tex
-  bookdown::word_document2: 
-    keep_md: yes
-    fig_crop: yes
 ---
 
 ```{r setup, include=FALSE}
 library("knitr")
 library("tikzDevice")
 library("ggplot2")
+library("magrittr")
 library("tidyverse")
 library("drake")
 library("here")
+library("phyloseq")
 tryCatch(
   tinytex::tinytex_root(),
   error = function(e) tinytex::install_tinytex()
@@ -77,7 +78,7 @@ if (opts_chunk$get("dev") == "tikz") {
   # styles$Short.Name <- styles$LaTeX.Short.Name
   # styles$Unit <- paste0("\\si{", styles$LaTeX.Unit, "}")
 }
-write_bib(c("base", "vegan", "permute"), file = "R.bib", tweak = TRUE)
+write_bib(c("base", "phyloseq", "gstat"), file = "R.bib", tweak = TRUE)
 cache = drake_cache(here(".light"))
 light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
@@ -130,7 +131,7 @@ theme_set(theme_bw())
 - Long reads
     - Can include both LSU/SSU and ITS in same amplicon for better taxonomic placement [@Tedersoo2018]
     - can build tree directly
-    - short reads from same location can be mapped to tree.
+    - short reads from same location can potentially be mapped to tree. (but we didn't find that this works)
     - Sequencing depth tradeoff [@Kennedy2018]
 
 # Methods
@@ -244,6 +245,7 @@ SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016];
 and IDTAXA [@murali2018].
 Each ASV thus was thus given up to nine taxonomic assignments (three region/reference combinations $\times$ three algorithms).
 
+
 ## Alignment and phylogenetic inference
 
 Unique LSU regions from long amplicon ASVs were aligned as RNA using DECIPHER [@wright2015] with up to 10 iterations of progressive alignment and conserved secondary structure calculation and 10 refinement iterations.
@@ -256,19 +258,21 @@ Since ML is the optimization criterion used by Pasta, the original DECIPHER alig
 ML trees were produced using RAxML version 8.2.12 [@stamatakis2014] using the GTR+GAMMA model and rapid bootstrapping with the MRE_IGN stopping criterion.
 The LSU tree was not constrained topologically, but the long amplicon tree was constrained by the result for the LSU tree.
 
-Short amplicon ASVs without a perfect match to one of the long amplicon ASVs were added to the long amplicon alignment using the `--add` option of MAFFT version 7.453 [@katoh2012] with a 10-mer based guide tree and two iterations.
+*Short amplicon ASVs without a perfect match to one of the long amplicon ASVs were added to the long amplicon alignment using the `--add` option of MAFFT version 7.453 [@katoh2012] with a 10-mer based guide tree and two iterations.
 The short ASVs were then placed on the long amplicon tree using EPA-NG version 0.3.6 [@barbera2019].
 A "grafted" tree including the short amplicon ASVs in the most probable positions from the EPA-NG results was produced using GAPPA version 0.5.1 [@czech2019a].
 When more than one short amplicon ASV was placed in the same position on the tree, GAPPA by default groups all of these sequences together in a polytomy.
 The branch leading to each of these polytomies was deleted by setting its length to zero and then using the `d2multi` function from the `ape` package in R.
 The resulting tree was used as a guide tree to construct a final ML tree in RAxML, using the GTR+GAMMA model, in order to resolve relationships between different sequences assigned to the same branch.
-No bootstrapping was performed on the final tree.
+No bootstrapping was performed on the final tree.* -- this didn't work.
 
 The tree was rooted outside the Fungi by using the most abundant ASV which was confidently assigned to a non-fungal kingdom by all 6 applicable taxonomic assignment methods.
 Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset.
 Inspection of the tree along with taxonomic assignments revealed that the genus *Tulasnella* (Basidiomycota), which is known to have accelerated evolution in the rDNA [@moncalvo2006], was nested within the Metazoa, so it was excluded from further analysis.
 The kingdom Fungi was then identified as the minimal clade containing all remaining ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
 ASVs falling outside this clade were excluded from further analysis.
+
+*Taxonomic assignment of ASVs which were represented in the long amplicon set was refined using the phylogenetic tree.
 
 <!--
           - preliminary alignment of 32S to RDP covariance model with `cmalign` from Infernal (aligns only conserved regions)
@@ -278,24 +282,52 @@ ASVs falling outside this clade were excluded from further analysis.
           
 ## Statistics
 
-Ecological community dissimilarity matrices were calculated using the species based Bray-Curtis metric (both long and short amplicons) and the phylogenetically based weighted UNIFRAC method (only long amplicons) in `phyloseq` version `r packageVersion("phyloseq")`.
+*Ecological community dissimilarity matrices were calculated using the species based Bray-Curtis metric (both long and short amplicons) and the phylogenetically based weighted UNIFRAC method (only long amplicons) in `phyloseq` version `r packageVersion("phyloseq")`.
 Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12 m.
-Separate correlograms were drawn for samples taken during the same year, and samples separated in time by one year, in order to assess the degree to which the soil community changes over the course of one year.
+Separate correlograms were drawn for samples taken during the same year, and samples separated in time by one year, in order to assess the degree to which the soil community changes over the course of one year.*
 
-Additionally, dissimilarities were plotted as a function of spatial distance up to 25 m and fit using an exponential variogram function using `gstat` version `r packageVersion("gstat")` using weighting .
-The mean dissimilarity between samples taken in different transects (distance $\approx$ 30 km) was also included as a single point for each year for the purposes of fitting the variogram function.
+*Additionally, empirical variograms were generated by plotting mean community dissimilarity as a function of spatial distance and temporal separation.
+, and fit using a joint exponential spatio-temporal model using the `fit.StVariogram` function from `gstat` version `r packageVersion("gstat")` [@R-gstat].
+The mean dissimilarity between samples taken in different transects (distance $\approx$ 30 km) was also included as a single point for each year for the purposes of fitting the variogram function.*
 
 # Results
 
+## Read counts
 ```{r read-counts}
 
 ```
 
-- *Agaricus bisporus* from positive control was most abundant ASV in all sequencing runs
-  - only one ASV in both PacBio runs
-  - several ASVs in IonTorrent -- due to sequencing errors not controlled by DADA2 or intragenome variation only detected in deep sequencing?
+- How many reads passed quality control
+- how many became ASVs
+- how many ASVs in different regions
 
-(ref:readcap) ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading.
+```{r agaricus-check}
+agaricus <- readd(taxon_table, cache = cache) %>%
+  filter(rank == "genus", taxon == "Agaricus", n_diff == 1) %$%
+  unique(label)
+agaricus_reads <- readd(proto_physeq, cache = cache) %>%
+  phyloseq::subset_samples(sample_type == "Pos") %>%
+  prune_taxa(taxa = agaricus) %>%
+  prune_taxa(taxa = colSums(otu_table(.)) > 0) %>%
+  merge_samples("seq_run") %>%
+  otu_table()
+
+agaricus_order <- readd(proto_physeq, cache = cache) %>%
+  merge_samples("seq_run") %>%
+  otu_table() %>%
+  apply(MARGIN = 1, order, decreasing = TRUE) %>%
+  apply(MARGIN = 2, match, x = 1)
+```
+
+## Results from control
+
+- *Agaricus bisporus* from positive control was most abundant ASV in Ion and long PacBio runs, 5th highest in short PacBio
+  - only one ASV in both PacBio runs
+  - four ASVs in IonTorrent -- due to sequencing errors not controlled by DADA2 or intragenome variation only detected in deep sequencing?
+
+(ref:readcap) ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
+
+## Comparison of read counts from different technologies
 
 ```{r pbl-vs-its, fig.cap="Comparison between read number for PacBio RSII long reads and Ion Proton S5 reads, by ASV (left) and 95% OTU (right). (ref:readcap)"}
 loadd(big_seq_table_ITS2, cache = cache)
@@ -358,7 +390,10 @@ comparisons <- crossing(
       lm() %>%
       broom::glance() %>%
       bind_cols(d, .)
-    })
+    }) %>%
+  mutate(
+    label = paste("R^2 ==", formatC(r.squared, format = "f", digits = 2))
+  )
 
 compR2 <- function(x, y, type) {
   format(filter(comparisons, x == !!x, y == !!y, type == !!type)$r.squared, digits = 2, drop0trailing = FALSE)
@@ -381,6 +416,16 @@ big_table %>%
   geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
                     mean(log10(is_057[is_057 >= 1])), slope = 1),
               linetype = 2L, alpha = 0.5) +
+  geom_text(
+    aes(label = label),
+    data = filter(comparisons, x == "is_057", y == "pb_500"),
+    x = 1,
+    y = 3.5,
+    color = "black",
+    hjust = 0,
+    parse = TRUE,
+    inherit.aes = FALSE
+  ) +
   facet_wrap(~type)
 ```
 
@@ -389,14 +434,14 @@ big_table %>%
   - ASVs/OTUs are correlated between Ion Torrent and PacBio; 
   ASVs $R^2 = `r compR2("is_057", "pb_500", "ASV")`$; 
   OTUs $R^2 = `r compR2("is_057", "pb_500", "OTU")`$
-  - "hook" due to sampling effects with rare species
+  - "hook" at lower left due to sampling effects with rare species
   - lots of ASVs/OTUs detected in only one tech
 
 - Figure \@ref(fig:pbs-vs-its)
   - very few PacBio OTUs undetected by Ion torrent from same library; only rare OTUS undetected by PacBio
   - $R^2 = `r compR2("is_057", "pb_483", "OTU")`$
-  - sequencing technologies are comparable, but ASVs not so much
-  - not such good match with ASVs -- suggests DADA2 doesn't perform equally
+  - sequencing technologies yield comparable results (given read depth) with sufficient clustering
+  - not such good match with ASVs -- suggests DADA2 doesn't perform equally on different datasets
 
 - Figure \@ref(fig:pbl-vs-pbs)
   - No "hook", because depth is similar
@@ -420,6 +465,16 @@ big_table %>%
   geom_abline(aes(intercept = mean(log10(pb_483[pb_483 >= 1])) -
                     mean(log10(is_057[is_057 >= 1])), slope = 1),
               linetype = 2L, alpha = 0.5) +
+  geom_text(
+    aes(label = label),
+    data = filter(comparisons, x == "is_057", y == "pb_483"),
+    x = 1,
+    y = 3.5,
+    color = "black",
+    hjust = 0,
+    parse = TRUE,
+    inherit.aes = FALSE
+  ) +
   facet_wrap(~type)
 
 ```
@@ -443,12 +498,24 @@ big_table %>%
   geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
                     mean(log10(pb_483[pb_483 >= 1])), slope = 1),
               linetype = 2L, alpha = 0.5) +
+  geom_text(
+    aes(label = label),
+    data = filter(comparisons, x == "pb_483", y == "pb_500"),
+    x = 1,
+    y = 3.5,
+    color = "black",
+    hjust = 0,
+    parse = TRUE,
+    inherit.aes = FALSE
+  ) +
   facet_wrap(~type)
 ```
 
-(ref:correlog-cap) Mantel correlograms showing the correlation between Bray-Curtis (left two columnn) or weighted Unifrac (right column) dissimilarities and spatial distance, for short (left column) and long (right column) amplicons, and for the entire soil fungal community (top row) or only ECM taxa (bottom row).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
+## Distance decay
 
-```{r correlog-ecm, fig.cap="(ref:correlog-cap)"}
+(ref:correlog-cap) Mantel correlograms showing the correlation between Bray-Curtis (top two rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top row) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
+
+```{r correlog, fig.cap="(ref:correlog-cap)"}
 
 light_plan %>%
   filter(startsWith(target, "correlog")) %>%
@@ -480,39 +547,45 @@ light_plan %>%
   scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
   scale_color_discrete(name = "Time lag") +
   xlab("Distance (m)") +
-  facet_grid(guild ~ metric + amplicon) +
+  facet_grid(metric + amplicon ~ guild, scales = "fixed") +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1))
 ```
 
-(ref:variog) Spatial variogram fits for community dissimilarities. Each point represents one pair of samples taken at the same time.  The blue line and shaded area represent a LOESS smooth of the data and its associated confidence interval, respectively.  The red line is an exponential fit for the relationship between community dissimilarity and spatial distance.  Horizontal dashed lines represent the values of the fit function at zero distance ("nugget") and infinite distance ("sill").  The vertical dashed line is at the characteristic distance of the fit function ("range").
+Figure \@ref(fig:correlog): 
 
-```{r variog, warning = FALSE, message = FALSE}
+  - Long amplicons found longer autocorrelation of Bray-Curtis for all fungi, but not ECM.  Is this due to some particular group?
+  - Long amplicon also detects some autocorrelation even after 1 year, absent in other tests.
+  - Unifrac has less significant autocorrelation.
+
+
+(ref:variog) Spatial variogram fits for community dissimilarities. Each point represents one pair of samples taken at the same time.  Thick blue and red lines represent the empirical variogram (mean of community dissimilarities at each distance).  Thin lines is an exponential fit for the relationship between community dissimilarity and spatial distance.  Horizontal dashed lines represent the values of the fit function at zero distance ("nugget") and infinite distance ("sill").  The vertical dashed line is at the characteristic distance of the fit function ("range").
+
+```{r variog, fig.cap = "(ref:variog)", include = FALSE}
 variog_data <- light_plan %>%
-  filter(startsWith(target, "variofit")) %>%
-  select(target, dist, dist_spatial) %>%
-  separate("target", c("step", "guild", "metric", "tech", "amplicon"), sep = "_", remove = FALSE) %>%
+  filter(step == "variofit") %>%
+  select(variofit, variog, guild, metric, tech, amplicon) %>%
+  mutate_at(c("guild", "metric", "tech", "amplicon"), str_replace_all, "\"", "") %>%
   mutate(
     guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("all Fungi", "ECM")),
     metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "Weighted UNIFRAC")),
     amplicon = factor(amplicon, levels = c("short", "long"), labels = c("short amplicon", "long amplicon"))
   ) %>%
-  mutate_at(c("target", "dist", "dist_spatial"), lapply, readd, character_only = TRUE, cache = cache) %>%
-  mutate_at(c("dist", "dist_spatial"), lapply, unclass) %>%
-  mutate(sills = purrr::map(target, ~ cumsum(.$psill)),
-         range = purrr::map_dbl(target, ~.$range[2]),
-         vgline = purrr::map(target, gstat::variogramLine, maxdist = 25, n = 100))
+  mutate_at(c("variofit", "variog"), lapply, readd, character_only = TRUE, cache = cache) %>%
+  mutate(sills = purrr::map(variofit, ~ cumsum(.$psill)),
+         range = purrr::map_dbl(variofit, ~.$range[2]),
+         vgline = purrr::map(variofit, gstat::variogramLine, maxdist = 25, n = 100))
 
-variog_points <- unnest(variog_data, c("dist", "dist_spatial")) %>%
-  filter(dist_spatial <= 20)
+variog_points <- unnest(variog_data, c("variog")) %>%
+  filter(dist <= 25)
 variog_empir <- variog_points %>%
-  group_by(guild, metric, tech, amplicon, dist_spatial) %>%
-  summarize_at("dist", mean)
+  group_by(guild, metric, tech, amplicon, dist) %>%
+  summarize_at("gamma", mean)
 variog_sills <- unnest(variog_data, "sills")
-variog_fitline <- unnest(select(variog_data,-"dist"), "vgline")
+variog_fitline <- unnest(variog_data, "vgline")
   
 
 variog_points %>%
-  ggplot(aes(dist_spatial, dist)) +
+  ggplot(aes(dist, gamma)) +
   geom_hline(data = variog_sills, aes(yintercept = sills), linetype = "dashed", color = "gray50") +
   geom_vline(data = variog_data, aes(xintercept = range), linetype = "dashed", color = "gray50") +
   geom_point(shape = 1, alpha = 0.2) +
@@ -526,6 +599,98 @@ variog_points %>%
 
 ```
 
+(ref:spatio) Spatiotemporal variogram fits for community dissimilarities. The thick lines represent the empirical variogram (mean of community distances at each spatial distance) for samples taken at the same time (red) or separated by one year (blue). Thin lines are an exponential fit to the variograms.
+
+## Spatio-temporal variogram
+```{r spatio-temporal, fig.cap = "(ref:spatio)"}
+variog_data <- light_plan %>%
+  filter(step == "variofitST") %>%
+  select(variofitST, variogST, guild, metric, tech, amplicon) %>%
+  mutate_at(c("guild", "metric", "tech", "amplicon"), str_replace_all, "\"", "") %>%
+  mutate(
+    guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("all Fungi", "ECM")),
+    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "Weighted UNIFRAC")),
+    amplicon = factor(
+      amplicon,
+      levels = c("short", "long"),
+      labels = c("short amplicon", "long amplicon")
+    )
+  ) %>%
+  mutate_at(
+    c("variogST", "variofitST"),
+    lapply,
+    readd,
+    character_only = TRUE,
+    cache = cache)
+
+variog_points <- unnest(variog_data, c("variogST")) %>%
+  filter(dist <= 25) %>%
+  mutate_at("timelag", factor)
+
+variog_empir <- variog_points %>%
+  group_by(guild, metric, tech, amplicon, dist, timelag) %>%
+  summarize_at("gamma", mean)
+
+variog_confint <- variog_points %>%
+  group_by(guild, metric, tech, amplicon, dist, timelag) %>%
+  summarize(
+    lower = quantile(gamma, 0.025),
+    upper = quantile(gamma, 0.975)
+  )
+
+variog_fit <- variog_data %>%
+  mutate_at("variofitST", lapply, gstat:::vgmMetric, expand_grid(spacelag = seq(1, 25, 0.5), timelag = 0:1)) %>%
+  unnest(variofitST) %>%
+  rename(dist = spacelag) %>%
+  mutate_at("timelag", factor)
+
+variog_empir %>%
+  ggplot(aes(dist, gamma, color = timelag)) +
+  # geom_hline(data = variog_sills, aes(yintercept = sills), linetype = "dashed", color = "gray50") +
+  # geom_vline(data = variog_data, aes(xintercept = range), linetype = "dashed", color = "gray50") +
+  # geom_jitter(shape = 46, alpha = 0.5) +
+  geom_line(size = 1.5, alpha = 0.5) +
+  geom_point(size = 1.5, alpha = 0.5) +
+  # geom_smooth(data = variog_points, aes(fill = timelag), color = FALSE, alpha = 0.5) +
+  geom_line(data = filter(variog_fit, timelag == 1), size = 0.5, color = "darkcyan", alpha = 0.8) +
+  geom_line(data = filter(variog_fit, timelag == 0), size = 0.5, color = "red1", alpha = 0.8) +
+  scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
+  scale_color_discrete() +
+  scale_y_continuous(name = "Community dissimilarity") +
+  facet_grid(metric + amplicon ~ guild, scales = "free")
+
+```
+
+(ref:variofit) Parameters for variogram fits shown in figure \@ref(fig:spatio-temporal). Range: characteristic range of exponential function; Anisotropy: effective spatial distance represented by one year; R/A: Range divided by anisotropy; the characteristic range of the exponential function in the time domain.
+
+```{r variofit}
+variog_data %>%
+  mutate_at("variofitST", lapply, purrr::compose(as.data.frame, as.list, gstat::extractPar)) %>%
+  unnest(variofitST) %>%
+  arrange(metric, amplicon, guild) %>%
+  select(Guild = guild, Amplicon = amplicon, Metric = metric,
+         Range = range, Anisotropy = anis) %>%
+  mutate("R/A" = Range/Anisotropy,
+         "R/A" = ifelse(`R/A` > 100, NA, `R/A`)) %>%
+  mutate_at(c("Range", "Anisotropy", "R/A"), formatC, digits = 1,
+            format = "f") %>%
+  mutate_at("Range", paste, "m") %>%
+  mutate_at("Anisotropy", paste, "m/a") %>%
+  mutate_at("R/A", paste, "a") %>%
+  mutate_at("R/A", str_replace, "NA a", "-") %>%
+  mutate_at("Amplicon", fct_relabel, str_replace, " amplicon", "") %>%
+  kable(booktabs = TRUE, caption = "(ref:variofit)")
+```
+
+
+Figure \@ref(fig:spatio-temporal) and Table \@ref(tab:variofit):
+
+ - Fit looks good for long Pacbio w/Bray-Curtis.
+ - Unifrac shows unconvincing distance structure. (No surprise that the model doesn't fit well)
+ - Distance structure for short amplicon is really confusing.  Why are the samples 25 m apart so similar? (Even after 1 year?) Could the samples be mixed up? Or is this just a statistical artifact (very few sample pairs have that separation).
+ - ECM has shorter range and less anisotropy for all metrics
+   - shorter range = more spatially variable
+   - less anisotropy = less temporally variable
 
 # Discussion
 
