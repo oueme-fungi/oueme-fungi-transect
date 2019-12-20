@@ -1,10 +1,19 @@
-# Make a variogram from two distance matrices
-variogram_dist <- function(eco_dist, sp_dist, breaks) {
+variogram_table <- function(eco_dist, sp_dist, breaks) {
   tibble::tibble(
     dist = unclass(sp_dist),
     gamma = unclass(eco_dist),
     bin = cut(dist, breaks = breaks)
-  ) %>%
+  )
+}
+
+as_variogram <- function(vario) {
+  assertthat::assert_that(
+    is.data.frame(vario),
+    assertthat::has_name(vario, "dist"),
+    assertthat::has_name(vario, "gamma"),
+    assertthat::has_name(vario, "bin")
+  )
+  vario %>%
     dplyr::filter(!is.na(bin)) %>%
     dplyr::group_by(bin) %>%
     dplyr::summarise(
@@ -20,13 +29,29 @@ variogram_dist <- function(eco_dist, sp_dist, breaks) {
 }
 
 # Make a variogram from two distance matrices
-variogramST_dist <- function(eco_dist, sp_dist, timelag, breaks) {
+variogram_dist <- function(eco_dist, sp_dist, breaks) {
+  variogram_table(eco_dist, sp_dist, breaks) %>%
+    as_variogram()
+}
+
+variogramST_table <- function(eco_dist, sp_dist, timelag, breaks) {
   tibble::tibble(
     dist = unclass(sp_dist),
     gamma = unclass(eco_dist),
-    timelag = timelag,
+    timelag = unclass(timelag),
     bin = cut(dist, breaks = breaks)
-  ) %>%
+  )
+}
+
+as_variogramST <- function(vario) {
+  assertthat::assert_that(
+    is.data.frame(vario),
+    assertthat::has_name(vario, "dist"),
+    assertthat::has_name(vario, "timelag"),
+    assertthat::has_name(vario, "gamma"),
+    assertthat::has_name(vario, "bin")
+  )
+  vario %>%
     dplyr::filter(!is.na(bin)) %>%
     dplyr::group_by(bin, timelag) %>%
     dplyr::summarise(
@@ -46,4 +71,42 @@ variogramST_dist <- function(eco_dist, sp_dist, timelag, breaks) {
     ) %>%
     as.data.frame() %>%
     `class<-`(c("StVariogram", class(.)))
+}
+
+# Make a variogram from two distance matrices
+variogramST_dist <- function(eco_dist, sp_dist, timelag, breaks) { 
+  variogramST_table(eco_dist, sp_dist, timelag, breaks) %>%
+    as_variogramST()
+}
+
+variog <- function(physeq, metric, breaks) {
+  dist_eco <- phyloseq::distance(physeq, method = metric)
+  dist_sp <- phyloseq::sample_data(physeq) %>%
+    with(x + 30000 * as.integer(site)) %>%
+    dist()
+  dist_t = phyloseq::sample_data(physeq) %>%
+    with(as.integer(year)) %>%
+    dist()
+  dist_spt = dist_sp + 100000 * dist_t
+  variogram_table(
+    eco_dist = dist_eco,
+    sp_dist = dist_spt,
+    breaks = breaks
+  )
+}
+
+variogST <- function(physeq, metric, breaks) {
+  dist_eco <- phyloseq::distance(physeq, method = metric)
+  dist_sp <- phyloseq::sample_data(physeq) %>%
+    with(x + 30000 * as.integer(site)) %>%
+    dist()
+  dist_t = phyloseq::sample_data(physeq) %>%
+    with(as.integer(year)) %>%
+    dist()
+  variogramST_table(
+    eco_dist = dist_eco,
+    sp_dist = dist_sp,
+    timelag = dist_t,
+    breaks = breaks
+  )
 }
