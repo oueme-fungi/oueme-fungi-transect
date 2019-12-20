@@ -745,7 +745,7 @@ plan <- drake_plan(
         p = 12345,
         x = 827,
         k = TRUE,
-        file = "decipher_long",
+        file = "decipher_unconst_long",
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
         threads = ignore(ncpus))
     setwd(wd)
@@ -825,7 +825,7 @@ plan <- drake_plan(
         N = 1,
         p = 12345,
         backbone = guidetree_decipher_unconst_full,
-        file = "epa_long",
+        file = "epa_unconst_long",
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
         threads = ignore(ncpus))
     setwd(wd)
