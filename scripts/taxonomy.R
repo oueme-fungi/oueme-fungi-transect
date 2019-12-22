@@ -696,7 +696,7 @@ combine_taxon_tables <- function(tables, allseqs) {
     dplyr::ungroup() %>%
     dplyr::left_join(
       dplyr::select(allseqs, label = "hash", n_reads = "nread") %>%
-        dplyr::group_by("label") %>%
+        dplyr::group_by(label) %>%
         dplyr::summarize(n_reads = sum(n_reads)) %>%
         dplyr::ungroup(),
       by = "label"
