@@ -689,7 +689,8 @@ plan <- drake_plan(
       query = aln_mafft_full[!names(aln_mafft_full) %in% names(aln_decipher_long)],
       model = raxml_decipher_long$info,
       threads = ignore(ncpus),
-      exec = Sys.which("epa-ng")
+      exec = Sys.which("epa-ng"),
+      redo = TRUE
     ),
   
   # Graft the EPA tree
@@ -765,7 +766,7 @@ plan <- drake_plan(
     dplyr::arrange(hash) %>%
     dplyr::filter(
       !duplicated(short),
-      !hash %in% names(aln_decipher_long)
+      !hash %in% names(aln_decipher_long_trim)
     ) %$%
     set_names(short, hash) %>%
     chartr("T", "U", .) %>%
@@ -777,7 +778,7 @@ plan <- drake_plan(
   # merge the short read alignment with the long read alignment
   aln_decipher_full =
     DECIPHER::AlignProfiles(
-      pattern = aln_decipher_long,
+      pattern = aln_decipher_long_trim,
       subject = aln_decipher_short,
       terminalGap = 0,
       processors = ignore(ncpus)
@@ -786,12 +787,13 @@ plan <- drake_plan(
   # Place short reads on the unconstrained long tree using the DECIPHER alignment
   epa_decipher_unconst_full = 
     epa_ng(
-      ref_msa = aln_decipher_full[names(aln_decipher_full) %in% names(aln_decipher_long)],
+      ref_msa = aln_decipher_full[names(aln_decipher_full) %in% names(aln_decipher_long_trim)],
       tree = raxml_decipher_unconst_long$bestTree,
-      query = aln_decipher_full[!names(aln_decipher_full) %in% names(aln_decipher_long)],
+      query = aln_decipher_full[!names(aln_decipher_full) %in% names(aln_decipher_long_trim)],
       model = raxml_decipher_unconst_long$info,
       threads = ignore(ncpus),
-      exec = Sys.which("epa-ng")
+      exec = Sys.which("epa-ng"),
+      redo = TRUE,
     ),
   
   # Graft the EPA tree
@@ -816,6 +818,7 @@ plan <- drake_plan(
     wd <- setwd(!!config$raxml_dir)
     result <-
       aln_decipher_full %>%
+      Biostrings::DNAStringSet() %>%
       ape::as.DNAbin() %>%
       as.matrix() %>%
       ips::raxml(
