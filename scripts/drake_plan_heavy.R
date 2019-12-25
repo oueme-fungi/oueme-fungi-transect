@@ -35,6 +35,7 @@ source(file.path(config$rdir, "raxml.R"))
 source(file.path(config$rdir, "taxonomy.R"))
 source(file.path(config$rdir, "utils.R"))
 source(file.path(config$rdir, "epa-ng.R"))
+source(file.path(config$rdir, "epa_iterate.R"))
 source(file.path(config$rdir, "mafft.R"))
 
 setup_log("drakeplan")
@@ -829,6 +830,58 @@ plan <- drake_plan(
         p = 12345,
         backbone = guidetree_decipher_unconst_full,
         file = "epa_unconst_long",
+        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
+        threads = ignore(ncpus))
+    setwd(wd)
+    result
+  },
+  
+  epa_iterate_full = target(
+    epa_iterate(
+      subject = aln_decipher_full[names(aln_decipher_full) %in% names(aln_decipher_long_trim)],
+      query = aln_decipher_full[!names(aln_decipher_full) %in% names(aln_decipher_long_trim)],
+      subject_tree = raxml_decipher_long$bestTree,
+      subject_model = raxml_decipher_long$info,
+      iterations = 50,
+      threads = ignore(ncpus)
+  ),
+  
+  # Graft the EPA tree
+  graft_decipher_iterate_full =
+    gappa_graft(
+      jplace = epa_iterate_full$jplace,
+      threads = ignore(ncpus),
+      verbose = TRUE
+    ),
+  
+  # Convert the grafted tree to a guide tree
+  guidetree_decipher_iterate_full =
+    grafts_to_polytomies(
+      graft_decipher_iterate_full,
+      raxml_decipher_unconst_long$bestTree
+    ),
+  
+  # Resolve the iterated EPA tree
+  raxml_decipher_iterate_full = {
+    if (!dir.exists(!!config$raxml_dir))
+      dir.create(!!config$raxml_dir, recursive = TRUE)
+    wd <- setwd(!!config$raxml_dir)
+    result <-
+      c(
+        epa_iterate_full$subject,
+        epa_iterate_full$query
+      ) %>%
+      Biostrings::DNAStringSet() %>%
+      ape::as.DNAbin() %>%
+      as.matrix() %>%
+      ips::raxml(
+        DNAbin = .,
+        m = "GTRGAMMA",
+        f = "d",
+        N = 1,
+        p = 12345,
+        backbone = guidetree_decipher_unconst_full,
+        file = "epa_iter_long",
         exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
         threads = ignore(ncpus))
     setwd(wd)

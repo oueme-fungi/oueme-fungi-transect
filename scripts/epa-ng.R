@@ -114,7 +114,8 @@ is_jplace <- function(jplace) {
 # run "gappa examine graft" to add short reads to a tree based on placement
 # results (e.g. from EPA)
 gappa_graft <- function(jplace, outdir = tempdir(), threads = NULL,
-                        allow_file_overwriting = FALSE, verbose = FALSE) {
+                        allow_file_overwriting = FALSE, verbose = FALSE,
+                        fully_resolve = FALSE) {
   if (is.character(jplace) && all(file.exists(jplace))) {
     jplace_file <- jplace
   } else if (is_jplace(jplace)) {
@@ -130,6 +131,10 @@ gappa_graft <- function(jplace, outdir = tempdir(), threads = NULL,
     "--jplace-path", jplace_file,
     "--out-dir", outdir
   )
+  
+  if (isTRUE(fully_resolve)) {
+    args <- c(args, "--fully-resolve")
+  }
   
   if (!is.null(threads)) args <- c(args, "--threads", threads)
   if (isTRUE(allow_file_overwriting)) args <- c(args, "--allow-file-overwriting")

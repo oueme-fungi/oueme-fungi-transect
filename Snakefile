@@ -546,6 +546,7 @@ checkpoint drake_plan:
         "{rdir}/taxonomy.R".format_map(config),
         "{rdir}/utils.R".format_map(config),
         "{rdir}/epa-ng.R".format_map(config),
+        "{rdir}/epa_iterate.R".format_map(config),
         "{rdir}/mafft.R".format_map(config),
         demux = rules.hash_demux.output,
         dataset  = config['dataset'],
