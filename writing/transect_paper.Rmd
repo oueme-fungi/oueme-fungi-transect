@@ -26,14 +26,14 @@ bibliography:
   - "R.bib"
 csl: molecular-ecology.csl
 output:
-  bookdown::word_document2: 
-    keep_md: yes
   bookdown::pdf_document2:
     fig_crop: yes
     keep_tex: yes
     latex_engine: lualatex
     includes:
       in_header: preamble.tex
+  bookdown::word_document2: 
+    keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -202,7 +202,8 @@ No attempt was made to remove the approximately 12 bp fragment of the SSU from t
 The process of extracting the regions is automated in the new R package `LSUx`, available on github, CRAN, and bioconda (**but not yet**).
 
 ```{r region-length}
-datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc")
+datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc") %>%
+  
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 regions %>%
   select(Region = region, "Minimum length" = min_length, "Maximum length" = max_length) %>%
@@ -325,11 +326,11 @@ agaricus_order <- readd(proto_physeq, cache = cache) %>%
   - only one ASV in both PacBio runs
   - four ASVs in IonTorrent -- due to sequencing errors not controlled by DADA2 or intragenome variation only detected in deep sequencing?
 
-(ref:readcap) ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
+(ref:readcap) Comparison between read numbers for different sequencing strategies, by ASV (left) and 97% OTU (right). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
 
 ## Comparison of read counts from different technologies
 
-```{r pbl-vs-its, fig.cap="Comparison between read number for PacBio RSII long reads and Ion Proton S5 reads, by ASV (left) and 95% OTU (right). (ref:readcap)"}
+```{r pb-vs-it, fig.cap="(ref:readcap)", fig.height=8}
 loadd(big_seq_table_ITS2, cache = cache)
 asv_table <- big_seq_table_ITS2 %>%
   tibble::as_tibble(rownames = "filename") %>%
@@ -370,55 +371,181 @@ big_table <- bind_rows(
 ) %>%
   select(-seq)
 
-comparisons <- crossing(
-  x = factor(datasets$seq_run, ordered = TRUE),
-  y = factor(datasets$seq_run, ordered = TRUE),
+multi_table <- crossing(
+  x_var = factor(datasets$seq_run, ordered = TRUE),
+  y_var = factor(datasets$seq_run, ordered = TRUE),
   type = c("ASV", "OTU")
 ) %>%
-  filter(y > x) %>%
+  filter(x_var < y_var) %>%
   mutate_all(as.character) %>%
-  mutate(
-    cross = paste(x, y, sep = "-")
+  group_by(x_var, y_var, type) %>%
+  group_modify(
+    function(d, g) {
+      big_table %>%
+        filter(type == g$type) %>%
+        select(x = !!g$x_var, y = !!g$y_var) %>%
+        filter(x > 0 | y > 0)
+    }
+  )
+
+
+comparisons <- multi_table %>%
+  group_modify(
+    function(d, g) {
+      filter_all(d, ~. > 0) %>%
+        mutate_all(log10) %>%
+      {bind_cols(
+      lm(y ~ x, .) %>%
+        broom::glance(.),
+      lm(y ~ offset(x), .) %>%
+        broom::tidy(.) %>%
+        select(term, estimate) %>%
+        pivot_wider(names_from = term, values_from = estimate)
+      )}
+    }
   ) %>%
-  group_by(cross, type) %>%
-  group_modify(function(d, g) {
-    big_table %>%
-      filter(type == g$type) %>%
-      select(!!d$x, !!d$y) %>%
-      filter(.data[[d$x]] > 0 & .data[[d$y]] > 0) %>%
-      mutate_all(log) %>%
-      lm() %>%
-      broom::glance() %>%
-      bind_cols(d, .)
-    }) %>%
   mutate(
     label = paste("R^2 ==", formatC(r.squared, format = "f", digits = 2))
   )
+
+# comparisons <- crossing(
+#   x_var = factor(datasets$seq_run, ordered = TRUE),
+#   y_var = factor(datasets$seq_run, ordered = TRUE),
+#   type = c("ASV", "OTU")
+# ) %>%
+#   filter(y_var < x_var) %>%
+#   mutate_all(as.character) %>%
+#   group_by(x_var, y_var, type) %>%
+#   group_modify(function(d, g) {
+#     big_table %>%
+#       filter(type == g$type) %>%
+#       select(x = !!g$x_var, y = !!g$y_var) %>%
+#       filter(.data[[g$x_var]] > 0 & .data[[g$y_var]] > 0) %>%
+#       mutate_all(log10) %>%
+#       lm() %>%
+#       {bind_rows(
+#       broom::glance(.),
+#       broom::tidy(.) %>%
+#         select(term, estimate) %>%
+#         pivot_wider(names_from = term, values_from = estimate)
+#       )} %>%
+#       bind_cols(d, .)
+#     }) %>%
+#   mutate(
+#     label = paste("R^2 ==", formatC(r.squared, format = "f", digits = 2))
+#   )
 
 compR2 <- function(x, y, type) {
   format(filter(comparisons, x == !!x, y == !!y, type == !!type)$r.squared, digits = 2, drop0trailing = FALSE)
 }
 
-big_table %>%
-  filter(is_057 > 0, pb_500 > 0) %>%
-  ggplot(aes(x = is_057, y = pb_500)) +
+# p <- multi_table %>%
+#   filter(x > 0, y > 0, type == "ASV") %>%
+#   ggplot(aes(y = y, x = x)) +
+#   geom_point(alpha = 0.2, shape = 1) +
+#   scale_x_log10() +
+#   scale_y_log10(limits = c(1, 1e4)) +
+#   coord_equal() +
+#   xlab(NULL) +
+#   ylab(NULL) +
+#   geom_rug(aes(y = y), sides = "l", alpha = 0.2,
+#            data = multi_table %>% filter(x == 0, y > 0)) +
+#   geom_rug(aes(x = x), sides = "b", alpha = 0.2,
+#            data = multi_table %>% filter(y == 0, x > 0)) +
+#   facet_grid(y_var ~ x_var, switch = "both", space = "free") +
+#   stat_smooth(method = "loess", formula = y ~ x) +
+#   geom_abline(aes(intercept = `(Intercept)`, slope = 1),
+#               linetype = 2L, alpha = 0.5, data = comparisons) +
+#   geom_text(
+#     aes(label = label),
+#     data = comparisons,
+#     x = 1,
+#     y = 3.5,
+#     color = "black",
+#     hjust = 0,
+#     parse = TRUE,
+#     inherit.aes = FALSE
+#   ) +
+#     theme(strip.placement = "outside", strip.background = element_blank())
+# g <- ggplotGrob(p)
+# g$grobs[g$layout$name %in% c("panel-1-2")] <- NULL
+# g$layout <- g$layout[!(g$layout$name %in% c("panel-1-2")),]
+# grid.newpage()
+# grid.draw(g)
+
+expand_seq_run <- function(labels) {
+  lapply(
+    labels,
+    )
+}
+
+read_comparison <- function(multi_table, comparisons, type) {
+  multi_table <- filter(multi_table, type == !!type)
+  comparisons <- filter(comparisons, type == !!type)
+  p <- multi_table %>%
+    filter(x > 0, y > 0) %>%
+    ggplot(aes(y = y, x = x)) +
+    geom_point(alpha = 0.2, shape = 1) +
+    scale_x_log10() +
+    scale_y_log10(limits = c(1, 1e4)) +
+    coord_equal() +
+    xlab(NULL) +
+    ylab(NULL) +
+    geom_rug(aes(y = y), sides = "l", alpha = 0.2,
+             data = multi_table %>% filter(x == 0, y > 0)) +
+    geom_rug(aes(x = x), sides = "b", alpha = 0.2,
+             data = multi_table %>% filter(y == 0, x > 0)) +
+    facet_grid(y_var ~ x_var, switch = "both", space = "free", ) +
+    stat_smooth(method = "loess", formula = y ~ x) +
+    geom_abline(aes(intercept = `(Intercept)`, slope = 1),
+                linetype = 2L, alpha = 0.5, data = comparisons) +
+    geom_text(
+      aes(label = label),
+      data = comparisons,
+      x = 0.5,
+      y = 3.5,
+      color = "black",
+      hjust = 0,
+      parse = TRUE,
+      inherit.aes = FALSE
+    ) +
+    theme(strip.placement = "outside", strip.background = element_blank())
+  g <- ggplotGrob(p)
+  g$grobs[g$layout$name %in% c("panel-1-2")] <- NULL
+  g$layout <- g$layout[!(g$layout$name %in% c("panel-1-2")),]
+  g
+}
+ggpubr::ggarrange(
+  read_comparison(multi_table, comparisons, type = "ASV"),
+  read_comparison(multi_table, comparisons, type = "OTU"),
+  ncol = 1,
+  labels = "auto",
+  label.x = 0.9
+)
+
+read_comparison <- function(big_table, comparisons, x, y, xlab, ylab) {
+  x_var <- enquo(x)
+  y_var <- enquo(y)
+  big_table %>%
+  filter(!!x_var > 0, !!y_var > 0) %>%
+  ggplot(aes(x = !!x_var, y = !!y_var)) +
   geom_point(alpha = 0.2, shape = 1) +
   scale_x_log10() +
   scale_y_log10(limits = c(1, 1e4)) +
   coord_equal() +
-  xlab("Ion Torrent Short Reads") +
-  ylab("PacBio Long Reads") +
-  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
-           data = big_table %>% filter(is_057 == 0, pb_500 > 0)) +
-  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
-           data = big_table %>% filter(pb_500 == 0, is_057 > 0)) +
+  xlab(xlab) +
+  ylab(ylab) +
+  geom_rug(aes(y = !!y_var, x = 1), sides = "l", alpha = 0.2,
+           data = big_table %>% filter(!!x_var == 0, !!y_var > 0)) +
+  geom_rug(aes(y = !!x_var), sides = "b", alpha = 0.2,
+           data = big_table %>% filter(!!y_var == 0, !!x_var > 0)) +
   stat_smooth(method = "loess", formula = y ~ x) +
-  geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
-                    mean(log10(is_057[is_057 >= 1])), slope = 1),
+  geom_abline(aes(intercept = mean(log10((!!y_var)[(!!y_var) >= 1])) -
+                    mean(log10((!!x_var)[(!!x_var) >= 1])), slope = 1),
               linetype = 2L, alpha = 0.5) +
   geom_text(
     aes(label = label),
-    data = filter(comparisons, x == "is_057", y == "pb_500"),
+    data = filter(comparisons, .data$x == quo_name(x_var), .data$y == quo_name(y_var)),
     x = 1,
     y = 3.5,
     color = "black",
@@ -426,90 +553,43 @@ big_table %>%
     parse = TRUE,
     inherit.aes = FALSE
   ) +
-  facet_wrap(~type)
+  facet_wrap(~type, strip.position = "right", scales = "free")
+}
+# ggpubr::ggarrange(
+#   ncol = 1,
+#   labels = "auto",
+#   read_comparison(
+#     big_table,comparisons,
+#     is_057, pb_500,
+#     "Ion Torrent Short Reads", "PacBio Long Reads"),
+#   read_comparison(
+#     big_table, comparisons,
+#     is_057, pb_483,
+#     "Ion Torrent Short Reads", "PacBio Short Reads"),
+#   read_comparison(
+#     big_table, comparisons,
+#     pb_483, pb_500,
+#     "PacBio Short Reads", "PacBio Long Reads")
+# )
 ```
 
 
-- Figure \@ref(fig:pbl-vs-its)
+- Figure \@ref(fig:pb-vs-it)a
   - ASVs/OTUs are correlated between Ion Torrent and PacBio; 
   ASVs $R^2 = `r compR2("is_057", "pb_500", "ASV")`$; 
   OTUs $R^2 = `r compR2("is_057", "pb_500", "OTU")`$
   - "hook" at lower left due to sampling effects with rare species
   - lots of ASVs/OTUs detected in only one tech
 
-- Figure \@ref(fig:pbs-vs-its)
+- Figure \@ref(fig:pb-vs-it)b
   - very few PacBio OTUs undetected by Ion torrent from same library; only rare OTUS undetected by PacBio
   - $R^2 = `r compR2("is_057", "pb_483", "OTU")`$
   - sequencing technologies yield comparable results (given read depth) with sufficient clustering
   - not such good match with ASVs -- suggests DADA2 doesn't perform equally on different datasets
 
-- Figure \@ref(fig:pbl-vs-pbs)
+- Figure \@ref(fig:pb-vs-it)c
   - No "hook", because depth is similar
   - still lots of ASVs/OTUs detected by only one amplicon -- primer bias.
-
-```{r pbs-vs-its, message=FALSE, fig.cap="Comparison between read number for PacBio RSII short reads and Ion Proton S5 reads, by ASV (left) and 95% OTU (right). (ref:readcap)"}
-big_table %>% 
-  filter(is_057 > 0, pb_483 > 0) %>%
-  ggplot(aes(x = is_057, y = pb_483)) +
-  geom_point(alpha = 0.2, shape = 1) +
-  scale_x_log10() +
-  scale_y_log10(limits = c(1, 1e4)) +
-  xlab("Ion Torrent Short Reads") +
-  ylab("PacBio Short Reads") +
-  coord_equal() +
-  geom_rug(aes(y = pb_483, x = 1), sides = "l", alpha = 0.2,
-           data = big_table %>% filter(is_057 == 0, pb_483 > 0)) +
-  geom_rug(aes(y = is_057), sides = "b", alpha = 0.2,
-           data = big_table %>% filter(pb_483 == 0, is_057 > 0)) +
-  stat_smooth(method = "loess", formula = y ~ x) +
-  geom_abline(aes(intercept = mean(log10(pb_483[pb_483 >= 1])) -
-                    mean(log10(is_057[is_057 >= 1])), slope = 1),
-              linetype = 2L, alpha = 0.5) +
-  geom_text(
-    aes(label = label),
-    data = filter(comparisons, x == "is_057", y == "pb_483"),
-    x = 1,
-    y = 3.5,
-    color = "black",
-    hjust = 0,
-    parse = TRUE,
-    inherit.aes = FALSE
-  ) +
-  facet_wrap(~type)
-
-```
-
-
-```{r pbl-vs-pbs, message=FALSE, fig.cap="Comparison between read number for PacBio RSII long and short amplicon reads, by ASV (left) and 95% OTU (right). (ref:readcap)"}
-big_table %>% 
-  filter(pb_483 > 0, pb_500 > 0) %>%
-  ggplot(aes(x = pb_483, y = pb_500)) +
-  geom_point(alpha = 0.2, shape = 1) +
-  scale_x_log10() +
-  scale_y_log10() +
-  coord_equal() +
-  xlab("PacBio Short Reads") +
-  ylab("PacBio Long Reads") +
-  geom_rug(aes(y = pb_500, x = 1), sides = "l", alpha = 0.2,
-           data = big_table %>% filter(pb_483 == 0, pb_500 > 0)) +
-  geom_rug(aes(y = pb_483), sides = "b", alpha = 0.2,
-           data = big_table %>% filter(pb_500 == 0, pb_483 > 0)) +
-  stat_smooth(method = "loess", formula = y ~ x) +
-  geom_abline(aes(intercept = mean(log10(pb_500[pb_500 >= 1])) -
-                    mean(log10(pb_483[pb_483 >= 1])), slope = 1),
-              linetype = 2L, alpha = 0.5) +
-  geom_text(
-    aes(label = label),
-    data = filter(comparisons, x == "pb_483", y == "pb_500"),
-    x = 1,
-    y = 3.5,
-    color = "black",
-    hjust = 0,
-    parse = TRUE,
-    inherit.aes = FALSE
-  ) +
-  facet_wrap(~type)
-```
 
 ## Distance decay
 
@@ -628,8 +708,13 @@ variog_points <- unnest(variog_data, c("variogST")) %>%
   mutate_at("timelag", factor)
 
 variog_empir <- variog_points %>%
+  # mutate(bin = cut(dist, c(1:13 - 0.5, 14.5, 16.5, 19.5, 24.5))) %>%
   group_by(guild, metric, tech, amplicon, dist, timelag) %>%
-  summarize_at("gamma", mean)
+  summarize(
+    gamma = mean(gamma),
+    # dist = mean(dist),
+    n = n()
+  )
 
 variog_confint <- variog_points %>%
   group_by(guild, metric, tech, amplicon, dist, timelag) %>%
@@ -639,18 +724,21 @@ variog_confint <- variog_points %>%
   )
 
 variog_fit <- variog_data %>%
-  mutate_at("variofitST", lapply, gstat:::vgmMetric, expand_grid(spacelag = seq(1, 25, 0.5), timelag = 0:1)) %>%
+  mutate_at("variofitST", lapply,
+            gstat:::vgmMetric,
+            expand_grid(spacelag = seq(1, 25, 0.5), timelag = 0:1)
+            ) %>%
   unnest(variofitST) %>%
   rename(dist = spacelag) %>%
   mutate_at("timelag", factor)
 
 variog_empir %>%
-  ggplot(aes(dist, gamma, color = timelag)) +
+  ggplot(aes(dist, gamma, color = timelag, size = n)) +
   # geom_hline(data = variog_sills, aes(yintercept = sills), linetype = "dashed", color = "gray50") +
   # geom_vline(data = variog_data, aes(xintercept = range), linetype = "dashed", color = "gray50") +
   # geom_jitter(shape = 46, alpha = 0.5) +
-  geom_line(size = 1.5, alpha = 0.5) +
-  geom_point(size = 1.5, alpha = 0.5) +
+  # geom_line(size = 1.5, alpha = 0.5) +
+  geom_point(alpha = 0.5) +
   # geom_smooth(data = variog_points, aes(fill = timelag), color = FALSE, alpha = 0.5) +
   geom_line(data = filter(variog_fit, timelag == 1), size = 0.5, color = "darkcyan", alpha = 0.8) +
   geom_line(data = filter(variog_fit, timelag == 0), size = 0.5, color = "red1", alpha = 0.8) +
