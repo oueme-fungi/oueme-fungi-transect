@@ -844,6 +844,7 @@ plan <- drake_plan(
       subject_model = raxml_decipher_long$info,
       iterations = 50,
       threads = ignore(ncpus)
+    )
   ),
   
   # Graft the EPA tree
