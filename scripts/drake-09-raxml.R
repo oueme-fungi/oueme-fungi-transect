@@ -22,7 +22,9 @@ setup_log("raxml")
 ncpus <- local_cpus()
 if (length(targets)) {
   flog.info(
-    "Building %d RAxML targets with %d cores...", length(targets), ncpus
+    "Building RAxML targets %s with %d cores...",
+    paste(targets, collapse = ","),
+    ncpus
   )
   tictoc::tic()
   drake::make(
