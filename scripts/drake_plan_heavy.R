@@ -816,24 +816,24 @@ plan <- drake_plan(
   raxml_decipher_unconst_full = {
     if (!dir.exists(!!config$raxml_dir))
       dir.create(!!config$raxml_dir, recursive = TRUE)
-    wd <- setwd(!!config$raxml_dir)
-    result <-
+    withr::with_dir(
+      !!config$raxml_dir,
       aln_decipher_full %>%
-      Biostrings::DNAStringSet() %>%
-      ape::as.DNAbin() %>%
-      as.matrix() %>%
-      ips::raxml(
-        DNAbin = .,
-        m = "GTRGAMMA",
-        f = "d",
-        N = 1,
-        p = 12345,
-        backbone = guidetree_decipher_unconst_full,
-        file = "epa_unconst_long",
-        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(ncpus))
-    setwd(wd)
-    result
+        Biostrings::DNAStringSet() %>%
+        ape::as.DNAbin() %>%
+        as.matrix() %>%
+        ips::raxml(
+          DNAbin = .,
+          m = "GTRGAMMA",
+          f = "d",
+          N = 1,
+          p = 12345,
+          backbone = guidetree_decipher_unconst_full,
+          file = "epa_unconst_long",
+          exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
+          threads = ignore(ncpus)
+        )
+    )
   },
   
   epa_iterate_full = target(
@@ -865,27 +865,27 @@ plan <- drake_plan(
   raxml_decipher_iterate_full = {
     if (!dir.exists(!!config$raxml_dir))
       dir.create(!!config$raxml_dir, recursive = TRUE)
-    wd <- setwd(!!config$raxml_dir)
-    result <-
+    withr::with_dir(
+      !!config$raxml_dir,
       c(
         epa_iterate_full$subject,
         epa_iterate_full$query
       ) %>%
-      Biostrings::DNAStringSet() %>%
-      ape::as.DNAbin() %>%
-      as.matrix() %>%
-      ips::raxml(
-        DNAbin = .,
-        m = "GTRGAMMA",
-        f = "d",
-        N = 1,
-        p = 12345,
-        backbone = guidetree_decipher_unconst_full,
-        file = "epa_iter_long",
-        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(ncpus))
-    setwd(wd)
-    result
+        Biostrings::DNAStringSet() %>%
+        ape::as.DNAbin() %>%
+        as.matrix() %>%
+        ips::raxml(
+          DNAbin = .,
+          m = "GTRGAMMA",
+          f = "d",
+          N = 1,
+          p = 12345,
+          backbone = guidetree_decipher_unconst_full,
+          file = "epa_iter_long",
+          exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
+          threads = ignore(ncpus)
+        )
+    )
   },
   
   #### Plan section 6: Gather stats ####
