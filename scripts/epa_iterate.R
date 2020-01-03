@@ -3,7 +3,7 @@ epa_iterate <- function(subject, query, subject_tree, subject_model, iterations,
   alnclass <- class(align)[1]
   unalign <- gsub("-", "", align)
   unalign <- methods::as(unalign, alnclass)
-  for (i in seq_int(iterations)) {
+  for (i in seq_len(iterations)) {
     epa_result <- epa_ng(
       ref_msa = subject,
       query = query,
