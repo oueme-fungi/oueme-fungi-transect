@@ -38,7 +38,8 @@ if (length(targets)) {
     caching = "worker",
     cache_log_file = TRUE,
     targets = targets,
-    console_log_file = get_logfile("raxml")
+    console_log_file = get_logfile("raxml"),
+    prework = "options(expressions = 10000)"
   )
   tictoc::toc()
   if (any(targets %in% drake::failed())) {
