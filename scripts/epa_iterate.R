@@ -18,6 +18,11 @@ epa_iterate <- function(subject, query, subject_tree, subject_model, iterations,
       allow_file_overwriting = TRUE,
       fully_resolve = TRUE
     )
+    graft_tree <- phangorn::midpoint(graft_tree)
+    graft_tree <- ape::multi2di(graft_tree)
+    graft_tree <- ape::compute.brlen(graft_tree)
+    graft_tree$edge.length <- graft_tree$edge.length / 10
+    graft_tree <- as.dendrogram(ape::as.hclust.phylo(graft_tree))
     realign <- DECIPHER::AlignSeqs(
       myXStringSet = unalign,
       guideTree = graft_tree,
