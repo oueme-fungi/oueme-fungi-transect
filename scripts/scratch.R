@@ -1702,3 +1702,13 @@ ecm_tips_all <- guilds_all %>%
 
 longtree <- ape::read.tree("data/trees/labeled_fungi_decipher_long.tree")
 longtree$tip.label <- substr(longtree$tip.label, start = 1, stop = 8)
+
+####
+library(magrittr)
+full_aln <- Biostrings::readDNAMultipleAlignment("data/raxml/epa_long.phy", format = "phylip")@unmasked %>% Biostrings::RNAStringSet()
+subject_tree <- ape::read.tree("data/raxml/decipher/RAxML_bestTree.decipher_long")
+subject <- full_aln[!startsWith(as.character(full_aln), "-") & names(full_aln) %in% subject_tree$tip.label]
+subject_tree <- ape::keep.tip(subject_tree, names(subject))
+query <- full_aln[!names(full_aln) %in% subject_tree$tip.label]
+subject_model <- readLines("data/raxml/decipher/RAxML_info.decipher_long")
+threads = 3

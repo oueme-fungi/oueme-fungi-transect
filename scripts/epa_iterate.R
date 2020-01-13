@@ -4,6 +4,7 @@ epa_iterate <- function(subject, query, subject_tree, subject_model, iterations,
   unalign <- gsub("-", "", align)
   unalign <- methods::as(unalign, alnclass)
   for (i in seq_len(iterations)) {
+    flog.info("Starting cycle %d of iterative EPA placement and alignment.", i)
     epa_result <- epa_ng(
       ref_msa = subject,
       query = query,
@@ -16,12 +17,25 @@ epa_iterate <- function(subject, query, subject_tree, subject_model, iterations,
       jplace = epa_result,
       threads = threads,
       allow_file_overwriting = TRUE,
-      fully_resolve = TRUE
+      fully_resolve = FALSE
     )
-    graft_tree <- phangorn::midpoint(graft_tree)
+    # DECIPHER requires the guide tree to be a dendrogram object with
+    # maximum height 0.5.
+    # This also requires that the tree be ultrametric and dichotomous.
+    # In addition, there can problems with excessive recursion which are
+    # controlled by sorting the tree to have the smallest clades first
+    graft_tree$root_edge <- 0
+    graft_tree$edge.length <- pmax(graft_tree$edge.length, 1e-6)
     graft_tree <- ape::multi2di(graft_tree)
-    graft_tree <- ape::compute.brlen(graft_tree)
-    graft_tree$edge.length <- graft_tree$edge.length / 10
+    graft_tree <- ape::chronoMPL(graft_tree, se = FALSE, test = FALSE)
+    while (any(graft_tree$edge.length < 0)) {
+      graft_tree$edge.length <- pmax(graft_tree$edge.length, 1e-6)
+      graft_tree <- phytools::force.ultrametric(graft_tree, method = "extend")
+    }
+    #graft_tree <- depth_order(graft_tree)
+    #graft_tree <- ape::rotateConstr(graft_tree, rev(graft_tree$tip.label))
+    graft_stats <- max_cophenetic(graft_tree)
+    graft_tree$edge.length <- graft_tree$edge.length / max(graft_stats$max_length) / 4
     graft_tree <- as.dendrogram(ape::as.hclust.phylo(graft_tree))
     realign <- DECIPHER::AlignSeqs(
       myXStringSet = unalign,
@@ -32,7 +46,10 @@ epa_iterate <- function(subject, query, subject_tree, subject_model, iterations,
     )
     query <- realign[names(query)]
     subject <- realign[names(subject)]
-    if (isTRUE(all.equal(realign, align))) break
+    if (isTRUE(all.equal(realign, align))) {
+      flog.info("Alignment converged after %d iterations.", i)
+      break
+    }
     align <- realign
   }
   epa_result <- epa_ng(
