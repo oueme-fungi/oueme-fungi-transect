@@ -146,11 +146,15 @@ Sampling was conducted at two sites (Ang: N 9.75456° W 2.14064
 °; Gan: N 9.75678° W 2.31058 °) approximately 30 km apart in the _Forêt Reservée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
 Both locations were located in woodlands dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
 At each site, 25 soil samples were along a linear transect at intervals of 1 m in May 2015.
-Additional samples were collected from one third of the sample locations (3-m spacing) one year later in June 2016.
+One third of the sample locations (3-m spacing) were resampled one year later in June 2016.
 For each sample, any coarse organic debris was removed from the soil surface and a sample of approximately 5cm×5cm×5cm was extracted with a knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
 Approximately 50 mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0 mL microtube containing 750 mL of lysis buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA) and lysed in the field using a handheld bead-beater (TerraLyser^TM^; Zymo Research Corporation).
 <!--The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis. -->
+
+An additional sample was collected at every sampling location in 2016 using an older batch of lysis buffer for preservation.
+Sequencing results for these samples were found not to be comparable with results from the newer batch, so these samples were not included in spatial analyses.
+However, reads from these sequences were included in the full bioinformatics workflow, including ASV calling, OTU clustering, and phylogenetic trees.
 
 <!-- ## Soil Chemistry
 
@@ -164,15 +168,15 @@ After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit
 DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
 
 Two different fragments of the nuclear rDNA were amplified (figure \@ref(fig:rDNA)).
-The short amplicon (approximately 300 bp) included the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] (hereafter ITS4m) as the reverse primer.
-The long amplicon (approximately 1550 bp) included approximately 12 bp at the 3' end of the ribosomal small subunit (SSU) RNA, the full ITS region including the 5.8S rDNA, and approximately 950 bp at the 5' end of the LSU, including the first three variable domains (figure \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
+The short amplicon (approximately 300 bp) included the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] as the reverse primer.
+The long amplicon (approximately 1550 bp) included approximately 12 bp at the 3' end of the small subunit (SSU) rDNA, the full ITS region including the 5.8S rDNA, and approximately 950 bp at the 5' end of the LSU, including the first three variable regions (figure \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
 
 The gITS7 primers for the short amplicon were indexed for multiplexing (**supp info**).
 Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200 µM dNTP mix, 250 µM indexed gITS7 primer, 150 µM ITS4m, 2 mM McCl2, 0.1 U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7 ng purified DNA in Dream *Taq* buffer.
 The reaction conditions were 10 min at 95°, followed by 35 cycles of 60 s at 95°, 45 s at 56°, and 50 s at 72°, and finally 3 min at 72°.
 Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity, which were pooled after amplification.
 
-(ref:rDNA) Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines), as well as primer sites used in this study (red and blue arrows) and the first three variable regions in LSU (grey).)
+(ref:rDNA) Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines).  D1-3 (grey) represent the first three variable regions in LSU [@michot1984], while LSU1-4 (black) represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces.
 
 ```{tikz rDNA, fig.cap = "(ref:rDNA)", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
 
@@ -204,16 +208,16 @@ We believe that this was due to `DADA2`'s requirement that the seed sequence of 
 For the combination of long reads, relatively high diversity, and relatively low sequencing depth in this study, this requirement was not met except by the most abundant sequences.
 We therefore developed a new workflow to assemble ASVs from the long amplicons, as follows:
 
-Raw reads were divided into regions/domains by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure [@eddy1994].
-First, the 5.8S rRNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013], and all bases before the 5.8S were assigned to ITS1.
+Raw reads were divided into shorter regions by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure [@eddy1994].
+First, the 5.8S rDNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013], and all bases before the 5.8S were assigned to ITS1.
 No attempt was made to remove the approximately 12 bp fragment of the SSU from the 5' end of ITS1 in the long amplicons; it was too short to be reliably detected by a CM or the HMMs employed by ITSx [@bengtsson-palme2013].
 <!--This approach was able to identify both the 5' and 3' ends of the 5.8S rRNA more consistently and quickly than ITSx [@bengtsson-palme2013, data not shown].-->
-The fragment of each read beginning with the 5.8S rRNA was then aligned to a CM based on a modification of the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017; @cole2014] using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
-The reference line in the CM alignment for each read were then used to split the reads into alternating more-conserved and less-conserved regions:
-ITS1, 5.8S, ITS2, LSU1, D1, LSU2, D2, LSU3, D3, LSU4,
-where LSU1-4 represent the conserved regions of the 28S rRNA flanking the variable D1-3 regions.
+The fragment of each read beginning with the 5.8S rRNA was then aligned to a specialized CM using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
+The CM was generated from the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017; @cole2014] by truncating after the LR5 primer site and using the reference line to annotate the variable regions *sensu* @michot1984 and @raue1988.
+The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved regions as shown in figure \@ref(fig:rDNA),
+where LSU1-4 represent the conserved regions of LSU flanking the variable D1-3 regions [@michot1984].
 For short amplicons, only 5.8S, ITS2, and LSU1 were extracted.
-The process of extracting the regions is automated in the new R package `LSUx`, available on github (https://github.com/brendanf/LSUx).
+Code to extract the regions, including annotated seed alignments and CMs, is available in the new R package `LSUx`, available on github (https://github.com/brendanf/LSUx).
 
 ```{r region-length}
 datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc")
@@ -232,8 +236,7 @@ regions %>%
   )
 ```
 
-
-Each of the extracted regions was independently filtered for length (Table \@ref(tab:region-length)) and a maximum of three expected errors.
+Each of the extracted regions was independently filtered for length (table \@ref(tab:region-length)) and a maximum of three expected errors.
 Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019].
 The error model for `DADA2` denoising was fit using the 5.8S RNA region for long amplicons, and using the entire read for short amplicons.
 Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, different sequencing technologies).
@@ -773,7 +776,7 @@ variog_empir %>%
 
 ```
 
-(ref:variofit) Parameters for variogram fits shown in figure \@ref(fig:spatio-temporal). Range: characteristic range of exponential function; Anisotropy: effective spatial distance represented by one year; R/A: Range divided by anisotropy; the characteristic range of the exponential function in the time domain.
+(ref:variofit) Parameters for variogram fits shown in figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value; Anisotropy: effective spatial distance represented by one year; R/A: Range divided by anisotropy; the characteristic range of the exponential function in the time domain.
 
 ```{r variofit}
 variog_data %>%
@@ -782,7 +785,8 @@ variog_data %>%
   arrange(metric, amplicon, guild) %>%
   select(Guild = guild, Amplicon = amplicon, Metric = metric,
          Range = range, Anisotropy = anis) %>%
-  mutate("R/A" = Range/Anisotropy,
+  mutate(Range = 3*Range,
+         "R/A" = Range/Anisotropy,
          "R/A" = ifelse(`R/A` > 100, NA, `R/A`)) %>%
   mutate_at(c("Range", "Anisotropy", "R/A"), formatC, digits = 1,
             format = "f") %>%
@@ -795,7 +799,7 @@ variog_data %>%
 ```
 
 
-Figure \@ref(fig:spatio-temporal) and Table \@ref(tab:variofit):
+Figure \@ref(fig:spatio-temporal) and table \@ref(tab:variofit):
 
  - Fit looks good for long Pacbio w/Bray-Curtis.
  - Unifrac shows unconvincing distance structure. (No surprise that the model doesn't fit well)

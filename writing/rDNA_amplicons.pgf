@@ -1,4 +1,4 @@
-﻿\begin{tikzpicture}[scale=0.8
+\begin{tikzpicture}[scale=0.8
 ]
  \draw[line width = 2pt] (25.01,0) -- node[below]{\bfseries\large ITS1} (28.61,0)  (30.13,0) -- node[below]{\bfseries\large ITS2} (32.51,0);
 %SSU
@@ -13,9 +13,13 @@
 
 \draw[line width = 15pt, blue] (32.92,0) -- (33.11,0);
 \draw[line width=2pt, |->,blue] (33.11,0.6) -- node [above=2] (ITS4) {ITS4}(32.11,0.6);
+\draw[line width= 15pt, black] (32.52,0) -- node[below,black](LSU1){LSU1} (33.58,0);
 \draw[line width= 15pt, white!25!gray] (33.58,0) -- node[above,black](D1){D1} (35.15,0);
+\draw[line width= 15pt, black] (35.15,0) -- node[below,black](LSU2){LSU2} (36.76,0);
 \draw[line width= 15pt, white!25!gray] (36.76,0) -- node[above,black](D2){D2} (38.86,0);
+\draw[line width= 15pt, black] (38.86,0) -- node[below,black](LSU3){LSU3} (39.27,0);
 \draw[line width= 15pt, white!25!gray] (39.27,0) -- node[above,black](D3){D3} (40.38,0);
+\draw[line width= 15pt, black] (40.38,0) -- node[below,black](LSU4){LSU4} (42.00,0);
 \draw[line width = 15pt, blue] (42.00,0) -- (42.16,0);
 \draw[line width=2pt, |->,blue] (42.16,0.6) -- node [above=2] (LR5) {LR5}(41.16,0.6);
 
