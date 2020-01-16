@@ -95,24 +95,6 @@ theme_set(theme_bw())
 - Anyway the fruitbodies are ephemeral, so study of ECM communities requires looking at vegetative structures.
 - Not easy to culture, so we need molecular methods.
 
-## Turnover scale in ECM forests
-
-- @lilleskov2004 - autocorrelation only <2.6 m at most sites.  Based on Sanger sequencing root tips in temperate forests.
-
-- Meta analysis @Bahram2013
-  - Includes data from Benin (same site? ask Nourou/Leho) but this is unpublished
-  - conclude that there is greater range of distance decay in tropical forests; because of less host availability? older forests?  *Russulaceae*?
-  - 65 m in Benin
-
-- @pickles2012a
-  - T-RFLP of root tips, temperate forest
-  - Autocorrelation < 3.4 m
-
-- Data from African wooded savannas - @tedersoo2011 but only southern band
-  - Irregular sampling with no samples nearer than 8m
-  - based on sanger sequencing root tips
-  - Significant Moran's I only in <10m class
-
 ## Long reads vs short reads/phylogenetic methods
 
 - Clustering vs. phylogenetic methods
@@ -134,18 +116,41 @@ theme_set(theme_bw())
     - short reads from same location can potentially be mapped to tree. (but we didn't find that this works)
     - Sequencing depth tradeoff [@Kennedy2018]
 
+## Turnover scale in ECM forests
+
+*why is turnover scale interesting*
+
+- @lilleskov2004 - autocorrelation only <2.6 m at most sites.  Based on Sanger sequencing root tips in temperate forests.
+
+- Meta analysis @Bahram2013
+  - Includes data from Benin (same site? ask Nourou/Leho) but this is unpublished
+  - conclude that there is greater range of distance decay in tropical forests; because of less host availability? older forests?  *Russulaceae*?
+  - 65 m in Benin
+
+- @pickles2012a
+  - T-RFLP of root tips, temperate forest
+  - Autocorrelation < 3.4 m
+
+- Data from African wooded savannas - @tedersoo2011 but only southern band
+  - Irregular sampling with no samples nearer than 8m
+  - based on sanger sequencing root tips
+  - Significant Moran's I only in <10m class
+
+*statement of question*
+
 # Methods
 
 ## Sampling
 
-Sampling was conducted at two sites approximately 30 km apart in the _Forêt Reservée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
+Sampling was conducted at two sites (Ang: N 9.75456° W 2.14064
+°; Gan: N 9.75678° W 2.31058 °) approximately 30 km apart in the _Forêt Reservée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
 Both locations were located in woodlands dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
 At each site, 25 soil samples were along a linear transect at intervals of 1 m in May 2015.
 Additional samples were collected from one third of the sample locations (3-m spacing) one year later in June 2016.
 For each sample, any coarse organic debris was removed from the soil surface and a sample of approximately 5cm×5cm×5cm was extracted with a knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
-Approximately 50 mg total of soil was collected from two locations in the homogenized soil and placed in Xpedition lysis solution (Zymo Research) and lysed in the field using a handheld bead-beater (Terralyzer; Zymo Research).
-The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis.
+Approximately 50 mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0 mL microtube containing 750 mL of lysis buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA) and lysed in the field using a handheld bead-beater (TerraLyser^TM^; Zymo Research Corporation).
+<!--The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis. -->
 
 <!-- ## Soil Chemistry
 
@@ -155,19 +160,21 @@ The remainder of each sample was dried at 40°C with an electric dehydrator with
 
 ## DNA extraction, amplification, and sequencing
 
-After field lysis, DNA was extracted using the Zymo Research Soil/Fecal Prep kit **check name**.
-DNA was quantified using PicoGreen *according to the manufacturer's protocol*?
+After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit (see above).
+DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
 
-Two different regions of the nuclear ribosomal DNA were amplified (figure \@ref(fig:rDNA)).
-The short amplicon (approximately 300 bp) included the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) ribosomal RNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] (hereafter ITS4m) as the reverse primer.
-The long amplicon (approximately 1550 bp) included approximately 12 bp at the 3' end of the ribosomal small subunit (SSU) RNA, the full ITS region including the 5.8S rRNA, and approximately 950 bp at the 5' end of the LSU, including the first three variable domains.
+Two different fragments of the nuclear rDNA were amplified (figure \@ref(fig:rDNA)).
+The short amplicon (approximately 300 bp) included the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] (hereafter ITS4m) as the reverse primer.
+The long amplicon (approximately 1550 bp) included approximately 12 bp at the 3' end of the ribosomal small subunit (SSU) RNA, the full ITS region including the 5.8S rDNA, and approximately 950 bp at the 5' end of the LSU, including the first three variable domains (figure \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
 
 The gITS7 primers for the short amplicon were indexed for multiplexing (**supp info**).
-Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200 µM dNTP mix, 250 µM indexed gITS7 primer, 150 µM ITS4m, 2 mM McCl2, 0.1 U *Taq* polymerase (Dream *Taq*, Thermo Fisher) and 3--7 ng purified DNA in Dream *Taq* buffer.
+Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200 µM dNTP mix, 250 µM indexed gITS7 primer, 150 µM ITS4m, 2 mM McCl2, 0.1 U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7 ng purified DNA in Dream *Taq* buffer.
 The reaction conditions were 10 min at 95°, followed by 35 cycles of 60 s at 95°, 45 s at 56°, and 50 s at 72°, and finally 3 min at 72°.
-Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity (**ref**), which were pooled after amplification.
+Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity, which were pooled after amplification.
 
-```{tikz rDNA, fig.cap = "rDNA amplicons", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
+(ref:rDNA) Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines), as well as primer sites used in this study (red and blue arrows) and the first three variable regions in LSU (grey).)
+
+```{tikz rDNA, fig.cap = "(ref:rDNA)", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
 
 ```
 
@@ -178,8 +185,8 @@ Each reaction was performed in three technical replicates as for short amplicons
 
 Each PCR run also included a blank sample and a positive control consisting of freshly extracted DNA from a commercially purchased fruitbody of *Agaricus bisporus*.
 
-Amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically using PicoGreen dsDNA (Quant-iT) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan) according to the manufacturer's protocol.
-100 ng of DNA from each sample (or the total PCR product if less than 100 ng) was pooled into two libraries each for long and short amplicons.
+Amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically as above.
+An aliquot of 100 ng of DNA from each sample (or the total PCR product if less than 100 ng) was pooled into two libraries each for long and short amplicons.
 Each library was sequenced using Single Molecule Real Time (SMRT) sequencing on a Pacific Biosciences RS II sequencer at the Uppsala Genome Center (UGC; Uppsala Genome Center, Science
 for Life Laboratory, Dept. of Immunology, Genetics and Pathology, Uppsala University, BMC, Box 815, SE-752 37 UPPSALA).
 Short amplicon libraries were sequenced on two SMRT cells each, while long amplicon libraries were sequenced on four SMRT cells each.
@@ -192,24 +199,32 @@ Circular consensus sequence (CCS) basecalls for SMRT sequences were made using `
 The resulting sequences were demultiplexed and sequencing primers were removed using `cutadapt` version 1.18 [@martin2011].
 Sequencing primers were similarly removed from the Ion Torrent sequences, but interference between the tagged gITS7 primers and the Ion XPress tags used in library prep made full demultiplexing of the Ion Torrent sequences impossible.
 
+We attempted to denoise both long and short amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019, but only a very small fraction of the long amplicon reads were mapped to amplicon sequence variants (ASVs) at the end of this process.
+We believe that this was due to `DADA2`'s requirement that the seed sequence of each ASV not be a singleton read.
+For the combination of long reads, relatively high diversity, and relatively low sequencing depth in this study, this requirement was not met except by the most abundant sequences.
+We therefore developed a new workflow to assemble ASVs from the long amplicons, as follows:
+
 Raw reads were divided into regions/domains by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure [@eddy1994].
-First, the 5.8S rRNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013].
-This approach was able to identify both the 5' and 3' ends of the 5.8S rRNA more consistently and quickly than ITSx [@bengtsson-palme2013, data not shown].
-Each read was then aligned to a CM based on a modification of the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017; @cole2014] using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
-The reference line in the CM alignment for each read were then used to split the reads into alternating more-conserved and less-conserved regionss:
+First, the 5.8S rRNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013], and all bases before the 5.8S were assigned to ITS1.
+No attempt was made to remove the approximately 12 bp fragment of the SSU from the 5' end of ITS1 in the long amplicons; it was too short to be reliably detected by a CM or the HMMs employed by ITSx [@bengtsson-palme2013].
+<!--This approach was able to identify both the 5' and 3' ends of the 5.8S rRNA more consistently and quickly than ITSx [@bengtsson-palme2013, data not shown].-->
+The fragment of each read beginning with the 5.8S rRNA was then aligned to a CM based on a modification of the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017; @cole2014] using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
+The reference line in the CM alignment for each read were then used to split the reads into alternating more-conserved and less-conserved regions:
 ITS1, 5.8S, ITS2, LSU1, D1, LSU2, D2, LSU3, D3, LSU4,
-where the four "LSU" regions represent the conserved regions of the 28S rRNA flanking the "D" regions.
+where LSU1-4 represent the conserved regions of the 28S rRNA flanking the variable D1-3 regions.
 For short amplicons, only 5.8S, ITS2, and LSU1 were extracted.
-No attempt was made to remove the approximately 12 bp fragment of the SSU from the 5' end of ITS1 in the long amplicons; it was too short to be reliably detected by a CM or the HMMs employed by ITSx.
-The process of extracting the regions is automated in the new R package `LSUx`, available on github, CRAN, and bioconda (**but not yet**).
+The process of extracting the regions is automated in the new R package `LSUx`, available on github (https://github.com/brendanf/LSUx).
 
 ```{r region-length}
-datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc") %>%
+datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc")
   
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 regions %>%
-  select(Region = region, "Minimum length" = min_length, "Maximum length" = max_length) %>%
-  right_join(tibble(Region = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4"))) %>%
+  select(Region = region, "Min. length" = min_length, "Max. length" = max_length) %>%
+  right_join(
+    tibble(Region = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")),
+    by = "Region"
+    ) %>%
   mutate_at("Region", str_replace_all, "_", ".") %>%
   knitr::kable(
     booktabs = TRUE,
@@ -219,19 +234,20 @@ regions %>%
 
 
 Each of the extracted regions was independently filtered for length (Table \@ref(tab:region-length)) and a maximum of three expected errors.
-Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2 version `r packageVersion("dada2")`.
-The error model for DADA2 denoising was fit using the 5.8S RNA region for long amplicons, and using the entire read for short amplicons.
+Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019].
+The error model for `DADA2` denoising was fit using the 5.8S RNA region for long amplicons, and using the entire read for short amplicons.
 Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, different sequencing technologies).
-Chimeras within each region were removed using `removeBimeraDenovoTable` from DADA2.
+Chimeras within each region were removed using `removeBimeraDenovoTable` from `DADA2`.
 
 For each ITS2 ASV from the long amplicon data set, the denoised sequences for the other regions corresponding to the same sequencing reads were concatenated to form a set of full-length reads.
-For reads which were not assigned a denoised sequence for every region, the raw read for the region was used instead.
-Because ITS2 is one of the most variable regions in the amplified regions, reads with identical ITS2 regions are expected have extremely similar sequences in the other regions, unless they are chimeric.
-Thus, the concatenated regions for each ASV were aligned in R using the DECIPHER package [@wright2015], and outlier sequences (chimeras) were removed from each alignment using the odseq package [@jehl2015].
+For reads which were not assigned a denoised sequence for each region, the raw read for the region was used instead.
+Because ITS2 is one of the most variable regions in the amplified regions, reads with identical ITS2 regions are expected have highly similar sequences in the other regions, unless the amplicon was chimeric.
+Thus, the concatenated ASVs representing each long read were aligned in R using the `DECIPHER` package [@wright2015], and outlier sequences (interpreted as likely chimeras) were removed from each alignment using the `odseq` package [@jehl2015].
 The consensus of the remaining aligned sequences was assigned as the full-length ASV sequence.
-Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleotide >50% at a given position) were removed.
+Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleotide >50% at a given position) were removed *(how many)*.
+The count and sample distribution of reads assigned to each ASV were calculated in order to form a sample x ASV community matrix.
 A similar process was used to generate a consensus ITS (ITS1--5.8S--ITS2) and LSU (LSU1--D1--LSU2--D2--LSU3--D3--LSU4) sequence for each ASV.
-The process of assigning consensus full-length ASVs was carried out using the new `tzara` package for R, available on github (https://github.com/brendanf/tzara), CRAN (not yet), and bioconda (not yet).
+The process of assigning consensus full-length ASVs was carried out using the new `tzara` package for R, available on github (https://github.com/brendanf/tzara).
 
 ### Taxonomy assignment
 
@@ -241,14 +257,19 @@ Although the latter system is not formally published, it seems to be in use for 
 Additionally, it is a system with only purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as @adl2019.
 FASTA format files of the re-annotated RDP and Warcup training sets are available at (*somewhere*).
 
-Taxonomic assignment was performed to genus level on the ITS and LSU regions using Unite/Warcup and RDP, respectively, as taxonomic references.
+Taxonomic assignment was performed to genus level separately on the ITS and LSU regions using Unite/Warcup and RDP, respectively, as taxonomic references.
 For each region/reference combination, taxonomy was assigned using three algorithms:
 the RDP Naïve Bayesian Classifier (NBC) as implemented in DADA2;
 SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016];
 and IDTAXA [@murali2018].
-Each ASV thus was thus given up to nine preliminary taxonomic assignments (three region/reference combinations $\times$ three algorithms).
+Each ASV was thus given up to nine preliminary taxonomic assignments (three region/reference combinations $\times$ three algorithms).
 
-Sequences were assigned as ECM if 
+Sequences were assigned as ECM based on taxonomic assignments using the FUNGuild database [@nguyen2016funguild] via the R package `FUNGuildR` (https://github.com/brendanf/FUNGuildR).
+All taxa which included "Ectomycorrhiza" in the guild assignment at any level of confidence were included.
+
+## Clustering
+
+For comparison with clustering-based OTU methods, ASVs were clustered at 97% similarity using VSEARCH v2.9.1 [@rognes2016].
 
 ## Alignment and phylogenetic inference
 
@@ -272,11 +293,12 @@ No bootstrapping was performed on the final tree.* -- this didn't work.
 
 The tree was rooted outside the Fungi by using the most abundant ASV which was confidently assigned to a non-fungal kingdom by all 6 applicable taxonomic assignment methods.
 Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset.
-Inspection of the tree along with taxonomic assignments revealed that the genus *Tulasnella* (Basidiomycota), which is known to have accelerated evolution in the rDNA [@moncalvo2006], was nested within the Metazoa, so it was excluded from further analysis.
+Inspection of the tree along with taxonomic assignments revealed that two ASVs assigned to the genus *Tulasnella* (Basidiomycota), which is known to have accelerated evolution in the rDNA [@moncalvo2006], were nested within the Metazoa, so they were excluded.
 The kingdom Fungi was then identified as the minimal clade containing all remaining ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
-ASVs falling outside this clade were excluded from further analysis.
+ASVs falling outside this clade were not included in the fungal community analysis.
 
-*Taxonomic assignment of ASVs which were represented in the long amplicon set was refined using the phylogenetic tree.
+Taxonomic assignment of ASVs which were represented in the long amplicon dataset was refined using the phylogenetic tree.
+*Describe this more.*
 
 <!--
           - preliminary alignment of 32S to RDP covariance model with `cmalign` from Infernal (aligns only conserved regions)
@@ -286,12 +308,11 @@ ASVs falling outside this clade were excluded from further analysis.
           
 ## Statistics
 
-Ecological community dissimilarity matrices were calculated using the species based Bray-Curtis metric (both long and short amplicons) and the phylogenetically based weighted UNIFRAC method (only long amplicons) in `phyloseq` version `r packageVersion("phyloseq")`.
+Ecological community dissimilarity matrices were calculated using the ASV/OTU based Bray-Curtis metric (both long and short amplicons) and the phylogenetically based weighted UNIFRAC method (only long amplicons) in `phyloseq` version `r packageVersion("phyloseq")`.
 Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12 m.
 Separate correlograms were drawn for samples taken during the same year, and samples separated in time by one year, in order to assess the degree to which the soil community changes over the course of one year.
 
-Additionally, empirical variograms were generated by plotting mean community dissimilarity as a function of spatial distance and temporal separation.
-, and fit using a joint exponential spatio-temporal model using the `fit.StVariogram` function from `gstat` version `r packageVersion("gstat")` [@R-gstat].
+Additionally, empirical variograms were generated by plotting mean community dissimilarity as a function of spatial distance and temporal separation, and fit using a joint exponential spatio-temporal model using the `fit.StVariogram` function from `gstat` version `r packageVersion("gstat")` [@R-gstat].
 The mean dissimilarity between samples taken in different transects (distance $\approx$ 30 km) was also included as a single point for each year for the purposes of fitting the variogram function.
 
 # Results
