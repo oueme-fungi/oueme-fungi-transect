@@ -12,3 +12,10 @@
 \usepackage[version=4]{mhchem}
 \usepackage{tikz}
 \usepackage{pgfplots}
+
+\newcommand{\beginsupplement}{
+  \setcounter{table}{0}  
+  \renewcommand{\thetable}{S\arabic{table}} 
+  \setcounter{figure}{0} 
+  \renewcommand{\thefigure}{S\arabic{figure}}
+}

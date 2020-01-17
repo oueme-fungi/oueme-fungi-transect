@@ -3,7 +3,6 @@ title: "A Tale of Two Transects"
 subtitle: "Also Two Sequencing Technologies, and Two Amplicons"
 author: 
   - Brendan Furneaux^1^,
-    Roël Houdanon^2^,
     Mohammad Bahram^1^,
     Anna Rosling^3^,
     Nourou S. Yorou^2^,
@@ -82,6 +81,10 @@ write_bib(c("base", "phyloseq", "gstat"), file = "R.bib", tweak = TRUE)
 cache = drake_cache(here(".light"))
 light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
+
+datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc")
+  
+regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 ```
 # Introduction
 
@@ -167,9 +170,9 @@ However, reads from these sequences were included in the full bioinformatics wor
 After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit (see above).
 DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
 
-Two different fragments of the nuclear rDNA were amplified (figure \@ref(fig:rDNA)).
+Two different fragments of the nuclear rDNA were amplified (Figure \@ref(fig:rDNA)).
 The short amplicon (approximately 300 bp) included the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] as the reverse primer.
-The long amplicon (approximately 1550 bp) included approximately 12 bp at the 3' end of the small subunit (SSU) rDNA, the full ITS region including the 5.8S rDNA, and approximately 950 bp at the 5' end of the LSU, including the first three variable regions (figure \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
+The long amplicon (approximately 1550 bp) included approximately 12 bp at the 3' end of the small subunit (SSU) rDNA, the full ITS region including the 5.8S rDNA, and approximately 950 bp at the 5' end of the LSU, including the first three variable regions (Figure \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
 
 The gITS7 primers for the short amplicon were indexed for multiplexing (**supp info**).
 Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200 µM dNTP mix, 250 µM indexed gITS7 primer, 150 µM ITS4m, 2 mM McCl2, 0.1 U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7 ng purified DNA in Dream *Taq* buffer.
@@ -214,29 +217,12 @@ No attempt was made to remove the approximately 12 bp fragment of the SSU from t
 <!--This approach was able to identify both the 5' and 3' ends of the 5.8S rRNA more consistently and quickly than ITSx [@bengtsson-palme2013, data not shown].-->
 The fragment of each read beginning with the 5.8S rRNA was then aligned to a specialized CM using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
 The CM was generated from the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017; @cole2014] by truncating after the LR5 primer site and using the reference line to annotate the variable regions *sensu* @michot1984 and @raue1988.
-The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved regions as shown in figure \@ref(fig:rDNA),
+The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved regions as shown in Figure \@ref(fig:rDNA),
 where LSU1-4 represent the conserved regions of LSU flanking the variable D1-3 regions [@michot1984].
 For short amplicons, only 5.8S, ITS2, and LSU1 were extracted.
 Code to extract the regions, including annotated seed alignments and CMs, is available in the new R package `LSUx`, available on github (https://github.com/brendanf/LSUx).
 
-```{r region-length}
-datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc")
-  
-regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
-regions %>%
-  select(Region = region, "Min. length" = min_length, "Max. length" = max_length) %>%
-  right_join(
-    tibble(Region = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")),
-    by = "Region"
-    ) %>%
-  mutate_at("Region", str_replace_all, "_", ".") %>%
-  knitr::kable(
-    booktabs = TRUE,
-    caption = "Minimum and maximum allowed lengths for each extracted region."
-  )
-```
-
-Each of the extracted regions was independently filtered for length (table \@ref(tab:region-length)) and a maximum of three expected errors.
+Each of the extracted regions was independently filtered for length (Table \@ref(tab:region-length)) and a maximum of three expected errors.
 Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019].
 The error model for `DADA2` denoising was fit using the 5.8S RNA region for long amplicons, and using the entire read for short amplicons.
 Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, different sequencing technologies).
@@ -351,7 +337,7 @@ agaricus_order <- readd(proto_physeq, cache = cache) %>%
 
 - *Agaricus bisporus* from positive control was most abundant ASV in Ion and long PacBio runs, 5th highest in short PacBio
   - only one ASV in both PacBio runs
-  - four ASVs in IonTorrent -- due to sequencing errors not controlled by DADA2 or intragenome variation only detected in deep sequencing?
+  - four ASVs in IonTorrent -- probably due to sequencing errors not controlled by DADA2 (most abundant ASV had `r agaricus_reads["is_057", "39d80c19"][[1]]` reads, others had `r glue::glue_collapse(c(unclass(agaricus_reads["is_057", -1])), sep = ", ", last = ", and ")`)
 
 (ref:readcap) Comparison between read numbers for different sequencing strategies, by ASV (left) and 97% OTU (right). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
 
@@ -776,7 +762,7 @@ variog_empir %>%
 
 ```
 
-(ref:variofit) Parameters for variogram fits shown in figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value; Anisotropy: effective spatial distance represented by one year; R/A: Range divided by anisotropy; the characteristic range of the exponential function in the time domain.
+(ref:variofit) Parameters for variogram fits shown in Figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value; Anisotropy: effective spatial distance represented by one year; R/A: Range divided by anisotropy; the characteristic range of the exponential function in the time domain.
 
 ```{r variofit}
 variog_data %>%
@@ -799,7 +785,7 @@ variog_data %>%
 ```
 
 
-Figure \@ref(fig:spatio-temporal) and table \@ref(tab:variofit):
+Figure \@ref(fig:spatio-temporal) and Table \@ref(tab:variofit):
 
  - Fit looks good for long Pacbio w/Bray-Curtis.
  - Unifrac shows unconvincing distance structure. (No surprise that the model doesn't fit well)
@@ -818,3 +804,176 @@ Work performed at NGI / Uppsala Genome Center has been funded by RFI / VR and an
 # Bibliography {-}
 
 <div id="refs"></div>
+
+\processdelayedfloats
+
+# Supplementary Information {-}
+
+\beginsupplement
+
+```{r reads-table}
+reads_table <- cache$list() %>%
+  purrr::keep(startsWith, "big_seq_table_") %>%
+  purrr::map(readd, character_only = TRUE, cache = cache) %>%
+  purrr::map(tibble::as_tibble, rownames = "sample") %>%
+  purrr::map_dfr(tidyr::pivot_longer, -"sample", names_to = "seq", values_to = "reads") %>%
+  dplyr::filter(reads > 0) %>%
+  tidyr::extract(
+    "sample",
+    c("seq_run", "plate", "well", "region"),
+    regex = "([pi][bs]_\\d{3})_(\\d{3})_([A-H]1?\\d)_(.+)"
+  ) %>%
+  # dplyr::mutate_at(
+  #   "region",
+  #   factor,
+  #   levels = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3",
+  #              "D3", "LSU4", "ITS", "LSU", "32S", "long")) %>%
+  dplyr::group_by(seq_run, region, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  dplyr::mutate(length = nchar(seq)) %>%
+  dplyr::ungroup()
+
+region_table <- reads_table %>%
+  dplyr::group_by(seq_run, region) %>%
+  dplyr::summarize(
+    ASVs = dplyr::n_distinct(seq),
+    length_min = min(length),
+    length_q1 = reldist::wtd.quantile(length, 0.25, weight = reads),
+    length_med = reldist::wtd.quantile(length, 0.5, weight = reads),
+    length_mean = weighted.mean(length, w = reads),
+    length_q3 = reldist::wtd.quantile(length, 0.75, weight = reads),
+    length_max = max(length),
+    reads = sum(reads)
+  )
+```
+
+(ref:full-length) Comparison of the length of sequences from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
+
+```{r full-length, fig.cap = "(ref:full-length)", fig.height = 6}
+full_dens <- reads_table %>%
+  dplyr::left_join(dplyr::select(datasets, seq_run, tech)) %>%
+  dplyr::filter(region %in% c("long", "short")) %>%
+  dplyr::group_by(seq_run) %>%
+  dplyr::mutate(
+    amplicon = ifelse(seq_run == "pb_500", "Long", "Short") %>%
+      factor(levels = c("Short", "Long")),
+    reads = reads / sum(reads)
+  ) %>%
+  ggplot(aes(length, weight = reads, color = seq_run, group = seq_run)) +
+  stat_density(bw = 0.5, geom = "line", position = "identity") +
+  scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
+  scale_y_continuous(name = "Density") +
+  scale_x_continuous(name = NULL) +
+  facet_wrap(~tech + amplicon, ncol = 1, strip.position = "right", scales = "free_y")
+
+full_ecdf <- reads_table %>%
+  dplyr::filter(region  %in% c("long", "short")) %>%
+  dplyr::group_by(seq_run) %>%
+  dplyr::mutate(reads = reads / sum(reads)) %>%
+  ggplot(aes(length, weight = reads, color = seq_run, group = seq_run)) +
+  stat_ecdf(geom = "line") +
+  scale_color_brewer(type = "qual", labels = c("Short amplicon - Ion", "Short amplicon - PacBio", "Long amplicon - PacBio"), name = NULL, palette = "Set2") +
+  scale_y_continuous(name = "Cumulative read fraction") +
+  scale_x_continuous(name = "Length (bp)") +
+  theme(legend.position = c(0.98, 0.02), legend.justification = c(1, 0))
+
+ggpubr::ggarrange(full_dens, full_ecdf, ncol = 1, labels = "auto")
+```
+
+```{r region-length}
+regions %>%
+  select(Region = region, "Min. length" = min_length, "Max. length" = max_length) %>%
+  right_join(
+    tibble(Region = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")),
+    by = "Region"
+    ) %>%
+  mutate_at("Region", str_replace_all, "_", ".") %>%
+  knitr::kable(
+    booktabs = TRUE,
+    caption = "Minimum and maximum allowed lengths for each extracted region."
+  )
+```
+
+(ref:region-asv) Plot of total number of ASVs recovered vs. fraction of reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons.  
+
+```{r regions, fig.cap="(ref:region-asv)"}
+region_table %>%
+  dplyr::filter(seq_run == "pb_500") %>%
+  ggplot(aes(reads, ASVs, color = length_med, label = region)) +
+  geom_point() +
+  ggrepel::geom_text_repel() +
+  scale_color_gradientn(colors = c("blue", "red", "green1"), limits = c(30, 2000), breaks = c(50, 150, 400, 1000), trans = "log10", name = "median length") +
+  xlab("Mapped reads")
+```
+
+(ref:region-length) Length distribution for each region extracted from long amplicons.  Filtering limits are shown as dashed vertical lines.
+
+```{r region-lengths, fig.cap = "(ref:region-length)", fig.height = 6}
+baseregions <- c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3",
+               "LSU4")
+
+region_limits <- dplyr::filter(regions, region %in% baseregions) %>%
+  dplyr::mutate_at(
+    "region",
+    factor,
+    levels = baseregions
+    ) %>%
+  tidyr::pivot_longer(
+    cols = c("min_length", "max_length"),
+    names_to = "limit",
+    names_pattern = "(min|max)_length",
+    values_to = "length"
+  )
+  
+
+reads_table %>%
+  dplyr::filter(region %in% baseregions,
+         seq_run == "pb_500") %>%
+  dplyr::mutate_at(
+    "region",
+    factor,
+    levels = baseregions
+    ) %>%
+  ggplot(aes(length, weight = reads)) +
+  stat_density(bw = 0.5, color = "#8da0cb", geom = "line") +
+  geom_vline(data = region_limits,
+             aes(xintercept = length),
+             linetype = "dashed", alpha = 0.5) +
+  facet_wrap(~region,ncol = 1, strip.position = "right", scales = "free_y") +
+  scale_y_continuous(breaks = NULL, labels = NULL, name = "Read density") +
+  scale_x_continuous(limits = c(0, 500), name = "Length (bp)")
+```
+
+(ref:ITS2-length) Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
+
+```{r ITS2-length, fig.cap = "(ref:ITS2-length)", fig.height = 6}
+its2_dens <- reads_table %>%
+  dplyr::left_join(dplyr::select(datasets, seq_run, tech)) %>%
+  dplyr::filter(region == "ITS2") %>%
+  dplyr::group_by(seq_run) %>%
+  dplyr::mutate(
+    amplicon = ifelse(seq_run == "pb_500", "Long", "Short") %>%
+      factor(levels = c("Short", "Long")),
+    reads = reads / sum(reads)
+  ) %>%
+  ggplot(aes(length, weight = reads, color = seq_run, group = seq_run)) +
+  stat_density(bw = 0.5, geom = "line", position = "identity") +
+  scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
+  scale_y_continuous(name = "Density") +
+  scale_x_continuous(name = NULL) +
+  facet_wrap(~tech + amplicon, ncol = 1, strip.position = "right", scales = "free_y")
+
+its2_ecdf <- reads_table %>%
+  dplyr::filter(region == "ITS2") %>%
+  dplyr::group_by(seq_run) %>%
+  dplyr::mutate(reads = reads / sum(reads)) %>%
+  ggplot(aes(length, weight = reads, color = seq_run, group = seq_run)) +
+  stat_ecdf(geom = "line") +
+  scale_color_brewer(type = "qual", labels = c("Short amplicon - Ion", "Short amplicon - PacBio", "Long amplicon - PacBio"), name = NULL, palette = "Set2") +
+  scale_y_continuous(name = "Cumulative read fraction") +
+  scale_x_continuous(name = "ITS2 Length (bp)") +
+  theme(legend.position = c(0.98, 0.02), legend.justification = c(1, 0))
+
+ggpubr::ggarrange(its2_dens, its2_ecdf, ncol = 1, labels = "auto")
+```
+
