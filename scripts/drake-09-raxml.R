@@ -6,7 +6,8 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-targets <- purrr::keep(od, startsWith, "raxml_")
+targets <- purrr::keep(od, startsWith, "raxml_") %>%
+  setdiff("raxml_decipher_iterate_full")
 
 library(magrittr)
 library(backports)

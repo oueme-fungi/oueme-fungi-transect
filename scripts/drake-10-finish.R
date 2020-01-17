@@ -14,7 +14,9 @@ setup_log("finish")
 #### Finish ####
 # For now the later steps are not very intensive, so they can be done
 # using the resources of the master computer.
-if (length(od)) {
+targets <- setdiff(od, "raxml_decipher_iterate_full")
+
+if (length(targets)) {
   flog.info("Making all remaining targets (loop)...")
   tictoc::tic()
   future::plan(strategy = "multiprocess")
@@ -26,7 +28,8 @@ if (length(od)) {
        keep_going = FALSE,
        caching = "worker",
        cache_log_file = TRUE,
-       console_log_file = get_logfile("finish")
+       console_log_file = get_logfile("finish"),
+       targets = targets
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
