@@ -6,14 +6,16 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-targets <- purrr::keep(od, startsWith, "raxml_") %>%
-  setdiff("raxml_decipher_iterate_full")
 
 library(magrittr)
 library(backports)
 library(drake)
 library(futile.logger)
 setup_log("raxml")
+
+
+targets <- purrr::keep(od, startsWith, "raxml_") %>%
+  setdiff("raxml_decipher_iterate_full")
 
 #### RaxML targets ####
 # Raxml is parallel,
