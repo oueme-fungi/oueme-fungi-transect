@@ -35,6 +35,8 @@ source(file.path(config$rdir, "raxml.R"))
 source(file.path(config$rdir, "taxonomy.R"))
 source(file.path(config$rdir, "utils.R"))
 source(file.path(config$rdir, "epa-ng.R"))
+source(file.path(config$rdir, "AlignSeqs.R"))
+source(file.path(config$rdir, "DECIPHER-utils.R"))
 source(file.path(config$rdir, "epa_iterate.R"))
 source(file.path(config$rdir, "mafft.R"))
 

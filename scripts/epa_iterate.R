@@ -17,7 +17,7 @@ epa_iterate <- function(subject, query, subject_tree, subject_model, iterations,
       jplace = epa_result,
       threads = threads,
       allow_file_overwriting = TRUE,
-      fully_resolve = FALSE
+      fully_resolve = TRUE
     )
     # DECIPHER requires the guide tree to be a dendrogram object with
     # maximum height 0.5.
@@ -37,7 +37,7 @@ epa_iterate <- function(subject, query, subject_tree, subject_model, iterations,
     graft_stats <- max_cophenetic(graft_tree)
     graft_tree$edge.length <- graft_tree$edge.length / max(graft_stats$max_length) / 4
     graft_tree <- as.dendrogram(ape::as.hclust.phylo(graft_tree))
-    realign <- DECIPHER::AlignSeqs(
+    realign <- AlignSeqs(
       myXStringSet = unalign,
       guideTree = graft_tree,
       iterations = 0,
