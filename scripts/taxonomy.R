@@ -738,9 +738,19 @@ relabel_tree <- function(tree, old, new, chimeras = character(0)) {
 
 # If all members of the clade are assigned uniquely to one taxon, then assign
 # that taxon
-# Otherwise, if there exists one clade that is at least one of the possibilities
+# Otherwise, if there exists one taxon that is at least one of the possibilities
 # for all of the members, then assign that one.
 clade_taxon <- function(tree, tax, node, rank) {
+  # Check the direct children
+  # If one of them is completely unidentified, then we don't want to assign a
+  # taxon here, because there's no way to know if the unassigned child is in the
+  # group or not.
+  children <- phangorn::Children(tree, node)
+  for (child in children) {
+    tips <- tree$tip.label[phangorn::Descendants(tree, child, type = "tips")[[1]]]
+    taxa <- dplyr::filter(tax, label %in% tips, rank == !!rank)
+    if (nrow(taxa) == 0) return(NA_character_)
+  }
   tips <- tree$tip.label[phangorn::Descendants(tree, node, type = "tips")[[1]]]
   taxa <- dplyr::filter(tax, label %in% tips, rank == !!rank) %>%
     dplyr::group_by(label)

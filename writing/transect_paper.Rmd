@@ -83,9 +83,43 @@ light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
 
 datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc")
-  
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
+
+reads_table <- cache$list() %>%
+  purrr::keep(startsWith, "big_seq_table_") %>%
+  purrr::map(readd, character_only = TRUE, cache = cache) %>%
+  purrr::map(tibble::as_tibble, rownames = "sample") %>%
+  purrr::map_dfr(tidyr::pivot_longer, -"sample", names_to = "seq", values_to = "reads") %>%
+  dplyr::filter(reads > 0) %>%
+  tidyr::extract(
+    "sample",
+    c("seq_run", "plate", "well", "region"),
+    regex = "([pi][bs]_\\d{3})_(\\d{3})_([A-H]1?\\d)_(.+)"
+  ) %>%
+  # dplyr::mutate_at(
+  #   "region",
+  #   factor,
+  #   levels = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3",
+  #              "D3", "LSU4", "ITS", "LSU", "32S", "long")) %>%
+  dplyr::group_by(seq_run, region, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  dplyr::mutate(length = nchar(seq)) %>%
+  dplyr::ungroup()
+
+region_table <- reads_table %>%
+  dplyr::group_by(seq_run, region) %>%
+  dplyr::summarize(
+    ASVs = dplyr::n_distinct(seq),
+    length_min = min(length),
+    length_q1 = reldist::wtd.quantile(length, 0.25, weight = reads),
+    length_med = reldist::wtd.quantile(length, 0.5, weight = reads),
+    length_mean = weighted.mean(length, w = reads),
+    length_q3 = reldist::wtd.quantile(length, 0.75, weight = reads),
+    length_max = max(length),
+    reads = sum(reads)
+  )
 ```
+
 # Introduction
 
 ## Introduction to ECM communities
@@ -206,32 +240,43 @@ Circular consensus sequence (CCS) basecalls for SMRT sequences were made using `
 The resulting sequences were demultiplexed and sequencing primers were removed using `cutadapt` version 1.18 [@martin2011].
 Sequencing primers were similarly removed from the Ion Torrent sequences, but interference between the tagged gITS7 primers and the Ion XPress tags used in library prep made full demultiplexing of the Ion Torrent sequences impossible.
 
-We attempted to denoise both long and short amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019, but only a very small fraction of the long amplicon reads were mapped to amplicon sequence variants (ASVs) at the end of this process.
-We believe that this was due to `DADA2`'s requirement that the seed sequence of each ASV not be a singleton read.
-For the combination of long reads, relatively high diversity, and relatively low sequencing depth in this study, this requirement was not met except by the most abundant sequences.
+### Denoising
+
+We attempted to denoise both long and short amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019
+However, only `r region_table$ASVs[region_table$region=="long"]` amplicon sequence variants (ASVs), were obtained.
+We believe that this was due to `DADA2`'s requirement that the seed sequence of each ASV be represented by at least two error-free reads.
+If sequencing errors are uniformly distributed, then the probability that a given read will be error-free is $(1-\epsilon)^L$, where $\epsilon$ is the sequencing error rate and $L$ is the read length in base pairs.
+Then the number of reads of a given sequence that would be required to obtain two error-free reads in expectation is $2/(1-\epsilon)^L$.
+For the combination of long reads (median *X* bp after trimming) and moderate error rate (*X*% mean ccs quality score) in this study, the expected number of reads to achieve two error-free reads is `r round(2/(0.995)^1550)`.
+In comparison, the equivalent requirement for the short amplicon (median *X* bp after trimming, mean ccs quality score *Y*%) is only `r round(2/(0.999)^350)`
+Given the high diversity relative to sequencing depth in this study (*X* ASVs from PacBio short amplicons, *Y* total long amplicon reads), this requirement was not met for the long amplicons except by the most abundant sequences.
 We therefore developed a new workflow to assemble ASVs from the long amplicons, as follows:
 
 Raw reads were divided into shorter regions by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure [@eddy1994].
 First, the 5.8S rDNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013], and all bases before the 5.8S were assigned to ITS1.
 No attempt was made to remove the approximately 12 bp fragment of the SSU from the 5' end of ITS1 in the long amplicons; it was too short to be reliably detected by a CM or the HMMs employed by ITSx [@bengtsson-palme2013].
 <!--This approach was able to identify both the 5' and 3' ends of the 5.8S rRNA more consistently and quickly than ITSx [@bengtsson-palme2013, data not shown].-->
-The fragment of each read beginning with the 5.8S rRNA was then aligned to a specialized CM using `cmalign` from Infernal 1.1.2 [@nawrocki2013].
-The CM was generated from the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017; @cole2014] by truncating after the LR5 primer site and using the reference line to annotate the variable regions *sensu* @michot1984 and @raue1988.
+A reference alignment including conserved RNA base pairing between and within the 5.8S and relevant portions of LSU was generated from the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017; @cole2014] by truncating after the LR5 primer site and using the reference line to annotate the variable regions *sensu* @michot1984 and @raue1988.
+A CM was generated from the alignment using `cmbuild` from Infernal.
+The fragment of each read beginning with the 5.8S rRNA was then aligned to the CM using `cmalign` from Infernal.
 The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved regions as shown in Figure \@ref(fig:rDNA),
 where LSU1-4 represent the conserved regions of LSU flanking the variable D1-3 regions [@michot1984].
-For short amplicons, only 5.8S, ITS2, and LSU1 were extracted.
+For short amplicons, only (partial) 5.8S, ITS2, and (partial) LSU1 were extracted.
 Code to extract the regions, including annotated seed alignments and CMs, is available in the new R package `LSUx`, available on github (https://github.com/brendanf/LSUx).
 
 Each of the extracted regions was independently filtered for length (Table \@ref(tab:region-length)) and a maximum of three expected errors.
 Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019].
-The error model for `DADA2` denoising was fit using the 5.8S RNA region for long amplicons, and using the entire read for short amplicons.
+The error model for `DADA2` denoising was fit using the 5.8S region for long amplicons, and using the entire read for short amplicons.
 Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, different sequencing technologies).
+For PacBio libraries, `DADA2` was run with complete pooling and a band size of 16.
+For Ion Torrent libraries, pseudo-pooling and a band size of 32 were used, and the homopolymer gap penalty was set to -1, as recommended by the `DADA2` FAQ (https://benjjneb.github.io/dada2/faq.html).
 Chimeras within each region were removed using `removeBimeraDenovoTable` from `DADA2`.
 
 For each ITS2 ASV from the long amplicon data set, the denoised sequences for the other regions corresponding to the same sequencing reads were concatenated to form a set of full-length reads.
 For reads which were not assigned a denoised sequence for each region, the raw read for the region was used instead.
-Because ITS2 is one of the most variable regions in the amplified regions, reads with identical ITS2 regions are expected have highly similar sequences in the other regions, unless the amplicon was chimeric.
-Thus, the concatenated ASVs representing each long read were aligned in R using the `DECIPHER` package [@wright2015], and outlier sequences (interpreted as likely chimeras) were removed from each alignment using the `odseq` package [@jehl2015].
+Because ITS2 is the most variable of the amplified regions (Supplementary Figure \@ref(fig:regions)), reads with identical ITS2 regions are expected have highly similar sequences in the other regions, unless the amplicon was chimeric.
+The concatenated ASVs representing each long read were aligned in R using the `DECIPHER` package [@wright2015].
+Outlier sequences, as determined by mean pairwise distance from the rest of the alignment, were removed from each alignment using the `odseq` package [@jehl2015], using the default threshold of 0.025.
 The consensus of the remaining aligned sequences was assigned as the full-length ASV sequence.
 Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleotide >50% at a given position) were removed *(how many)*.
 The count and sample distribution of reads assigned to each ASV were calculated in order to form a sample x ASV community matrix.
@@ -286,8 +331,10 @@ Inspection of the tree along with taxonomic assignments revealed that two ASVs a
 The kingdom Fungi was then identified as the minimal clade containing all remaining ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
 ASVs falling outside this clade were not included in the fungal community analysis.
 
-Taxonomic assignment of ASVs which were represented in the long amplicon dataset was refined using the phylogenetic tree.
-*Describe this more.*
+Taxonomic assignments of ASVs which were represented in the long amplicon dataset were refined using the phylogenetic tree.
+A taxon at a particular rank was assigned to a node and all its descendents if that taxon was consistent with the reference-based taxonomic assignments for each of the descendents.
+A taxon assignment was considered to be consistent if at least one algorithm assigned that taxon at greater than 50% confidence, or if no algorithm successfully classified the sequence at greater than 50% confidence.
+The result of this process was to give a taxonomic assignment to ASVs which were previously unassigned if they were nested within a clade where which was consistently given an assignment, as well as clarify the assignment of ASVs where different algorithms had resulted in different assignments, but only one of these was consistent with the assignments of other ASVs in the same clade.
 
 <!--
           - preliminary alignment of 32S to RDP covariance model with `cmalign` from Infernal (aligns only conserved regions)
@@ -307,6 +354,7 @@ The mean dissimilarity between samples taken in different transects (distance $\
 # Results
 
 ## Read counts
+
 ```{r read-counts}
 
 ```
@@ -811,42 +859,6 @@ Work performed at NGI / Uppsala Genome Center has been funded by RFI / VR and an
 
 \beginsupplement
 
-```{r reads-table}
-reads_table <- cache$list() %>%
-  purrr::keep(startsWith, "big_seq_table_") %>%
-  purrr::map(readd, character_only = TRUE, cache = cache) %>%
-  purrr::map(tibble::as_tibble, rownames = "sample") %>%
-  purrr::map_dfr(tidyr::pivot_longer, -"sample", names_to = "seq", values_to = "reads") %>%
-  dplyr::filter(reads > 0) %>%
-  tidyr::extract(
-    "sample",
-    c("seq_run", "plate", "well", "region"),
-    regex = "([pi][bs]_\\d{3})_(\\d{3})_([A-H]1?\\d)_(.+)"
-  ) %>%
-  # dplyr::mutate_at(
-  #   "region",
-  #   factor,
-  #   levels = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3",
-  #              "D3", "LSU4", "ITS", "LSU", "32S", "long")) %>%
-  dplyr::group_by(seq_run, region, seq) %>%
-  dplyr::summarize(reads = sum(reads)) %>%
-  dplyr::mutate(length = nchar(seq)) %>%
-  dplyr::ungroup()
-
-region_table <- reads_table %>%
-  dplyr::group_by(seq_run, region) %>%
-  dplyr::summarize(
-    ASVs = dplyr::n_distinct(seq),
-    length_min = min(length),
-    length_q1 = reldist::wtd.quantile(length, 0.25, weight = reads),
-    length_med = reldist::wtd.quantile(length, 0.5, weight = reads),
-    length_mean = weighted.mean(length, w = reads),
-    length_q3 = reldist::wtd.quantile(length, 0.75, weight = reads),
-    length_max = max(length),
-    reads = sum(reads)
-  )
-```
-
 (ref:full-length) Comparison of the length of sequences from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
 
 ```{r full-length, fig.cap = "(ref:full-length)", fig.height = 6}
@@ -894,7 +906,7 @@ regions %>%
   )
 ```
 
-(ref:region-asv) Plot of total number of ASVs recovered vs. fraction of reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons.  
+(ref:region-asv) Plot of total number of ASVs recovered vs. fraction of reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`. Some reggions were formed by concatenation of extracted regions, as follows: LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4; ITS = ITS1--5.8S--ITS2; 32S = 5.8S--ITS2--LSU; long = ITS--LSU. For this figure, subregions were concatenated prior to generating ASVs with `DADA2`.
 
 ```{r regions, fig.cap="(ref:region-asv)"}
 region_table %>%
