@@ -6,6 +6,12 @@ if (exists("snakemake")) {
 }
 library(drake)
 library(magrittr)
+library(tidyverse)
+library(rlang)
+library(glue)
+library(drake)
+library(assertr)
+library(disk.frame)
 
 source(file.path(config$rdir, "variogram.R"))
 
