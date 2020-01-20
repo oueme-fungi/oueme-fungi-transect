@@ -14,7 +14,7 @@ setup_log("finish")
 #### Finish ####
 # For now the later steps are not very intensive, so they can be done
 # using the resources of the master computer.
-targets <- setdiff(od, "raxml_decipher_iterate_full")
+targets <- purrr::discard(od, grepl, pattern = "iterate")
 
 if (length(targets)) {
   flog.info("Making all remaining targets (loop)...")
