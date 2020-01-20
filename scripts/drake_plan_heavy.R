@@ -926,6 +926,45 @@ plan <- drake_plan(
     transform = combine(qstats_derep2, qstats_demux)
   ),
   
+  qstats_n = qstats %>%
+    dplyr::group_by(file, step) %>%
+    dplyr::summarize(nreads = dplyr::n()) %>%
+    dplyr::ungroup(),
+  
+  qstats_length = qstats %>%
+    dplyr::group_by(file, step, length) %>%
+    dplyr::summarize(nreads = dplyr::n()) %>%
+    dplyr::ungroup(),
+  
+  qstats_minq = qstats %>%
+    dplyr::group_by(file, step, minq) %>%
+    dplyr::summarize(nreads = dplyr::n()) %>%
+    dplyr::ungroup(),
+  
+  # for floating points, we need to make bins so that there aren't
+  # too many unique values.  Do transforms to preserve relevant distinctions
+  # first
+  qstats_eexp = qstats %>%
+    dplyr::mutate(eexp = round(log(eexp), 2)) %>%
+    dplyr::group_by(file, step, eexp) %>%
+    dplyr::summarize(nreads = dplyr::n()) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(eexp = exp(eexp)),
+  
+  qstats_erate = qstats %>%
+    dplyr::mutate(erate = round(log(erate) - log1p(-erate), 2)) %>%
+    dplyr::group_by(file, step, erate) %>%
+    dplyr::summarize(nreads = dplyr::n()) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(erate = exp(erate)/(1 + exp(erate))),
+  
+  qstats_pnoerr = qstats %>%
+    dplyr::mutate(p.noerr = round(log(p.noerr) - log1p(-p.noerr), 2)) %>%
+    dplyr::group_by(file, step, p.noerr) %>%
+    dplyr::summarize(nreads = dplyr::n()) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(p.noerr = exp(p.noerr)/(1 + exp(p.noerr))),
+  
   trace = TRUE
 )
 tictoc::toc()
