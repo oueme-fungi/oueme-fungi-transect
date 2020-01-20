@@ -301,11 +301,11 @@ Each ASV was thus given up to nine preliminary taxonomic assignments (three regi
 Sequences were assigned as ECM based on taxonomic assignments using the FUNGuild database [@nguyen2016funguild] via the R package `FUNGuildR` (https://github.com/brendanf/FUNGuildR).
 All taxa which included "Ectomycorrhiza" in the guild assignment at any level of confidence were included.
 
-## Clustering
+### Clustering
 
-For comparison with clustering-based OTU methods, ASVs were clustered at 97% similarity using VSEARCH v2.9.1 [@rognes2016].
+For comparison with clustering-based methods, ASVs were clustered into operational taxonomic units (OTUs) at 97% similarity using VSEARCH v2.9.1 [@rognes2016].
 
-## Alignment and phylogenetic inference
+### Alignment and phylogenetic inference
 
 Unique LSU regions from long amplicon ASVs were aligned as RNA using DECIPHER [@wright2015] with up to 10 iterations of progressive alignment and conserved secondary structure calculation and 10 refinement iterations.
 This alignment was truncated at a position after the D3 region corresponding to base 907 of the *Saccharomyces cerevisiae* S288C reference sequence for LSU, because several sequences had type 1 introns after this position [@holst-jensen1999].
@@ -331,10 +331,13 @@ Inspection of the tree along with taxonomic assignments revealed that two ASVs a
 The kingdom Fungi was then identified as the minimal clade containing all remaining ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
 ASVs falling outside this clade were not included in the fungal community analysis.
 
-Taxonomic assignments of ASVs which were represented in the long amplicon dataset were refined using the phylogenetic tree.
+Taxonomic assignments of ASVs which were represented in the long amplicon dataset were refined using the phylogenetic tree (Supplementary Figure \@ref(fig:phylotax)).
 A taxon at a particular rank was assigned to a node and all its descendents if that taxon was consistent with the reference-based taxonomic assignments for each of the descendents.
 A taxon assignment was considered to be consistent if at least one algorithm assigned that taxon at greater than 50% confidence, or if no algorithm successfully classified the sequence at greater than 50% confidence.
 The result of this process was to give a taxonomic assignment to ASVs which were previously unassigned if they were nested within a clade where which was consistently given an assignment, as well as clarify the assignment of ASVs where different algorithms had resulted in different assignments, but only one of these was consistent with the assignments of other ASVs in the same clade.
+
+
+
 
 <!--
           - preliminary alignment of 32S to RDP covariance model with `cmalign` from Infernal (aligns only conserved regions)
@@ -354,6 +357,11 @@ The mean dissimilarity between samples taken in different transects (distance $\
 # Results
 
 ## Read counts
+
+Long (short) amplicon sequencing with PacBio yielded *X* (*Y*) circular consensus reads, of which *A* (*B*) were successfully demultiplexed.
+The 5.8S region was detected in *C* (*D*) reads.
+Ion Torrent sequencing yielded *E* demultiplexed reads, with the 5.8S region detected in *F*.
+
 
 ```{r read-counts}
 
@@ -634,6 +642,7 @@ read_comparison <- function(big_table, comparisons, x, y, xlab, ylab) {
 # )
 ```
 
+Figure \@ref/fig:pb-vs-it) shows the correspondence between the read count for different ASVs/OTUs
 
 - Figure \@ref(fig:pb-vs-it)a
   - ASVs/OTUs are correlated between Ion Torrent and PacBio; 
@@ -858,6 +867,43 @@ Work performed at NGI / Uppsala Genome Center has been funded by RFI / VR and an
 # Supplementary Information {-}
 
 \beginsupplement
+
+(ref:phylotax) Hypothetical example of phylogenetic refinement of taxonomic assignments.
+In the example, a clade includes  seven OTUs (A-F), which have been identified by two methods as belonging to taxa "Tax1" or "Tax2", or are unidentified ("unk"), as shown in the tip labels.
+No taxon is assigned at node 1, because one of the child branches (A) is completely unassigned.
+No taxon is assigned at node 2, because the assignments at C and F are inconsistent.
+Node 3 is assigned to Tax1 because this is consistent with at least one of the assignments for both B and C.
+Node 4 (and thus also node 5) is assigned to Tax2 because this is consistent with at least one of the assignments for D and F, and because E is completely unassigned.
+
+```{r phylotax, fig.height = 2, fig.width = 3, fig.cap = "(ref:phylotax)"}
+extree <-
+  tidytree::as.treedata(ape::read.tree(text = "(A:1,((B:1,C:1):1,((E:1,F:1):1,D:1):1):1);")) %>%
+  tidytree::full_join(
+    tibble(label = LETTERS[1:6],
+           tax1 = c("unk", "Tax1", "Tax2", "Tax2", "unk", "unk"),
+           tax2 = c("unk", "Tax2", "Tax2", "Tax1", "unk", "Tax1")),
+    by = "label"
+  )
+ggtree::ggtree(extree) +
+  ggtree::geom_tiplab(x = 4, align = 2) +
+  xlim(0, 6) +
+  ggtree::geom_tiplab(
+    aes(color = tax1, label = tax1),
+    x = 4.7,
+    hjust = 0.5
+  ) +
+  ggtree::geom_tiplab(
+    aes(color = tax2, label = tax2),
+    x = 5.7,
+    hjust = 0.5
+  ) +
+  ggtree::geom_tiplab(x = 5.2, label = "/", hjust = 0.5) +
+  ggtree::geom_nodelab(aes(label = node - 6), geom = "label") +
+  ggtree::geom_hilight(node = 10, fill = "steelblue", extendto = 4) +
+  ggtree::geom_hilight(node = 9, fill = "tomato", extendto = 4) +
+  scale_color_manual(values = c(Tax1 = "steelblue", Tax2 = "tomato", unk = "grey50")) +
+  scale_y_reverse()
+```
 
 (ref:full-length) Comparison of the length of sequences from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
 
