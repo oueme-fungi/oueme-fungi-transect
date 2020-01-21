@@ -746,7 +746,7 @@ rule raxml:
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
 localrules: finish
 rule finish:
-    output: ".drake_finish"
+    output: touch(".drake_finish")
     input:
         drakedata = rules.drake_plan.output.drakedata,
         flag      = rules.raxml.output.flag,
