@@ -1,4 +1,5 @@
-dataset,tech,seq_run,runs,forward,reverse,regions,plate_key,hgp,band_size,pool,err_region
-short-pacbio,PacBio,pb_483,2,gits7_tag,its4,"ITS2,short,5_8S,LSU1",gITS7_platekey.csv,NULL,16,TRUE,short
-long-pacbio,PacBio,pb_500,2,its1_tag,lr5_tag,"ITS1,ITS2,LSU1,D1,LSU2,D2,LSU3,D3,LSU4,ITS,LSU,long,5_8S,32S",ITS1_LR5_platekey.csv,NULL,16,TRUE,5_8S
-short-ion,Ion,is_057,1,gits7,its4,"ITS2,short,5_8S,LSU1",gITS7_platekey.csv,-1,32,"""pseudo""",short
+dataset,tech,amplicon,seq_run,runs,forward,reverse,regions,plate_key,hgp,band_size,pool,err_region
+short-pacbio,PacBio,Short,pb_483,2,gits7_tag,its4,"ITS2,short,5_8S,LSU1",gITS7_platekey.csv,NULL,16,TRUE,short
+long-pacbio,PacBio,Long,pb_500,2,its1_tag,lr5_tag,"ITS1,ITS2,LSU1,D1,LSU2,D2,LSU3,D3,LSU4,ITS,LSU,long,5_8S,32S",ITS1_LR5_platekey.csv,NULL,16,TRUE,5_8S
+short-ion,Ion,Short,is_057,1,gits7,its4,"ITS2,short,5_8S,LSU1",gITS7_platekey.csv,-1,32,"""pseudo""",short
+short-illumina,Illumina,Short,sh_2257,2,gits7_tag,its4,"ITS2,short,5_8S,LSU1",gITS7_platekey.csv,NULL,16,"""pseudo""",short
