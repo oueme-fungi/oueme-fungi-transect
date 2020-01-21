@@ -9,11 +9,10 @@
 #SBATCH -t 4-00:00:00
 #SBATCH -J oueme-fungi-transect
 #SBATCH -C usage_mail
-#SBATCH -M rackham
+#SBATCH -M snowy
 #SBATCH --mail-type=ALL
 #SBATCH --output="logs/snakemake-%j.log"
 #SBATCH --error="logs/snakemake-%j.log"
-#SBATCH --reservation=job_might_be_killed
 
 ## texlive from conda isn't functional
 module load texlive &&
