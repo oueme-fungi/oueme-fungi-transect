@@ -123,7 +123,7 @@ filterReads <- function(reads, maxLen = Inf, minLen = 0,
   reads
 }
 
-extract_and_derep <- function(positions, trim_file, region_start, region_end,
+extract_and_derep <- function(positions, trim_file, region, region_start, region_end,
                               max_length, min_length, max_ee) {
   if (nrow(positions) == 0) return(NULL)
   pos <- dplyr::group_by(positions, trim_file)
@@ -144,7 +144,8 @@ extract_and_derep <- function(positions, trim_file, region_start, region_end,
       filekey$seq,
       filekey$trim_file,
       warn_missing = FALSE
-    )
+    ),
+    region = region
   )
   filter <- filterReads(
     regions,
@@ -160,7 +161,8 @@ extract_and_derep <- function(positions, trim_file, region_start, region_end,
       filekey$seq,
       filekey$trim_file,
       warn_missing = FALSE
-    )
+    ),
+    region = region
   )
   qstats <- dplyr::bind_rows(qstats_region, qstats_filter)
   if (nrow(qstats) == 0) {

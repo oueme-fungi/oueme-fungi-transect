@@ -301,6 +301,7 @@ plan <- drake_plan(
     extract_and_derep(
       positions = positions,
       trim_file = unique(positions$trim_file),
+      region = region,
       region_start = region_start,
       region_end = region_end,
       max_length = max_length,
