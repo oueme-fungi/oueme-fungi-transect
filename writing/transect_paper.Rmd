@@ -82,7 +82,7 @@ cache = drake_cache(here(".light"))
 light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
 
-datasets <- read_csv(here("config/datasets.csv"), col_types = "cccicccccicc")
+datasets <- read_csv(here("config/datasets.csv"), col_types = "ccccicccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 
 reads_table <- cache$list() %>%
@@ -118,6 +118,39 @@ region_table <- reads_table %>%
     length_max = max(length),
     reads = sum(reads)
   )
+loadd(big_seq_table_ITS2, cache = cache)
+asv_table <- big_seq_table_ITS2 %>%
+  tibble::as_tibble(rownames = "filename") %>%
+  tidyr::gather(key = "seq", value = "reads", -1) %>%
+  dplyr::filter(reads >= 1) %>%
+  tidyr::extract(col = "filename",
+                 into = c("seq.run", "plate", "well", "dir", "region"),
+                 regex = "([a-z]+_\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
+  dplyr::group_by(seq.run, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  tidyr::spread(key = seq.run, value = reads, fill = 0)
+
+otu <- read_tsv(
+  here("data/clusters/ITS2.table"),
+  col_types = cols(
+    .default = col_integer(),
+    `#OTU ID` = col_character()
+  )
+) %>%
+  column_to_rownames("#OTU ID") %>%
+  as.matrix() %>%
+  t() %>%
+  as_tibble(rownames = "sample") %>%
+  tidyr::extract(
+    col = "sample",
+    into = c("seq_run", "plate", "well"),
+    regex = "([a-z]{2}_\\d{3})_(\\d{3})([A-H]1?\\d)"
+  ) %>%
+  tidyr::gather(key = "seq", value = "reads", -(1:3)) %>%
+  dplyr::filter(reads >= 1) %>%
+  dplyr::group_by(seq_run, seq) %>%
+  dplyr::summarize(reads = sum(reads)) %>%
+  tidyr::spread(key = seq_run, value = reads, fill = 0)
 ```
 
 # Introduction
@@ -242,14 +275,64 @@ Sequencing primers were similarly removed from the Ion Torrent sequences, but in
 
 ### Denoising
 
-We attempted to denoise both long and short amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019
-However, only `r region_table$ASVs[region_table$region=="long"]` amplicon sequence variants (ASVs), were obtained.
-We believe that this was due to `DADA2`'s requirement that the seed sequence of each ASV be represented by at least two error-free reads.
+```{r length-qual}
+
+parse_qstat <- function(d) {
+  mutate_at(d, "file", basename) %>%
+  tidyr::extract(col = "file", into = c("seq_run", "plate", "well"),
+                 regex = "([pi][bs]_\\d{3})_(\\d{3})-?([A-H]1?\\d)?[rf]?[.].*")
+}
+
+demuxlength <- readd(qstats_length, cache = cache) %>%
+  parse_qstat() %>%
+  filter(is.na(step), !is.na(well)) %>%
+  group_by(seq_run) %>%
+  summarize(length = reldist::wtd.quantile(length, weight = nreads)) %>%
+  deframe()
+
+demuxqual <- readd(qstats_erate, cache = cache) %>%
+  parse_qstat() %>%
+  filter(is.na(step), !is.na(well)) %>%
+  group_by(seq_run) %>%
+  summarize(qual = round(weighted.mean(erate, w = nreads, na.rm = TRUE), 4)) %>%
+  deframe()
+
+readcounts <- 
+  readd(qstats_n, cache = cache) %>%
+  parse_qstat()
+
+rawcounts <- readcounts %>%
+  filter(is.na(step), is.na(well)) %>%
+  group_by(seq_run) %>%
+  summarize(nreads =  prettyNum(sum(nreads), big.mark = " ")) %>%
+  deframe()
+
+demuxcounts <- readcounts %>%
+  filter(is.na(step), !is.na(well)) %>%
+  group_by(seq_run) %>%
+  summarize(nreads = prettyNum(sum(nreads), big.mark = " ")) %>%
+  deframe()
+
+regioncounts <- readcounts %>%
+  filter(step == "lsux") %>%
+  group_by(seq_run) %>%
+  summarize(nreads = prettyNum(
+    sum(nreads) %/% if (seq_run[1] == "pb_500") 14 else 4,
+    big.mark = " ")
+  ) %>%
+  deframe()
+```
+
+
+We attempted to denoise both long and short amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019.
+However, only `r region_table$ASVs[region_table$region=="long"]` amplicon sequence variants (ASVs) were obtained for the long amplicons, representing `r round(100*region_table$reads[region_table$region == "long"]/as.integer(gsub(" ", "", demuxcounts["pb_500"])), 1)`% of the trimmed reads.
+We believe that this poor performance was due to a combination of long read length and low sequencing depth relative to community diversity.
+The `DADA2` algorithm requires that the seed sequence of each ASV be represented by at least two error-free reads [@callahan2016].
 If sequencing errors are uniformly distributed, then the probability that a given read will be error-free is $(1-\epsilon)^L$, where $\epsilon$ is the sequencing error rate and $L$ is the read length in base pairs.
 Then the number of reads of a given sequence that would be required to obtain two error-free reads in expectation is $2/(1-\epsilon)^L$.
-For the combination of long reads (median *X* bp after trimming) and moderate error rate (*X*% mean ccs quality score) in this study, the expected number of reads to achieve two error-free reads is `r round(2/(0.995)^1550)`.
-In comparison, the equivalent requirement for the short amplicon (median *X* bp after trimming, mean ccs quality score *Y*%) is only `r round(2/(0.999)^350)`
-Given the high diversity relative to sequencing depth in this study (*X* ASVs from PacBio short amplicons, *Y* total long amplicon reads), this requirement was not met for the long amplicons except by the most abundant sequences.
+For the combination of long reads (median $L=`r demuxlength['pb_500']` \text{ bp}$ after trimming) and moderate error rate (mean $\epsilon= `r format(demuxqual['pb_500'], digits = 4)`$ based on ccs quality scores) for the long amplicon in this study, the expected number of reads required to achieve two error-free reads is `r format(as.integer(round(2/(1 - demuxqual['pb_500'])^demuxlength['pb_500'])), big.mark = " ")`.
+Given the high diversity relative to sequencing depth in this study (`r region_table$ASVs[region_table$seq_run == "pb_483" & region_table$region == "short"]` ASVs based on PacBio short amplicons, `r demuxcounts["pb_500"]` trimmed long amplicon reads), this requirement could not have been met for the long amplicons except by the most abundant sequences.
+In comparison, the equivalent requirement for the short amplicon ($L=`r demuxlength['pb_483']` \text{ bp}$, $\epsilon=`r demuxqual['pb_483']`$) is only `r round(2/(1 - demuxqual['pb_483'])^demuxlength['pb_483'], 1)` reads.
 We therefore developed a new workflow to assemble ASVs from the long amplicons, as follows:
 
 Raw reads were divided into shorter regions by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure [@eddy1994].
@@ -287,8 +370,8 @@ The process of assigning consensus full-length ASVs was carried out using the ne
 
 Taxonomic annotations of the Ribosomal Data Project's LSU fungal training set (RDP) version 11.5 [@cole2014] and Warcup ITS training set [@wang2007] were mapped to the taxonomic classification system used in the Unite database version 8 [@nilsson2019a].
 In particular, the classification for fungi was according to @tedersoo2018, and for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c.
-Although the latter system is not formally published, it seems to be in use for non-fungal eukaryotes in the Unite database.
-Additionally, it is a system with only purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as @adl2019.
+Although the latter system is not formally published, it is consistent with the annotations for non-fungal eukaryotes in the Unite database.
+Additionally, it is a system with both purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as that of the International Society of Protistologists [ @adl2019], which utilizes hierarchical nameless ranks.
 FASTA format files of the re-annotated RDP and Warcup training sets are available at (*somewhere*).
 
 Taxonomic assignment was performed to genus level separately on the ITS and LSU regions using Unite/Warcup and RDP, respectively, as taxonomic references.
@@ -311,8 +394,8 @@ Unique LSU regions from long amplicon ASVs were aligned as RNA using DECIPHER [@
 This alignment was truncated at a position after the D3 region corresponding to base 907 of the *Saccharomyces cerevisiae* S288C reference sequence for LSU, because several sequences had type 1 introns after this position [@holst-jensen1999].
 Full length long amplicon ASVs (including ITS1, 5.8S, and ITS2 regions) were aligned and truncated in the same way.
 
-An attempt was made to refine the long amplicon alignment using Pasta [@mirarab2014a], but the resulting maximum likelihood (ML) trees did not improve on the ML achieved using the original alignment from DECIPHER.
-Since ML is the optimization criterion used by Pasta, the original DECIPHER alignment was retained.
+<!--An attempt was made to refine the long amplicon alignment using Pasta [@mirarab2014a], but the resulting maximum likelihood (ML) trees did not improve on the ML achieved using the original alignment from DECIPHER.
+Since ML is the optimization criterion used by Pasta, the original DECIPHER alignment was retained.-->
 
 ML trees were produced using RAxML version 8.2.12 [@stamatakis2014] using the GTR+GAMMA model and rapid bootstrapping with the MRE_IGN stopping criterion.
 The LSU tree was not constrained topologically, but the long amplicon tree was constrained by the result for the LSU tree.
@@ -336,9 +419,6 @@ A taxon at a particular rank was assigned to a node and all its descendents if t
 A taxon assignment was considered to be consistent if at least one algorithm assigned that taxon at greater than 50% confidence, or if no algorithm successfully classified the sequence at greater than 50% confidence.
 The result of this process was to give a taxonomic assignment to ASVs which were previously unassigned if they were nested within a clade where which was consistently given an assignment, as well as clarify the assignment of ASVs where different algorithms had resulted in different assignments, but only one of these was consistent with the assignments of other ASVs in the same clade.
 
-
-
-
 <!--
           - preliminary alignment of 32S to RDP covariance model with `cmalign` from Infernal (aligns only conserved regions)
           - concatenate ITS1 to beginning of alignment
@@ -358,14 +438,105 @@ The mean dissimilarity between samples taken in different transects (distance $\
 
 ## Read counts
 
-Long (short) amplicon sequencing with PacBio yielded *X* (*Y*) circular consensus reads, of which *A* (*B*) were successfully demultiplexed.
-The 5.8S region was detected in *C* (*D*) reads.
-Ion Torrent sequencing yielded *E* demultiplexed reads, with the 5.8S region detected in *F*.
+Long (short) amplicon sequencing with PacBio yielded `r rawcounts["pb_500"]` (`r rawcounts["pb_483"]`) circular consensus reads, of which `r demuxcounts["pb_500"]` (`r demuxcounts["pb_483"]`) were successfully demultiplexed.
+The 5.8S region was detected in `r regioncounts["pb_500"]` (`r regioncounts["pb_483"]`) reads.
+Ion Torrent sequencing yielded `r demuxcounts["is_057"]` demultiplexed reads, with the 5.8S region detected in `r regioncounts["is_057"]`.
 
+(ref:readcounts) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages.
+Raw: raw reads as delivered by sequencing center;
+Trim: reads with primers and demultiplexing indices removed;
+LSUx: reads with a positive CM hit for 5.8S, allowing regions to be extracted;
+ITS2: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
+short, ITS, LSU, long: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"song\" denote the full-length short and long amplicons, respectively.
+Short amplicons were mapped to full ITS, LSU, and long amplicon ASVs when 
 
-```{r read-counts}
+```{r}
+bioinf_table <- bind_rows(
+  enframe(rawcounts, name = "seq_run", value = "reads") %>%
+    mutate(
+      reads = as.integer(gsub(" ", "", reads)),
+      step = "Raw"
+    ),
+  enframe(demuxcounts, name = "seq_run", value = "reads") %>%
+    mutate(
+      reads = as.integer(gsub(" ", "", reads)),
+      step = "Trim"
+    ),
+  enframe(regioncounts, name = "seq_run", value = "reads") %>%
+    mutate(
+      reads = as.integer(gsub(" ", "", reads)),
+      step = "LSUx"
+    ),
+  filter(region_table, region == "ITS2") %>%
+    select(seq_run, reads, step = region, ASVs),
+  pivot_longer(asv_table, -1, names_to = "seq_run", values_to = "reads") %>%
+    filter(reads > 0) %>%
+    mutate_at("seq", chartr, old = "T", new = "U") %>%
+    inner_join(
+      select(readd(allseqs, cache = cache), seq = ITS2, long, short, ITS, LSU) %>%
+        pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
+        filter(!is.na(consensus)) %>%
+        select(-consensus) %>%
+        unique(),
+      by = "seq"
+    ) %>%
+    group_by(seq_run, region) %>%
+    summarize(reads = sum(reads, na.rm = TRUE), ASVs = n()) %>%
+    select(seq_run, reads, step = region, ASVs)
+) %>%
+  left_join(select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
+  mutate(
+    step = ifelse(tech == "Ion" & step == "Trim", "Raw", step),
+  ) %>%
+  select(tech, amplicon, step, reads, ASVs) %>%
+  pivot_longer(c("reads", "ASVs"), names_to = "type", values_to = "count") %>%
+  filter(!is.na(count)) %>%
+  mutate(
+    step = factor(step, levels = c("Raw", "Trim", "LSUx", "ITS2",
+                                   "short", "ITS", "LSU", "long")),
+    tech = factor(tech, levels = c("PacBio", "Ion", "Illumina")),
+    amplicon = factor(amplicon, levels = c("Long", "Short")),
+    type = factor(type, c("ASVs", "reads"))
+  ) %>%
+  arrange(tech, amplicon, type) %>%
+  pivot_wider(
+    id_cols = "step",
+    names_from = c("tech", "amplicon", "type"),
+    values_from = c("count")
+    ) %>%
+  arrange(step) %>%
+  column_to_rownames("step")
 
+options(knitr.kable.NA = '–')
+bioinf_header <- tibble(name = names(bioinf_table)) %>%
+  separate(name, into = c("tech", "amplicon", "type")) 
+bioinf_table %>%
+  set_names(gsub(".*_", "", names(.))) %>%
+  kable(
+    booktabs = TRUE,
+    caption = "(ref:readcounts)",
+    align = "rrrrrr",
+    format.args = list(big.mark = "\\,"),
+    linesep = c(rep("", 3), rep("\\addlinespace", 2), rep("", 4)),
+    escape = FALSE
+    ) %>%
+  kableExtra::add_header_above(
+    header = c(
+      " " = 1,
+      bioinf_header$amplicon[c(TRUE, FALSE)] %>% set_names(rep(2, length(.)), .)
+    )
+  ) %>%
+  kableExtra::add_header_above(
+    header = c(
+      " " = 1,
+      rle(bioinf_header$tech) %$% set_names(lengths, values)
+    )
+  )
 ```
+
+
+
+
 
 - How many reads passed quality control
 - how many became ASVs
@@ -400,40 +571,6 @@ agaricus_order <- readd(proto_physeq, cache = cache) %>%
 ## Comparison of read counts from different technologies
 
 ```{r pb-vs-it, fig.cap="(ref:readcap)", fig.height=8}
-loadd(big_seq_table_ITS2, cache = cache)
-asv_table <- big_seq_table_ITS2 %>%
-  tibble::as_tibble(rownames = "filename") %>%
-  tidyr::gather(key = "seq", value = "reads", -1) %>%
-  dplyr::filter(reads >= 1) %>%
-  tidyr::extract(col = "filename",
-                 into = c("seq.run", "plate", "well", "dir", "region"),
-                 regex = "([a-z]+_\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
-  dplyr::group_by(seq.run, seq) %>%
-  dplyr::summarize(reads = sum(reads)) %>%
-  tidyr::spread(key = seq.run, value = reads, fill = 0)
-
-otu <- read_tsv(
-  here("data/clusters/ITS2.table"),
-  col_types = cols(
-    .default = col_integer(),
-    `#OTU ID` = col_character()
-  )
-) %>%
-  column_to_rownames("#OTU ID") %>%
-  as.matrix() %>%
-  t() %>%
-  as_tibble(rownames = "sample") %>%
-  tidyr::extract(
-    col = "sample",
-    into = c("seq_run", "plate", "well"),
-    regex = "([a-z]{2}_\\d{3})_(\\d{3})([A-H]1?\\d)"
-  ) %>%
-  tidyr::gather(key = "seq", value = "reads", -(1:3)) %>%
-  dplyr::filter(reads >= 1) %>%
-  dplyr::group_by(seq_run, seq) %>%
-  dplyr::summarize(reads = sum(reads)) %>%
-  tidyr::spread(key = seq_run, value = reads, fill = 0)
-  
 big_table <- bind_rows(
   mutate(asv_table, type = "ASV"),
   mutate(otu, type = "OTU")
@@ -445,7 +582,11 @@ multi_table <- crossing(
   y_var = factor(datasets$seq_run, ordered = TRUE),
   type = c("ASV", "OTU")
 ) %>%
-  filter(x_var < y_var) %>%
+  filter(
+    x_var < y_var,
+    x_var %in% names(big_table),
+    y_var %in% names(big_table)
+  ) %>%
   mutate_all(as.character) %>%
   group_by(x_var, y_var, type) %>%
   group_modify(
@@ -829,9 +970,9 @@ variog_data %>%
   select(Guild = guild, Amplicon = amplicon, Metric = metric,
          Range = range, Anisotropy = anis) %>%
   mutate(Range = 3*Range,
-         "R/A" = Range/Anisotropy,
+         "Time Range" = Range/Anisotropy,
          "R/A" = ifelse(`R/A` > 100, NA, `R/A`)) %>%
-  mutate_at(c("Range", "Anisotropy", "R/A"), formatC, digits = 1,
+  mutate_at(c("Range", "Time Range"), formatC, digits = 1,
             format = "f") %>%
   mutate_at("Range", paste, "m") %>%
   mutate_at("Anisotropy", paste, "m/a") %>%
@@ -877,7 +1018,7 @@ Node 4 (and thus also node 5) is assigned to Tax2 because this is consistent wit
 
 ```{r phylotax, fig.height = 2, fig.width = 3, fig.cap = "(ref:phylotax)"}
 extree <-
-  tidytree::as.treedata(ape::read.tree(text = "(A:1,((B:1,C:1):1,((E:1,F:1):1,D:1):1):1);")) %>%
+  treeio::as.treedata(ape::read.tree(text = "(A:1,((B:1,C:1):1,((E:1,F:1):1,D:1):1):1);")) %>%
   tidytree::full_join(
     tibble(label = LETTERS[1:6],
            tax1 = c("unk", "Tax1", "Tax2", "Tax2", "unk", "unk"),
