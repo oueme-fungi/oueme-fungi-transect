@@ -1712,3 +1712,29 @@ subject_tree <- ape::keep.tip(subject_tree, names(subject))
 query <- full_aln[!names(full_aln) %in% subject_tree$tip.label]
 subject_model <- readLines("data/raxml/decipher/RAxML_info.decipher_long")
 threads = 3
+
+####
+n <- 10000
+labels <- paste0("t", seq.int(n))
+
+# generate a random alignment
+aln <- sample(Biostrings::DNA_BASES, 100 * n, replace = TRUE)
+aln <- matrix(aln, nrow = n)
+aln <- apply(aln, 1, paste, collapse = "")
+names(aln) <- labels
+aln <- Biostrings::DNAStringSet(aln)
+
+# create a very deep tree (each node has one singleton child)
+x <- rnorm(n, sd = 0.001)
+x <- rev(x)
+names(x) <- labels
+dist <- dist(x)
+tree <- hclust(dist)
+tree <- as.dendrogram(tree)
+
+DECIPHER::AlignSeqs(
+  myXStringSet = aln,
+  guideTree = tree,
+  iterations = 0,
+  refinements = 0
+)
