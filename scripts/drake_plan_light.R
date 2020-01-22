@@ -17,11 +17,8 @@ source(file.path(config$rdir, "variogram.R"))
 
 physeq_meta <-
   tidyr::crossing(
-    dplyr::select(datasets, "seq_run", "tech", "dataset"),
-    guild = c("fungi", "ecm")
-  ) %>%
-  dplyr::mutate(
-    amplicon = stringr::str_extract(dataset, "^[a-z]+"),
+    dplyr::select(datasets, "seq_run", "tech", "dataset", "amplicon"),
+    guild = c("fungi", "ecm") #, "ecm2", "ecm3")
   ) %>%
   dplyr::filter(
     seq_run != "is_057", # couldn't be demultiplexed
@@ -37,6 +34,7 @@ plan2 <- drake_plan(
   ),
   raxml_decipher_LSU = target(trigger = trigger(mode = "blacklist")),
   raxml_decipher_long = target(trigger = trigger(mode = "blacklist")),
+  raxml_decipher_unconst_long = target(trigger = trigger(mode = "blacklist")),
   raxml_epa_full = target(trigger = trigger(mode = "blacklist")),
   big_seq_table = target(
     transform = map(region = !!(region_meta$region), .tag_in = step, .id = region),
@@ -86,6 +84,11 @@ plan2 <- drake_plan(
   tree_decipher_LSU_long = target(
     raxml_decipher_long$bipartitions,
     transform = map(outname = "decipher_LSU_long", group = "euk", .tag_in = step, .tag_out = c(euktree, tree))
+  ),
+  
+  tree_decipher_unconst_long = target(
+    raxml_decipher_unconst_long$bipartitions,
+    transform = map(outname = "decipher_unconst_long", group = "euk", .tag_in = step, .tag_out = c(euktree, tree))
   ),
   
   # tree_epa_mafft_full = target(
@@ -253,6 +256,16 @@ plan2 <- drake_plan(
       transform = map(guilds, .tag_in = step, .id = c(outname, group))
   ),
   
+  ecm2 = target(
+    dplyr::filter(ecm, !taxon %in% c("Peziza", "Pezizaceae", "Pyronemataceae")),
+    transform = map(ecm, .tag_in = step, .id = c(outname, group))
+  ),
+  
+  ecm3 = target(
+    dplyr::filter(ecm, confidenceRanking != "Possible"),
+    transform = map(ecm, .tag_in = step, .id = c(outname, group))
+  ),
+  
   proto_physeq = assemble_physeq(
     platemap = platemap,
     datasets = datasets,
@@ -264,8 +277,8 @@ plan2 <- drake_plan(
   physeq = target(
     {
       physeq <- proto_physeq
-      if (amplicon == "long") {
-        phyloseq::phy_tree(physeq) <- fungi_tree_decipher_LSU_long
+      if (amplicon == "Long") {
+        phyloseq::phy_tree(physeq) <- fungi_tree_decipher_unconst_long
       }
       physeq <- physeq %>%
         phyloseq::subset_samples(sample_type == "Sample") %>%
@@ -275,9 +288,17 @@ plan2 <- drake_plan(
         phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["amplicon"]] == amplicon)
       
       if (guild == "ecm") {
-        physeq <- phyloseq::prune_taxa(ecm_decipher_LSU_long_fungi$label, physeq) %>%
+        physeq <- phyloseq::prune_taxa(ecm_decipher_unconst_long_fungi$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
           
+      } else if (guild == "ecm2") {
+        physeq <- phyloseq::prune_taxa(ecm2_decipher_unconst_long_fungi$label, physeq) %>%
+          phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
+        
+      } else if (guild == "ecm3") {
+        physeq <- phyloseq::prune_taxa(ecm3_decipher_unconst_long_fungi$label, physeq) %>%
+          phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
+        
       }
       physeq
     },
@@ -328,7 +349,7 @@ plan2 <- drake_plan(
   ),
   trace = TRUE
 ) %>%
-  dplyr::filter(ifelse(amplicon == '"short"', metric != '"wunifrac"', TRUE) %|% TRUE)
+  dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
 
 saveRDS(plan2, "data/plan/drake_light.rds")
 

@@ -69,7 +69,6 @@ demux_meta <- read_delim(
 # itsx_meta has one row per demultiplexed, primer-trimmed fastq.gz file
 flog.info("Making itsx_meta.")
 itsx_meta <- datasets %>%
-  # filter(tech != "Ion") %>%
   mutate(primer_ID = paste0(str_replace(forward, "_tag.*$", ""),
                             str_replace(reverse, "_tag.*$", "")),
          plate = map(runs, ~formatC(seq(.), width = 3, flag = "0"))) %>%

@@ -33,9 +33,8 @@ assemble_physeq <- function(platemap, datasets, seqtable, tree = NULL, chimeras)
     dplyr::mutate_at("primer_pair", tolower) %>%
     dplyr::left_join(
       datasets %>%
-        dplyr::select(dataset, seq_run, tech, forward, reverse) %>%
+        dplyr::select(dataset, seq_run, tech, forward, reverse, amplicon) %>%
         dplyr::mutate(
-          amplicon = stringr::str_extract(dataset, "^[a-z]+"),
           primer_pair = paste(
             stringr::str_replace(forward, "_tag.*$", ""),
             stringr::str_replace(reverse, "_tag.*$", ""),
