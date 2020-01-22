@@ -61,23 +61,33 @@ tags$its4 <- read_xlsx(gits7.file, skip = 1) %>%
 tags$its1_tag <- read_xlsx(its1.lr5.file, sheet = "Taggar ITS1 and LR5", range = "B2:E14") %>%
   dplyr::rename(primer = `Forward primer`) %>%
   mutate(object = paste0(pad, barcode, primer)) %>%
-  select(object, name = oligoname)
+  select(name = oligoname, object)
 
 # read the LR5 tags
 tags$lr5_tag <- read_xlsx(its1.lr5.file, sheet = "Taggar ITS1 and LR5", range = "J2:M10") %>%
   dplyr::rename(primer = `Reverse primer`) %>%
   mutate(object = paste0(pad, barcode, primer)) %>%
-  select(object, name = oligoname)
+  select(name = oligoname, object)
 
 # function to take the reverse complement of DNA sequence(s), represented as a string.
 revcomp <- function(s)
   map_chr(s, ~ c2s(rev(comp(s2c(.), ambiguous = TRUE, forceToLower = FALSE))))
 
 # read the dataset definitions
-dataset <- read_csv(dataset.file) %>%
+dataset <- read_csv(dataset.file, col_types = "ccccicccccicc") %>%
   mutate(
     tagfile_name = file.path(tags.dir, paste0(seq_run, ".fasta")),
-    plate_key = map(file.path(lab.dir, plate_key), read_csv),
+    forward_name = file.path(tags.dir, paste0(seq_run, "_R1.fasta")),
+    reverse_name = file.path(tags.dir, paste0(seq_run, "_R2.fasta")),
+    plate_key = map(
+      file.path(lab.dir, plate_key),
+      read_csv,
+      col_types = cols(
+        row = col_integer(),
+        col = col_integer(),
+        .default = col_character()
+      )
+    ),
     forward = tags[forward],
     reverse = tags[reverse],
     out.fasta = pmap(
@@ -88,13 +98,44 @@ dataset <- read_csv(dataset.file) %>%
         mutate_at("seq_rev", revcomp) %>%
         left_join(select(plate_key, starts_with("tag"), well)) %>%
         transmute(name = replace_na(well, "unnamed"),
-                  object = paste0(seq_fwd, "...", seq_rev))
-    ))
+                  object = paste0("^", seq_fwd, "...", seq_rev))
+    ),
+    reverse.fasta = pmap(
+      list(plate_key, forward, reverse),
+      function(plate_key, forward, reverse)
+        crossing(select(forward, tag_fwd = name, seq_fwd = object),
+                 select(reverse, tag_rev = name, seq_rev = object)) %>%
+        mutate_at("seq_fwd", revcomp) %>%
+        left_join(select(plate_key, starts_with("tag"), well)) %>%
+        transmute(name = replace_na(well, "unnamed"),
+                  object = paste0("^", seq_rev, "...", seq_fwd))
+    )
+  )
 # Write the outputs
-pwalk(dataset,
-      function(tagfile_name, out.fasta, ...) {
-        write.fasta(sequences = as.list(out.fasta$object),
-                    names = out.fasta$name,
-                    file.out = tagfile_name,
-                    as.string = TRUE)
-      })
+pwalk(
+  dataset,
+  function(tagfile_name, forward_name, reverse_name,
+           tech, out.fasta, reverse.fasta, ...) {
+    if (tech == "Illumina") {
+      write.fasta(
+        sequences = as.list(out.fasta$object),
+        names = out.fasta$name,
+        file.out = forward_name,
+        as.string = TRUE
+      )
+      write.fasta(
+        sequences = as.list(reverse.fasta$object),
+        names = reverse.fasta$name,
+        file.out = reverse_name,
+        as.string = TRUE
+      )
+    } else {
+      write.fasta(
+        sequences = as.list(out.fasta$object),
+        names = out.fasta$name,
+        file.out = tagfile_name,
+        as.string = TRUE
+      )
+    }
+  }
+)
