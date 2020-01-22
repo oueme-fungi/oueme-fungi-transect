@@ -44,7 +44,7 @@ setup_log("drakeplan")
 
 # load the dataset and region definitions
 flog.info("Loading datasets file.")
-datasets <- read_csv(config$dataset, col_types = "cccicccccicc")
+datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc")
 flog.info("Loading regions file.\n")
 regions <- read_csv(config$regions, col_types = "cccciiiiic") %>%
   mutate_at("range", replace_na, "") %>%

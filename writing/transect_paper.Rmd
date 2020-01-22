@@ -82,7 +82,7 @@ cache = drake_cache(here(".light"))
 light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
 
-datasets <- read_csv(here("config/datasets.csv"), col_types = "ccccicccccicc")
+datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 
 reads_table <- cache$list() %>%
@@ -436,18 +436,18 @@ The mean dissimilarity between samples taken in different transects (distance $\
 
 # Results
 
-## Read counts
+## Sequencing
 
 Long (short) amplicon sequencing with PacBio yielded `r rawcounts["pb_500"]` (`r rawcounts["pb_483"]`) circular consensus reads, of which `r demuxcounts["pb_500"]` (`r demuxcounts["pb_483"]`) were successfully demultiplexed.
 The 5.8S region was detected in `r regioncounts["pb_500"]` (`r regioncounts["pb_483"]`) reads.
 Ion Torrent sequencing yielded `r demuxcounts["is_057"]` demultiplexed reads, with the 5.8S region detected in `r regioncounts["is_057"]`.
 
 (ref:readcounts) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages.
-Raw: raw reads as delivered by sequencing center;
-Trim: reads with primers and demultiplexing indices removed;
-LSUx: reads with a positive CM hit for 5.8S, allowing regions to be extracted;
-ITS2: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
-short, ITS, LSU, long: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"song\" denote the full-length short and long amplicons, respectively.
+*Raw*: raw reads as delivered by sequencing center;
+*Trim*: reads with primers and demultiplexing indices removed;
+*LSUx*: reads with a positive CM hit for 5.8S, allowing regions to be extracted;
+*ITS2*: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
+*short*, *ITS*, *LSU*, *long*: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"long\" denote the full-length short and long amplicons, respectively.
 Short amplicons were mapped to full ITS, LSU, and long amplicon ASVs when 
 
 ```{r}
@@ -960,7 +960,7 @@ variog_empir %>%
 
 ```
 
-(ref:variofit) Parameters for variogram fits shown in Figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value; Anisotropy: effective spatial distance represented by one year; R/A: Range divided by anisotropy; the characteristic range of the exponential function in the time domain.
+(ref:variofit) Parameters for variogram fits shown in Figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value; Anisotropy: effective spatial distance represented by one year; the characteristic range of the exponential function in the time domain.
 
 ```{r variofit}
 variog_data %>%
@@ -971,7 +971,7 @@ variog_data %>%
          Range = range, Anisotropy = anis) %>%
   mutate(Range = 3*Range,
          "Time Range" = Range/Anisotropy,
-         "R/A" = ifelse(`R/A` > 100, NA, `R/A`)) %>%
+         "Time Range" = ifelse(`Time Range` > 100, NA, `Time Range`)) %>%
   mutate_at(c("Range", "Time Range"), formatC, digits = 1,
             format = "f") %>%
   mutate_at("Range", paste, "m") %>%
