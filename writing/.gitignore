@@ -20,4 +20,7 @@
 *.toc
 *.synctex.gz
 *.bbl
+*.ttt
+*.fff
+*_files
 cache
