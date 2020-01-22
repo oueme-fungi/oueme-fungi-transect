@@ -629,7 +629,9 @@ rule hash_demux:
     demux_find('pb_500_002'),
     demux_find('pb_483_001'),
     demux_find('pb_483_002'),
-    ion_find('is_057', '001')
+    ion_find('is_057', '001'),
+    illumina_find('SH-2257', '1'),
+    illumina_find('SH-2257', '2')
   threads: maxthreads
   resources:
     walltime = 60

@@ -117,10 +117,32 @@ filterReads <- function(reads, maxLen = Inf, minLen = 0,
   assertthat::assert_that(methods::is(reads, "ShortReadQ"))
   reads <- reads[ShortRead::width(reads) <= maxLen]
   reads <- reads[ShortRead::width(reads) >= minLen]
+  reads <- reads[!grepl("N", as.character(reads@sread))]
   ee <- rowSums(10 ^ (-1 * (methods::as(reads@quality, "matrix") / 10)),
                 na.rm = TRUE)
   reads <- reads[ee <= maxEE]
   reads
+}
+
+filterReadPairs <- function(reads1, reads2, maxLen = Inf, minLen = 0,
+                        maxEE = Inf) {
+  assertthat::assert_that(
+    methods::is(reads1, "ShortReadQ"),
+    methods::is(reads2, "ShortReadQ")
+  )
+  shortenough <- ShortRead::width(reads1) <= maxLen &
+    ShortRead::width(reads2) <= maxLen
+  longenough <- ShortRead::width(reads1) >= minLen &
+    ShortRead::width(reads2) >= minLen
+  noN <- !grepl("N", as.character(reads1@sread)) &
+    !grepl("N", as.character(reads2@sread))
+  ee1 <- rowSums(10 ^ (-1 * (methods::as(reads1@quality, "matrix") / 10)),
+                na.rm = TRUE)
+  ee2 <- rowSums(10 ^ (-1 * (methods::as(reads2@quality, "matrix") / 10)),
+                 na.rm = TRUE)
+  reads1 <- reads1[shortenough & longenough & noN & ee1 <= maxEE & ee2 <= maxEE]
+  reads2 <- reads2[shortenough & longenough & noN & ee1 <= maxEE & ee2 <= maxEE]
+  list(R1 = reads1, R2 = reads2)
 }
 
 extract_and_derep <- function(positions, trim_file, region, region_start, region_end,
@@ -189,6 +211,50 @@ extract_and_derep <- function(positions, trim_file, region, region_start, region
   out
 }
 
+filter_and_derep_pairs <- function(trim_file_1, trim_file_2, max_length,
+                                   min_length, max_ee, ID, ...) {
+  reads1 <- ShortRead::readFastq(trim_file_1)
+  reads2 <- ShortRead::readFastq(trim_file_2)
+  
+  filter_reads <- filterReadPairs(reads1, reads2, max_length, min_length, max_ee)
+  reads1 <- filter_reads$R1
+  reads2 <- filter_reads$R2
+  
+  qstats <- 
+    dplyr::bind_rows(
+      q_stats(reads1, step = "filter", file = trim_file_1, read = "R1", ...),
+      q_stats(reads2, step = "filter", file = trim_file_2, read = "R2", ...)
+    )
+  if (nrow(qstats) == 0) {
+    qstats <- tibble::tibble(
+      file = c(trim_file_1, trim_file_2),
+      read = c("R1", "R2"),
+      length = NA_integer_,
+      minq = NA_integer_,
+      eexp = NA_real_,
+      erate = NA_real_,
+      p.noerr = NA_real_
+    )
+  }
+  if (length(reads1) == 0) return(structure(list(), qstats = qstats))
+  out <- list()
+  out$R1 <- derepShortReadQ(
+      reads = reads1,
+      n = 1e4,
+      qualityType = "FastqQuality",
+      verbose = TRUE
+    )
+  out$R1[["names"]] <- as.character(reads1@id)
+  out$R2 <- derepShortReadQ(
+    reads = reads2,
+    n = 1e4,
+    qualityType = "FastqQuality",
+    verbose = TRUE
+  )
+  out$R2[["names"]] <- as.character(reads2@id)
+  attr(out, "qstats") <- qstats
+  out
+}
 
 # call dada, but be tolerant of NULL inputs and empty list inputs
 robust_dada <- function(derep, ...) {

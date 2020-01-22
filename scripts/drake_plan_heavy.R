@@ -67,8 +67,10 @@ demux_meta <- read_delim(
 
 #### itsx_meta ####
 # itsx_meta has one row per demultiplexed, primer-trimmed fastq.gz file
+# Illumina files need to be treated differently, so they are not included.
 flog.info("Making itsx_meta.")
 itsx_meta <- datasets %>%
+  filter(tech != "Illumina") %>%
   mutate(primer_ID = paste0(str_replace(forward, "_tag.*$", ""),
                             str_replace(reverse, "_tag.*$", "")),
          plate = map(runs, ~formatC(seq(.), width = 3, flag = "0"))) %>%
@@ -112,6 +114,7 @@ predada_meta <- select(itsx_meta, seq_run, regions, primer_ID) %>%
 # dada_meta has one row per region per sequencing run
 # it is used for targets err, dada, dadamap, seq_table, and nochim
 # The index is seq_run + region
+# Illumina runs are treated separately.
 flog.info("Making dada_meta.")
 dada_meta <- predada_meta %>%
   select(seq_run, region, reference, primer_ID, positions, min_length_post,
@@ -129,7 +132,42 @@ dada_meta <- predada_meta %>%
     syms
     )
 
-flog.info("Making err_meta.")
+illumina_meta <- datasets %>%
+  filter(tech == "Illumina") %>%
+  mutate(
+    primer_ID = paste0(str_replace(forward, "_tag.*$", ""),
+                            str_replace(reverse, "_tag.*$", "")),
+         plate = map(runs, ~formatC(seq(.), width = 3, flag = "0")),
+         region = err_region
+         ) %>%
+  unnest(plate) %>%
+  tidyr::expand_grid(
+    direction = c("f", "r"),
+    read = c("R1", "R2"),
+    row = LETTERS[1:8],
+    col = 1:12
+    ) %>%
+  mutate(
+    well = paste0(row, col),
+    trim_file = glue("{config$trimdir}/{seq_run}_{plate}/{seq_run}_{plate}-{well}_{read}{direction}.trim.fastq.gz") %>%
+           unclass()) %>%
+  inner_join(demux_meta, by = "trim_file") %>%
+  pivot_wider(names_from = "read", values_from = c("trim_file", "md5")) %>%
+  mutate(ID = glue::glue("{seq_run}_{plate}_{well}_{direction}_{region}"))
+
+illumina_err_meta <- illumina_meta %>%
+  select(seq_run, region, tech, hgp, band_size, pool) %>%
+  unique()
+
+merge_meta <- illumina_err_meta %>%
+  mutate(
+    derep = make.names(glue::glue("derep_illumina_{seq_run}_{read}")),
+    dada = make.names(glue::glue("dada_illumina_{seq_run}_{read}"))
+  ) %>%
+  pivot_wider(names_from = "read", values_from = c("derep", "dada")) %>%
+  mutate_at(c("derep_R1", "derep_R2", "dada_R1", "dada_R2"), syms)
+  
+  flog.info("Making err_meta.")
 err_meta <- dada_meta %>%
   filter(region == err_region) %>%
   select(seq_run, region, derep2, tech, hgp, band_size, pool)
@@ -316,6 +354,35 @@ plan <- drake_plan(
     dynamic = map(positions)
   ),
   
+  illumina_group = target(
+    dplyr::filter(
+      illumina_meta,
+      .data[["seq_run"]] == seq_run
+    ),
+    transform = map(
+      .data = !!illumina_err_meta,
+      .tag_in = step,
+      .id = seq_run, read
+    )
+  ),
+  
+  derep_illumina = target(
+    filter_and_derep_pairs(
+      trim_file_1 = illumina_group$trim_file_R1,
+      trim_file_2 = illumina_group$trim_file_R2,
+      max_length = 2999,
+      min_length = 50,
+      max_ee = 3,
+      ID = illumina_group$ID
+    ),
+    transform = map(
+      illumina_group,
+      .tag_in = step,
+      .id = seq_run, read
+    ),
+    dynamic = map(illumina_group)
+  ),
+  
   #### Plan section 2: Denoise using DADA ####
 
   # Calibrate dada error models on 5.8S
@@ -343,7 +410,33 @@ plan <- drake_plan(
       .id = c(seq_run, region)
     )
   ),
-
+  
+  err_illumina = target({
+    dereps <- readd(derep_illumina) %>%
+      purrr::compact()
+    dada2::learnErrors(
+      fls = dereps,
+      nbases = 1e9,
+      multithread = ignore(ncpus),
+      randomize = TRUE,
+      errorEstimationFunction = dada2::loessErrfun,
+      HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(hgp)),
+      BAND_SIZE = band_size,
+      MAX_CONSIST = 50,
+      pool = eval(rlang::parse_expr(pool)),
+      verbose = TRUE,
+      qualityType = "FastqQuality"
+    )},
+    transform = map(
+      derep_illumina,
+      hgp,
+      band_size,
+      pool,
+      .tag_in = step,
+      .id = c(seq_run, read)
+    )
+  ),
+  
   # Run dada denoising algorithm (on different regions)
   dada = target(
     readd(derep2) %>%
@@ -367,6 +460,41 @@ plan <- drake_plan(
       .tag_in = step,
       .id = c(seq_run, region)
     )
+  ),
+  
+  dada_illumina = target(
+    readd(derep_illumina) %>%
+      set_names(
+        dplyr::bind_rows(readd(positions_illumina)) %>%
+          glue::glue_data("{seq_run}_{plate}_{well}_{read}_{direction}") %>% unique()
+      ) %>%
+      robust_dada(
+        derep = .,
+        err = err_illumina,
+        multithread = ignore(ncpus),
+        HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(hgp)),
+        BAND_SIZE = band_size,
+        pool = eval(rlang::parse_expr(pool))),
+    transform = map(
+      derep_illumina,
+      err_illumina,
+      positions_illumina,
+      hgp,
+      band_size,
+      pool,
+      .tag_in = step,
+      .id = c(seq_run, read)
+    )
+  ),
+  
+  merge = target(
+    dada2::mergePairs(
+      dadaF = dada_R1,
+      derepF = set_names(readd(derep_R1), names(dada_R1)),
+      dadaR = dada_R2,
+      derepR = set_names(readd(derep_R2), names(dada_R2))
+    ),
+    transform = map(.data = !!merge_meta, .id = seq_run)
   ),
 
   # Make a sample x ASV abundance matrix
