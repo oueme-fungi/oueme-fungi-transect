@@ -401,7 +401,7 @@ checkpoint demux_illumina:
         walltime=5
     conda: "config/conda/demultiplex.yaml"
     group: "illumina"
-    threads: 1 #2 instances of cutadapt and 1 fastx_reverse_complement
+    shadow: "shallow"
     log: "{logdir}/illumina_demux_{{seq_run}}_{{plate}}.log".format_map(config)
     shell:
          """
