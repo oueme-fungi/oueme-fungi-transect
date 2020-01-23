@@ -1196,7 +1196,7 @@ plan <- drake_plan(
   ),
   
   qstats_demux_illumina = target(
-    bind_rows(
+    dplyr::bind_rows(
       q_stats(illumina_group$trim_file_R1),
       q_stats(illumina_group$trim_file_R2)
     ) %>%
