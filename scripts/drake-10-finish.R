@@ -14,7 +14,9 @@ setup_log("finish")
 #### Finish ####
 # For now the later steps are not very intensive, so they can be done
 # using the resources of the master computer.
-targets <- purrr::discard(od, grepl, pattern = "iterate")
+targets <- purrr::discard(od, grepl, pattern = "iterate") %>%
+  purrr::discard(grepl, pattern = "epa") %>%
+  purrr::discard(grepl, pattern = "mafft")
 
 if (length(targets)) {
   flog.info("Making all remaining targets (loop)...")

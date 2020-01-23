@@ -15,7 +15,8 @@ setup_log("raxml")
 
 
 targets <- purrr::keep(od, startsWith, "raxml_") %>%
-  setdiff("raxml_decipher_iterate_full")
+  purrr::discard(grepl, pattern = "iterate") %>%
+  purrr::discard(grepl, pattern = "epa")
 
 #### RaxML targets ####
 # Raxml is parallel,
