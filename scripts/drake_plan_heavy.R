@@ -142,10 +142,10 @@ illumina_meta <- datasets %>%
          ) %>%
   unnest(plate) %>%
   tidyr::expand_grid(
-    direction = c("f", "r"),
     read = c("R1", "R2"),
     row = LETTERS[1:8],
-    col = 1:12
+    col = 1:12,
+    direction = c("f", "r")
     ) %>%
   mutate(
     well = paste0(row, col),
@@ -156,18 +156,40 @@ illumina_meta <- datasets %>%
   mutate(ID = glue::glue("{seq_run}_{plate}_{well}_{direction}_{region}"))
 
 illumina_err_meta <- illumina_meta %>%
-  select(seq_run, region, tech, hgp, band_size, pool) %>%
-  unique()
+  select(seq_run, primer_ID, region, tech, hgp, band_size, pool) %>%
+  mutate(
+    derep_illumina = glue::glue("derep_illumina_{seq_run}"),
+    illumina_id = glue::glue("illumina_id_{seq_run}")
+  ) %>%
+  mutate_at(c("derep_illumina", "illumina_id"), purrr::compose(syms, make.names)) %>% 
+  unique() %>%
+  expand_grid(read = c("R1", "R2"))
 
 merge_meta <- illumina_err_meta %>%
   mutate(
-    derep = make.names(glue::glue("derep_illumina_{seq_run}_{read}")),
+    derep = make.names(glue::glue("derep_illumina_{seq_run}")),
     dada = make.names(glue::glue("dada_illumina_{seq_run}_{read}"))
   ) %>%
-  pivot_wider(names_from = "read", values_from = c("derep", "dada")) %>%
-  mutate_at(c("derep_R1", "derep_R2", "dada_R1", "dada_R2"), syms)
+  pivot_wider(names_from = "read", values_from = c("dada"), names_prefix = "dada_") %>%
+  mutate_at(c("derep", "dada_R1", "dada_R2"), syms) %>%
+  dplyr::select(-region)
+
+illumina_region_meta <- datasets %>%
+  dplyr::filter(tech == "Illumina") %>%
+  mutate(
+    primer_ID = paste0(str_replace(forward, "_tag.*$", ""),
+                       str_replace(reverse, "_tag.*$", ""))
+  ) %>%
+  tidyr::separate_rows(regions) %>%
+  dplyr::rename(region = regions) %>%
+  left_join(regions, by = "region") %>%
+  mutate(
+    seq_table_illumina = glue::glue("seq_table_illumina_{seq_run}"),
+    lsux_illumina = glue::glue("lsux_illumina_{seq_run}")
+  ) %>%
+  mutate_at(c("seq_table_illumina", "lsux_illumina"), purrr::compose(syms, make.names))
   
-  flog.info("Making err_meta.")
+flog.info("Making err_meta.")
 err_meta <- dada_meta %>%
   filter(region == err_region) %>%
   select(seq_run, region, derep2, tech, hgp, band_size, pool)
@@ -177,7 +199,16 @@ conseq_meta <- dada_meta %>%
   filter(region %in% c("ITS1", "ITS", "LSU", "32S", "long", "short")) %>%
   select(region, primer_ID, preconseq) %>%
   left_join(regions %>% select(region, min_length), by = "region") %>%
-  unique()
+  unique() %>%
+  left_join(
+      select(illumina_meta, seq_run_illumina = seq_run, primer_ID) %>%
+        unique(),
+      by = "primer_ID"
+  ) %>%
+  mutate(preconseq_illumina = ifelse(is.na(seq_run_illumina), list(NULL),
+                                     glue("preconseq_illumina_{seq_run_illumina}") %>%
+                                       make.names %>%
+                                       syms))
 
 #### region_meta ####
 # region_meta has one row per region
@@ -360,10 +391,16 @@ plan <- drake_plan(
       .data[["seq_run"]] == seq_run
     ),
     transform = map(
-      .data = !!illumina_err_meta,
+      seq_run = !!unique(illumina_meta$seq_run),
       .tag_in = step,
-      .id = seq_run, read
+      .id = seq_run
     )
+  ),
+  
+  illumina_id = target(
+    illumina_group,
+    transform = map(illumina_group, .id = seq_run),
+    dynamic = map(illumina_group)
   ),
   
   derep_illumina = target(
@@ -378,7 +415,7 @@ plan <- drake_plan(
     transform = map(
       illumina_group,
       .tag_in = step,
-      .id = seq_run, read
+      .id = seq_run
     ),
     dynamic = map(illumina_group)
   ),
@@ -413,6 +450,7 @@ plan <- drake_plan(
   
   err_illumina = target({
     dereps <- readd(derep_illumina) %>%
+      purrr::map(read) %>%
       purrr::compact()
     dada2::learnErrors(
       fls = dereps,
@@ -428,10 +466,7 @@ plan <- drake_plan(
       qualityType = "FastqQuality"
     )},
     transform = map(
-      derep_illumina,
-      hgp,
-      band_size,
-      pool,
+      .data = !!illumina_err_meta,
       .tag_in = step,
       .id = c(seq_run, read)
     )
@@ -464,9 +499,12 @@ plan <- drake_plan(
   
   dada_illumina = target(
     readd(derep_illumina) %>%
+      purrr::map(read) %>%
       set_names(
-        dplyr::bind_rows(readd(positions_illumina)) %>%
-          glue::glue_data("{seq_run}_{plate}_{well}_{read}_{direction}") %>% unique()
+        dplyr::bind_rows(readd(illumina_id)) %>%
+          dplyr::mutate(read = read) %>%
+          glue::glue_data("{seq_run}_{plate}_{well}_{read}_{direction}") %>%
+          unique()
       ) %>%
       robust_dada(
         derep = .,
@@ -478,10 +516,11 @@ plan <- drake_plan(
     transform = map(
       derep_illumina,
       err_illumina,
-      positions_illumina,
+      illumina_id,
       hgp,
       band_size,
       pool,
+      read,
       .tag_in = step,
       .id = c(seq_run, read)
     )
@@ -489,22 +528,117 @@ plan <- drake_plan(
   
   merge = target(
     dada2::mergePairs(
-      dadaF = dada_R1,
-      derepF = set_names(readd(derep_R1), names(dada_R1)),
-      dadaR = dada_R2,
-      derepR = set_names(readd(derep_R2), names(dada_R2))
+      dadaF = purrr::compact(dada_R1),
+      derepF = set_names(purrr::map(readd(derep), "R1"), names(dada_R1)) %>% purrr::compact(),
+      dadaR = purrr::compact(dada_R2),
+      derepR = set_names(purrr::map(readd(derep), "R2"), names(dada_R2)) %>% purrr::compact()
     ),
     transform = map(.data = !!merge_meta, .id = seq_run)
   ),
 
   # Make a sample x ASV abundance matrix
   # (for each size range, if multiple)
-  seq_table = target(
+  seq_table1 = target(
     dada2::makeSequenceTable(purrr::compact(dada)) %>%
       magrittr::extract(,nchar(colnames(.)) >= min_length_post &
                           nchar(colnames(.)) <= max_length_post,
                         drop = FALSE),
-    transform = map(dada, .tag_in = step, .id = c(seq_run, region))
+    transform = map(dada, .tag_in = step, .tag_out = seq_table, .id = c(seq_run, region))
+  ),
+  
+  seq_table_illumina = target({
+    tab <- dada2::makeSequenceTable(merge)
+    tabF <- tab[endsWith(rownames(tab), "_f"),]
+    tabF <- tabF[, colSums(tabF) > 0]
+    rownames(tabF) <- sub("_R._f$", "", rownames(tabF))
+    tabF <- tibble::as_tibble(tabF, rownames = "name") %>%
+      tidyr::pivot_longer(cols = -"name", names_to = "seq", values_to = "nread") %>%
+      dplyr::filter(nread > 0)
+    tabR <- tab[endsWith(rownames(tab), "_r"),]
+    tabR <- tabR[, colSums(tabR) > 0]
+    rownames(tabR) <- sub("_R._r$", "", rownames(tabR))
+    colnames(tabR) <- dada2:::rc(colnames(tabR))
+    tabR <- tibble::as_tibble(tabR, rownames = "name") %>%
+      tidyr::pivot_longer(cols = -"name", names_to = "seq", values_to = "nread") %>%
+      dplyr::filter(nread > 0)
+    dplyr::bind_rows(tabF, tabR) %>%
+      dplyr::group_by(name, seq) %>%
+      dplyr::summarise(nread = sum(nread)) %>%
+      tidyr::pivot_wider(names_from = "seq", values_from = "nread", values_fill = list(nread = 0L)) %>%
+      tibble::column_to_rownames("name") %>%
+      as.matrix()
+  },
+  transform = map(merge, .id = seq_run)
+  ),
+  
+  lsux_illumina = target(
+    LSUx(
+      colnames(seq_table_illumina) %>% set_names(seq_along(.)),
+      cm_5.8S = config$cm_5_8S,
+      cm_32S = config$cm_32S,
+      cpu = ncpus
+    ) %>%
+      dplyr::rename(seq = seq_name) %>%
+      gather_regions(),
+    transform = map(seq_table_illumina, .id = seq_run)
+  ),
+  
+  region_illumina = target(
+    colnames(seq_table_illumina) %>%
+      Biostrings::DNAStringSet() %>%
+      ShortRead::ShortRead(Biostrings::BStringSet(as.character(seq_along(.)))) %>%
+      tzara::extract_region(
+        positions = lsux_illumina,
+        region = region_start,
+        region2 = region_end
+      ),
+    transform = map(.data = !!illumina_region_meta, .id = c(seq_run, region))
+  ),
+  
+  region_table_illumina = target(
+    dplyr::left_join(
+      seq_table_illumina %>%
+        t() %>%
+        tibble::as_tibble(rownames = NULL) %>%
+        dplyr::mutate(seq = as.character(seq.int(nrow(.)))) %>%
+        tidyr::pivot_longer(cols = -"seq", names_to = "name", values_to = "nread") %>%
+        dplyr::filter(nread > 0),
+      region_illumina %>% {
+        tibble(value = as.character(.@sread), seq = as.character(.@id))
+      },
+      by = "seq"
+    ) %>%
+      dplyr::group_by(value, name) %>%
+      dplyr::summarize(nread = sum(nread)) %>%
+      tidyr::pivot_wider(names_from = "value", values_from = "nread", values_fill = list(nread = 0L)) %>%
+      tibble::column_to_rownames("name") %>%
+      as.matrix,
+    transform = map(seq_table_illumina, region_illumina, .tag_out = seq_table, .id = c(seq_run, region))
+  ),
+  
+  preconseq_illumina = target(
+    drake_combine(region_illumina) %>%
+      purrr::map(~tibble(value = as.character(.@sread), seq = as.character(.@id))) %>%
+      tibble::enframe(name = "region") %>%
+      dplyr::mutate_at("region", sub, pattern = "region_illumina_[[:alnum:]]+[._]\\d+_", replacement = "") %>%
+      tidyr::unnest("value") %>%
+      dplyr::mutate_at("value", chartr, old = "T", new = "U") %>%
+      tidyr::pivot_wider(names_from = "region", values_from = "value") %>%
+      dplyr::left_join(
+        seq_table_illumina %>%
+          t() %>%
+          tibble::as_tibble(rownames = NULL) %>%
+          dplyr::mutate(seq = as.character(seq.int(nrow(.)))) %>%
+          tidyr::pivot_longer(cols = -"seq", names_to = "name", values_to = "nread") %>%
+          dplyr::filter(nread > 0),
+        by = "seq"
+      ) %>%
+      dplyr::select(-seq, -name) %>%
+      dplyr::group_by_at(dplyr::vars(-nread)) %>%
+      dplyr::summarize(nread = sum(nread)) %>%
+      dplyr::mutate(primer_ID = symbols_to_values(primer_ID)) %>%
+      dplyr::group_by(ITS2),
+    transform = combine(region_illumina, seq_table_illumina, seq_run, primer_ID, .by = seq_run)
   ),
 
   # Find likely bimeras
@@ -593,7 +727,7 @@ plan <- drake_plan(
   ),
 
   conseq = target(
-    preconseq %>%
+    dplyr::bind_rows(preconseq, preconseq_illumina) %>%
       # for LSU1 and 5.8S, use only long reads if there are enough
       # if there are not enough, use short reads
       dplyr::mutate(
@@ -1028,12 +1162,26 @@ plan <- drake_plan(
     format = "fst"
   ),
   
-  raw_fastq = list.files(
-    file_in(!!config$fastqdir),
-    pattern = ".fastq.gz",
-    full.names = TRUE
+  qstats_illumina = target(
+    attr(derep_illumina, "qstats") %>% as.data.frame(),
+    transform = map(derep_illumina, .id = FALSE),
+    dynamic = map(derep_illumina),
+    format = "fst"
   ),
   
+  raw_fastq = c(
+    list.files(
+      file_in(!!config$fastqdir),
+      pattern = ".fastq.gz",
+      full.names = TRUE
+    ),
+    list.files(
+      file_in(!!file.path(config$rawdir, datasets$dataset[datasets$tech == "Illumina"])),
+      pattern = ".fastq.gz",
+      full.names = TRUE
+    )
+    ),
+    
   qstats_raw = target(
     q_stats(raw_fastq) %>% as.data.frame(),
     dynamic = map(raw_fastq),
@@ -1047,11 +1195,33 @@ plan <- drake_plan(
     format = "fst"
   ),
   
+  qstats_demux_illumina = target(
+    bind_rows(
+      q_stats(illumina_group$trim_file_R1),
+      q_stats(illumina_group$trim_file_R2)
+    ) %>%
+      as.data.frame(),
+    transform = map(illumina_group, .id = FALSE),
+    dynamic = map(illumina_group),
+    format = "fst"
+  ),
+  
   qstats = target(
-    combine_dynamic_diskframe(c(qstats_raw, qstats_demux, qstats_derep2)) %>%
+    combine_dynamic_diskframe(c(
+      qstats_raw,
+      qstats_demux,
+      qstats_derep2,
+      qstats_illumina,
+      qstats_demux_illumina
+    )) %>%
       as.data.frame() %>%
       tibble::as_tibble(),
-    transform = combine(qstats_derep2, qstats_demux)
+    transform = combine(
+      qstats_derep2,
+      qstats_demux,
+      qstats_illumina,
+      qstats_demux_illumina
+    )
   ),
   
   qstats_n = qstats %>%
