@@ -574,8 +574,10 @@ plan <- drake_plan(
   lsux_illumina = target(
     LSUx(
       colnames(seq_table_illumina) %>% set_names(seq_along(.)),
-      cm_5.8S = config$cm_5_8S,
-      cm_32S = config$cm_32S,
+      cm_5.8S = file_in(!!config$cm_5_8S),
+      cm_32S = file_in(!!config$cm_32S),
+      glocal = TRUE,
+      ITS1 = FALSE,
       cpu = ncpus
     ) %>%
       dplyr::rename(seq = seq_name) %>%

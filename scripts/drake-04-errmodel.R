@@ -27,17 +27,18 @@ if (length(targets) > 0) {
     ncpus
   )
   tictoc::tic()
-  dconfig <- drake::drake_config(plan,
-       parallelism = "clustermq",
-       jobs_preprocess = local_cpus(),
-       jobs = jobs,
-       retries = 1,
-       elapsed = 3600*6, #6 hours
-       keep_going = FALSE,
-       caching = "worker",
-       cache_log_file = TRUE,
-       targets = targets,
-       console_log_file = get_logfile("errmodel")
+  dconfig <- drake::drake_config(
+    plan,
+    parallelism = if (jobs > 1) "clustermq" else "loop",
+    jobs_preprocess = local_cpus(),
+    jobs = jobs,
+    retries = 1,
+    elapsed = 3600*6, #6 hours
+    keep_going = FALSE,
+    caching = "worker",
+    cache_log_file = TRUE,
+    targets = targets,
+    console_log_file = get_logfile("errmodel")
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)

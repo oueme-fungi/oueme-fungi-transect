@@ -6,7 +6,10 @@ if (exists("snakemake")) {
   load("drake.Rdata")
 }
 
-targets <- purrr::keep(od, startsWith, "chimeras_")
+targets <- c(
+  purrr::keep(od, startsWith, "chimeras_"),
+  purrr::keep(od, startsWith, "lsux_illumina_")
+)
 library(magrittr)
 library(backports)
 library(futile.logger)
@@ -23,7 +26,7 @@ if (length(targets) > 0) {
   flog.info("Making %d dada targets with %d jobs of %d cores...", length(targets), jobs, ncpus)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
-       parallelism = "clustermq",
+       parallelism = if (jobs > 1) "clustermq" else "loop",
        jobs_preprocess = local_cpus(),
        jobs = jobs,
        retries = 1,

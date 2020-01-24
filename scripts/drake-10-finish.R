@@ -18,13 +18,18 @@ targets <- purrr::discard(od, grepl, pattern = "iterate") %>%
   purrr::discard(grepl, pattern = "epa") %>%
   purrr::discard(grepl, pattern = "mafft")
 
+jobs <- local_cpus()
+ncpu <- 1
+options(clustermq.scheduler = "multicore")
+
 if (length(targets)) {
   flog.info("Making all remaining targets (loop)...")
   tictoc::tic()
   future::plan(strategy = "multiprocess")
   dconfig <- drake::drake_config(plan,
-       parallelism = "loop",
+       parallelism = "clustermq",
        jobs_preprocess = local_cpus(),
+       jobs = jobs,
        retries = 2,
        elapsed = 600, # 10 minutes
        keep_going = FALSE,

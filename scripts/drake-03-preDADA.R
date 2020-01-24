@@ -16,10 +16,12 @@ library(disk.frame)
 #### pre-DADA2 ####
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
-ncpus <- local_cpus()
+ncpus <- 1
 predada_targets <- c(
   purrr::keep(od, startsWith, "derep2_"),
-  purrr::keep(od, startsWith, "qstats")
+  purrr::keep(od, startsWith, "derep_illumina_"),
+  purrr::keep(od, startsWith, "illumina_id_"),
+  purrr::keep(od, startsWith, "qstats_")
 )
 if (length(predada_targets)) {
   flog.info("Making pre-dada targets (%s with %d jobs)", options("clustermq.scheduler"), ncpus)

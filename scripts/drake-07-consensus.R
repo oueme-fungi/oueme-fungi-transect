@@ -27,7 +27,7 @@ jobs <- max(1, local_cpus() %/% ncpus)
 if (length(targets) > 0) {
   jobs <- min(max(local_cpus() %/% 8, 1), length(targets))
   ncpus <- max(local_cpus() %/% jobs, 1)
-  parallelism <- if(jobs > 1) "clustermq" else "loop"
+  parallelism <- if (jobs > 1) "clustermq" else "loop"
   flog.info("Building %d consensus and taxonomy targets with %d jobs of %d cores...",
             length(targets), jobs, ncpus)
   tictoc::tic()

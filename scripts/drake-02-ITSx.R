@@ -19,7 +19,8 @@ setup_log("ITSx")
 # failing that, do all the shards locally on the cores we have.
 
 # Note: not actually using ITSx anymore
-itsx_targets <- stringr::str_subset(od, "^lsux_")
+itsx_targets <- stringr::str_subset(od, "^lsux_") %>%
+  purrr::discard(startsWith, "lsux_illumina")
 
 # hmmer and cmalign can use multiple processes per job;
 # it tends to become I/O bound after about 4.
