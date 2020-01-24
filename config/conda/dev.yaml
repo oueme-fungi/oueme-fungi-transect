@@ -45,6 +45,7 @@ dependencies:
   - r-usethis=1.5.0
   - r-reldist=1.6.6
   - r-kableextra=1.1.0
+  - r-eulerr=6.0.0
   - rstudio
   - r-lintr
   - r-roxygen2

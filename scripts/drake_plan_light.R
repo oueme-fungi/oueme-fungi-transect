@@ -14,7 +14,9 @@ library(assertr)
 library(disk.frame)
 
 source(file.path(config$rdir, "variogram.R"))
-
+datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc") %>%
+  mutate_at("amplicon", stringr::str_to_lower) %>%
+  filter(tech != "Illumina")
 physeq_meta <-
   tidyr::crossing(
     dplyr::select(datasets, "seq_run", "tech", "dataset", "amplicon"),
@@ -277,7 +279,7 @@ plan2 <- drake_plan(
   physeq = target(
     {
       physeq <- proto_physeq
-      if (amplicon == "Long") {
+      if (amplicon == "long") {
         phyloseq::phy_tree(physeq) <- fungi_tree_decipher_unconst_long
       }
       physeq <- physeq %>%
@@ -349,7 +351,7 @@ plan2 <- drake_plan(
   ),
   trace = TRUE
 ) %>%
-  dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
+  dplyr::filter(ifelse(amplicon == '"short"', metric != '"wunifrac"', TRUE) %|% TRUE)
 
 saveRDS(plan2, "data/plan/drake_light.rds")
 

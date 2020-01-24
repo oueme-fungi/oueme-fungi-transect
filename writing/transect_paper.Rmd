@@ -151,6 +151,23 @@ otu <- read_tsv(
   dplyr::group_by(seq_run, seq) %>%
   dplyr::summarize(reads = sum(reads)) %>%
   tidyr::spread(key = seq_run, value = reads, fill = 0)
+
+k_or_M <- function(x, ...) {
+  case_when(
+    abs(x) > 1e6 ~ paste(format(x / 1e6, ...), "M"),
+    abs(x) > 1e3 ~ paste(format(x / 1e3, ...), "k"),
+    TRUE ~ paste(format(x, ...), " ")
+  )
+}
+
+percent <- function(x, ...) {
+  paste0(format(as.numeric(x) * 100), "%")
+}
+
+text_list <- function(x, ...) {
+  x = format(x, ...)
+  glue::glue_collapse(x, sep = ", ", last = ", and ")
+}
 ```
 
 # Introduction
@@ -261,7 +278,7 @@ Each PCR run also included a blank sample and a positive control consisting of f
 
 Amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically as above.
 An aliquot of 100 ng of DNA from each sample (or the total PCR product if less than 100 ng) was pooled into two libraries each for long and short amplicons.
-Each library was sequenced using Single Molecule Real Time (SMRT) sequencing on a Pacific Biosciences RS II sequencer at the Uppsala Genome Center (UGC; Uppsala Genome Center, Science
+Each library was sequenced using Single Molecule Real Time (SMRT) sequencing on a Pacific Biosciences (PacBio) RS II sequencer at the Uppsala Genome Center (UGC; Uppsala Genome Center, Science
 for Life Laboratory, Dept. of Immunology, Genetics and Pathology, Uppsala University, BMC, Box 815, SE-752 37 UPPSALA).
 Short amplicon libraries were sequenced on two SMRT cells each, while long amplicon libraries were sequenced on four SMRT cells each.
 
@@ -436,11 +453,14 @@ The mean dissimilarity between samples taken in different transects (distance $\
 
 # Results
 
-## Sequencing
-
+The number of sequencing reads and ASVs at each stage in the bioinformatics pipeline are shown in Table \@ref(tab:bioinfo).'
 Long (short) amplicon sequencing with PacBio yielded `r rawcounts["pb_500"]` (`r rawcounts["pb_483"]`) circular consensus reads, of which `r demuxcounts["pb_500"]` (`r demuxcounts["pb_483"]`) were successfully demultiplexed.
 The 5.8S region was detected in `r regioncounts["pb_500"]` (`r regioncounts["pb_483"]`) reads.
 Ion Torrent sequencing yielded `r demuxcounts["is_057"]` demultiplexed reads, with the 5.8S region detected in `r regioncounts["is_057"]`.
+
+### Region extraction
+
+The 5.8S region was located in `r text_list(bioin)
 
 (ref:readcounts) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages.
 *Raw*: raw reads as delivered by sequencing center;
@@ -450,7 +470,7 @@ Ion Torrent sequencing yielded `r demuxcounts["is_057"]` demultiplexed reads, wi
 *short*, *ITS*, *LSU*, *long*: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"long\" denote the full-length short and long amplicons, respectively.
 Short amplicons were mapped to full ITS, LSU, and long amplicon ASVs when 
 
-```{r}
+```{r bioinfo}
 bioinf_table <- bind_rows(
   enframe(rawcounts, name = "seq_run", value = "reads") %>%
     mutate(
@@ -482,7 +502,21 @@ bioinf_table <- bind_rows(
     ) %>%
     group_by(seq_run, region) %>%
     summarize(reads = sum(reads, na.rm = TRUE), ASVs = n()) %>%
-    select(seq_run, reads, step = region, ASVs)
+    select(seq_run, reads, step = region, ASVs),
+  # pivot_longer(otu, -1, names_to = "seq_run", values_to = "reads") %>%
+  #   filter(reads > 0) %>%
+  #   mutate_at("seq", chartr, old = "T", new = "U") %>%
+  #   inner_join(
+  #     select(readd(allseqs, cache = cache), seq = ITS2, long, short, ITS, LSU) %>%
+  #       pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
+  #       filter(!is.na(consensus)) %>%
+  #       select(-consensus) %>%
+  #       unique(),
+  #     by = "seq"
+  #   ) %>%
+  #   group_by(seq_run, region) %>%
+  #   summarize(reads = sum(reads, na.rm = TRUE), OTUs = n()) %>%
+  #   select(seq_run, reads, step = region, OTUs)
 ) %>%
   left_join(select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
   mutate(
@@ -494,7 +528,7 @@ bioinf_table <- bind_rows(
   mutate(
     step = factor(step, levels = c("Raw", "Trim", "LSUx", "ITS2",
                                    "short", "ITS", "LSU", "long")),
-    tech = factor(tech, levels = c("PacBio", "Ion", "Illumina")),
+    tech = factor(tech, levels = c("PacBio", "Ion Torrent", "Illumina")),
     amplicon = factor(amplicon, levels = c("Long", "Short")),
     type = factor(type, c("ASVs", "reads"))
   ) %>%
@@ -509,14 +543,15 @@ bioinf_table <- bind_rows(
 
 options(knitr.kable.NA = '–')
 bioinf_header <- tibble(name = names(bioinf_table)) %>%
-  separate(name, into = c("tech", "amplicon", "type")) 
+  separate(name, into = c("tech", "amplicon", "type"), sep = "_") %>%
+  mutate(tech = paste(tech, plyr::mapvalues(tech, datasets$tech, datasets$machine, FALSE)))
 bioinf_table %>%
   set_names(gsub(".*_", "", names(.))) %>%
   kable(
     booktabs = TRUE,
     caption = "(ref:readcounts)",
     align = "rrrrrr",
-    format.args = list(big.mark = "\\,"),
+    format.args = list(big.mark = " "),
     linesep = c(rep("", 3), rep("\\addlinespace", 2), rep("", 4)),
     escape = FALSE
     ) %>%
@@ -534,13 +569,6 @@ bioinf_table %>%
   )
 ```
 
-
-
-
-
-- How many reads passed quality control
-- how many became ASVs
-- how many ASVs in different regions
 
 ```{r agaricus-check}
 agaricus <- readd(taxon_table, cache = cache) %>%
@@ -560,26 +588,259 @@ agaricus_order <- readd(proto_physeq, cache = cache) %>%
   apply(MARGIN = 2, match, x = 1)
 ```
 
-## Results from control
+### Reproducibility of read counts from different technologies
 
-- *Agaricus bisporus* from positive control was most abundant ASV in Ion and long PacBio runs, 5th highest in short PacBio
-  - only one ASV in both PacBio runs
-  - four ASVs in IonTorrent -- probably due to sequencing errors not controlled by DADA2 (most abundant ASV had `r agaricus_reads["is_057", "39d80c19"][[1]]` reads, others had `r glue::glue_collapse(c(unclass(agaricus_reads["is_057", -1])), sep = ", ", last = ", and ")`)
+(ref:venn-table-asv) Correspondences between ASVs found by different sequencing strategies.
+Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datasets , including the fraction of total ASVs for each dataset (*ASV frac*), the number of reads represented by those ASVs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
+
+```{r venn-table-asv}
+venn_ASV <-
+  asv_table %>%
+  select(seq, pb_500, pb_483, is_057) %>%
+  mutate_if(is.numeric, list(found = ~. > 0)) %>%
+  group_by_at(vars(ends_with("_found"))) %>%
+  summarize_if(is.numeric, list(ASVs = ~sum(. > 0), reads = sum)) %>%
+  ungroup() %>%
+  mutate_at(vars(ends_with("_found")), as.integer) %>%
+  tidyr::unite(col = "set", 1:3, sep = "") %>%
+  pivot_longer(
+    -1,
+    names_to = c("seq_run", "what"),
+    values_to = "value",
+    names_pattern = "([[:alpha:]]+[-._]\\d+)_(.+)"
+  ) %>%
+  pivot_wider(names_from = "what", values_from = "value") %>%
+  group_by(seq_run) %>%
+  mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
+  mutate_at(
+    vars(ends_with("_frac")),
+    formatC,
+    digits = 2,
+    format = "f",
+    drop0trailing = FALSE
+  ) %>%
+  mutate_at(
+    c("reads", "ASVs"),
+    format
+  ) %>%
+  mutate(
+    ASVs_frac = if_else(grepl(" +0", ASVs), "", ASVs_frac),
+    ASVs = if_else(grepl(" +0", ASVs), "", ASVs),
+    reads_frac = if_else(grepl(" +0", reads), "", reads_frac),
+    reads = if_else(grepl(" +0", reads), "", reads)
+  ) %>%
+  select(set, seq_run, ASVs, ASVs_frac, reads, reads_frac) %>% {
+    left_join(
+      group_by(., set) %>%
+        summarize(ASVs = as.integer(first(ASVs[ASVs != ""]))),
+      
+      select(., set, seq_run, ASV_frac = ASVs_frac, reads, frac = reads_frac) %>%
+      pivot_wider(
+        names_from = "seq_run",
+        values_from = c("ASV_frac", "reads", "frac")
+      )
+    )
+  } %>%
+  mutate(n = str_count(set, "1")) %>%
+  arrange(n, desc(set)) %>%
+  select(set, ASVs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057")) %>%
+  column_to_rownames("set")
+
+venn_ASV %>%
+  set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
+  set_names(gsub("_", " ", names(.))) %>%
+  kable(
+    booktabs = TRUE,
+    caption = "(ref:venn-table-asv)",
+    linesep = c(rep("", 2), "\\addlinespace", rep("", 2), "\\addlinespace"),
+    align = ("rcrrcrrcrr"),
+    row.names = FALSE
+  ) %>%
+  kableExtra::add_header_above(
+    header = c(
+      " " = 1,
+      names(venn_ASV)[-(1)] %>% 
+        gsub(pattern = "(ASV_)?(reads|frac)_", replacement = "") %>%
+        rle() %$%
+        set_names(lengths, plyr::mapvalues(values, datasets$seq_run, datasets$amplicon, FALSE))
+      )
+  ) %>%
+  kableExtra::add_header_above(
+    header = c(
+      " " = 1,
+       names(venn_ASV)[-(1)] %>% 
+        gsub(pattern = "(ASV_)?(reads|frac)_", replacement = "") %>%
+        plyr::mapvalues(datasets$seq_run, paste(datasets$tech, datasets$machine), FALSE) %>%
+        rle() %$%
+        set_names(lengths, values)
+      )
+  )
+```
+
+
+(ref:venn-table-otu) Correspondences between 97% OTUs found by different sequencing strategies.
+
+```{r venn-table-otu}
+venn_OTU <-
+  otu %>%
+  select(seq, pb_500, pb_483, is_057) %>%
+  mutate_if(is.numeric, list(found = ~. > 0)) %>%
+  group_by_at(vars(ends_with("_found"))) %>%
+  summarize_if(is.numeric, list(OTUs = ~sum(. > 0), reads = sum)) %>%
+  ungroup() %>%
+  mutate_at(vars(ends_with("_found")), as.integer) %>%
+  tidyr::unite(col = "set", 1:3, sep = "") %>%
+  pivot_longer(
+    -1,
+    names_to = c("seq_run", "what"),
+    values_to = "value",
+    names_pattern = "([[:alpha:]]+[-._]\\d+)_(.+)"
+  ) %>%
+  pivot_wider(names_from = "what", values_from = "value") %>%
+  group_by(seq_run) %>%
+  mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
+  mutate_at(
+    vars(ends_with("_frac")),
+    formatC,
+    digits = 2,
+    format = "f",
+    drop0trailing = FALSE
+  ) %>%
+  mutate_at(
+    c("reads", "OTUs"),
+    format
+  ) %>%
+  mutate(
+    OTUs_frac = if_else(grepl(" +0", OTUs), "", OTUs_frac),
+    OTUs = if_else(grepl(" +0", OTUs), "", OTUs),
+    reads_frac = if_else(grepl(" +0", reads), "", reads_frac),
+    reads = if_else(grepl(" +0", reads), "", reads)
+  ) %>%
+  select(set, seq_run, OTUs, OTUs_frac, reads, reads_frac) %>%  {
+    left_join(
+      group_by(., set) %>%
+        summarize(OTUs = as.integer(first(OTUs[OTUs != ""]))),
+      
+      select(., set, seq_run, OTU_frac = OTUs_frac, reads, frac = reads_frac) %>%
+      pivot_wider(
+        names_from = "seq_run",
+        values_from = c("OTU_frac", "reads", "frac")
+      )
+    )
+  } %>%
+  mutate(n = str_count(set, "1")) %>%
+  arrange(n, desc(set)) %>%
+  select(set, OTUs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057")) %>%
+  column_to_rownames("set")
+
+venn_OTU %>%
+  set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
+  set_names(gsub("_", " ", names(.))) %>%
+  kable(
+    booktabs = TRUE,
+    caption = "(ref:venn-table-otu)",
+    linesep = c(rep("", 2), "\\addlinespace", rep("", 2), "\\addlinespace"),
+    align = ("rcrrcrrcrr"),
+    row.names = FALSE
+  ) %>%
+  kableExtra::add_header_above(
+    header = c(
+      " " = 1,
+      names(venn_OTU)[-1] %>% 
+        gsub(pattern = "(OTU_)?(reads|frac)_", replacement = "") %>%
+        rle() %$%
+        set_names(lengths, plyr::mapvalues(values, datasets$seq_run, datasets$amplicon, FALSE))
+      )
+  ) %>%
+  kableExtra::add_header_above(
+    header = c(
+     " " = 1,
+      names(venn_OTU)[-1] %>% 
+        gsub(pattern = "(OTU_)?(reads|frac)_", replacement = "") %>%
+        plyr::mapvalues(datasets$seq_run, paste(datasets$tech, datasets$machine), FALSE) %>%
+        rle() %$%
+        set_names(lengths, values)
+      )
+    
+  )
+```
+
+(ref:venn) Venn diagrams showing shared ITS2-based ASVs (left) and 97% OTUs (right) between different sequencing strategies.
+In each region, the number of ASVs/OTUs is given above, while the fractions of reads for each sequencing strategy are shown below.
+
+```{r venn, fig.cap = "(ref:venn)", out.height = "30%", fig.show="hold"}
+vennplot_ASV <- venn_ASV %>%
+  rownames_to_column("set") %>%
+  mutate(set = map_chr(set,
+                       ~ strsplit(., "")[[1]] %>%
+                     as.integer() %>%
+                     as.logical() %>%
+                     magrittr::extract(LETTERS[seq_along(.)], .) %>%
+                     paste(collapse = "&"))) %>%
+  mutate(
+    reads_frac = paste(frac_pb_500, frac_pb_483, frac_is_057,
+                       sep = "/") %>%
+      gsub("/+", "/", .) %>%
+      gsub("(^/|/$)", "", .),
+    label = paste(ASVs, reads_frac, sep = "\n")
+  )
+
+eulerr::venn(deframe(select(vennplot_ASV, set, ASVs))) %>%
+  plot(
+    legend = list(
+      labels = c("PacBio Long", "PacBio Short", "Ion Torrent")
+    ),
+    quantities = vennplot_ASV$label,
+    main = "ASV"
+  )
+
+vennplot_OTU <- venn_OTU %>%
+  rownames_to_column("set") %>%
+  mutate(n = str_count(set, "1")) %>%
+  arrange(n, desc(set)) %>%
+  mutate(set = map_chr(set,
+                       ~ strsplit(., "")[[1]] %>%
+                     as.integer() %>%
+                     as.logical() %>%
+                     magrittr::extract(LETTERS[seq_along(.)], .) %>%
+                     paste(collapse = "&"))) %>%
+  mutate(
+    reads_frac = paste(frac_pb_500, frac_pb_483, frac_is_057,
+                       sep = "/") %>%
+      gsub("/+", "/", .) %>%
+      gsub("(^/|/$)", "", .),
+    label = paste(OTUs, reads_frac, sep = "\n")
+  )
+
+eulerr::venn(deframe(select(vennplot_OTU, set, OTUs))) %>%
+  plot(
+    legend = FALSE,
+    labels = FALSE,
+    quantities = vennplot_OTU$label,
+    main = "OTU"
+  )
+
+
+```
 
 (ref:readcap) Comparison between read numbers for different sequencing strategies, by ASV (left) and 97% OTU (right). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
-
-## Comparison of read counts from different technologies
 
 ```{r pb-vs-it, fig.cap="(ref:readcap)", fig.height=8}
 big_table <- bind_rows(
   mutate(asv_table, type = "ASV"),
   mutate(otu, type = "OTU")
 ) %>%
-  select(-seq)
+  select(-seq) %>%
+  select(type, everything())
+
+names(big_table)[-1] <-
+  tibble(seq_run = names(big_table)[-1]) %>%
+  left_join(datasets, by = "seq_run") %>%
+  glue::glue_data("{tech} {machine} - {amplicon}")
 
 multi_table <- crossing(
-  x_var = factor(datasets$seq_run, ordered = TRUE),
-  y_var = factor(datasets$seq_run, ordered = TRUE),
+  x_var = factor(glue::glue_data(datasets, "{tech} {machine} - {amplicon}"), ordered = TRUE),
+  y_var = factor(glue::glue_data(datasets, "{tech} {machine} - {amplicon}"), ordered = TRUE),
   type = c("ASV", "OTU")
 ) %>%
   filter(
@@ -646,7 +907,27 @@ comparisons <- multi_table %>%
 #   )
 
 compR2 <- function(x, y, type) {
-  format(filter(comparisons, x == !!x, y == !!y, type == !!type)$r.squared, digits = 2, drop0trailing = FALSE)
+  x <- plyr::mapvalues(
+    x,
+    datasets$seq_run,
+    paste(
+      datasets$tech,
+      datasets$machine,
+      "-",
+      datasets$amplicon),
+    FALSE
+  )
+  y <- plyr::mapvalues(
+    y,
+    datasets$seq_run,
+    paste(
+      datasets$tech,
+      datasets$machine,
+      "-",
+      datasets$amplicon),
+    FALSE
+  )
+  format(filter(comparisons, x == x_var, y == y_var, type == !!type)$r.squared, digits = 2, drop0trailing = FALSE)
 }
 
 # p <- multi_table %>%
@@ -783,24 +1064,174 @@ read_comparison <- function(big_table, comparisons, x, y, xlab, ylab) {
 # )
 ```
 
-Figure \@ref/fig:pb-vs-it) shows the correspondence between the read count for different ASVs/OTUs
+The number of ASVs and OTUs shared between the different sequencing strategies are shown in Tables \@ref(tab:venn-table-asv) and \@ref(tab:venn-table-otu), respectively, and graphically in figure \@ref(fig:venn).
+ASVs shared between all datasets represented `r text_list(percent(venn_ASV[7, c("frac_pb_500", "frac_pb_483", "frac_is_057")]))` of the reads for the long and short PacBio datasets and Ion Torrent dataset, respectively.
+These fractions increased to `r text_list(percent(venn_OTU[7, c("frac_pb_500", "frac_pb_483", "frac_is_057")]))` when differences at the intra-species scale were removed by clustering the ASVs into 97% OTUs.
+In particular, >99% and `r percent(sum(as.numeric(venn_OTU[c("011", "111"), "frac_is_057"])))` of reads in the PacBio and Ion Torrent short-amplicon datasets belonged to OTUs shared between the two datasets.
+In contrast, `r percent(venn_ASV["100", "frac_pb_500"])` of reads in the long PacBio dataset belonged to ASVs which were unique to that dataset, and the fraction only reduced to `r percent(venn_OTU["100", "frac_pb_500"])` after OTU clustering.
 
-- Figure \@ref(fig:pb-vs-it)a
-  - ASVs/OTUs are correlated between Ion Torrent and PacBio; 
-  ASVs $R^2 = `r compR2("is_057", "pb_500", "ASV")`$; 
-  OTUs $R^2 = `r compR2("is_057", "pb_500", "OTU")`$
-  - "hook" at lower left due to sampling effects with rare species
-  - lots of ASVs/OTUs detected in only one tech
 
-- Figure \@ref(fig:pb-vs-it)b
-  - very few PacBio OTUs undetected by Ion torrent from same library; only rare OTUS undetected by PacBio
-  - $R^2 = `r compR2("is_057", "pb_483", "OTU")`$
-  - sequencing technologies yield comparable results (given read depth) with sufficient clustering
-  - not such good match with ASVs -- suggests DADA2 doesn't perform equally on different datasets
+Figure \@ref(fig:pb-vs-it) shows the correspondence between the read count for different ASVs/OTUs in the different technologies, where shared ASVs/OTUs are plotted as circles, and unshared OTUs are plotted on the margins.
+In all cases, the read counts for shared ASVs/OTUs were correlated ($R^2 = `r compR2("is_057", "pb_500", "ASV")` \text{ to } `r compR2("is_057", "pb_483", "OTU")`$).
+Comparisons including the Ion Torrent dataset all display a "hook" at low read counts, which is probably due to statistical sampling error when comparing read counts between datasets with very different sequencing depth.
+The strongest correlation was for the short amplicon PacBio and Ion Torrent datasets after OTU clustering ($R^2 = `r compR2("is_057", "pb_483", "OTU")`$), which were sequenced from the same amplicon library.
 
-- Figure \@ref(fig:pb-vs-it)c
-  - No "hook", because depth is similar
-  - still lots of ASVs/OTUs detected by only one amplicon -- primer bias.
+## Taxonomic assignment
+
+  - what fraction assigned at each level (or representative ranks; phylum, (order), genus)
+  - what fraction are fungi
+  - comparison of different region/database and algorithm
+  - breakdown of groups
+  - fraction ECM
+  
+```{r}
+taxon_reads <- 
+  readd(proto_physeq, cache = cache) %>%
+  phyloseq::merge_samples(group = "seq_run") %>%
+  phyloseq::otu_table() %>%
+  t() %>%
+  {.@.Data} %>%
+  as_tibble(rownames = "label") %>%
+  mutate_if(is.numeric, ~./sum(.)) %>%
+  pivot_longer(-1, names_to = "seq_run", values_to = "reads") %>%
+  filter(reads > 0) %>%
+  left_join(select(datasets, seq_run, amplicon), by = "seq_run") %>%
+  expand_grid(
+    tibble(
+      reference = c("unite", "warcup", "rdp_train"),
+      region = c("ITS", "ITS", "LSU")
+    ),
+      method = c("dada2", "idtaxa", "sintax")
+  ) %>%
+  filter(
+    ifelse(amplicon == "Short", region == "ITS", TRUE),
+    ifelse(amplicon == "Long", region %in% c("ITS", "LSU"), TRUE)
+  ) %>%
+  left_join(
+    readd(taxon_table, cache = cache) %>%
+      mutate(region = ifelse(region == "short", "ITS", region)) %>%
+      mutate_at("taxon", na_if, "NA") %>%
+      select(label, method, reference, rank, taxon, region) %>%
+      pivot_wider(
+        names_from = "rank",
+        values_from = "taxon"
+      ),
+    by = c("label", "reference", "region", "method")
+  ) %>%
+  mutate(
+    kingdom = ifelse(!is.na(phylum) & reference == "warcup", "Fungi", kingdom)
+  )
+```
+
+(ref:taxa-kingdom) Taxonomic assignment of ASVs to kingdom.
+N/A denotes ASVs which could not be identified to kingdom level.
+Height of each bar represents the fraction of reads represented by that bar.
+
+```{r taxa-kingdom, fig.cap = "(ref:taxa-kingdom)"}
+taxon_reads %>%
+  group_by(reference, method, seq_run, kingdom) %>%
+  summarize(reads = sum(reads), ASVs = n()) %>%
+  ggplot(aes(x = method, y = reads, fill = kingdom)) +
+  geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
+  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+
+(ref:ASV-kingdom) Taxonomic assignment of ASVs to kingdom.
+N/A denotes ASVs which could not be identified to kingdom level.
+Height of each bar represents the fraction of total ASVs represented by that bar.
+
+```{r ASV-kingdom, fig.cap = "(ref:ASV-kingdom)"}
+taxon_reads %>%
+  group_by(reference, method, seq_run, kingdom) %>%
+  summarize(reads = sum(reads), ASVs = n()) %>%
+  ggplot(aes(x = method, y = ASVs, fill = kingdom)) +
+  geom_bar(position = "fill", stat = "identity", color = "white", size = 0.2) +
+  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+(ref:taxa-phylum) Taxonomic assignment of ASVs to fungal phylum.
+Phyla representing less than 1% of total reads are grouped as "other".
+N/A denotes ASVs which were identified as fungi, but could not be identified to phylum level.
+Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
+Height of each bar represents the fraction of reads represented by that bar.
+
+```{r taxa-phylum, fig.cap = "(ref:taxa-phylum)"}
+taxon_reads %>%
+  filter(kingdom == "Fungi") %>%
+  group_by(reference, method, phylum, seq_run) %>%
+  summarize(reads = sum(reads), ASVs = n()) %>%
+  ungroup() %>%
+  mutate(
+    phylum = ifelse(reads < 0.01 & !is.na(phylum), " other", phylum)
+  ) %>%
+  group_by(reference, method, phylum, seq_run) %>%
+  summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
+  # complete(reference, method, phylum, fill = list(reads = 0, ASVs = 0)) %>%
+  ggplot(aes(x = method, y = reads, fill = phylum)) +
+  geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
+  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 90))
+
+```
+
+(ref:asco-class) Taxonomic assignment of ASVs to ascomycete order.
+Orders representing less than 1% of total reads are grouped as "other".
+N/A denotes ASVs which were identified as Ascomycota, but could not be identified to order level.
+Reads which were not identified to phylum, or which were identified as a non-Ascomycota phylum, are not included.
+Height of each bar represents the fraction of total reads represented by that bar.
+
+```{r asco-class, fig.cap = "(ref:asco-class)"}
+taxon_reads %>%
+  filter(phylum == "Ascomycota") %>%
+  group_by(reference, method, order, seq_run) %>%
+  summarize(reads = sum(reads), ASVs = n()) %>%
+  ungroup() %>%
+  mutate(
+    order = ifelse(reads < 0.01 & !is.na(order), " other", order)
+  ) %>%
+  group_by(reference, method, order, seq_run) %>%
+  summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
+  ggplot(aes(x = method, y = reads, fill = order)) +
+  geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
+  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 90))
+
+```
+
+(ref:basid-family) Taxonomic assignment of ASVs to basidiomycete family.
+Families representing less than 1% of total reads are grouped as "other".
+N/A denotes ASVs which were identified as Basidiomycota, but could not be identified to family level.
+Reads which were not identified to phylum, or which were identified as a non-Basidiomycota phylum, are not included.
+Height of each bar represents the fraction of total reads represented by that bar.
+
+```{r basid-family, fig.cap = "(ref:basid-family)"}
+taxon_reads %>%
+  filter(phylum == "Basidiomycota") %>%
+  group_by(reference, method, family, seq_run) %>%
+  summarize(reads = sum(reads), ASVs = n()) %>%
+  ungroup() %>%
+  mutate(
+    family = ifelse(reads < 0.01 & !is.na(family), " other", family)
+  ) %>%
+  group_by(reference, method, family, seq_run) %>%
+  summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
+  ggplot(aes(x = method, y = reads, fill = family)) +
+  geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
+  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
+  theme(axis.text.x = element_text(angle = 90))
+
+```
+
+### Positive control
+
+*Agaricus bisporus*, the positive control, was represented by a single ASV in both long- and short-amplicon PacBio datasets.
+It was the most abundant ASV in the long-amplicon dataset, and the fifth most abundant ASV in the short-amplicon dataset.
+The same ASV was also the most abundant ASV in the Ion Torrent dataset, but three additional ASVs identified as *Agaricus bisporus* were also present in that dataset.
+The abundances of these ASVs (`r glue::glue_collapse(c(unclass(agaricus_reads["is_057", ])), sep = ", ", last = ", and ")`) was inconsistent with both heterozygosity (which would tend toward equal read counts for two variants) and intragenomic variation (which would tend toward ratios on the order of the number of rDNA regions in the genome, i.e. 10--1000).
+This suggests that even after `DADA2` denoising, the Ion Torrent dataset still includes spurious ASVs due to PCR and/or sequencing errors.
 
 ## Distance decay
 
@@ -890,9 +1321,10 @@ variog_points %>%
 
 ```
 
+## Spatio-temporal variogram
+
 (ref:spatio) Spatiotemporal variogram fits for community dissimilarities. The thick lines represent the empirical variogram (mean of community distances at each spatial distance) for samples taken at the same time (red) or separated by one year (blue). Thin lines are an exponential fit to the variograms.
 
-## Spatio-temporal variogram
 ```{r spatio-temporal, fig.cap = "(ref:spatio)"}
 variog_data <- light_plan %>%
   filter(step == "variofitST") %>%
@@ -954,13 +1386,13 @@ variog_empir %>%
   geom_line(data = filter(variog_fit, timelag == 1), size = 0.5, color = "darkcyan", alpha = 0.8) +
   geom_line(data = filter(variog_fit, timelag == 0), size = 0.5, color = "red1", alpha = 0.8) +
   scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
-  scale_color_discrete() +
+  scale_color_discrete(name = "Time lag") +
   scale_y_continuous(name = "Community dissimilarity") +
   facet_grid(metric + amplicon ~ guild, scales = "free")
 
 ```
 
-(ref:variofit) Parameters for variogram fits shown in Figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value; Anisotropy: effective spatial distance represented by one year; the characteristic range of the exponential function in the time domain.
+(ref:variofit) Parameters for variogram fits shown in Figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value.
 
 ```{r variofit}
 variog_data %>%
@@ -975,10 +1407,10 @@ variog_data %>%
   mutate_at(c("Range", "Time Range"), formatC, digits = 1,
             format = "f") %>%
   mutate_at("Range", paste, "m") %>%
-  mutate_at("Anisotropy", paste, "m/a") %>%
-  mutate_at("R/A", paste, "a") %>%
-  mutate_at("R/A", str_replace, "NA a", "-") %>%
+  mutate_at("Time Range", paste, "a") %>%
+  mutate_at("Time Range", str_replace, "NA a", "-") %>%
   mutate_at("Amplicon", fct_relabel, str_replace, " amplicon", "") %>%
+  select(Guild, Amplicon, Metric, "Space Range" = Range, "Time Range") %>%
   kable(booktabs = TRUE, caption = "(ref:variofit)")
 ```
 
@@ -993,6 +1425,18 @@ Figure \@ref(fig:spatio-temporal) and Table \@ref(tab:variofit):
    - less anisotropy = less temporally variable
 
 # Discussion
+
+## Comparison of tech
+
+  - length bias not clearly observed between PacBio and Ion Torrent short reads
+  - long reads had more very short ITS2 sequences -- who are these?
+  - lots of ASVs/OTUs detected in only one tech
+
+  - very few PacBio OTUs undetected by Ion torrent from same library; only rare OTUS undetected by PacBio
+  - sequencing technologies yield comparable results (given read depth) with sufficient clustering
+  - not such good match with ASVs -- suggests DADA2 doesn't perform equally on different datasets
+  - No "hook", because depth is similar
+  - still lots of ASVs/OTUs detected by only one amplicon -- primer bias.
 
 # Acknowledgements
 
