@@ -24,19 +24,17 @@ dependencies:
   - r-taxa
   - r-taxize
   - r-castor
+  - r-metacoder
   - r-stringdist
-  - bioconductor-odseq
   - bioconductor-decipher
   - bioconductor-phyloseq
   - bioconductor-ggtree
-  - r-metacoder
   - r-rgbif
   - r-gstat
-  - r-dada2
-  - r-tzara
-  - r-ritsx
-  - r-funguildr
-  - r-drake
+  - bioconductor-dada2=1.12.1
+  - r-tzara=0.0.7.8
+  - r-funguildr=0.1
+  - r-drake=7.8.0
   - r-fst
   - r-disk.frame
   - r-assertr
@@ -53,13 +51,12 @@ dependencies:
   - r-devtools
   - r-pdftools
   - r-pryr
-  - infernal
-  - locarna
-  - raxml
-  - epa-ng
-  - gappa
-  - mafft
-  - itsx
+  - infernal=1.1.2
+  - locarna=2.0.0
+  - raxml=8.2.12
+  - epa-ng=0.3.6
+  - gappa=0.5.1
+  - mafft=7.453
   - defaults::qt
-  - snakemake-minimal
-  - pandas
+  - snakemake-minimal=5.5.4
+  - pandas=0.25.1
