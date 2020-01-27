@@ -24,7 +24,7 @@ if (interactive()) {
 # load various pipeline functions
 
 source(file.path(config$rdir, "dada.R"))
-source(file.path(config$rdir, "extract_regions.R"))
+source(file.path(config$rdir, "qstats.R"))
 source(file.path(config$rdir, "inferrnal.R"))
 source(file.path(config$rdir, "locarrna.R"))
 source(file.path(config$rdir, "lsux.R"))
