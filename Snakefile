@@ -658,7 +658,7 @@ checkpoint drake_plan:
         drakedata         = config['drakedata']
     input:
         "{rdir}/dada.R".format_map(config),
-        "{rdir}/extract_regions.R".format_map(config),
+        "{rdir}/qstats.R".format_map(config),
         "{rdir}/inferrnal.R".format_map(config),
         "{rdir}/locarrna.R".format_map(config),
         "{rdir}/lsux.R".format_map(config),
