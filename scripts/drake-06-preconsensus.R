@@ -15,6 +15,7 @@ library(backports)
 library(futile.logger)
 setup_log("pretaxonomy")
 options(clustermq.scheduler = "multicore")
+ncpus <- 1
 
 #### pre-taxonomy ####
 # single-threaded targets after dada2, before consensus.
