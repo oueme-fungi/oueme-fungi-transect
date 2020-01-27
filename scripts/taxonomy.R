@@ -746,12 +746,16 @@ clade_taxon <- function(tree, tax, node, rank) {
   # taxon here, because there's no way to know if the unassigned child is in the
   # group or not.
   children <- phangorn::Children(tree, node)
-  for (child in children) {
-    tips <- tree$tip.label[phangorn::Descendants(tree, child, type = "tips")[[1]]]
-    taxa <- dplyr::filter(tax, label %in% tips, rank == !!rank)
-    if (nrow(taxa) == 0) return(NA_character_)
+  if (length(children) == 0) {
+    tips <- tree$tip.label[node]
+  } else {
+    for (child in children) {
+      tips <- tree$tip.label[phangorn::Descendants(tree, child, type = "tips")[[1]]]
+      taxa <- dplyr::filter(tax, label %in% tips, rank == !!rank)
+      if (nrow(taxa) == 0) return(NA_character_)
+    }
+    tips <- tree$tip.label[phangorn::Descendants(tree, node, type = "tips")[[1]]]
   }
-  tips <- tree$tip.label[phangorn::Descendants(tree, node, type = "tips")[[1]]]
   taxa <- dplyr::filter(tax, label %in% tips, rank == !!rank) %>%
     dplyr::group_by(label)
   
@@ -796,7 +800,6 @@ phylotax_ <- function(tree, taxa, node, ranks, e) {
     if (is.na(taxon)) {
       futile.logger::flog.debug("Could not assign a %s to node %d.", rank, node)
       for (n in phangorn::Children(tree, node)) {
-        if (n > length(tree$tip.label))
           phylotax_(tree, e$tip_taxa, n, ranks, e)
       }
       break
