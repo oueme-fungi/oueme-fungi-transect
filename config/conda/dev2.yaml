@@ -7,13 +7,11 @@ channels:
 dependencies:
   - r-base
   - r-tidyverse
-  - r-tidyr
+  - r-stringi=1.4.4
   - r-here
   - r-clustermq
   - r-tidyxl
   - r-glue
-  - r-bookdown
-  - r-ggpubr
   - r-seqinr
   - r-visnetwork
   - r-networkd3
@@ -28,38 +26,37 @@ dependencies:
   - bioconductor-odseq
   - bioconductor-decipher
   - bioconductor-phyloseq
-  - bioconductor-ggtree
-  - r-metacoder
   - r-rgbif
   - r-gstat
-  - r-dada2
-  - r-tzara
-  - r-ritsx
-  - r-funguildr
-  - r-drake
+  - bioconductor-dada2
+  - r-tzara=0.0.7.8
+  - r-funguildr=0.1
+  - r-drake=7.8.0
   - r-fst
   - r-disk.frame
   - r-assertr
   - r-tikzdevice
   - r-inext
   - r-ips
-  - r-usethis
   - r-reldist
+  - infernal=1.1.2
+  - locarna=2.0.0
+  - raxml=8.2.12
+  - epa-ng=0.3.6
+  - gappa=0.5.1
+  - mafft=7.453
+  - snakemake-minimal=5.5.4
+  - pandas=0.25.1
+  - rdonnely:rstudio
+  - r-bookdown
+  - r-ggpubr
   - r-kableextra
   - r-eulerr
-  - rstudio
-  - r-lintr
-  - r-roxygen2
-  - r-devtools
+  - bioconductor-ggtree
+  - r-metacoder=0.3.3
   - r-pdftools
+  - r-lintr
+  - r-devtools
+  - r-roxygen2
   - r-pryr
-  - infernal
-  - locarna
-  - raxml
-  - epa-ng
-  - gappa
-  - mafft
-  - itsx
-  - defaults::qt
-  - snakemake-minimal
-  - pandas
+  - r-usethis
