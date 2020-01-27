@@ -606,7 +606,7 @@ plan <- drake_plan(
         tidyr::pivot_longer(cols = -"seq", names_to = "name", values_to = "nread") %>%
         dplyr::filter(nread > 0),
       region_illumina %>% {
-        tibble(value = as.character(.@sread), seq = as.character(.@id))
+        tibble::tibble(value = as.character(.@sread), seq = as.character(.@id))
       },
       by = "seq"
     ) %>%
@@ -620,7 +620,7 @@ plan <- drake_plan(
   
   preconseq_illumina = target(
     drake_combine(region_illumina) %>%
-      purrr::map(~tibble(value = as.character(.@sread), seq = as.character(.@id))) %>%
+      purrr::map(~tibble::tibble(value = as.character(.@sread), seq = as.character(.@id))) %>%
       tibble::enframe(name = "region") %>%
       dplyr::mutate_at("region", sub, pattern = "region_illumina_[[:alnum:]]+[._]\\d+_", replacement = "") %>%
       tidyr::unnest("value") %>%
