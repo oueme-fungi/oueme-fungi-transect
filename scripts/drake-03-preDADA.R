@@ -21,7 +21,8 @@ predada_targets <- c(
   purrr::keep(od, startsWith, "derep2_"),
   purrr::keep(od, startsWith, "derep_illumina_"),
   purrr::keep(od, startsWith, "illumina_id_"),
-  purrr::keep(od, startsWith, "qstats_")
+  purrr::keep(od, startsWith, "qstats_"),
+  purrr::keep(od, startsWith, "position_map_")
 )
 if (length(predada_targets)) {
   flog.info("Making pre-dada targets (%s with %d jobs)", options("clustermq.scheduler"), ncpus)
