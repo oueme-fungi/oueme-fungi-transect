@@ -60,6 +60,13 @@ rule repair:
     conda: "config/conda/drake.yaml"
     script: "{rdir}/repair.R".format_map(config)
 
+localrules: clean
+rule clean:
+    input: "{rdir}/clean.R".format_map(config)
+    threads: 1
+    conda: "config/conda/drake.yaml"
+    script: "{rdir}/clean.R".format_map(config)
+
 # endpoint target: convert all pacbio movies to Sequel format
 localrules: convertmovies
 rule convertmovies:
