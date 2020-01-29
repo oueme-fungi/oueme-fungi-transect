@@ -24,6 +24,7 @@ bibliography:
   - "all.bib"
   - "R.bib"
 csl: molecular-ecology.csl
+always_allow_html: true
 output:
   bookdown::pdf_document2:
     fig_crop: yes
@@ -48,6 +49,7 @@ tryCatch(
   tinytex::tinytex_root(),
   error = function(e) tinytex::install_tinytex()
   )
+
 knitr::opts_chunk$set(
   dev = "pdf",
   # dev.args = list(pointsize=32),
@@ -85,72 +87,19 @@ theme_set(theme_bw())
 datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 
-reads_table <- cache$list() %>%
-  purrr::keep(startsWith, "big_seq_table_") %>%
-  purrr::map(readd, character_only = TRUE, cache = cache) %>%
-  purrr::map(tibble::as_tibble, rownames = "sample") %>%
-  purrr::map_dfr(tidyr::pivot_longer, -"sample", names_to = "seq", values_to = "reads") %>%
-  dplyr::filter(reads > 0) %>%
-  tidyr::extract(
-    "sample",
-    c("seq_run", "plate", "well", "region"),
-    regex = "([pi][bs]_\\d{3})_(\\d{3})_([A-H]1?\\d)_(.+)"
-  ) %>%
-  # dplyr::mutate_at(
-  #   "region",
-  #   factor,
-  #   levels = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3",
-  #              "D3", "LSU4", "ITS", "LSU", "32S", "long")) %>%
-  dplyr::group_by(seq_run, region, seq) %>%
-  dplyr::summarize(reads = sum(reads)) %>%
-  dplyr::mutate(length = nchar(seq)) %>%
-  dplyr::ungroup()
-
-region_table <- reads_table %>%
-  dplyr::group_by(seq_run, region) %>%
-  dplyr::summarize(
-    ASVs = dplyr::n_distinct(seq),
-    length_min = min(length),
-    length_q1 = reldist::wtd.quantile(length, 0.25, weight = reads),
-    length_med = reldist::wtd.quantile(length, 0.5, weight = reads),
-    length_mean = weighted.mean(length, w = reads),
-    length_q3 = reldist::wtd.quantile(length, 0.75, weight = reads),
-    length_max = max(length),
-    reads = sum(reads)
-  )
-loadd(big_seq_table_ITS2, cache = cache)
-asv_table <- big_seq_table_ITS2 %>%
-  tibble::as_tibble(rownames = "filename") %>%
-  tidyr::gather(key = "seq", value = "reads", -1) %>%
-  dplyr::filter(reads >= 1) %>%
-  tidyr::extract(col = "filename",
-                 into = c("seq.run", "plate", "well", "dir", "region"),
-                 regex = "([a-z]+_\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
-  dplyr::group_by(seq.run, seq) %>%
-  dplyr::summarize(reads = sum(reads)) %>%
-  tidyr::spread(key = seq.run, value = reads, fill = 0)
-
-otu <- read_tsv(
-  here("data/clusters/ITS2.table"),
-  col_types = cols(
-    .default = col_integer(),
-    `#OTU ID` = col_character()
-  )
-) %>%
-  column_to_rownames("#OTU ID") %>%
-  as.matrix() %>%
-  t() %>%
-  as_tibble(rownames = "sample") %>%
-  tidyr::extract(
-    col = "sample",
-    into = c("seq_run", "plate", "well"),
-    regex = "([a-z]{2}_\\d{3})_(\\d{3})([A-H]1?\\d)"
-  ) %>%
-  tidyr::gather(key = "seq", value = "reads", -(1:3)) %>%
-  dplyr::filter(reads >= 1) %>%
-  dplyr::group_by(seq_run, seq) %>%
-  dplyr::summarize(reads = sum(reads)) %>%
-  tidyr::spread(key = seq_run, value = reads, fill = 0)
+loadd(
+  reads_table,
+  region_table,
+  asv_table,
+  otu_table,
+  demuxlength,
+  demuxqual,
+  readcounts,
+  rawcounts,
+  demuxcounts,
+  regioncounts,
+  cache = cache
+)
 
 k_or_M <- function(x, ...) {
   case_when(
@@ -292,55 +241,6 @@ Sequencing primers were similarly removed from the Ion Torrent sequences, but in
 
 ### Denoising
 
-```{r length-qual}
-
-parse_qstat <- function(d) {
-  mutate_at(d, "file", basename) %>%
-  tidyr::extract(col = "file", into = c("seq_run", "plate", "well"),
-                 regex = "([pi][bs]_\\d{3})_(\\d{3})-?([A-H]1?\\d)?[rf]?[.].*")
-}
-
-demuxlength <- readd(qstats_length, cache = cache) %>%
-  parse_qstat() %>%
-  filter(is.na(step), !is.na(well)) %>%
-  group_by(seq_run) %>%
-  summarize(length = reldist::wtd.quantile(length, weight = nreads)) %>%
-  deframe()
-
-demuxqual <- readd(qstats_erate, cache = cache) %>%
-  parse_qstat() %>%
-  filter(is.na(step), !is.na(well)) %>%
-  group_by(seq_run) %>%
-  summarize(qual = round(weighted.mean(erate, w = nreads, na.rm = TRUE), 4)) %>%
-  deframe()
-
-readcounts <- 
-  readd(qstats_n, cache = cache) %>%
-  parse_qstat()
-
-rawcounts <- readcounts %>%
-  filter(is.na(step), is.na(well)) %>%
-  group_by(seq_run) %>%
-  summarize(nreads =  prettyNum(sum(nreads), big.mark = " ")) %>%
-  deframe()
-
-demuxcounts <- readcounts %>%
-  filter(is.na(step), !is.na(well)) %>%
-  group_by(seq_run) %>%
-  summarize(nreads = prettyNum(sum(nreads), big.mark = " ")) %>%
-  deframe()
-
-regioncounts <- readcounts %>%
-  filter(step == "lsux") %>%
-  group_by(seq_run) %>%
-  summarize(nreads = prettyNum(
-    sum(nreads) %/% if (seq_run[1] == "pb_500") 14 else 4,
-    big.mark = " ")
-  ) %>%
-  deframe()
-```
-
-
 We attempted to denoise both long and short amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019.
 However, only `r region_table$ASVs[region_table$region=="long"]` amplicon sequence variants (ASVs) were obtained for the long amplicons, representing `r round(100*region_table$reads[region_table$region == "long"]/as.integer(gsub(" ", "", demuxcounts["pb_500"])), 1)`% of the trimmed reads.
 We believe that this poor performance was due to a combination of long read length and low sequencing depth relative to community diversity.
@@ -393,7 +293,7 @@ FASTA format files of the re-annotated RDP and Warcup training sets are availabl
 
 Taxonomic assignment was performed to genus level separately on the ITS and LSU regions using Unite/Warcup and RDP, respectively, as taxonomic references.
 For each region/reference combination, taxonomy was assigned using three algorithms:
-the RDP Naïve Bayesian Classifier (NBC) as implemented in DADA2;
+the RDP Naïve Bayesian Classifier (RDPC) as implemented in DADA2;
 SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016];
 and IDTAXA [@murali2018].
 Each ASV was thus given up to nine preliminary taxonomic assignments (three region/reference combinations $\times$ three algorithms).
@@ -471,76 +371,7 @@ The 5.8S region was located in `r text_list(bioin)
 Short amplicons were mapped to full ITS, LSU, and long amplicon ASVs when 
 
 ```{r bioinfo}
-bioinf_table <- bind_rows(
-  enframe(rawcounts, name = "seq_run", value = "reads") %>%
-    mutate(
-      reads = as.integer(gsub(" ", "", reads)),
-      step = "Raw"
-    ),
-  enframe(demuxcounts, name = "seq_run", value = "reads") %>%
-    mutate(
-      reads = as.integer(gsub(" ", "", reads)),
-      step = "Trim"
-    ),
-  enframe(regioncounts, name = "seq_run", value = "reads") %>%
-    mutate(
-      reads = as.integer(gsub(" ", "", reads)),
-      step = "LSUx"
-    ),
-  filter(region_table, region == "ITS2") %>%
-    select(seq_run, reads, step = region, ASVs),
-  pivot_longer(asv_table, -1, names_to = "seq_run", values_to = "reads") %>%
-    filter(reads > 0) %>%
-    mutate_at("seq", chartr, old = "T", new = "U") %>%
-    inner_join(
-      select(readd(allseqs, cache = cache), seq = ITS2, long, short, ITS, LSU) %>%
-        pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
-        filter(!is.na(consensus)) %>%
-        select(-consensus) %>%
-        unique(),
-      by = "seq"
-    ) %>%
-    group_by(seq_run, region) %>%
-    summarize(reads = sum(reads, na.rm = TRUE), ASVs = n()) %>%
-    select(seq_run, reads, step = region, ASVs),
-  # pivot_longer(otu, -1, names_to = "seq_run", values_to = "reads") %>%
-  #   filter(reads > 0) %>%
-  #   mutate_at("seq", chartr, old = "T", new = "U") %>%
-  #   inner_join(
-  #     select(readd(allseqs, cache = cache), seq = ITS2, long, short, ITS, LSU) %>%
-  #       pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
-  #       filter(!is.na(consensus)) %>%
-  #       select(-consensus) %>%
-  #       unique(),
-  #     by = "seq"
-  #   ) %>%
-  #   group_by(seq_run, region) %>%
-  #   summarize(reads = sum(reads, na.rm = TRUE), OTUs = n()) %>%
-  #   select(seq_run, reads, step = region, OTUs)
-) %>%
-  left_join(select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
-  mutate(
-    step = ifelse(tech == "Ion" & step == "Trim", "Raw", step),
-  ) %>%
-  select(tech, amplicon, step, reads, ASVs) %>%
-  pivot_longer(c("reads", "ASVs"), names_to = "type", values_to = "count") %>%
-  filter(!is.na(count)) %>%
-  mutate(
-    step = factor(step, levels = c("Raw", "Trim", "LSUx", "ITS2",
-                                   "short", "ITS", "LSU", "long")),
-    tech = factor(tech, levels = c("PacBio", "Ion Torrent", "Illumina")),
-    amplicon = factor(amplicon, levels = c("Long", "Short")),
-    type = factor(type, c("ASVs", "reads"))
-  ) %>%
-  arrange(tech, amplicon, type) %>%
-  pivot_wider(
-    id_cols = "step",
-    names_from = c("tech", "amplicon", "type"),
-    values_from = c("count")
-    ) %>%
-  arrange(step) %>%
-  column_to_rownames("step")
-
+loadd(bioinf_table, cache = cache)
 options(knitr.kable.NA = '–')
 bioinf_header <- tibble(name = names(bioinf_table)) %>%
   separate(name, into = c("tech", "amplicon", "type"), sep = "_") %>%
@@ -594,57 +425,7 @@ agaricus_order <- readd(proto_physeq, cache = cache) %>%
 Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datasets , including the fraction of total ASVs for each dataset (*ASV frac*), the number of reads represented by those ASVs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
 
 ```{r venn-table-asv}
-venn_ASV <-
-  asv_table %>%
-  select(seq, pb_500, pb_483, is_057) %>%
-  mutate_if(is.numeric, list(found = ~. > 0)) %>%
-  group_by_at(vars(ends_with("_found"))) %>%
-  summarize_if(is.numeric, list(ASVs = ~sum(. > 0), reads = sum)) %>%
-  ungroup() %>%
-  mutate_at(vars(ends_with("_found")), as.integer) %>%
-  tidyr::unite(col = "set", 1:3, sep = "") %>%
-  pivot_longer(
-    -1,
-    names_to = c("seq_run", "what"),
-    values_to = "value",
-    names_pattern = "([[:alpha:]]+[-._]\\d+)_(.+)"
-  ) %>%
-  pivot_wider(names_from = "what", values_from = "value") %>%
-  group_by(seq_run) %>%
-  mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
-  mutate_at(
-    vars(ends_with("_frac")),
-    formatC,
-    digits = 2,
-    format = "f",
-    drop0trailing = FALSE
-  ) %>%
-  mutate_at(
-    c("reads", "ASVs"),
-    format
-  ) %>%
-  mutate(
-    ASVs_frac = if_else(grepl(" +0", ASVs), "", ASVs_frac),
-    ASVs = if_else(grepl(" +0", ASVs), "", ASVs),
-    reads_frac = if_else(grepl(" +0", reads), "", reads_frac),
-    reads = if_else(grepl(" +0", reads), "", reads)
-  ) %>%
-  select(set, seq_run, ASVs, ASVs_frac, reads, reads_frac) %>% {
-    left_join(
-      group_by(., set) %>%
-        summarize(ASVs = as.integer(first(ASVs[ASVs != ""]))),
-      
-      select(., set, seq_run, ASV_frac = ASVs_frac, reads, frac = reads_frac) %>%
-      pivot_wider(
-        names_from = "seq_run",
-        values_from = c("ASV_frac", "reads", "frac")
-      )
-    )
-  } %>%
-  mutate(n = str_count(set, "1")) %>%
-  arrange(n, desc(set)) %>%
-  select(set, ASVs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057")) %>%
-  column_to_rownames("set")
+loadd(venn_ASV, cache = cache)
 
 venn_ASV %>%
   set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
@@ -681,57 +462,7 @@ venn_ASV %>%
 (ref:venn-table-otu) Correspondences between 97% OTUs found by different sequencing strategies.
 
 ```{r venn-table-otu}
-venn_OTU <-
-  otu %>%
-  select(seq, pb_500, pb_483, is_057) %>%
-  mutate_if(is.numeric, list(found = ~. > 0)) %>%
-  group_by_at(vars(ends_with("_found"))) %>%
-  summarize_if(is.numeric, list(OTUs = ~sum(. > 0), reads = sum)) %>%
-  ungroup() %>%
-  mutate_at(vars(ends_with("_found")), as.integer) %>%
-  tidyr::unite(col = "set", 1:3, sep = "") %>%
-  pivot_longer(
-    -1,
-    names_to = c("seq_run", "what"),
-    values_to = "value",
-    names_pattern = "([[:alpha:]]+[-._]\\d+)_(.+)"
-  ) %>%
-  pivot_wider(names_from = "what", values_from = "value") %>%
-  group_by(seq_run) %>%
-  mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
-  mutate_at(
-    vars(ends_with("_frac")),
-    formatC,
-    digits = 2,
-    format = "f",
-    drop0trailing = FALSE
-  ) %>%
-  mutate_at(
-    c("reads", "OTUs"),
-    format
-  ) %>%
-  mutate(
-    OTUs_frac = if_else(grepl(" +0", OTUs), "", OTUs_frac),
-    OTUs = if_else(grepl(" +0", OTUs), "", OTUs),
-    reads_frac = if_else(grepl(" +0", reads), "", reads_frac),
-    reads = if_else(grepl(" +0", reads), "", reads)
-  ) %>%
-  select(set, seq_run, OTUs, OTUs_frac, reads, reads_frac) %>%  {
-    left_join(
-      group_by(., set) %>%
-        summarize(OTUs = as.integer(first(OTUs[OTUs != ""]))),
-      
-      select(., set, seq_run, OTU_frac = OTUs_frac, reads, frac = reads_frac) %>%
-      pivot_wider(
-        names_from = "seq_run",
-        values_from = c("OTU_frac", "reads", "frac")
-      )
-    )
-  } %>%
-  mutate(n = str_count(set, "1")) %>%
-  arrange(n, desc(set)) %>%
-  select(set, OTUs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057")) %>%
-  column_to_rownames("set")
+loadd(venn_OTU, cache = cache)
 
 venn_OTU %>%
   set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
@@ -826,85 +557,12 @@ eulerr::venn(deframe(select(vennplot_OTU, set, OTUs))) %>%
 (ref:readcap) Comparison between read numbers for different sequencing strategies, by ASV (left) and 97% OTU (right). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
 
 ```{r pb-vs-it, fig.cap="(ref:readcap)", fig.height=8}
-big_table <- bind_rows(
-  mutate(asv_table, type = "ASV"),
-  mutate(otu, type = "OTU")
-) %>%
-  select(-seq) %>%
-  select(type, everything())
-
-names(big_table)[-1] <-
-  tibble(seq_run = names(big_table)[-1]) %>%
-  left_join(datasets, by = "seq_run") %>%
-  glue::glue_data("{tech} {machine} - {amplicon}")
-
-multi_table <- crossing(
-  x_var = factor(glue::glue_data(datasets, "{tech} {machine} - {amplicon}"), ordered = TRUE),
-  y_var = factor(glue::glue_data(datasets, "{tech} {machine} - {amplicon}"), ordered = TRUE),
-  type = c("ASV", "OTU")
-) %>%
-  filter(
-    x_var < y_var,
-    x_var %in% names(big_table),
-    y_var %in% names(big_table)
-  ) %>%
-  mutate_all(as.character) %>%
-  group_by(x_var, y_var, type) %>%
-  group_modify(
-    function(d, g) {
-      big_table %>%
-        filter(type == g$type) %>%
-        select(x = !!g$x_var, y = !!g$y_var) %>%
-        filter(x > 0 | y > 0)
-    }
-  )
-
-
-comparisons <- multi_table %>%
-  group_modify(
-    function(d, g) {
-      filter_all(d, ~. > 0) %>%
-        mutate_all(log10) %>%
-      {bind_cols(
-      lm(y ~ x, .) %>%
-        broom::glance(.),
-      lm(y ~ offset(x), .) %>%
-        broom::tidy(.) %>%
-        select(term, estimate) %>%
-        pivot_wider(names_from = term, values_from = estimate)
-      )}
-    }
-  ) %>%
-  mutate(
-    label = paste("R^2 ==", formatC(r.squared, format = "f", digits = 2))
-  )
-
-# comparisons <- crossing(
-#   x_var = factor(datasets$seq_run, ordered = TRUE),
-#   y_var = factor(datasets$seq_run, ordered = TRUE),
-#   type = c("ASV", "OTU")
-# ) %>%
-#   filter(y_var < x_var) %>%
-#   mutate_all(as.character) %>%
-#   group_by(x_var, y_var, type) %>%
-#   group_modify(function(d, g) {
-#     big_table %>%
-#       filter(type == g$type) %>%
-#       select(x = !!g$x_var, y = !!g$y_var) %>%
-#       filter(.data[[g$x_var]] > 0 & .data[[g$y_var]] > 0) %>%
-#       mutate_all(log10) %>%
-#       lm() %>%
-#       {bind_rows(
-#       broom::glance(.),
-#       broom::tidy(.) %>%
-#         select(term, estimate) %>%
-#         pivot_wider(names_from = term, values_from = estimate)
-#       )} %>%
-#       bind_cols(d, .)
-#     }) %>%
-#   mutate(
-#     label = paste("R^2 ==", formatC(r.squared, format = "f", digits = 2))
-#   )
+loadd(
+  big_table,
+  multi_table,
+  comparisons,
+  cache = cache
+)
 
 compR2 <- function(x, y, type) {
   x <- plyr::mapvalues(
@@ -928,46 +586,6 @@ compR2 <- function(x, y, type) {
     FALSE
   )
   format(filter(comparisons, x == x_var, y == y_var, type == !!type)$r.squared, digits = 2, drop0trailing = FALSE)
-}
-
-# p <- multi_table %>%
-#   filter(x > 0, y > 0, type == "ASV") %>%
-#   ggplot(aes(y = y, x = x)) +
-#   geom_point(alpha = 0.2, shape = 1) +
-#   scale_x_log10() +
-#   scale_y_log10(limits = c(1, 1e4)) +
-#   coord_equal() +
-#   xlab(NULL) +
-#   ylab(NULL) +
-#   geom_rug(aes(y = y), sides = "l", alpha = 0.2,
-#            data = multi_table %>% filter(x == 0, y > 0)) +
-#   geom_rug(aes(x = x), sides = "b", alpha = 0.2,
-#            data = multi_table %>% filter(y == 0, x > 0)) +
-#   facet_grid(y_var ~ x_var, switch = "both", space = "free") +
-#   stat_smooth(method = "loess", formula = y ~ x) +
-#   geom_abline(aes(intercept = `(Intercept)`, slope = 1),
-#               linetype = 2L, alpha = 0.5, data = comparisons) +
-#   geom_text(
-#     aes(label = label),
-#     data = comparisons,
-#     x = 1,
-#     y = 3.5,
-#     color = "black",
-#     hjust = 0,
-#     parse = TRUE,
-#     inherit.aes = FALSE
-#   ) +
-#     theme(strip.placement = "outside", strip.background = element_blank())
-# g <- ggplotGrob(p)
-# g$grobs[g$layout$name %in% c("panel-1-2")] <- NULL
-# g$layout <- g$layout[!(g$layout$name %in% c("panel-1-2")),]
-# grid.newpage()
-# grid.draw(g)
-
-expand_seq_run <- function(labels) {
-  lapply(
-    labels,
-    )
 }
 
 read_comparison <- function(multi_table, comparisons, type) {
@@ -1046,22 +664,6 @@ read_comparison <- function(big_table, comparisons, x, y, xlab, ylab) {
   ) +
   facet_wrap(~type, strip.position = "right", scales = "free")
 }
-# ggpubr::ggarrange(
-#   ncol = 1,
-#   labels = "auto",
-#   read_comparison(
-#     big_table,comparisons,
-#     is_057, pb_500,
-#     "Ion Torrent Short Reads", "PacBio Long Reads"),
-#   read_comparison(
-#     big_table, comparisons,
-#     is_057, pb_483,
-#     "Ion Torrent Short Reads", "PacBio Short Reads"),
-#   read_comparison(
-#     big_table, comparisons,
-#     pb_483, pb_500,
-#     "PacBio Short Reads", "PacBio Long Reads")
-# )
 ```
 
 The number of ASVs and OTUs shared between the different sequencing strategies are shown in Tables \@ref(tab:venn-table-asv) and \@ref(tab:venn-table-otu), respectively, and graphically in figure \@ref(fig:venn).
@@ -1078,151 +680,485 @@ The strongest correlation was for the short amplicon PacBio and Ion Torrent data
 
 ## Taxonomic assignment
 
+The fraction of reads and ASVs assigned to each taxonomic rank is shown in Figure \@ref(fig:tax-chart).
+For all sequencing datasets and taxonomic assignment protocols, a higher proportion of reads was assigned than of ASVs, indicating that common ASVs were more likely to be identified than rare ASVs.
+A greater fraction of ITS reads and ASVs were assigned using the Unite database than the Warcup database across sequencing technologies, amplicons, algorithms, and taxonomic ranks.
+Across sequencing technologies, amplicons, and reference databases, the RDPC algorithm assigned the greatest fraction of reads and ASVs, followed by SINTAX, and then IDTAXA, with the exception of lower taxonomic ranks (order for the Long amplicon, family and genus for both amplicons) using the warcup reference database, where SINTAX assigned the greatest fraction of reads, but not ASVs.
+
+(ref:tax-chart) Fraction of ASVs (left) and reads (right) assigned to each taxonomic rank, for different sequencing technologies (PacBio RS II, Ion Torrent Ion S5), amplicons (Long, Short), reference databases (Unite, Warcup, RDP), and assignment algorithms (PHYLOTAX, RDPC, SINTAX, IDTAXA).
+
+```{r tax-chart, fig.cap = "(ref:tax-chart)"}
+readd(taxon_reads, cache = cache) %>%
+  pivot_longer(names_to = "rank", cols = c("kingdom", "phylum", "class", "order", "family", "genus"), values_to = "taxon") %>%
+  group_by(amplicon, tech, Algorithm, reference, rank, ID = !is.na(taxon)) %>%
+  summarize(reads = sum(reads), ASVs = n()) %>%
+  group_by(amplicon, tech, Algorithm, reference, rank) %>%
+  mutate(ASVs = ASVs / sum(ASVs)) %>%
+  ungroup() %>%
+  filter(ID) %>%
+  mutate_at("rank", factor, levels = c("kingdom", "phylum", "class", "order", "family", "genus")) %>%
+  rename(Reads = reads) %>%
+  mutate_at("reference", as.character) %>%
+  mutate(
+    reference = map(reference, ~ if (. == "All") c("Unite", "Warcup", "RDP") else .)
+  ) %>%
+  unnest(reference) %>%
+  mutate_at("reference", factor, levels = c("Unite", "Warcup", "RDP")) %>%
+  pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac") %>%
+  ggplot(aes(x = rank, y = frac, ymax = frac, group = Algorithm, fill = Algorithm)) +
+  ggnomics::facet_nested(reference ~ type + tech + amplicon) +
+  # geom_ribbon(ymin = 0, alpha = 0.5) +
+  # geom_line(aes(color = Algorithm)) +
+  geom_col(position = "dodge") +
+  ylab("Fraction of reads assigned") +
+  xlab(NULL) +
+  theme(axis.text.x = element_text(vjust = 0.5, angle = 90),
+        legend.direction = "horizontal",
+        legend.position = "bottom")
+```
+
+Taxonomic composition of the sequenced soil community is summarized in Figure \@ref(fig:taxa).
+
   - what fraction assigned at each level (or representative ranks; phylum, (order), genus)
   - what fraction are fungi
   - comparison of different region/database and algorithm
   - breakdown of groups
   - fraction ECM
   
-```{r}
-taxon_reads <- 
-  readd(proto_physeq, cache = cache) %>%
-  phyloseq::merge_samples(group = "seq_run") %>%
-  phyloseq::otu_table() %>%
-  t() %>%
-  {.@.Data} %>%
-  as_tibble(rownames = "label") %>%
-  mutate_if(is.numeric, ~./sum(.)) %>%
-  pivot_longer(-1, names_to = "seq_run", values_to = "reads") %>%
-  filter(reads > 0) %>%
-  left_join(select(datasets, seq_run, amplicon), by = "seq_run") %>%
-  expand_grid(
-    tibble(
-      reference = c("unite", "warcup", "rdp_train"),
-      region = c("ITS", "ITS", "LSU")
-    ),
-      method = c("dada2", "idtaxa", "sintax")
-  ) %>%
-  filter(
-    ifelse(amplicon == "Short", region == "ITS", TRUE),
-    ifelse(amplicon == "Long", region %in% c("ITS", "LSU"), TRUE)
-  ) %>%
-  left_join(
-    readd(taxon_table, cache = cache) %>%
-      mutate(region = ifelse(region == "short", "ITS", region)) %>%
-      mutate_at("taxon", na_if, "NA") %>%
-      select(label, method, reference, rank, taxon, region) %>%
-      pivot_wider(
-        names_from = "rank",
-        values_from = "taxon"
-      ),
-    by = c("label", "reference", "region", "method")
-  ) %>%
-  mutate(
-    kingdom = ifelse(!is.na(phylum) & reference == "warcup", "Fungi", kingdom)
-  )
-```
-
-(ref:taxa-kingdom) Taxonomic assignment of ASVs to kingdom.
-N/A denotes ASVs which could not be identified to kingdom level.
+(ref:taxa-kingdom) Taxonomic assignment of ASVs to kingdom by different reference databases and algorithms.
+"unidentified" denotes ASVs which could not be identified to kingdom level.
+"other" denotes kingdoms represented by less than 1% of reads in all datasets.
+The Warcup database did not include non-Fungi, so for that database, ASVs were considered to be identified to Fungi if they were identified to any phylum.
 Height of each bar represents the fraction of reads represented by that bar.
 
-```{r taxa-kingdom, fig.cap = "(ref:taxa-kingdom)"}
-taxon_reads %>%
-  group_by(reference, method, seq_run, kingdom) %>%
-  summarize(reads = sum(reads), ASVs = n()) %>%
-  ggplot(aes(x = method, y = reads, fill = kingdom)) +
-  geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
-  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
-  theme(axis.text.x = element_text(angle = 90))
+```{r taxon-plot}
+taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL) {
+  rank <- enquo(rank)
+  y <- enquo(y)
+  ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
+  .data <- .data %>%
+    group_by(reference, Algorithm, tech, amplicon) %>%
+    mutate(ASVs = n()) %>%
+    ungroup() %>%
+    filter(...) %>%
+    arrange_at(ranks) %>%
+    mutate_at(ranks, ~ factor(., levels = c(NA, "other", discard(unique(.), is.na)))) %>%
+    group_by(reference, Algorithm, tech, amplicon, !!rank) %>%
+    summarize(reads = sum(reads), ASVs = n()/max(ASVs))
+  
+  if (!is.null(cutoff)) {
+    .data <- group_by(.data, !!rank) %>%
+      group_map(
+        
+        ~ if (all(pull(.x, !!y) < cutoff)) {
+          mutate(.x, !!rank := factor("other", levels = levels(!!rank)))
+        } else {
+          .x
+        },
+        keep = TRUE
+      ) %>%
+      bind_rows() %>%
+      group_by(reference, Algorithm, !!rank, tech, amplicon) %>%
+      summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
+      ungroup()
+  }
+  
+  
+  .data <- mutate(.data, !!rank := fct_drop(!!rank))
+  vals <- levels(pull(.data, !!rank))
+  # if ("other" %in% vals) vals <- c("other", vals) %>% magrittr::extract(!duplicated(.))
+  # if (any(is.na(vals))) vals <- c(NA, vals) %>% magrittr::extract(!duplicated(.))
+  
+  rank_label <- as_label(rank)
+  if (rank_label == str_to_lower(rank_label)) rank_label <- str_to_title(rank_label)
+  y_label <- as_label(y)
+  if (y_label == str_to_lower(y_label)) y_label <- str_to_title(y_label)
+  ggplot(.data, aes(x = Algorithm, y = !!y, fill = !!rank)) +
+    geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
+    ggnomics::facet_nested(
+      cols = vars(tech, amplicon, reference),
+      scales = "free_x",
+      space = "free_x",
+      nest_line = TRUE,
+      bleed = FALSE,
+      resect = unit(1, "mm")
+      ) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+          strip.background = element_blank(),
+          panel.spacing = unit(3, "pt")) +
+    scale_fill_discrete(
+      breaks = vals,
+      labels = replace_na(as.character(vals), "unidentified"),
+      name = rank_label
+    ) +
+    ylab(paste("Fraction of", y_label))
+  
+}
+
+```
+
+```{r taxa-kingdom, fig.cap = "(ref:taxa-kingdom)", include = FALSE}
+loadd(taxon_reads, cache = cache)
+taxon_plot(taxon_reads, kingdom, cutoff = 0.01)
 ```
 
 
-(ref:ASV-kingdom) Taxonomic assignment of ASVs to kingdom.
-N/A denotes ASVs which could not be identified to kingdom level.
+(ref:ASV-kingdom) Taxonomic assignment of ASVs to kingdom by different reference databases and algorithms.
+"unidentified" denotes ASVs which could not be identified to kingdom level.
+"other" denotes kingdoms represented by less than 1% of ASVs in all datasets.
+The Warcup database did not include non-Fungi, so ASVs were considered to be identified to Fungi if they were identified to any phylum.
 Height of each bar represents the fraction of total ASVs represented by that bar.
 
-```{r ASV-kingdom, fig.cap = "(ref:ASV-kingdom)"}
-taxon_reads %>%
-  group_by(reference, method, seq_run, kingdom) %>%
-  summarize(reads = sum(reads), ASVs = n()) %>%
-  ggplot(aes(x = method, y = ASVs, fill = kingdom)) +
-  geom_bar(position = "fill", stat = "identity", color = "white", size = 0.2) +
-  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
-  theme(axis.text.x = element_text(angle = 90))
+```{r ASV-kingdom, fig.cap = "(ref:ASV-kingdom)", include = FALSE}
+taxon_plot(taxon_reads, kingdom, y = ASVs, cutoff = 0.01)
 ```
 
 (ref:taxa-phylum) Taxonomic assignment of ASVs to fungal phylum.
 Phyla representing less than 1% of total reads are grouped as "other".
-N/A denotes ASVs which were identified as fungi, but could not be identified to phylum level.
+"unidentified" denotes ASVs which were identified as fungi, but could not be identified to phylum level.
 Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
 Height of each bar represents the fraction of reads represented by that bar.
 
-```{r taxa-phylum, fig.cap = "(ref:taxa-phylum)"}
-taxon_reads %>%
-  filter(kingdom == "Fungi") %>%
-  group_by(reference, method, phylum, seq_run) %>%
-  summarize(reads = sum(reads), ASVs = n()) %>%
-  ungroup() %>%
-  mutate(
-    phylum = ifelse(reads < 0.01 & !is.na(phylum), " other", phylum)
-  ) %>%
-  group_by(reference, method, phylum, seq_run) %>%
-  summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
-  # complete(reference, method, phylum, fill = list(reads = 0, ASVs = 0)) %>%
-  ggplot(aes(x = method, y = reads, fill = phylum)) +
-  geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
-  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
-  theme(axis.text.x = element_text(angle = 90))
-
+```{r taxa-phylum, fig.cap = "(ref:taxa-phylum)", include = FALSE}
+taxon_plot(taxon_reads, rank = phylum, cutoff = 0.01, kingdom == "Fungi")
 ```
 
 (ref:asco-class) Taxonomic assignment of ASVs to ascomycete order.
 Orders representing less than 1% of total reads are grouped as "other".
-N/A denotes ASVs which were identified as Ascomycota, but could not be identified to order level.
+"unidentified" denotes ASVs which were identified as Ascomycota, but could not be identified to order level.
 Reads which were not identified to phylum, or which were identified as a non-Ascomycota phylum, are not included.
 Height of each bar represents the fraction of total reads represented by that bar.
 
-```{r asco-class, fig.cap = "(ref:asco-class)"}
-taxon_reads %>%
-  filter(phylum == "Ascomycota") %>%
-  group_by(reference, method, order, seq_run) %>%
-  summarize(reads = sum(reads), ASVs = n()) %>%
-  ungroup() %>%
-  mutate(
-    order = ifelse(reads < 0.01 & !is.na(order), " other", order)
-  ) %>%
-  group_by(reference, method, order, seq_run) %>%
-  summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
-  ggplot(aes(x = method, y = reads, fill = order)) +
-  geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
-  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
-  theme(axis.text.x = element_text(angle = 90))
-
+```{r asco-class, fig.cap = "(ref:asco-class)", include = FALSE}
+taxon_plot(taxon_reads, order, phylum == "Ascomycota", cutoff = 0.01)
 ```
 
 (ref:basid-family) Taxonomic assignment of ASVs to basidiomycete family.
 Families representing less than 1% of total reads are grouped as "other".
-N/A denotes ASVs which were identified as Basidiomycota, but could not be identified to family level.
+"unidentified" denotes ASVs which were identified as Basidiomycota, but could not be identified to family level.
 Reads which were not identified to phylum, or which were identified as a non-Basidiomycota phylum, are not included.
 Height of each bar represents the fraction of total reads represented by that bar.
 
-```{r basid-family, fig.cap = "(ref:basid-family)"}
-taxon_reads %>%
-  filter(phylum == "Basidiomycota") %>%
-  group_by(reference, method, family, seq_run) %>%
-  summarize(reads = sum(reads), ASVs = n()) %>%
-  ungroup() %>%
-  mutate(
-    family = ifelse(reads < 0.01 & !is.na(family), " other", family)
-  ) %>%
-  group_by(reference, method, family, seq_run) %>%
-  summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
-  ggplot(aes(x = method, y = reads, fill = family)) +
-  geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
-  facet_wrap(~seq_run + reference, nrow = 1, scales = "free_x") +
-  theme(axis.text.x = element_text(angle = 90))
+```{r basid-family, fig.cap = "(ref:basid-family)", include = FALSE}
+taxon_plot(taxon_reads, family, phylum == "Basidiomycota", cutoff = 0.01)
+```
 
+(ref:ecm) Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic identification by different reference databases and algorithms.
+Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
+"unidentified" denotes ASVs which were identified as Fungi, but could not be identified to family level or could not be assigned ECM status based on the available identification.
+Height of each bar represents the fraction of reads represented by that bar.
+
+
+```{r ECM, fig.cap = "(ref:ecm)"}
+  readd(taxon_reads, cache = cache) %>%
+  taxon_plot(ECM, kingdom == "Fungi")
+```
+
+(ref:ecm-families) Taxonomic composition of 
+
+```{r ECM-families, fig.cap = "(ref:ecm-families)"}
+  readd(taxon_reads, cache = cache) %>%
+  taxon_plot(
+    family,
+    !is.na(as.character(ECM)),
+    ECM != "non-ECM",
+    kingdom == "Fungi",
+    cutoff = 0.01
+  )
+```
+
+
+```{r taxdata}
+loadd(taxdata, cache = cache)
+```
+
+(ref:taxa) Heat tree summarizing taxonomic composition of soil community.
+Color and size of nodes represent the fractional read abundance of all ASVs belonging to that taxonomic group.
+Color and thickness of branches represent the fractional ASV richness of that taxonomic group.
+Both measures are a mean across sequencing run, reference database, and taxonomic assignment algorithm.
+Diverse but relatively rare groups are thus shown as small, light-colored nodes on relatively thick, dark-colored branches (e.g., Dothideomycetes), while common but relatively non-diverse groups are shown as large nodes on relatively thin branches (e.g., Russulales).
+Groups which are not represented by at least 1% of reads or 1% of ASVs are not shown.
+
+```{r taxa, fig.cap = "(ref:taxa)", out.width="100%", fig.width = 8}
+set.seed(3)
+readd(taxdata, cache = cache) %>%
+  metacoder::heat_tree(
+    layout = "davidson-harel",
+    # initial_layout = "reingold-tilford",
+    node_size = rowMeans(.$data$tax_read[,-1]),
+    node_color = rowMeans(.$data$tax_read[,-1]),
+    node_label = replace_na(taxon_names, "unknown"),
+    node_size_range = c(0.005, .035),
+    node_size_axis_label = "Read abundance",
+    node_color_axis_label = "Read abundance",
+    node_label_size_range = c(0.01, 0.03),
+    edge_size = rowMeans(.$data$tax_asv[,-1]),
+    edge_size_trans = "linear",
+    edge_size_axis_label = "ASV count",
+    edge_size_range = c(0.0025, 0.03),
+    edge_color = rowMeans(.$data$tax_asv[,-1]),
+    edge_color_axis_label = "ASV count",
+    aspect_ratio = 3/2,
+    make_node_legend = FALSE,
+    make_edge_legend = FALSE,
+    output_file = here("temp/heattree.pdf")
+  )
+```
+
+(ref:heattree-length-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
+Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
+Values are log_2_ of the ratio of median values across all datasets (sequencing technology, assignment algorithm) using the Unite database for each amplicon.
+
+```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare)"}
+taxdata2 <- readd(taxdata, cache = cache)
+# taxdata2$data$asv_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = asv_cols)
+# taxdata2$data$read_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = read_cols)
+# taxdata2$data$tax_asv <- metacoder::calc_taxon_abund(taxdata2, "asv_table", cols = asv_cols)
+# taxdata2$data$tax_read <- metacoder::calc_taxon_abund(taxdata2, "read_table", cols = read_cols)
+taxdata2$data$diff_read <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_read",
+  cols = names(taxdata2$data$tax_read) %>%
+    keep(str_detect, "reads_.+_.+_Unite_.+"),
+  groups = names(taxdata2$data$tax_read) %>%
+    keep(str_detect, "reads_.+_.+_Unite_.+") %>%
+    str_replace("reads_.+_(.+)_Unite_.+", "\\1")
+  )
+taxdata2$data$diff_asv <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_asv",
+  cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
+  groups = names(taxdata2$data$tax_asv) %>%
+    keep(startsWith, "ASVs_") %>%
+    str_replace("ASVs_.+_(.+)_.+_.+", "\\1")
+)
+
+set.seed(3)
+taxdata2 %>%
+  metacoder::heat_tree(
+    layout = "davidson-harel",
+    initial_layout = "reingold-tilford",
+    
+    node_size = rowMeans(.$data$tax_read[,-1]),
+    node_size_range = c(0.005, .035),
+    node_size_axis_label = "Read abundance",
+    
+    node_color = .$data$diff_read$log2_median_ratio,
+    node_color_range = metacoder::diverging_palette(),
+    node_color_trans = "linear",
+    node_color_axis_label = "Read abundance ratio",
+    node_color_interval = c(-4.5, 4.5),
+    
+    edge_size = rowMeans(.$data$tax_asv[,-1]),
+    edge_size_range = c(0.0025, 0.03),
+    edge_size_trans = "linear",
+    edge_size_axis_label = "ASV count",
+    
+    edge_color = .$data$diff_asv$log2_median_ratio,
+    edge_color_range = metacoder::diverging_palette(),
+    edge_color_trans = "linear",
+    edge_color_axis_label = "ASV count ratio",
+    edge_color_interval = c(-3, 3),
+    
+    node_label = ifelse(
+      pmax(abs(.$data$diff_read$log2_median_ratio),
+           abs(.$data$diff_asv$log2_median_ratio)) > 0.5,
+      taxon_names,
+      ""
+    ),
+    node_label_size_range = c(0.010, 0.03),
+    title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
+  )
+```
+
+(ref:heattree-db-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
+Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
+Values are log_2_ of the ratio of median values across all datasets (sequencing technology, reference database, assignment algorithm) for each amplicon.
+
+```{r heattree-db-compare, fig.cap = "(ref:heattree-db-compare)"}
+taxdata2 <- readd(taxdata, cache = cache)
+# taxdata2$data$asv_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = asv_cols)
+# taxdata2$data$read_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = read_cols)
+# taxdata2$data$tax_asv <- metacoder::calc_taxon_abund(taxdata2, "asv_table", cols = asv_cols)
+# taxdata2$data$tax_read <- metacoder::calc_taxon_abund(taxdata2, "read_table", cols = read_cols)
+taxdata2$data$diff_read <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_read",
+  cols = names(taxdata2$data$tax_read) %>%
+    keep(str_detect, "reads_PacBio_Long_(Unite|RDP)"),
+  groups = names(taxdata2$data$tax_read) %>%
+    keep(str_detect, "reads_PacBio_Long_(Unite|RDP)") %>%
+    str_replace("reads_.+_.+_(.+)_.+", "\\1")
+  )
+taxdata2$data$diff_asv <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_asv",
+  cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
+  groups = names(taxdata2$data$tax_asv) %>%
+    keep(startsWith, "ASVs_") %>%
+    str_replace("ASVs_.+_(.+)_.+_.+", "\\1")
+)
+
+set.seed(2)
+taxdata2 %>%
+  metacoder::heat_tree(
+    layout = "davidson-harel",
+    initial_layout = "reingold-tilford",
+    
+    node_size = rowMeans(.$data$tax_read[,-1]),
+    node_size_range = c(0.005, .035),
+    node_size_axis_label = "Read abundance",
+    
+    node_color = .$data$diff_read$log2_median_ratio,
+    node_color_range = metacoder::diverging_palette(),
+    node_color_trans = "linear",
+    node_color_axis_label = "Read abundance ratio",
+    node_color_interval = c(-4.5, 4.5),
+    
+    edge_size = rowMeans(.$data$tax_asv[,-1]),
+    edge_size_range = c(0.0025, 0.03),
+    edge_size_trans = "linear",
+    edge_size_axis_label = "ASV count",
+    
+    edge_color = .$data$diff_asv$log2_median_ratio,
+    edge_color_range = metacoder::diverging_palette(),
+    edge_color_trans = "linear",
+    edge_color_axis_label = "ASV count ratio",
+    edge_color_interval = c(-3, 3),
+    
+    node_label = ifelse(
+      pmax(abs(.$data$diff_read$log2_median_ratio),
+           abs(.$data$diff_asv$log2_median_ratio)) > 0.5,
+      taxon_names,
+      ""
+    ),
+    node_label_size_range = c(0.010, 0.03),
+    # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
+    aspect_ratio = 3/2
+  )
+```
+
+```{r ecm-heattree}
+taxdata2 <- readd(taxdata_ECM, cache = cache)
+
+val_cols <- names(taxdata2$data$tax_read) %>%
+    keep(str_detect, "reads_.+_.+_Unite_.+")
+
+taxdata2$filter_obs(
+  "tax_read",
+  rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
+  drop_taxa = TRUE,
+  drop_obs = TRUE,
+  supertaxa = TRUE,
+  reassign_obs = FALSE) %>%
+  invisible()
+
+taxdata2$data$diff_read <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_read",
+  cols = val_cols,
+  groups = val_cols %>%
+    str_replace("reads_.+_(.+)_Unite_.+", "\\1"),
+  func = function(abund1, abund2) {
+    list(read_ratio = log10(mean(abund1) / mean(abund2)))
+  }
+)
+taxdata2$data$diff_asv <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_asv",
+  cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
+  groups = names(taxdata2$data$tax_asv) %>%
+    keep(startsWith, "ASVs_") %>%
+    str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
+  func = function(abund1, abund2) {
+    list(ASV_ratio = log10(mean(abund1) / mean(abund2)))
+  }
+)
+
+set.seed(3)
+taxdata2 %>%
+  metacoder::heat_tree(
+    layout = "davidson-harel",
+    initial_layout = "reingold-tilford",
+    
+    node_size = rowMeans(.$data$tax_read[,-1]),
+    node_size_range = c(0.01, .035),
+    node_size_axis_label = "Read abundance",
+    
+    node_color = read_ratio,
+    node_color_range = metacoder::diverging_palette(),
+    node_color_trans = "linear",
+    node_color_axis_label = "Read abundance ratio",
+    node_color_interval = c(-3, 3),
+    
+    edge_size = rowMeans(.$data$tax_asv[,-1]),
+    edge_size_range = c(0.005, 0.03),
+    edge_size_trans = "linear",
+    edge_size_axis_label = "ASV count",
+    
+    edge_color = ASV_ratio,
+    edge_color_range = metacoder::diverging_palette(),
+    edge_color_trans = "linear",
+    edge_color_axis_label = "ASV count ratio",
+    edge_color_interval = c(-0.75, 0.75),
+    
+    node_label = taxon_names,
+    node_label_size_range = c(0.02, 0.03),
+    # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
+    aspect_ratio = 3/2
+  )
+```
+
+
+```{r heattree-ecm, fig.cap = "Heat tree for all sequencing reads."}
+taxdata <- 
+  taxon_reads %>%
+  filter(!is.na(as.character(ECM)), ECM != "non-ECM") %>%
+  select(-region, -seq_run) %>%
+  pivot_wider(
+    names_from = c("tech", "amplicon", "reference", "Algorithm"),
+    values_from = "reads",
+    values_fill = list(reads = 0),
+    names_repair = "universal"
+    ) %>%
+  taxa::parse_tax_data(
+    class_cols = c("kingdom", "phylum", "class", "order", "family", "genus")
+  )
+
+samples <- names(which(map_lgl(taxdata$data$tax_data, is.numeric)))
+
+taxdata$data$asv_table <- metacoder::calc_obs_props(taxdata, "tax_data", cols = samples)
+taxdata$data$tax_table <- metacoder::calc_taxon_abund(taxdata, "asv_table", cols = samples) %>%
+  column_to_rownames("taxon_id")
+taxdata <- taxdata$filter_taxa(do.call(pmax, taxdata$data$tax_table[,-1]) > 0.01)
+taxdata$data$tax_table <- taxdata$data$tax_table[taxdata$taxon_ids(),] %>%
+  rownames_to_column("taxon_id")
+taxdata$data$diff_table <- metacoder::compare_groups(
+  taxdata,
+  data = "tax_table",
+  cols = names(taxdata$data$tax_table) %>% keep(endsWith, "Unite_RDPC"),
+  groups = names(taxdata$data$tax_table) %>%
+    keep(endsWith, "Unite_RDPC") %>%
+    str_replace("_Unite_RDPC", "")
+  )
+
+theme_replace(plot.background = element_blank(),
+              panel.border = element_blank(), panel.background = element_blank())
+ metacoder::heat_tree_matrix(
+  taxdata,
+  data = "diff_table",
+  node_size = rowMeans(taxdata$data$tax_table[,-1]),
+  node_label = replace_na(taxon_names, "unknown"),
+  node_size_axis_label = "Proportion of reads",
+  node_color = log2_median_ratio,
+  node_color_range = metacoder::diverging_palette(),
+  node_color_trans = "linear",
+  node_color_interval = c(-3, 3),
+  edge_color_interval = c(-3, 3),
+  key_size = 0.7,
+  seed = 2,
+  layout = "davidson-harel"
+)
 ```
 
 ### Positive control
@@ -1278,48 +1214,6 @@ Figure \@ref(fig:correlog):
   - Long amplicons found longer autocorrelation of Bray-Curtis for all fungi, but not ECM.  Is this due to some particular group?
   - Long amplicon also detects some autocorrelation even after 1 year, absent in other tests.
   - Unifrac has less significant autocorrelation.
-
-
-(ref:variog) Spatial variogram fits for community dissimilarities. Each point represents one pair of samples taken at the same time.  Thick blue and red lines represent the empirical variogram (mean of community dissimilarities at each distance).  Thin lines is an exponential fit for the relationship between community dissimilarity and spatial distance.  Horizontal dashed lines represent the values of the fit function at zero distance ("nugget") and infinite distance ("sill").  The vertical dashed line is at the characteristic distance of the fit function ("range").
-
-```{r variog, fig.cap = "(ref:variog)", include = FALSE}
-variog_data <- light_plan %>%
-  filter(step == "variofit") %>%
-  select(variofit, variog, guild, metric, tech, amplicon) %>%
-  mutate_at(c("guild", "metric", "tech", "amplicon"), str_replace_all, "\"", "") %>%
-  mutate(
-    guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("all Fungi", "ECM")),
-    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "Weighted UNIFRAC")),
-    amplicon = factor(amplicon, levels = c("short", "long"), labels = c("short amplicon", "long amplicon"))
-  ) %>%
-  mutate_at(c("variofit", "variog"), lapply, readd, character_only = TRUE, cache = cache) %>%
-  mutate(sills = purrr::map(variofit, ~ cumsum(.$psill)),
-         range = purrr::map_dbl(variofit, ~.$range[2]),
-         vgline = purrr::map(variofit, gstat::variogramLine, maxdist = 25, n = 100))
-
-variog_points <- unnest(variog_data, c("variog")) %>%
-  filter(dist <= 25)
-variog_empir <- variog_points %>%
-  group_by(guild, metric, tech, amplicon, dist) %>%
-  summarize_at("gamma", mean)
-variog_sills <- unnest(variog_data, "sills")
-variog_fitline <- unnest(variog_data, "vgline")
-  
-
-variog_points %>%
-  ggplot(aes(dist, gamma)) +
-  geom_hline(data = variog_sills, aes(yintercept = sills), linetype = "dashed", color = "gray50") +
-  geom_vline(data = variog_data, aes(xintercept = range), linetype = "dashed", color = "gray50") +
-  geom_point(shape = 1, alpha = 0.2) +
-  geom_line(data = variog_empir, color = "blue", size = 1.5) +
-  geom_line(data = variog_fitline,
-            aes(dist, gamma), inherit.aes = FALSE, color = "red", size = 0.5) +
-  scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
-  ylab("Community dissimilarity") +
-  facet_grid(guild ~ metric + amplicon)
-  
-
-```
 
 ## Spatio-temporal variogram
 
