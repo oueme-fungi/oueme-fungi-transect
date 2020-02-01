@@ -13,6 +13,8 @@ library(drake)
 library(assertr)
 library(disk.frame)
 
+source(file.path(config$rdir, "dada.R"))
+source(file.path(config$rdir, "mantel.R"))
 source(file.path(config$rdir, "variogram.R"))
 source(file.path(config$rdir, "qstats.R"))
 source(file.path(config$rdir, "taxonomy.R"))
@@ -27,8 +29,7 @@ choosevars <- function(d, g, .data) {
 }
 
 datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc") %>%
-  mutate_at("amplicon", stringr::str_to_lower) %>%
-  filter(tech != "Illumina")
+  mutate_at("amplicon", stringr::str_to_lower)
 physeq_meta <-
   tidyr::crossing(
     dplyr::select(datasets, "seq_run", "tech", "dataset", "amplicon"),
@@ -406,32 +407,35 @@ plan2 <- drake_plan(
     dplyr::filter(reads >= 1) %>%
     tidyr::extract(col = "filename",
                    into = c("seq.run", "plate", "well", "dir", "region"),
-                   regex = "([a-z]+_\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
+                   regex = "([a-zA-Z]+[-_]\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
     dplyr::group_by(seq.run, seq) %>%
     dplyr::summarize(reads = sum(reads)) %>%
     tidyr::spread(key = seq.run, value = reads, fill = 0),
   
-  otu_table = read_tsv(
-    file_in("data/clusters/ITS2.table"),
-    col_types = cols(
-      .default = col_integer(),
-      `#OTU ID` = col_character()
-    )
-  ) %>%
-    column_to_rownames("#OTU ID") %>%
-    as.matrix() %>%
-    t() %>%
-    as_tibble(rownames = "sample") %>%
-    tidyr::extract(
-      col = "sample",
-      into = c("seq_run", "plate", "well"),
-      regex = "([a-z]{2}_\\d{3})_(\\d{3})([A-H]1?\\d)"
+  otu_table = {
+    big_fasta_ITS2
+    read_tsv(
+      file_in("data/clusters/ITS2.table"),
+      col_types = cols(
+        .default = col_integer(),
+        `#OTU ID` = col_character()
+      )
     ) %>%
-    tidyr::gather(key = "seq", value = "reads", -(1:3)) %>%
-    dplyr::filter(reads >= 1) %>%
-    dplyr::group_by(seq_run, seq) %>%
-    dplyr::summarize(reads = sum(reads)) %>%
-    tidyr::spread(key = seq_run, value = reads, fill = 0),
+      column_to_rownames("#OTU ID") %>%
+      as.matrix() %>%
+      t() %>%
+      as_tibble(rownames = "sample") %>%
+      tidyr::extract(
+        col = "sample",
+        into = c("seq_run", "plate", "well"),
+        regex = "([a-zA-Z]{2}[-_]\\d{3,4})_(\\d{3})([A-H]1?\\d)"
+      ) %>%
+      tidyr::gather(key = "seq", value = "reads", -(1:3)) %>%
+      dplyr::filter(reads >= 1) %>%
+      dplyr::group_by(seq_run, seq) %>%
+      dplyr::summarize(reads = sum(reads)) %>%
+      tidyr::spread(key = seq_run, value = reads, fill = 0)
+  },
   
   demuxlength =  parse_qstat(qstats_length) %>%
     filter(is.na(step), !is.na(well)) %>%
