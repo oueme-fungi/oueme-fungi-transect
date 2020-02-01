@@ -613,9 +613,10 @@ plan <- drake_plan(
       dplyr::group_by(value, name) %>%
       dplyr::summarize(nread = sum(nread)) %>%
       tidyr::pivot_wider(names_from = "value", values_from = "nread", values_fill = list(nread = 0L)) %>%
+      dplyr::mutate_at("name", paste, region, sep = "_") %>%
       tibble::column_to_rownames("name") %>%
       as.matrix,
-    transform = map(seq_table_illumina, region_illumina, .tag_out = seq_table, .id = c(seq_run, region))
+    transform = map(seq_table_illumina, region_illumina, region, .tag_out = seq_table, .id = c(seq_run, region))
   ),
   
   preconseq_illumina = target(

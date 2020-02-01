@@ -14,7 +14,7 @@ relabel_seqtable <- function(seqtable) {
     tidyr::extract(
       col = "file",
       into = c("seq_run", "plate", "well", "direction", "region"),
-      regex = "([a-z]+_\\d+)_(\\d+)_([A-H]1?\\d)([fr]?)_([a-zA-Z0-9]+).*") %>%
+      regex = "([a-zA-Z]+[_-]\\d+)_(\\d+)_([A-H]1?\\d)([fr]?)_([a-zA-Z0-9]+).*") %>%
     # create the ID
     tidyr::unite("ID", seq_run, plate, well, sep = "") %>%
     # remove unnecessary columns
