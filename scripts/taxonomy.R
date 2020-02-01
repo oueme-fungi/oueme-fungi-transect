@@ -817,7 +817,7 @@ phylotax_ <- function(tree, taxa, node, ranks, e) {
           rank == r,
           taxon != !!taxon
         ) %>%
-        dplyr::select(-rank, -taxon, -n_tot, -n_diff, -n_reads, -confidence)
+        dplyr::select(-rank, -taxon, -n_tot, -n_diff, -n_reads, -confidence, -n_method, -n_reference)
       newAssign <- tibble::tibble(
         label = tips,
         rank = r,

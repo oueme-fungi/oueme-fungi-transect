@@ -706,7 +706,12 @@ readd(taxon_reads, cache = cache) %>%
   mutate_at("reference", factor, levels = c("Unite", "Warcup", "RDP")) %>%
   pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac") %>%
   ggplot(aes(x = rank, y = frac, ymax = frac, group = Algorithm, fill = Algorithm)) +
-  ggnomics::facet_nested(reference ~ type + tech + amplicon) +
+  ggnomics::facet_nested(
+    reference ~ type + tech + amplicon,
+    resect = unit(1, "mm"),
+    nest_line = TRUE,
+    bleed = FALSE
+  ) +
   # geom_ribbon(ymin = 0, alpha = 0.5) +
   # geom_line(aes(color = Algorithm)) +
   geom_col(position = "dodge") +
@@ -714,7 +719,8 @@ readd(taxon_reads, cache = cache) %>%
   xlab(NULL) +
   theme(axis.text.x = element_text(vjust = 0.5, angle = 90),
         legend.direction = "horizontal",
-        legend.position = "bottom")
+        legend.position = "bottom",
+        strip.background = element_blank())
 ```
 
 Taxonomic composition of the sequenced soil community is summarized in Figure \@ref(fig:taxa).
@@ -742,9 +748,17 @@ taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL) {
     ungroup() %>%
     filter(...) %>%
     arrange_at(ranks) %>%
-    mutate_at(ranks, ~ factor(., levels = c(NA, "other", discard(unique(.), is.na)))) %>%
+    mutate_at(
+      ranks,
+      ~ factor(
+        .,
+        levels = c(NA, "other", discard(unique(.), is.na)),
+        exclude = NULL
+      )
+    ) %>%
     group_by(reference, Algorithm, tech, amplicon, !!rank) %>%
-    summarize(reads = sum(reads), ASVs = n()/max(ASVs))
+    summarize(reads = sum(reads), ASVs = n()/max(ASVs)) %>%
+    ungroup()
   
   if (!is.null(cutoff)) {
     .data <- group_by(.data, !!rank) %>%
@@ -763,13 +777,14 @@ taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL) {
       ungroup()
   }
   
+  rank_label <- as_label(rank)
   
   .data <- mutate(.data, !!rank := fct_drop(!!rank))
   vals <- levels(pull(.data, !!rank))
   # if ("other" %in% vals) vals <- c("other", vals) %>% magrittr::extract(!duplicated(.))
   # if (any(is.na(vals))) vals <- c(NA, vals) %>% magrittr::extract(!duplicated(.))
   
-  rank_label <- as_label(rank)
+  
   if (rank_label == str_to_lower(rank_label)) rank_label <- str_to_title(rank_label)
   y_label <- as_label(y)
   if (y_label == str_to_lower(y_label)) y_label <- str_to_title(y_label)
@@ -856,7 +871,7 @@ Height of each bar represents the fraction of reads represented by that bar.
 
 (ref:ecm-families) Taxonomic composition of 
 
-```{r ECM-families, fig.cap = "(ref:ecm-families)"}
+```{r ECM-families, fig.cap = "(ref:ecm-families)", include = FALSE}
   readd(taxon_reads, cache = cache) %>%
   taxon_plot(
     family,
@@ -875,12 +890,13 @@ loadd(taxdata, cache = cache)
 (ref:taxa) Heat tree summarizing taxonomic composition of soil community.
 Color and size of nodes represent the fractional read abundance of all ASVs belonging to that taxonomic group.
 Color and thickness of branches represent the fractional ASV richness of that taxonomic group.
-Both measures are a mean across sequencing run, reference database, and taxonomic assignment algorithm.
-Diverse but relatively rare groups are thus shown as small, light-colored nodes on relatively thick, dark-colored branches (e.g., Dothideomycetes), while common but relatively non-diverse groups are shown as large nodes on relatively thin branches (e.g., Russulales).
-Groups which are not represented by at least 1% of reads or 1% of ASVs are not shown.
+Both measures are a mean across sequencing runs, reference databases, and taxonomic assignment algorithms.
+Diverse but relatively rare groups are thus shown as small, light-colored nodes on relatively thick, darker-green-colored branches (e.g., Dothideomycetes), while common but relatively non-diverse groups are shown as large nodes on relatively thin branches (e.g., Russulales).
+Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "...".
+ASVs which could not be further assigned are labelled "?".
 
 ```{r taxa, fig.cap = "(ref:taxa)", out.width="100%", fig.width = 8}
-set.seed(3)
+set.seed(4)
 readd(taxdata, cache = cache) %>%
   metacoder::heat_tree(
     layout = "davidson-harel",
@@ -898,84 +914,20 @@ readd(taxdata, cache = cache) %>%
     edge_size_range = c(0.0025, 0.03),
     edge_color = rowMeans(.$data$tax_asv[,-1]),
     edge_color_axis_label = "ASV count",
-    aspect_ratio = 3/2,
+    # aspect_ratio = 3/2,
     make_node_legend = FALSE,
     make_edge_legend = FALSE,
     output_file = here("temp/heattree.pdf")
   )
 ```
 
-(ref:heattree-length-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
-Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
-Values are log_2_ of the ratio of median values across all datasets (sequencing technology, assignment algorithm) using the Unite database for each amplicon.
 
-```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare)"}
-taxdata2 <- readd(taxdata, cache = cache)
-# taxdata2$data$asv_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = asv_cols)
-# taxdata2$data$read_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = read_cols)
-# taxdata2$data$tax_asv <- metacoder::calc_taxon_abund(taxdata2, "asv_table", cols = asv_cols)
-# taxdata2$data$tax_read <- metacoder::calc_taxon_abund(taxdata2, "read_table", cols = read_cols)
-taxdata2$data$diff_read <- metacoder::compare_groups(
-  taxdata2,
-  data = "tax_read",
-  cols = names(taxdata2$data$tax_read) %>%
-    keep(str_detect, "reads_.+_.+_Unite_.+"),
-  groups = names(taxdata2$data$tax_read) %>%
-    keep(str_detect, "reads_.+_.+_Unite_.+") %>%
-    str_replace("reads_.+_(.+)_Unite_.+", "\\1")
-  )
-taxdata2$data$diff_asv <- metacoder::compare_groups(
-  taxdata2,
-  data = "tax_asv",
-  cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
-  groups = names(taxdata2$data$tax_asv) %>%
-    keep(startsWith, "ASVs_") %>%
-    str_replace("ASVs_.+_(.+)_.+_.+", "\\1")
-)
-
-set.seed(3)
-taxdata2 %>%
-  metacoder::heat_tree(
-    layout = "davidson-harel",
-    initial_layout = "reingold-tilford",
-    
-    node_size = rowMeans(.$data$tax_read[,-1]),
-    node_size_range = c(0.005, .035),
-    node_size_axis_label = "Read abundance",
-    
-    node_color = .$data$diff_read$log2_median_ratio,
-    node_color_range = metacoder::diverging_palette(),
-    node_color_trans = "linear",
-    node_color_axis_label = "Read abundance ratio",
-    node_color_interval = c(-4.5, 4.5),
-    
-    edge_size = rowMeans(.$data$tax_asv[,-1]),
-    edge_size_range = c(0.0025, 0.03),
-    edge_size_trans = "linear",
-    edge_size_axis_label = "ASV count",
-    
-    edge_color = .$data$diff_asv$log2_median_ratio,
-    edge_color_range = metacoder::diverging_palette(),
-    edge_color_trans = "linear",
-    edge_color_axis_label = "ASV count ratio",
-    edge_color_interval = c(-3, 3),
-    
-    node_label = ifelse(
-      pmax(abs(.$data$diff_read$log2_median_ratio),
-           abs(.$data$diff_asv$log2_median_ratio)) > 0.5,
-      taxon_names,
-      ""
-    ),
-    node_label_size_range = c(0.010, 0.03),
-    title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
-  )
-```
 
 (ref:heattree-db-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
 Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
 Values are log_2_ of the ratio of median values across all datasets (sequencing technology, reference database, assignment algorithm) for each amplicon.
 
-```{r heattree-db-compare, fig.cap = "(ref:heattree-db-compare)"}
+```{r heattree-db-compare, fig.cap = "(ref:heattree-db-compare)", include = FALSE}
 taxdata2 <- readd(taxdata, cache = cache)
 # taxdata2$data$asv_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = asv_cols)
 # taxdata2$data$read_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = read_cols)
@@ -988,7 +940,10 @@ taxdata2$data$diff_read <- metacoder::compare_groups(
     keep(str_detect, "reads_PacBio_Long_(Unite|RDP)"),
   groups = names(taxdata2$data$tax_read) %>%
     keep(str_detect, "reads_PacBio_Long_(Unite|RDP)") %>%
-    str_replace("reads_.+_.+_(.+)_.+", "\\1")
+    str_replace("reads_.+_.+_(.+)_.+", "\\1"),
+  func = function(abund1, abund2) {
+    list(read_ratio = log10(mean(abund1) / mean(abund2)))
+  }
   )
 taxdata2$data$diff_asv <- metacoder::compare_groups(
   taxdata2,
@@ -996,8 +951,14 @@ taxdata2$data$diff_asv <- metacoder::compare_groups(
   cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
   groups = names(taxdata2$data$tax_asv) %>%
     keep(startsWith, "ASVs_") %>%
-    str_replace("ASVs_.+_(.+)_.+_.+", "\\1")
+    str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
+  func = function(abund1, abund2) {
+    list(asv_ratio = log10(mean(abund1) / mean(abund2)))
+  }
 )
+
+taxdata2 <- taxdata2$filter_taxa(!is.nan(asv_ratio), !is.nan(read_ratio),
+                                 reassign_obs = FALSE)
 
 set.seed(2)
 taxdata2 %>%
@@ -1009,7 +970,7 @@ taxdata2 %>%
     node_size_range = c(0.005, .035),
     node_size_axis_label = "Read abundance",
     
-    node_color = .$data$diff_read$log2_median_ratio,
+    node_color = read_ratio,
     node_color_range = metacoder::diverging_palette(),
     node_color_trans = "linear",
     node_color_axis_label = "Read abundance ratio",
@@ -1020,15 +981,15 @@ taxdata2 %>%
     edge_size_trans = "linear",
     edge_size_axis_label = "ASV count",
     
-    edge_color = .$data$diff_asv$log2_median_ratio,
+    edge_color = asv_ratio,
     edge_color_range = metacoder::diverging_palette(),
     edge_color_trans = "linear",
     edge_color_axis_label = "ASV count ratio",
     edge_color_interval = c(-3, 3),
     
     node_label = ifelse(
-      pmax(abs(.$data$diff_read$log2_median_ratio),
-           abs(.$data$diff_asv$log2_median_ratio)) > 0.5,
+      pmax(abs(.$data$diff_read$read_ratio),
+           abs(.$data$diff_asv$asv_ratio)) > 0.5,
       taxon_names,
       ""
     ),
@@ -1038,128 +999,6 @@ taxdata2 %>%
   )
 ```
 
-```{r ecm-heattree}
-taxdata2 <- readd(taxdata_ECM, cache = cache)
-
-val_cols <- names(taxdata2$data$tax_read) %>%
-    keep(str_detect, "reads_.+_.+_Unite_.+")
-
-taxdata2$filter_obs(
-  "tax_read",
-  rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
-  drop_taxa = TRUE,
-  drop_obs = TRUE,
-  supertaxa = TRUE,
-  reassign_obs = FALSE) %>%
-  invisible()
-
-taxdata2$data$diff_read <- metacoder::compare_groups(
-  taxdata2,
-  data = "tax_read",
-  cols = val_cols,
-  groups = val_cols %>%
-    str_replace("reads_.+_(.+)_Unite_.+", "\\1"),
-  func = function(abund1, abund2) {
-    list(read_ratio = log10(mean(abund1) / mean(abund2)))
-  }
-)
-taxdata2$data$diff_asv <- metacoder::compare_groups(
-  taxdata2,
-  data = "tax_asv",
-  cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
-  groups = names(taxdata2$data$tax_asv) %>%
-    keep(startsWith, "ASVs_") %>%
-    str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
-  func = function(abund1, abund2) {
-    list(ASV_ratio = log10(mean(abund1) / mean(abund2)))
-  }
-)
-
-set.seed(3)
-taxdata2 %>%
-  metacoder::heat_tree(
-    layout = "davidson-harel",
-    initial_layout = "reingold-tilford",
-    
-    node_size = rowMeans(.$data$tax_read[,-1]),
-    node_size_range = c(0.01, .035),
-    node_size_axis_label = "Read abundance",
-    
-    node_color = read_ratio,
-    node_color_range = metacoder::diverging_palette(),
-    node_color_trans = "linear",
-    node_color_axis_label = "Read abundance ratio",
-    node_color_interval = c(-3, 3),
-    
-    edge_size = rowMeans(.$data$tax_asv[,-1]),
-    edge_size_range = c(0.005, 0.03),
-    edge_size_trans = "linear",
-    edge_size_axis_label = "ASV count",
-    
-    edge_color = ASV_ratio,
-    edge_color_range = metacoder::diverging_palette(),
-    edge_color_trans = "linear",
-    edge_color_axis_label = "ASV count ratio",
-    edge_color_interval = c(-0.75, 0.75),
-    
-    node_label = taxon_names,
-    node_label_size_range = c(0.02, 0.03),
-    # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
-    aspect_ratio = 3/2
-  )
-```
-
-
-```{r heattree-ecm, fig.cap = "Heat tree for all sequencing reads."}
-taxdata <- 
-  taxon_reads %>%
-  filter(!is.na(as.character(ECM)), ECM != "non-ECM") %>%
-  select(-region, -seq_run) %>%
-  pivot_wider(
-    names_from = c("tech", "amplicon", "reference", "Algorithm"),
-    values_from = "reads",
-    values_fill = list(reads = 0),
-    names_repair = "universal"
-    ) %>%
-  taxa::parse_tax_data(
-    class_cols = c("kingdom", "phylum", "class", "order", "family", "genus")
-  )
-
-samples <- names(which(map_lgl(taxdata$data$tax_data, is.numeric)))
-
-taxdata$data$asv_table <- metacoder::calc_obs_props(taxdata, "tax_data", cols = samples)
-taxdata$data$tax_table <- metacoder::calc_taxon_abund(taxdata, "asv_table", cols = samples) %>%
-  column_to_rownames("taxon_id")
-taxdata <- taxdata$filter_taxa(do.call(pmax, taxdata$data$tax_table[,-1]) > 0.01)
-taxdata$data$tax_table <- taxdata$data$tax_table[taxdata$taxon_ids(),] %>%
-  rownames_to_column("taxon_id")
-taxdata$data$diff_table <- metacoder::compare_groups(
-  taxdata,
-  data = "tax_table",
-  cols = names(taxdata$data$tax_table) %>% keep(endsWith, "Unite_RDPC"),
-  groups = names(taxdata$data$tax_table) %>%
-    keep(endsWith, "Unite_RDPC") %>%
-    str_replace("_Unite_RDPC", "")
-  )
-
-theme_replace(plot.background = element_blank(),
-              panel.border = element_blank(), panel.background = element_blank())
- metacoder::heat_tree_matrix(
-  taxdata,
-  data = "diff_table",
-  node_size = rowMeans(taxdata$data$tax_table[,-1]),
-  node_label = replace_na(taxon_names, "unknown"),
-  node_size_axis_label = "Proportion of reads",
-  node_color = log2_median_ratio,
-  node_color_range = metacoder::diverging_palette(),
-  node_color_trans = "linear",
-  node_color_interval = c(-3, 3),
-  edge_color_interval = c(-3, 3),
-  key_size = 0.7,
-  seed = 2,
-  layout = "davidson-harel"
-)
-```
 
 ### Positive control
 
@@ -1512,5 +1351,559 @@ its2_ecdf <- reads_table %>%
   theme(legend.position = c(0.98, 0.02), legend.justification = c(1, 0))
 
 ggpubr::ggarrange(its2_dens, its2_ecdf, ncol = 1, labels = "auto")
+```
+
+(ref:heattree-length-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
+Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
+Values are log_10_ of the ratio of mean values across all datasets (sequencing technology, assignment algorithm, reference database) for each amplicon.
+Only nodes with a log read abundance ratio greater than 0.5 (abundance ratio > 3.2) are labeled.
+Refer to Figure \@ref(fig:taxa) for complete taxon labeling.
+
+```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare)"}
+taxdata2 <- readd(taxdata, cache = cache)
+# taxdata2$data$asv_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = asv_cols)
+# taxdata2$data$read_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = read_cols)
+# taxdata2$data$tax_asv <- metacoder::calc_taxon_abund(taxdata2, "asv_table", cols = asv_cols)
+# taxdata2$data$tax_read <- metacoder::calc_taxon_abund(taxdata2, "read_table", cols = read_cols)
+taxdata2$data$diff_read <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_read",
+  cols = names(taxdata2$data$tax_read) %>%
+    keep(str_detect, "reads_.+_.+_.+_.+"),
+  groups = names(taxdata2$data$tax_read) %>%
+    keep(str_detect, "reads_.+_.+_.+_.+") %>%
+    str_replace("reads_.+_(.+)_.+_.+", "\\1"),
+  func = function(abund1, abund2) {
+    list(read_ratio = log10(mean(abund1) / mean(abund2)))
+  }
+  )
+taxdata2$data$diff_asv <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_asv",
+  cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
+  groups = names(taxdata2$data$tax_asv) %>%
+    keep(startsWith, "ASVs_") %>%
+    str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
+  func = function(abund1, abund2) {
+    list(asv_ratio = log10(mean(abund1) / mean(abund2)))
+  }
+)
+
+set.seed(4)
+taxdata2 %>%
+  metacoder::heat_tree(
+    layout = "davidson-harel",
+    # initial_layout = "reingold-tilford",
+    
+    node_size = rowMeans(.$data$tax_read[,-1]),
+    node_size_range = c(0.005, .035),
+    node_size_axis_label = "Read abundance",
+    
+    node_color = read_ratio,
+    node_color_range = metacoder::diverging_palette(),
+    node_color_trans = "linear",
+    node_color_axis_label = "Read abundance ratio",
+    node_color_interval = c(-6, 6),
+
+    edge_size = rowMeans(.$data$tax_asv[,-1]),
+    edge_size_range = c(0.0025, 0.03),
+    edge_size_trans = "linear",
+    edge_size_axis_label = "ASV count",
+
+    edge_color = asv_ratio,
+    edge_color_range = metacoder::diverging_palette(),
+    edge_color_trans = "linear",
+    edge_color_axis_label = "ASV count ratio",
+    edge_color_interval = c(-3, 3),
+    
+    node_label = ifelse(
+      pmax(abs(.$data$diff_read$read_ratio),
+           abs(.$data$diff_asv$asv_ratio)) > 0.5,
+      taxon_names,
+      ""
+    ),
+    # aspect_ratio = 3/2,
+    node_label_size_range = c(0.010, 0.03)
+    # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
+  )
+```
+
+(ref:ecm-heattree) Variation in read abundance and diversity for different amplicons, for ECM taxa only.
+Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
+Values are log_10_ of the ratio of mean values across all datasets (sequencing technology, assignment algorithm, reference database) for each amplicon.
+
+```{r ecm-heattree, fig.cap = "(ref:ecm-heattree)"}
+taxdata2 <- readd(taxdata_ECM, cache = cache)
+
+val_cols <- names(taxdata2$data$tax_read) %>%
+    keep(str_detect, "reads_.+_.+_Unite_.+")
+
+taxdata2$filter_obs(
+  "tax_read",
+  rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
+  drop_taxa = TRUE,
+  drop_obs = TRUE,
+  supertaxa = TRUE,
+  reassign_obs = FALSE) %>%
+  invisible()
+
+taxdata2$data$diff_read <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_read",
+  cols = val_cols,
+  groups = val_cols %>%
+    str_replace("reads_.+_(.+)_Unite_.+", "\\1"),
+  func = function(abund1, abund2) {
+    list(read_ratio = log10(mean(abund1) / mean(abund2)))
+  }
+)
+taxdata2$data$diff_asv <- metacoder::compare_groups(
+  taxdata2,
+  data = "tax_asv",
+  cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
+  groups = names(taxdata2$data$tax_asv) %>%
+    keep(startsWith, "ASVs_") %>%
+    str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
+  func = function(abund1, abund2) {
+    list(ASV_ratio = log10(mean(abund1) / mean(abund2)))
+  }
+)
+
+taxdata2 <- taxdata2$filter_taxa(!is.nan(ASV_ratio), !is.nan(read_ratio))
+
+set.seed(3)
+taxdata2 %>%
+  metacoder::heat_tree(
+    layout = "davidson-harel",
+    initial_layout = "reingold-tilford",
+    
+    node_size = rowMeans(.$data$tax_read[,-1]),
+    node_size_range = c(0.01, .035),
+    node_size_axis_label = "Read abundance",
+    
+    node_color = read_ratio,
+    node_color_range = metacoder::diverging_palette(),
+    node_color_trans = "linear",
+    node_color_axis_label = "Read abundance ratio",
+    node_color_interval = c(-3, 3),
+    
+    edge_size = rowMeans(.$data$tax_asv[,-1]),
+    edge_size_range = c(0.005, 0.03),
+    edge_size_trans = "linear",
+    edge_size_axis_label = "ASV count",
+    
+    edge_color = ASV_ratio,
+    edge_color_range = metacoder::diverging_palette(),
+    edge_color_trans = "linear",
+    edge_color_axis_label = "ASV count ratio",
+    edge_color_interval = c(-0.75, 0.75),
+    
+    node_label = taxon_names,
+    node_label_size_range = c(0.02, 0.03),
+    # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
+    aspect_ratio = 3/2
+  )
+```
+
+(ref:short-its) Kingdom-level taxonomic composition of ITS2 ASVs <= 140 bp.
+Vertical axis shows fraction of total reads in each dataset.
+
+```{r short-its, fig.cap = ""}
+readd(big_seq_table_ITS2, cache = cache) %>%
+  colSums() %>%
+  enframe(name = "ITS2", value = "nreads") %>%
+  mutate(length = nchar(ITS2)) %>%
+  filter(length <= 140) %>%
+  mutate_at("ITS2", ~tzara::seqhash(chartr("T", "U", .))) %>%
+  semi_join(readd(taxon_reads, cache = cache), ., by = c("label" = "ITS2")) %>%
+  # group_by(ITS2) %>%
+  # filter(!"Short" %in% amplicon) %>%
+  taxon_plot(kingdom, y = reads)
+```
+
+(ref:sample-depth) Sequencing depth along transects at the two sites Ang and Gan for the years 2015 and 2016, after full bioinformatics pipeline.
+Ang 2015 samples are underrepresented, especially in the PacBio long amplicon dataset.
+Dotted horizontal line at proposed cutoff for inclusion in community analysis.
+"2016 X" is using the newer batch of extraction buffer, "2016" is using the older batch.
+
+```{r sample-depth, fig.cap = "(ref:sample-depth)"}
+readd(proto_physeq, cache = cache) %>% {
+  mutate(
+    sample_data(.),
+    reads = otu_table(.) %>% rowSums()
+  )
+} %>%
+  filter(tech != "Ion Torrent", !is.na(year), !is.na(seq_run), !is.na(x)) %>%
+  complete(seq_run, tech, amplicon, site, x, nesting(year, qual)) %>%
+  mutate(
+    qual = fct_collapse(qual, " " = c("*", "")),
+    "Sample group" = paste(year, qual)
+  ) %>%
+  ggplot(aes(x = x, y = reads, group = `Sample group`, fill = `Sample group`)) +
+  geom_col(position = "dodge") +
+  ggnomics::facet_nested(
+    cols = vars(tech, amplicon, site),
+    rows = vars(`Sample group`),
+    nest_line = TRUE,
+    resect = unit(1, "mm")
+  ) +
+  scale_y_log10() +
+  xlab("x (m)") +
+  theme(
+    legend.position = "bottom",
+    strip.background = element_blank()
+  ) +
+  geom_hline(yintercept = 100, linetype = 2, alpha = 0.5)
+
+```
+
+(ref:plate-depth) Sequencing depth for each well in the sequencing plates (001, 002), after full bioinformatics pipeline.
+Darker shading represents greater sequencing depth, as a fraction of the total number of sequences from the sequencing run.
+The border color for each well where sequences were recovered indicates the sample group, i.e. site name (Ang or Gan), sampling year (2015 or 2016), and buffer batch (presence or absence of X; 2016 samples with X are the good buffer); Pos = positive control, Blank = PCR blank.
+Ion Torrent (is_057) samples for the two plates are mixed, shown here as plate 001.
+Note that many of the Ang2015 samples are missing or have extremely low number of reads for the pb_500 (long PacBio) sequencing run.
+
+```{r plate-depth, fig.cap = "(ref:plate-depth)"}
+readd(proto_physeq, cache = cache) %>% {
+  mutate(
+    sample_data(.),
+    reads = otu_table(.) %>% rowSums()
+  )
+} %>%
+  group_by(seq_run, plate) %>%
+  mutate(
+    reads = reads/sum(reads),
+    row = factor(LETTERS[row], levels = rev(LETTERS[1:8])),
+    qual = fct_collapse(qual, " " = c("*", "")),
+    "Sample group" = coalesce(
+      str_c(site, year, qual),
+      as.character(sample_type),
+      "Unused"
+      )
+  ) %>%
+  ggplot(aes(x = column, y = row, fill = reads, color = `Sample group`)) +
+  geom_tile(size = 0.4, height = 0.9, width = 0.9) +
+  ggnomics::facet_nested(cols = vars(plate), rows = vars(tech, amplicon),
+                         resect = unit(1, "mm"), nest_line = TRUE) +
+  scale_color_discrete(name = "Sample group") +
+  scale_fill_gradient(low = "gray80", high = "black") +
+  coord_equal() +
+  scale_x_continuous(breaks = 1:9) +
+  theme(strip.background = element_blank())
+```
+
+(ref:raw-depth) Sequencing depth for each well in the sequencing plates (001, 002), after demultiplexing and primer trimming.
+Darker shading represents greater sequencing depth, as a fraction of the total number of sequences from the sequencing run.
+The border color for each well where sequences were recovered indicates the sample group, i.e. site name (Ang or Gan), sampling year (2015 or 2016), and buffer batch (presence or absence of X; 2016 samples with X are the good buffer); Pos = positive control, Blank = PCR blank, NA = unused well.
+Ion Torrent (is_057) samples for the two plates are mixed, shown here as plate 001.
+Note that many of the Ang2015 samples are missing or have extremely low number of reads for the pb_500 (long PacBio) sequencing run.
+
+```{r raw-depth, fig.cap = "(ref:raw-depth)"}
+readd(qstats_n, cache = cache) %>%
+  mutate(file = str_replace(file, ".*/", "") %>%
+           str_replace("[.].*", "")) %>%
+  tidyr::extract(col = "file", into = c("seq_run", "plate", "row", "col"),
+                 regex = "([[:alpha:]]{2}[-_]\\d+)_(\\d+)-([A-H])(\\d+)") %>%
+  filter(is.na(step), !is.na(seq_run)) %>%
+  mutate_at("col", as.integer) %>%
+  left_join(
+    readd(proto_physeq, cache = cache) %>%
+      sample_data() %>%
+      select(plate, row, column, site, year, qual, sample_type) %>%
+      mutate(row = LETTERS[row]) %>%
+      unique(),
+    by = c("plate", "row", "col" = "column")
+  ) %>%
+  left_join(select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
+  group_by(seq_run, plate) %>%
+  mutate(
+    nreads = nreads/sum(nreads),
+    row = factor(row, levels = rev(LETTERS[1:8])),
+    qual = fct_collapse(qual, " " = c("*", "")),
+    "Sample group" = coalesce(
+      str_c(site, year, qual),
+      as.character(sample_type)
+      )
+  ) %>%
+  ggplot(aes(x = col, y = row, fill = nreads, color = `Sample group`)) +
+  geom_tile(size = 0.4, height = 0.9, width = 0.9) +
+  ggnomics::facet_nested(cols = vars(plate), rows = vars(tech, amplicon),
+                         resect = unit(1, "mm"), nest_line = TRUE) +
+  scale_fill_gradient(low = "gray80", high = "black") +
+  coord_equal() +
+  scale_color_discrete(name = "Sample group") +
+  scale_x_continuous(breaks = 1:9) +
+  theme(strip.background = element_blank())
+```
+
+(ref:pcr-concentration) Concentration of PCR products in ng/µL for the two plates of samples.
+
+```{r pcr-concentration, fig.cap = "(ref:pcr-conentration)"}
+tidyxl::xlsx_cells(here("config/Brendan_soil3.xlsx"), sheets = c("BSoil 1 Pico green", "BSoil 2 pico green", "BSoil 1 Picco Green ITS 1 LR5", "BSoil 2 Picco Green its1 LR5")) %>%
+  filter(between(col, 4, 12), between(row, 77, 84), numeric > 0) %>% 
+  mutate(row = LETTERS[row - 76], col = col - 3,
+         sheet = plyr::mapvalues(sheet, c("BSoil 1 Pico green", "BSoil 2 pico green", "BSoil 1 Picco Green ITS 1 LR5", "BSoil 2 Picco Green its1 LR5"), c("short_001", "short_002", "long_001", "long_002"))) %>%
+  select(sheet, row, col, Concentration = numeric) %>%
+  separate(sheet, into = c("amplicon", "plate")) %>%
+  left_join(
+    readd(proto_physeq, cache = cache) %>%
+      sample_data() %>%
+      select(plate, row, column, site, year, qual, sample_type) %>%
+      mutate(row = LETTERS[row]) %>%
+      unique(),
+    by = c("plate", "row", "col" = "column")
+  ) %>%
+  mutate(
+    row = factor(row, levels = rev(LETTERS[1:8])),
+    qual = fct_collapse(qual, " " = c("*", "")),
+    "Sample group" = coalesce(
+      str_c(site, year, qual),
+      as.character(sample_type)
+      )
+  ) %>%
+  ggplot(aes(x = col, y = row, fill = Concentration, color = `Sample group`)) +
+  geom_tile(size = 0.4, height = 0.9, width = 0.9) +
+  ggnomics::facet_nested(cols = vars(plate), rows = vars(amplicon),
+                         resect = unit(1, "mm"), nest_line = TRUE) +
+  scale_fill_gradient(low = "gray80", high = "black") +
+  coord_equal() +
+  scale_color_discrete(name = "Sample group") +
+  scale_x_continuous(breaks = 1:9) +
+  theme(strip.background = element_blank())
+    
+```
+
+(ref:dna-conc) DNA concentration in soil extracts.
+
+```{r dna-conc, fig.cap = "(ref:dna-conc)"}
+readxl::read_xls(here("config/Brendan soil samples DNA quantification.xls"),
+                 col_types = c("text", "text", "numeric")) %>%
+  filter(str_detect(Sample, "(T\\d-S\\d+|V\\dP\\d T\\d+)")) %>%
+  rename(year = Year) %>%
+  # Sample name is actually three pieces of information
+  tidyr::extract("Sample", c("site", "x", "qual"),
+                 "(V1P[13]|T[12])[ -][ST](\\d+)(\\D*)$") %>%
+  dplyr::mutate_at("x", as.integer) %>%
+  # Sites were recorded differently in the two years
+  dplyr::mutate(
+    year = factor(year),
+    site = dplyr::case_when(site == "V1P1" ~ "Ang",
+                                        site == "V1P3" ~ "Gan",
+                                        site == "T1" ~ "Gan",
+                                        site == "T2" ~ "Ang",
+                                        TRUE ~ NA_character_)) %>%
+  # For some site/years, coordinates were measured from the edge of
+  # the plot rather than numbered from 1--25 
+  dplyr::group_by(year, site) %>%
+  dplyr::mutate(x = x - if (!any(is.na(x)) && max(x) > 25) 12 else 0) %>%
+  dplyr::ungroup() %>%
+  left_join(
+    readd(proto_physeq, cache = cache) %>%
+      sample_data() %>%
+      select(plate, row, column, site, year, qual, sample_type, x) %>%
+      mutate(row = LETTERS[row]) %>%
+      unique(),
+    by = c("site", "year", "qual", "x")
+  ) %>%
+  mutate(
+    row = factor(row, levels = rev(LETTERS[1:8])),
+    qual = ifelse(qual == "*", "", qual),
+    "Sample group" = coalesce(
+      str_c(site, year, qual),
+      as.character(sample_type)
+      )
+  ) %>%
+  ggplot(aes(x = column, y = row, fill = `Conc. (ng/µl)`, color = `Sample group`)) +
+  geom_tile(size = 0.4, height = 0.9, width = 0.9) +
+  ggnomics::facet_nested(cols = vars(plate),
+                         resect = unit(1, "mm"), nest_line = TRUE) +
+  scale_fill_gradient(low = "gray80", high = "black", na.value = "white") +
+  coord_equal() +
+  scale_color_discrete(name = "Sample group") +
+  scale_x_continuous(breaks = 1:9) +
+  theme(strip.background = element_blank())
+
+```
+
+```{r}
+physeq <- readd(proto_physeq, cache = cache) %>%
+  `sample_data<-`(inset2(
+    sample_data(.),
+    "qual",
+    value = fct_collapse(sample_data(.)$qual, "-" = c("", "*"))
+    )) %>%
+  merge_samples(group = glue::glue_data(
+    sample_data(.),
+    "{year}_{qual}_{tech}_{amplicon}"
+  ))
+
+ranks <- c("root", "kingdom", "phylum", "class", "order", "family", "genus")
+physeq <- readd(taxon_reads, cache = cache) %>%
+  mutate(root = "Root") %>%
+  group_by(label) %>%
+  arrange(amplicon, reference, Algorithm, .by_group = TRUE) %>%
+  summarize_at(ranks, first) %>%
+  left_join(
+    tibble(label = taxa_names(physeq)),
+    .,
+    by = "label"
+  ) %>% {
+    split(select(., -label), .$label)
+  } %>%
+  lapply(unlist) %>%
+  build_tax_table() %>%
+  `tax_table<-`(physeq, .) %>%
+  tax_glom(taxrank = "family", NArm = FALSE)
+```
+
+```{r}
+taxmap <- metacoder::parse_phyloseq(physeq)
+taxmap$data$otu_table <- metacoder::calc_obs_props(taxmap, "otu_table")
+taxmap$data$read_count <- metacoder::calc_taxon_abund(taxmap, "otu_table")
+taxmap$data$read_diff <- metacoder::compare_groups(taxmap, "read_count", cols = c("2016_-_PacBio_long", "2016_X_PacBio_long"), groups = c("Xpedition", "Lifeguard"))
+```
+
+```{r}
+taxmap$data$read_diff <- metacoder::compare_groups(taxmap, "read_count", cols = c("2016_-_PacBio_long", "2016_X_PacBio_long"), groups = c("Xpedition", "Lifeguard"))
+taxa::filter_taxa(
+  taxmap,
+  taxmap$data$read_count$`2016_-_PacBio_long` > 0 |
+    taxmap$data$read_count$`2016_X_PacBio_long` > 0,
+  drop_obs = TRUE,
+  reassign_obs = FALSE
+  ) %>%
+metacoder::heat_tree(
+  node_label = taxon_names,
+  node_color = log2_median_ratio,
+  node_size = rowMeans(.$data$read_count[-1]),
+  node_color_range = metacoder::diverging_palette(),
+  edge_size_interval = c(0, 0.3),
+  output_file = here("temp/buffer.pdf")
+)
+
+```
+
+```{r}
+taxmap$data$read_diff <- metacoder::compare_groups(
+  taxmap,
+  "read_count",
+  cols = c("2015_-_PacBio_long", "2016_X_PacBio_long", "2016_-_PacBio_long"),
+  groups = c("Xpedition 2015", "Xpedition 2016", "Lifeguard 2016")
+)
+taxa::filter_taxa(
+  taxmap,
+  taxmap$data$read_count$`2015_-_PacBio_long` > 0 |
+    taxmap$data$read_count$`2016_X_PacBio_long` > 0 |
+    taxmap$data$read_count$`2016_-_PacBio_long` > 0,
+  drop_obs = TRUE,
+  reassign_obs = FALSE
+  ) %>%
+metacoder::heat_tree_matrix(
+  "read_diff",
+  node_label = taxon_names,
+  node_color = log2_median_ratio,
+  node_size = rowMeans(.$data$read_count[-1]),
+  node_color_range = metacoder::diverging_palette(),
+  edge_size = rowMeans(.$data$read_count[-1]),
+  edge_size_range = c(0, 0.03),
+  edge_size_trans = "linear",
+  node_size_range = c(0, 0.03),
+  node_label_size_range = c(0.005, 0.03),
+  layout = "davidson-harel",
+  initial_layout = "reingold-tilford",
+  output_file = here("temp/compare_long.pdf")
+)
+
+```
+
+
+```{r}
+taxmap$data$read_diff <- metacoder::compare_groups(
+  taxmap,
+  "read_count",
+  cols = c("2015_-_PacBio_short", "2016_X_PacBio_short", "2016_-_PacBio_short"),
+  groups = c("Xpedition 2015", "Xpedition 2016", "Lifeguard 2016")
+)
+taxa::filter_taxa(
+  taxmap,
+  taxmap$data$read_count$`2015_-_PacBio_short` > 0 |
+    taxmap$data$read_count$`2016_X_PacBio_short` > 0 |
+    taxmap$data$read_count$`2016_-_PacBio_short` > 0,
+  drop_obs = TRUE,
+  reassign_obs = FALSE
+  ) %>%
+metacoder::heat_tree_matrix(
+  "read_diff",
+  node_label = taxon_names,
+  node_color = log2_median_ratio,
+  node_size = rowMeans(.$data$read_count[-1]),
+  node_color_range = metacoder::diverging_palette(),
+  edge_size = rowMeans(.$data$read_count[-1]),
+  edge_size_range = c(0.0002, 0.03),
+  edge_size_trans = "linear",
+  node_size_range = c(0.0002, 0.03),
+  node_label_size_range = c(0.005, 0.03),
+  layout = "davidson-harel",
+  initial_layout = "reingold-tilford",
+  output_file = here("temp/compare_short.pdf")
+)
+
+```
+
+```{r}
+pseq <- readd(proto_physeq, cache = cache) %>%
+  `sample_data<-`(inset2(
+    sample_data(.),
+    "qual",
+    value = fct_collapse(sample_data(.)$qual, "-" = c("", "*"))
+    ))
+
+sample_data(pseq) %>%
+  select(.tech = tech, .amplicon = amplicon, .site = site, .year = year, .qual = qual) %>%
+  filter(.tech != "Ion Torrent", !is.na(.site), !is.na(.year)) %>%
+  unique() %>%
+  rowwise() %>%
+  pmap_dfr(
+    function(.tech, .amplicon, .site, .year, .qual, phyloseq) {
+      selection <- with(sample_data(phyloseq), tech == .tech &
+          amplicon == .amplicon &
+          site == .site &
+          year == .year &
+          qual == .qual)
+      eval(substitute(
+        subset_samples(
+        phyloseq,
+        subset = selection
+      ),
+      list(selection = selection))) %>% 
+        prune_samples(samples = rowSums(otu_table(.)) > 0) %>%
+        prune_taxa(taxa = colSums(otu_table(.)) > 0) %>% {
+        full_join(
+        distance(., "bray") %>% broom::tidy() %>% rename(bray = distance),
+        sample_data(.) %>% rownames_to_column() %$% set_names(x, rowname) %>% dist() %>% broom::tidy()
+      )
+      } %>%
+        mutate(
+          tech = .tech,
+          amplicon = .amplicon,
+          site = .site,
+          year = .year,
+          qual = .qual
+        )
+    },
+    phyloseq = pseq
+  ) %>%
+  group_by(distance, tech, amplicon, site, year, qual) %>%
+  summarize(bray = mean(bray, na.rm = TRUE), n = n()) %>%
+  ggplot(aes(distance, bray, size = n)) +
+  # geom_hline(data = variog_sills, aes(yintercept = sills), linetype = "dashed", color = "gray50") +
+  # geom_vline(data = variog_data, aes(xintercept = range), linetype = "dashed", color = "gray50") +
+  # geom_jitter(shape = 46, alpha = 0.5) +
+  # geom_line(size = 1.5, alpha = 0.5) +
+  geom_point(alpha = 0.5) +
+  # geom_smooth(data = variog_points, aes(fill = timelag), color = FALSE, alpha = 0.5) +
+  scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
+  scale_y_continuous(name = "Community dissimilarity") +
+  ggnomics::facet_nested(year + qual + site ~ amplicon)
 ```
 

@@ -50,12 +50,14 @@ read_platemap <- function(filename, sheet, skip = 2) {
     tidyr::extract("Sample", c("site", "x", "qual"),
                    "(V1P[13]|T[12])[ -][ST](\\d+)(\\D*)$") %>%
     dplyr::mutate_at("x", as.integer) %>%
-    # Sites were recorded differently in the two years
-    dplyr::mutate(site = dplyr::case_when(site == "V1P1" ~ "Ang",
-                                          site == "V1P3" ~ "Gan",
-                                          site == "T1" ~ "Gan",
-                                          site == "T2" ~ "Ang",
-                                          TRUE ~ NA_character_)) %>%
+    # Sites and qualities were recorded differently in the two years
+    dplyr::mutate(
+      site = dplyr::case_when(site == "V1P1" ~ "Ang",
+                              site == "V1P3" ~ "Gan",
+                              site == "T1" ~ "Gan",
+                              site == "T2" ~ "Ang",
+                              TRUE ~ NA_character_)
+    ) %>%
     # For some site/years, coordinates were measured from the edge of
     # the plot rather than numbered from 1--25 
     dplyr::group_by(year, site) %>%
@@ -67,11 +69,19 @@ read_platemap <- function(filename, sheet, skip = 2) {
     dplyr::mutate_at("row", factor, levels = LETTERS[1:8]) %>%
     dplyr::mutate_at(c("column", "row"), as.integer) %>%
     # The comment column tells us about blanks and controls.
-    dplyr::mutate(sample_type =
-                    factor(comment,
-                           levels = c("Blank", "Pos", "Pos. Kontroll")) %>%
-                    forcats::fct_collapse(Blank = "Blank",
-                                          Pos = c("Pos", "Pos. Kontroll")) %>%
-                    forcats::fct_explicit_na("Sample")) %>%
+    dplyr::mutate(
+      sample_type =
+        factor(comment,
+               levels = c("Blank", "Pos", "Pos. Kontroll")) %>%
+        forcats::fct_collapse(Blank = "Blank",
+                              Pos = c("Pos", "Pos. Kontroll")) %>%
+        forcats::fct_explicit_na("Sample"),
+      buffer = dplyr::case_when(
+        year == "2015" & sample_type == "Sample" ~ "Xpedition",
+        year == "2016" & qual == "X" ~ "Xpedition",
+        year == "2016" & sample_type == "Sample" ~ "LifeGuard",
+        TRUE ~ NA_character_
+      )
+    ) %>%
     dplyr::mutate_at("plate", formatC, width = 3, flag = "0")
 }

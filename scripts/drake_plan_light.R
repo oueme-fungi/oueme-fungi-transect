@@ -15,6 +15,8 @@ library(disk.frame)
 
 source(file.path(config$rdir, "variogram.R"))
 source(file.path(config$rdir, "qstats.R"))
+source(file.path(config$rdir, "taxonomy.R"))
+source(file.path(config$rdir, "plate_check.R"))
 
 choosevars <- function(d, g, .data) {
   .data %>%
@@ -301,8 +303,9 @@ plan2 <- drake_plan(
       }
       physeq <- physeq %>%
         phyloseq::subset_samples(sample_type == "Sample") %>%
-        phyloseq::subset_samples(qual == "X" | year == "2015") %>%
-        phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0 ) %>%
+        phyloseq::subset_samples(buffer == "Xpedition") %>%
+        phyloseq::subset_samples(site == "Gan") %>%
+        phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100 ) %>%
         phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["tech"]] == tech) %>%
         phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["amplicon"]] == amplicon)
       
@@ -868,6 +871,30 @@ plan2 <- drake_plan(
         reassign_obs = FALSE
       )
       
+      retaxa_table <- tibble::tibble(
+        classification = out$classifications(),
+        id = out$taxon_ids()
+      ) %>%
+        group_by(classification) %>%
+        mutate(newid = first(id)) %>%
+        filter(id != newid)
+      for (n in names(out$data)) {
+        if ("taxon_id" %in% names(out$data[[n]]))
+        out$data[[n]]$taxon_id <- plyr::mapvalues(
+          out$data[[n]]$taxon_id,
+          retaxa_table$id,
+          retaxa_table$newid,
+          FALSE
+        )
+      }
+      for (n in c("asv_table", "read_table", "tax_asv", "tax_read")) {
+        out$data[[n]] <- out$data[[n]] %>%
+          group_by(taxon_id) %>%
+          summarize_all(sum)
+      }
+      out <- out$filter_taxa(!taxon_ids %in% retaxa_table$id, drop_obs = TRUE,
+                             reassign_obs = FALSE, reassign_taxa = FALSE)
+      
       out$data$tax_read$mean = rowMeans(out$data$tax_read[,-1])
       out$data$tax_read$max = do.call(pmax, out$data$tax_read[,-1])
       out$data$tax_asv$mean = rowMeans(out$data$tax_asv[,-1])
@@ -965,6 +992,30 @@ plan2 <- drake_plan(
       !dangling_taxa | taxon_names == "Fungi",
       reassign_obs = FALSE
     )
+    
+    retaxa_table <- tibble::tibble(
+      classification = out$classifications(),
+      id = out$taxon_ids()
+    ) %>%
+      group_by(classification) %>%
+      mutate(newid = first(id)) %>%
+      filter(id != newid)
+    for (n in names(out$data)) {
+      if ("taxon_id" %in% names(out$data[[n]]))
+        out$data[[n]]$taxon_id <- plyr::mapvalues(
+          out$data[[n]]$taxon_id,
+          retaxa_table$id,
+          retaxa_table$newid,
+          FALSE
+        )
+    }
+    for (n in c("asv_table", "read_table", "tax_asv", "tax_read")) {
+      out$data[[n]] <- out$data[[n]] %>%
+        group_by(taxon_id) %>%
+        summarize_all(sum)
+    }
+    out <- out$filter_taxa(!taxon_ids %in% retaxa_table$id, drop_obs = TRUE,
+                           reassign_obs = FALSE, reassign_taxa = FALSE)
     
     out$data$tax_read$mean = rowMeans(out$data$tax_read[,-1])
     out$data$tax_read$max = do.call(pmax, out$data$tax_read[,-1])
