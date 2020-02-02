@@ -58,6 +58,6 @@ q_stats.character <- function(sreadq, ..., qualityType = "FastqQuality") {
 
 parse_qstat <- function(d) {
   mutate_at(d, "file", basename) %>%
-    tidyr::extract(col = "file", into = c("seq_run", "plate", "well"),
-                   regex = "([pi][bs]_\\d{3})_(\\d{3})-?([A-H]1?\\d)?[rf]?[.].*")
+    tidyr::extract(col = "file", into = c("seq_run", "plate", "well", "read"),
+                   regex = "([piS][bsH][-_]\\d{3,4})_(\\d{3})-?([A-H]1?\\d)?(_R[12])?[rf]?[.].*")
 }

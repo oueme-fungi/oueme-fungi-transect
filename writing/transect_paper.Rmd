@@ -428,6 +428,7 @@ Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datase
 loadd(venn_ASV, cache = cache)
 
 venn_ASV %>%
+  filter(!is.na(ASVs)) %>%
   set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
   set_names(gsub("_", " ", names(.))) %>%
   kable(
@@ -509,17 +510,17 @@ vennplot_ASV <- venn_ASV %>%
                      magrittr::extract(LETTERS[seq_along(.)], .) %>%
                      paste(collapse = "&"))) %>%
   mutate(
-    reads_frac = paste(frac_pb_500, frac_pb_483, frac_is_057,
+    reads_frac = paste(frac_pb_500, frac_pb_483, frac_is_057, `frac_SH-2257`,
                        sep = "/") %>%
       gsub("/+", "/", .) %>%
       gsub("(^/|/$)", "", .),
     label = paste(ASVs, reads_frac, sep = "\n")
   )
 
-eulerr::venn(deframe(select(vennplot_ASV, set, ASVs))) %>%
+eulerr::venn(deframe(select(vennplot_ASV, set, ASVs)) %>% replace_na(0)) %>%
   plot(
     legend = list(
-      labels = c("PacBio Long", "PacBio Short", "Ion Torrent")
+      labels = c("PacBio Long", "PacBio Short", "Ion Torrent", "Illumina")
     ),
     quantities = vennplot_ASV$label,
     main = "ASV"
@@ -536,7 +537,7 @@ vennplot_OTU <- venn_OTU %>%
                      magrittr::extract(LETTERS[seq_along(.)], .) %>%
                      paste(collapse = "&"))) %>%
   mutate(
-    reads_frac = paste(frac_pb_500, frac_pb_483, frac_is_057,
+    reads_frac = paste(frac_pb_500, frac_pb_483, frac_is_057, `frac_SH-2257`,
                        sep = "/") %>%
       gsub("/+", "/", .) %>%
       gsub("(^/|/$)", "", .),
@@ -596,7 +597,7 @@ read_comparison <- function(multi_table, comparisons, type) {
     ggplot(aes(y = y, x = x)) +
     geom_point(alpha = 0.2, shape = 1) +
     scale_x_log10() +
-    scale_y_log10(limits = c(1, 1e4)) +
+    scale_y_log10() +
     coord_equal() +
     xlab(NULL) +
     ylab(NULL) +
@@ -604,15 +605,15 @@ read_comparison <- function(multi_table, comparisons, type) {
              data = multi_table %>% filter(x == 0, y > 0)) +
     geom_rug(aes(x = x), sides = "b", alpha = 0.2,
              data = multi_table %>% filter(y == 0, x > 0)) +
-    facet_grid(y_var ~ x_var, switch = "both", space = "free", ) +
+    facet_grid(y_var ~ x_var, switch = "both", space = "free") +
     stat_smooth(method = "loess", formula = y ~ x) +
     geom_abline(aes(intercept = `(Intercept)`, slope = 1),
                 linetype = 2L, alpha = 0.5, data = comparisons) +
     geom_text(
       aes(label = label),
       data = comparisons,
-      x = 0.5,
-      y = 3.5,
+      x = 0.2,
+      y = 5.5,
       color = "black",
       hjust = 0,
       parse = TRUE,
@@ -620,8 +621,8 @@ read_comparison <- function(multi_table, comparisons, type) {
     ) +
     theme(strip.placement = "outside", strip.background = element_blank())
   g <- ggplotGrob(p)
-  g$grobs[g$layout$name %in% c("panel-1-2")] <- NULL
-  g$layout <- g$layout[!(g$layout$name %in% c("panel-1-2")),]
+  g$grobs[g$layout$name %in% c("panel-1-2", "panel-1-3", "panel-2-3")] <- NULL
+  g$layout <- g$layout[!(g$layout$name %in% c("panel-1-2", "panel-1-3", "panel-2-3")),]
   g
 }
 ggpubr::ggarrange(
@@ -896,7 +897,7 @@ Groups which are not represented by at least 1% of reads or 1% of ASVs in any da
 ASVs which could not be further assigned are labelled "?".
 
 ```{r taxa, fig.cap = "(ref:taxa)", out.width="100%", fig.width = 8}
-set.seed(4)
+set.seed(2)
 readd(taxdata, cache = cache) %>%
   metacoder::heat_tree(
     layout = "davidson-harel",
@@ -904,14 +905,14 @@ readd(taxdata, cache = cache) %>%
     node_size = rowMeans(.$data$tax_read[,-1]),
     node_color = rowMeans(.$data$tax_read[,-1]),
     node_label = replace_na(taxon_names, "unknown"),
-    node_size_range = c(0.005, .035),
+    node_size_range = c(0.002, .035),
     node_size_axis_label = "Read abundance",
     node_color_axis_label = "Read abundance",
     node_label_size_range = c(0.01, 0.03),
     edge_size = rowMeans(.$data$tax_asv[,-1]),
     edge_size_trans = "linear",
     edge_size_axis_label = "ASV count",
-    edge_size_range = c(0.0025, 0.03),
+    edge_size_range = c(0.001, 0.03),
     edge_color = rowMeans(.$data$tax_asv[,-1]),
     edge_color_axis_label = "ASV count",
     # aspect_ratio = 3/2,
@@ -1044,7 +1045,7 @@ light_plan %>%
   scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
   scale_color_discrete(name = "Time lag") +
   xlab("Distance (m)") +
-  facet_grid(metric + amplicon ~ guild, scales = "fixed") +
+  ggnomics::facet_nested(metric + tech + amplicon ~ guild, scales = "fixed") +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1))
 ```
 
@@ -1121,7 +1122,7 @@ variog_empir %>%
   scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
   scale_color_discrete(name = "Time lag") +
   scale_y_continuous(name = "Community dissimilarity") +
-  facet_grid(metric + amplicon ~ guild, scales = "free")
+  ggnomics::facet_nested(metric + tech + amplicon ~ guild, scales = "free")
 
 ```
 
@@ -1131,8 +1132,8 @@ variog_empir %>%
 variog_data %>%
   mutate_at("variofitST", lapply, purrr::compose(as.data.frame, as.list, gstat::extractPar)) %>%
   unnest(variofitST) %>%
-  arrange(metric, amplicon, guild) %>%
-  select(Guild = guild, Amplicon = amplicon, Metric = metric,
+  arrange(metric, amplicon, tech, guild) %>%
+  select(Guild = guild, Amplicon = amplicon, Tech = tech, Metric = metric,
          Range = range, Anisotropy = anis) %>%
   mutate(Range = 3*Range,
          "Time Range" = Range/Anisotropy,
@@ -1143,7 +1144,7 @@ variog_data %>%
   mutate_at("Time Range", paste, "a") %>%
   mutate_at("Time Range", str_replace, "NA a", "-") %>%
   mutate_at("Amplicon", fct_relabel, str_replace, " amplicon", "") %>%
-  select(Guild, Amplicon, Metric, "Space Range" = Range, "Time Range") %>%
+  select(Guild, Amplicon, Tech, Metric, "Space Range" = Range, "Time Range") %>%
   kable(booktabs = TRUE, caption = "(ref:variofit)")
 ```
 
@@ -1226,7 +1227,8 @@ ggtree::ggtree(extree) +
 (ref:full-length) Comparison of the length of sequences from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
 
 ```{r full-length, fig.cap = "(ref:full-length)", fig.height = 6}
-full_dens <- reads_table %>%
+full_dens <- 
+  readd(reads_table, cache = cache) %>%
   dplyr::left_join(dplyr::select(datasets, seq_run, tech)) %>%
   dplyr::filter(region %in% c("long", "short")) %>%
   dplyr::group_by(seq_run) %>%
@@ -1242,16 +1244,18 @@ full_dens <- reads_table %>%
   scale_x_continuous(name = NULL) +
   facet_wrap(~tech + amplicon, ncol = 1, strip.position = "right", scales = "free_y")
 
-full_ecdf <- reads_table %>%
+full_ecdf <- readd(reads_table, cache = cache) %>%
   dplyr::filter(region  %in% c("long", "short")) %>%
   dplyr::group_by(seq_run) %>%
   dplyr::mutate(reads = reads / sum(reads)) %>%
   ggplot(aes(length, weight = reads, color = seq_run, group = seq_run)) +
   stat_ecdf(geom = "line") +
-  scale_color_brewer(type = "qual", labels = c("Short amplicon - Ion", "Short amplicon - PacBio", "Long amplicon - PacBio"), name = NULL, palette = "Set2") +
+  scale_color_brewer(type = "qual",
+                     labels = c("Short - Ion", "Short - PacBio", "Long - PacBio", "Short - Illumina"),
+                     name = NULL, palette = "Set2") +
   scale_y_continuous(name = "Cumulative read fraction") +
   scale_x_continuous(name = "Length (bp)") +
-  theme(legend.position = c(0.98, 0.02), legend.justification = c(1, 0))
+  theme(legend.position = c(1, 0.02), legend.justification = c(1, 0), legend.background = element_blank())
 
 ggpubr::ggarrange(full_dens, full_ecdf, ncol = 1, labels = "auto")
 ```
@@ -1273,7 +1277,7 @@ regions %>%
 (ref:region-asv) Plot of total number of ASVs recovered vs. fraction of reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`. Some reggions were formed by concatenation of extracted regions, as follows: LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4; ITS = ITS1--5.8S--ITS2; 32S = 5.8S--ITS2--LSU; long = ITS--LSU. For this figure, subregions were concatenated prior to generating ASVs with `DADA2`.
 
 ```{r regions, fig.cap="(ref:region-asv)"}
-region_table %>%
+readd(region_table, cache = cache) %>%
   dplyr::filter(seq_run == "pb_500") %>%
   ggplot(aes(reads, ASVs, color = length_med, label = region)) +
   geom_point() +
@@ -1302,7 +1306,7 @@ region_limits <- dplyr::filter(regions, region %in% baseregions) %>%
   )
   
 
-reads_table %>%
+readd(reads_table, cache = cache) %>%
   dplyr::filter(region %in% baseregions,
          seq_run == "pb_500") %>%
   dplyr::mutate_at(
@@ -1323,7 +1327,7 @@ reads_table %>%
 (ref:ITS2-length) Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
 
 ```{r ITS2-length, fig.cap = "(ref:ITS2-length)", fig.height = 6}
-its2_dens <- reads_table %>%
+its2_dens <- readd(reads_table, cache = cache) %>%
   dplyr::left_join(dplyr::select(datasets, seq_run, tech)) %>%
   dplyr::filter(region == "ITS2") %>%
   dplyr::group_by(seq_run) %>%
@@ -1339,7 +1343,7 @@ its2_dens <- reads_table %>%
   scale_x_continuous(name = NULL) +
   facet_wrap(~tech + amplicon, ncol = 1, strip.position = "right", scales = "free_y")
 
-its2_ecdf <- reads_table %>%
+its2_ecdf <- readd(reads_table, cache = cache) %>%
   dplyr::filter(region == "ITS2") %>%
   dplyr::group_by(seq_run) %>%
   dplyr::mutate(reads = reads / sum(reads)) %>%
@@ -1389,14 +1393,14 @@ taxdata2$data$diff_asv <- metacoder::compare_groups(
   }
 )
 
-set.seed(4)
+set.seed(2)
 taxdata2 %>%
   metacoder::heat_tree(
     layout = "davidson-harel",
     # initial_layout = "reingold-tilford",
     
     node_size = rowMeans(.$data$tax_read[,-1]),
-    node_size_range = c(0.005, .035),
+    node_size_range = c(0.002, .035),
     node_size_axis_label = "Read abundance",
     
     node_color = read_ratio,
@@ -1406,7 +1410,7 @@ taxdata2 %>%
     node_color_interval = c(-6, 6),
 
     edge_size = rowMeans(.$data$tax_asv[,-1]),
-    edge_size_range = c(0.0025, 0.03),
+    edge_size_range = c(0.001, 0.03),
     edge_size_trans = "linear",
     edge_size_axis_label = "ASV count",
 
@@ -1478,7 +1482,7 @@ taxdata2 %>%
     initial_layout = "reingold-tilford",
     
     node_size = rowMeans(.$data$tax_read[,-1]),
-    node_size_range = c(0.01, .035),
+    node_size_range = c(0.002, .035),
     node_size_axis_label = "Read abundance",
     
     node_color = read_ratio,
@@ -1488,7 +1492,7 @@ taxdata2 %>%
     node_color_interval = c(-3, 3),
     
     edge_size = rowMeans(.$data$tax_asv[,-1]),
-    edge_size_range = c(0.005, 0.03),
+    edge_size_range = c(0.001, 0.03),
     edge_size_trans = "linear",
     edge_size_axis_label = "ASV count",
     
@@ -1534,7 +1538,7 @@ readd(proto_physeq, cache = cache) %>% {
   )
 } %>%
   filter(tech != "Ion Torrent", !is.na(year), !is.na(seq_run), !is.na(x)) %>%
-  complete(seq_run, tech, amplicon, site, x, nesting(year, qual)) %>%
+  complete(nesting(seq_run, tech, amplicon), site, x, nesting(year, qual)) %>%
   mutate(
     qual = fct_collapse(qual, " " = c("*", "")),
     "Sample group" = paste(year, qual)
@@ -1904,6 +1908,6 @@ sample_data(pseq) %>%
   # geom_smooth(data = variog_points, aes(fill = timelag), color = FALSE, alpha = 0.5) +
   scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
   scale_y_continuous(name = "Community dissimilarity") +
-  ggnomics::facet_nested(year + qual + site ~ amplicon)
+  ggnomics::facet_nested(year + qual + site ~ tech + amplicon)
 ```
 

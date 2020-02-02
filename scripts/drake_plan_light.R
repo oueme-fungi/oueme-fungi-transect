@@ -379,7 +379,7 @@ plan2 <- drake_plan(
       tidyr::extract(
         "sample",
         c("seq_run", "plate", "well", "region"),
-        regex = "([pi][bs]_\\d{3})_(\\d{3})_([A-H]1?\\d)_(.+)"
+        regex = "([piS][bsH][-_]\\d{3,4})_(\\d{3})_([A-H]1?\\d)_(.+)"
       ) %>%
       dplyr::group_by(seq_run, region, seq) %>%
       dplyr::summarize(reads = sum(reads)) %>%
@@ -438,18 +438,20 @@ plan2 <- drake_plan(
   },
   
   demuxlength =  parse_qstat(qstats_length) %>%
-    filter(is.na(step), !is.na(well)) %>%
+    filter(is.na(read) | read != "_R2") %>%
+    filter(is.na(step), !is.na(well), ) %>%
     group_by(seq_run) %>%
     summarize(length = reldist::wtd.quantile(length, weight = nreads)) %>%
     deframe(),
   
   demuxqual = parse_qstat(qstats_erate) %>%
+    filter(is.na(read) | read != "_R2") %>%
     filter(is.na(step), !is.na(well)) %>%
     group_by(seq_run) %>%
     summarize(qual = round(weighted.mean(erate, w = nreads, na.rm = TRUE), 4)) %>%
     deframe(),
   
-  readcounts = parse_qstat(qstats_n),
+  readcounts = parse_qstat(qstats_n) %>% filter(is.na(read) | read != "_R2"),
   
   rawcounts = readcounts %>%
     filter(is.na(step), is.na(well)) %>%
@@ -544,13 +546,17 @@ plan2 <- drake_plan(
   
   venn_ASV =
     asv_table %>%
-    select(seq, pb_500, pb_483, is_057) %>%
+    select(seq, pb_500, pb_483, is_057, `SH-2257`) %>%
     mutate_if(is.numeric, list(found = ~. > 0)) %>%
     group_by_at(vars(ends_with("_found"))) %>%
     summarize_if(is.numeric, list(ASVs = ~sum(. > 0), reads = sum)) %>%
     ungroup() %>%
     mutate_at(vars(ends_with("_found")), as.integer) %>%
-    tidyr::unite(col = "set", 1:3, sep = "") %>%
+    complete(pb_500_found, pb_483_found, is_057_found, `SH-2257_found`) %>%
+    mutate_if(is.integer, replace_na, 0L) %>%
+    mutate_if(is.double, replace_na, 0L) %>%
+    tidyr::unite(col = "set", 1:4, sep = "") %>%
+    filter(set != "0000") %>%
     pivot_longer(
       -1,
       names_to = c("seq_run", "what"),
@@ -592,18 +598,23 @@ plan2 <- drake_plan(
     } %>%
     mutate(n = str_count(set, "1")) %>%
     arrange(n, desc(set)) %>%
-    select(set, ASVs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057")) %>%
+    select(set, ASVs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057"), ends_with("SH-2257")) %>%
     column_to_rownames("set"),
   
   venn_OTU =
     otu_table %>%
-    select(seq, pb_500, pb_483, is_057) %>%
+    select(seq, pb_500, pb_483, is_057, `SH-2257`) %>%
     mutate_if(is.numeric, list(found = ~. > 0)) %>%
     group_by_at(vars(ends_with("_found"))) %>%
     summarize_if(is.numeric, list(OTUs = ~sum(. > 0), reads = sum)) %>%
     ungroup() %>%
     mutate_at(vars(ends_with("_found")), as.integer) %>%
-    tidyr::unite(col = "set", 1:3, sep = "") %>%
+    complete(pb_500_found, pb_483_found, is_057_found, `SH-2257_found`) %>%
+    mutate_if(is.integer, replace_na, 0L) %>%
+    mutate_if(is.double, replace_na, 0L) %>%
+    tidyr::unite(col = "set", 1:4, sep = "") %>%
+    filter(set != "0000") %>%
+    tidyr::unite(col = "set", 1:4, sep = "") %>%
     pivot_longer(
       -1,
       names_to = c("seq_run", "what"),
@@ -645,7 +656,7 @@ plan2 <- drake_plan(
     } %>%
     mutate(n = str_count(set, "1")) %>%
     arrange(n, desc(set)) %>%
-    select(set, OTUs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057")) %>%
+    select(set, OTUs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057"), ends_with("SH-2257")) %>%
     column_to_rownames("set"),
   
   big_table = {
@@ -772,7 +783,7 @@ plan2 <- drake_plan(
       levels = c("All", "unite", "warcup", "rdp_train"),
       labels = c("All", "Unite", "Warcup", "RDP")
     ) %>%
-      mutate_at("tech", factor, levels = c("PacBio", "Ion Torrent")) %>%
+      mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
       rename(Algorithm = method) %>%
       mutate(
         Taxonomy = paste(kingdom, phylum, class, order, family, genus, sep = ";") %>%
@@ -818,7 +829,7 @@ plan2 <- drake_plan(
               d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
                 summarize_at(c("reads", "ASVs"), sum)
               if (max(c((d$reads), (d$ASVs))) < 0.01) {
-                mutate_at(x, rev(ranks)[i], ~"...")
+                mutate_at(x, rev(ranks)[i], ~"*")
               } else {
                 x
               }
@@ -860,15 +871,15 @@ plan2 <- drake_plan(
           value = "taxon_names",
           na = TRUE
         )
-      ) %in% c("?", "...")
-      unknown_taxa <- out$taxon_names() %in% c("?", "...")
+      ) %in% c("?", "*")
+      unknown_taxa <- out$taxon_names() %in% c("?", "*")
       out <- out$filter_taxa(
         !(child_of_unknown & unknown_taxa) | taxon_names == "Root",
         reassign_obs = FALSE
       )
       dangling_taxa <- map_lgl(
         out$subtaxa(recursive = FALSE)[unlist(out$supertaxa(recursive = FALSE, na = TRUE))],
-        ~all(out$taxon_names()[.] %in% c("?", "...") | is.na(out$taxon_names()[.]))
+        ~all(out$taxon_names()[.] %in% c("?", "*") | is.na(out$taxon_names()[.]))
       )
       out <- out$filter_taxa(
         !dangling_taxa | taxon_names == "Root",
@@ -941,7 +952,7 @@ plan2 <- drake_plan(
             d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
               summarize_at(c("reads", "ASVs"), sum)
             if (max(c((d$reads), (d$ASVs))) < 0.01) {
-              mutate_at(x, rev(ranks)[i], ~"...")
+              mutate_at(x, rev(ranks)[i], ~"*")
             } else {
               x
             }
@@ -983,14 +994,14 @@ plan2 <- drake_plan(
         value = "taxon_names",
         na = TRUE
       )
-    ) %in% c("?", "...")
+    ) %in% c("?", "*")
     out <- out$filter_taxa(
       !child_of_unknown | taxon_names == "Fungi",
       reassign_obs = FALSE
     )
     dangling_taxa <- map_lgl(
       out$subtaxa(recursive = FALSE)[unlist(out$supertaxa(recursive = FALSE, na = TRUE))],
-      ~all(out$taxon_names()[.] %in% c("?", "...") | is.na(out$taxon_names()[.]))
+      ~all(out$taxon_names()[.] %in% c("?", "*") | is.na(out$taxon_names()[.]))
     )
     out <- out$filter_taxa(
       !dangling_taxa | taxon_names == "Fungi",
