@@ -9,7 +9,7 @@
 #SBATCH -t 4-00:00:00
 #SBATCH -J oueme-fungi-transect
 #SBATCH -C usage_mail
-#SBATCH -M snowy
+#SBATCH -M rackham
 #SBATCH --mail-type=ALL
 #SBATCH --output="logs/snakemake-%j.log"
 #SBATCH --error="logs/snakemake-%j.log"
