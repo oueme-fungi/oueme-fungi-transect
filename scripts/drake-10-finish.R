@@ -16,18 +16,26 @@ setup_log("finish")
 # using the resources of the master computer.
 targets <- purrr::discard(od, grepl, pattern = "iterate") %>%
   purrr::discard(grepl, pattern = "epa") %>%
-  purrr::discard(grepl, pattern = "mafft")
+  purrr::discard(grepl, pattern = "mafft") %>%
+  purrr::discard(endsWith, "_full")
 
 jobs <- local_cpus()
-ncpu <- 1
+ncpus <- 1
 options(clustermq.scheduler = "multicore")
 
+if (jobs > 1 && length(targets) > 1) parallelism <- "clustermq" else parallelism <- "loop"
+
 if (length(targets)) {
-  flog.info("Making all remaining targets (loop)...")
+  flog.info(
+    "Making all remaining targets: [%s] (%s with %d job(s) of %d core(s))...",
+    paste(targets, collapse = ","),
+    parallelism,
+    jobs,
+    ncpus
+  )
   tictoc::tic()
-  future::plan(strategy = "multiprocess")
   dconfig <- drake::drake_config(plan,
-       parallelism = "clustermq",
+       parallelism = parallelism,
        jobs_preprocess = local_cpus(),
        jobs = jobs,
        retries = 2,

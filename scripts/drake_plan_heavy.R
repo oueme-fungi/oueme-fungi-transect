@@ -578,7 +578,7 @@ plan <- drake_plan(
       cm_32S = file_in(!!config$cm_32S),
       glocal = TRUE,
       ITS1 = FALSE,
-      cpu = ncpus
+      cpu = ignore(ncpus)
     ) %>%
       dplyr::rename(seq = seq_name) %>%
       gather_regions(),
