@@ -1180,10 +1180,11 @@ plan <- drake_plan(
     ),
     list.files(
       file_in(!!file.path(config$rawdir, datasets$dataset[datasets$tech == "Illumina"])),
-      pattern = ".fastq.gz",
-      full.names = TRUE
+      pattern = ".fastq.gz$",
+      full.names = TRUE,
+      recursive = TRUE
     )
-    ),
+  ),
     
   qstats_raw = target(
     q_stats(raw_fastq) %>% as.data.frame(),
