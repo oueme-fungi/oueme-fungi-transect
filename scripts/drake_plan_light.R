@@ -23,13 +23,17 @@ source(file.path(config$rdir, "plate_check.R"))
 choosevars <- function(d, g, .data) {
   .data %>%
     filter(type == g$type) %>%
-    select(type, x = !!g$x_var, y = !!g$y_var) %>%
+    select(type, x = !!paste(g$x_var, "-", g$x_amplicon), y = !!paste(g$y_var, "-", g$y_amplicon)) %>%
     filter(x > 0 | y > 0) %>%
-    mutate(x_var = g$x_var, y_var = g$y_var)
+    mutate(
+      x_var = g$x_var, 
+      x_amplicon = g$x_amplicon,
+      y_var = g$y_var,
+      y_amplicon = g$y_amplicon
+    )
 }
 
-datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc") %>%
-  mutate_at("amplicon", stringr::str_to_lower)
+datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc")
 physeq_meta <-
   tidyr::crossing(
     dplyr::select(datasets, "seq_run", "tech", "dataset", "amplicon"),
@@ -239,7 +243,7 @@ plan2 <- drake_plan(
   guilds = target(
     phylotaxon$tip_taxa %>%
       dplyr::group_by(label, rank) %>%
-      dplyr::filter((!"ITS" %in% region) | region != "short") %>%
+      dplyr::filter((!"ITS" %in% region) | region != "Short") %>%
       dplyr::mutate(
         n_tot = dplyr::n(),
         n_diff = dplyr::n_distinct(taxon, na.rm = TRUE),
@@ -299,7 +303,7 @@ plan2 <- drake_plan(
   physeq = target(
     {
       physeq <- proto_physeq
-      if (amplicon == "long") {
+      if (amplicon == "Long") {
         phyloseq::phy_tree(physeq) <- fungi_tree_decipher_unconst_long
       }
       physeq <- physeq %>%
@@ -546,13 +550,13 @@ plan2 <- drake_plan(
   
   venn_ASV =
     asv_table %>%
-    select(seq, pb_500, pb_483, is_057, `SH-2257`) %>%
+    select(seq, pb_500, pb_483, `SH-2257`, is_057) %>%
     mutate_if(is.numeric, list(found = ~. > 0)) %>%
     group_by_at(vars(ends_with("_found"))) %>%
     summarize_if(is.numeric, list(ASVs = ~sum(. > 0), reads = sum)) %>%
     ungroup() %>%
     mutate_at(vars(ends_with("_found")), as.integer) %>%
-    complete(pb_500_found, pb_483_found, is_057_found, `SH-2257_found`) %>%
+    complete(pb_500_found, pb_483_found, `SH-2257_found`, is_057_found) %>%
     mutate_if(is.integer, replace_na, 0L) %>%
     mutate_if(is.double, replace_na, 0L) %>%
     tidyr::unite(col = "set", 1:4, sep = "") %>%
@@ -566,6 +570,11 @@ plan2 <- drake_plan(
     pivot_wider(names_from = "what", values_from = "value") %>%
     group_by(seq_run) %>%
     mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
+    bind_rows(
+      group_by(., seq_run) %>%
+        summarize_if(is.numeric, sum) %>%
+        mutate(set = "Total")
+    ) %>%
     mutate_at(
       vars(ends_with("_frac")),
       formatC,
@@ -596,25 +605,24 @@ plan2 <- drake_plan(
         by = "set"
       )
     } %>%
-    mutate(n = str_count(set, "1")) %>%
+    mutate(n = str_count(set, "1") + 5 * (set == "Total")) %>%
     arrange(n, desc(set)) %>%
-    select(set, ASVs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057"), ends_with("SH-2257")) %>%
+    select(set, ASVs, ends_with("pb_500"), ends_with("pb_483"), ends_with("SH-2257"), ends_with("is_057")) %>%
     column_to_rownames("set"),
   
   venn_OTU =
     otu_table %>%
-    select(seq, pb_500, pb_483, is_057, `SH-2257`) %>%
+    select(seq, pb_500, pb_483, `SH-2257`, is_057) %>%
     mutate_if(is.numeric, list(found = ~. > 0)) %>%
     group_by_at(vars(ends_with("_found"))) %>%
     summarize_if(is.numeric, list(OTUs = ~sum(. > 0), reads = sum)) %>%
     ungroup() %>%
     mutate_at(vars(ends_with("_found")), as.integer) %>%
-    complete(pb_500_found, pb_483_found, is_057_found, `SH-2257_found`) %>%
+    complete(pb_500_found, pb_483_found, `SH-2257_found`, is_057_found) %>%
     mutate_if(is.integer, replace_na, 0L) %>%
     mutate_if(is.double, replace_na, 0L) %>%
     tidyr::unite(col = "set", 1:4, sep = "") %>%
     filter(set != "0000") %>%
-    tidyr::unite(col = "set", 1:4, sep = "") %>%
     pivot_longer(
       -1,
       names_to = c("seq_run", "what"),
@@ -624,6 +632,11 @@ plan2 <- drake_plan(
     pivot_wider(names_from = "what", values_from = "value") %>%
     group_by(seq_run) %>%
     mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
+    bind_rows(
+      group_by(., seq_run) %>%
+        summarize_if(is.numeric, sum) %>%
+        mutate(set = "Total")
+    ) %>%
     mutate_at(
       vars(ends_with("_frac")),
       formatC,
@@ -654,9 +667,9 @@ plan2 <- drake_plan(
         by = "set"
       )
     } %>%
-    mutate(n = str_count(set, "1")) %>%
+    mutate(n = str_count(set, "1") + 5 * (set == "Total")) %>%
     arrange(n, desc(set)) %>%
-    select(set, OTUs, ends_with("pb_500"), ends_with("pb_483"), ends_with("is_057"), ends_with("SH-2257")) %>%
+    select(set, OTUs, ends_with("pb_500"), ends_with("pb_483"), ends_with("SH-2257"), ends_with("is_057")) %>%
     column_to_rownames("set"),
   
   big_table = {
@@ -674,21 +687,28 @@ plan2 <- drake_plan(
     out
   },
   
-  multi_table = crossing(
-    x_var = factor(glue::glue_data(datasets, "{tech} {machine} - {amplicon}"), ordered = TRUE),
-    y_var = factor(glue::glue_data(datasets, "{tech} {machine} - {amplicon}"), ordered = TRUE),
-    type = c("ASV", "OTU")
-  ) %>%
+  multi_table = 
+    datasets %>%
+    mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent"), ordered = TRUE) %>%
+    mutate_at("amplicon", factor, levels = c("Long", "Short"), ordered = TRUE) %>% 
+    arrange(tech, amplicon) %>%
+    mutate(var = paste(tech, machine) %>%
+             factor(ordered = TRUE, levels = unique(.))) %>% {
+      crossing(
+        select(., x_var = var, x_amplicon = amplicon),
+        select(., y_var = var, y_amplicon = amplicon),
+        type = c("ASV", "OTU")
+      ) 
+    } %>%
     filter(
-      x_var < y_var,
-      x_var %in% names(big_table),
-      y_var %in% names(big_table)
+      x_var < y_var | (x_var == y_var & x_amplicon < y_amplicon),
+      paste(x_var, x_amplicon, sep = " - ") %in% names(big_table),
+      paste(y_var, y_amplicon, sep = " - ") %in% names(big_table)
     ) %>%
-    mutate_all(as.character) %>%
-    group_by(x_var, y_var, type) %>%
+    group_by(x_var, x_amplicon, y_var, y_amplicon, type) %>%
     group_map(choosevars, .data = big_table) %>%
     bind_rows() %>%
-    group_by(x_var, y_var, type),
+    group_by(x_var, x_amplicon, y_var, y_amplicon, type),
   
   comparisons = multi_table %>%
     group_modify(
@@ -708,6 +728,7 @@ plan2 <- drake_plan(
     mutate(
       label = paste("R^2 ==", formatC(r.squared, format = "f", digits = 2))
     ),
+  
   taxon_reads = {
     out <- 
       proto_physeq %>%
@@ -1055,7 +1076,7 @@ plan2 <- drake_plan(
   },
   trace = TRUE
 ) %>%
-  dplyr::filter(ifelse(stringr::str_to_lower(amplicon) == '"short"', metric != '"wunifrac"', TRUE) %|% TRUE)
+  dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
 
 saveRDS(plan2, "data/plan/drake_light.rds")
 

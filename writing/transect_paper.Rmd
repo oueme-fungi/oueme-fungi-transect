@@ -188,8 +188,8 @@ Each sample was sealed in a plastic zipper bag and homogenized by shaking and ma
 Approximately 50 mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0 mL microtube containing 750 mL of lysis buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA) and lysed in the field using a handheld bead-beater (TerraLyser^TM^; Zymo Research Corporation).
 <!--The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis. -->
 
-An additional sample was collected at every sampling location in 2016 using an older batch of lysis buffer for preservation.
-Sequencing results for these samples were found not to be comparable with results from the newer batch, so these samples were not included in spatial analyses.
+An additional sample was collected at every sampling location (1-m spacing) in 2016 using LifeGuard^TM^ Soil Preservation Solution (MO BIO, Carlsbad, CA; USA) for preservation, without field lysis.
+Sequencing results for these samples were found not to be comparable with results preserved using the Xpedition^TM^ lysis buffer (Supplementary figure \@ref(fig:)), so these samples were not included in spatial analyses.
 However, reads from these sequences were included in the full bioinformatics workflow, including ASV calling, OTU clustering, and phylogenetic trees.
 
 <!-- ## Soil Chemistry
@@ -201,6 +201,7 @@ However, reads from these sequences were included in the full bioinformatics wor
 ## DNA extraction, amplification, and sequencing
 
 After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit (see above).
+Samples preserved using 
 DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
 
 Two different fragments of the nuclear rDNA were amplified (Figure \@ref(fig:rDNA)).
@@ -427,6 +428,19 @@ Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datase
 ```{r venn-table-asv}
 loadd(venn_ASV, cache = cache)
 
+linesep <- venn_ASV %>%
+  filter(!is.na(ASVs)) %>%
+  select(starts_with("reads")) %>%
+  mutate_all(nchar) %>%
+  as.matrix %>%
+  is_greater_than(0) %>%
+  rowSums %>%
+  rle() %$%
+  map(lengths, ~ c(rep("", . - 1), "\\addlinespace")) %>%
+  unlist() %>%
+  head(length(.) - 2) %>%
+  c("\\midrule")
+
 venn_ASV %>%
   filter(!is.na(ASVs)) %>%
   set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
@@ -434,7 +448,7 @@ venn_ASV %>%
   kable(
     booktabs = TRUE,
     caption = "(ref:venn-table-asv)",
-    linesep = c(rep("", 2), "\\addlinespace", rep("", 2), "\\addlinespace"),
+    linesep = linesep,
     align = ("rcrrcrrcrr"),
     row.names = FALSE
   ) %>%
@@ -465,13 +479,27 @@ venn_ASV %>%
 ```{r venn-table-otu}
 loadd(venn_OTU, cache = cache)
 
+
+linesep <- venn_OTU %>%
+  filter(!is.na(OTUs)) %>%
+  select(starts_with("reads")) %>%
+  mutate_all(nchar) %>%
+  as.matrix %>%
+  is_greater_than(0) %>%
+  rowSums %>%
+  rle() %$%
+  map(lengths, ~ c(rep("", . - 1), "\\addlinespace")) %>%
+  unlist() %>%
+  head(length(.) - 2) %>%
+  c("\\midrule")
+
 venn_OTU %>%
   set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
   set_names(gsub("_", " ", names(.))) %>%
   kable(
     booktabs = TRUE,
     caption = "(ref:venn-table-otu)",
-    linesep = c(rep("", 2), "\\addlinespace", rep("", 2), "\\addlinespace"),
+    linesep = linesep,
     align = ("rcrrcrrcrr"),
     row.names = FALSE
   ) %>%
@@ -503,6 +531,7 @@ In each region, the number of ASVs/OTUs is given above, while the fractions of r
 ```{r venn, fig.cap = "(ref:venn)", out.height = "30%", fig.show="hold"}
 vennplot_ASV <- venn_ASV %>%
   rownames_to_column("set") %>%
+  filter(set != "Total") %>%
   mutate(set = map_chr(set,
                        ~ strsplit(., "")[[1]] %>%
                      as.integer() %>%
@@ -528,8 +557,7 @@ eulerr::venn(deframe(select(vennplot_ASV, set, ASVs)) %>% replace_na(0)) %>%
 
 vennplot_OTU <- venn_OTU %>%
   rownames_to_column("set") %>%
-  mutate(n = str_count(set, "1")) %>%
-  arrange(n, desc(set)) %>%
+  filter(set != "Total") %>%
   mutate(set = map_chr(set,
                        ~ strsplit(., "")[[1]] %>%
                      as.integer() %>%
@@ -544,7 +572,7 @@ vennplot_OTU <- venn_OTU %>%
     label = paste(OTUs, reads_frac, sep = "\n")
   )
 
-eulerr::venn(deframe(select(vennplot_OTU, set, OTUs))) %>%
+eulerr::venn(deframe(select(vennplot_OTU, set, OTUs)) %>% replace_na(0)) %>%
   plot(
     legend = FALSE,
     labels = FALSE,
@@ -596,8 +624,18 @@ read_comparison <- function(multi_table, comparisons, type) {
     filter(x > 0, y > 0) %>%
     ggplot(aes(y = y, x = x)) +
     geom_point(alpha = 0.2, shape = 1) +
-    scale_x_log10() +
-    scale_y_log10() +
+    scale_x_log10(
+      breaks = c(1, 1000, 1000000),
+      labels = c("1", "1k", "1M"),
+      minor_breaks = c(10, 100, 10000, 100000),
+      limits = c(1, 1e6)
+    ) +
+    scale_y_log10(
+      breaks = c(1, 1000, 1000000),
+      labels = c("1", "1k", "1M"),
+      minor_breaks = c(10, 100, 10000, 100000),
+      limits = c(1, 1e6)
+    ) +
     coord_equal() +
     xlab(NULL) +
     ylab(NULL) +
@@ -605,17 +643,17 @@ read_comparison <- function(multi_table, comparisons, type) {
              data = multi_table %>% filter(x == 0, y > 0)) +
     geom_rug(aes(x = x), sides = "b", alpha = 0.2,
              data = multi_table %>% filter(y == 0, x > 0)) +
-    facet_grid(y_var ~ x_var, switch = "both", space = "free") +
+    ggnomics::facet_nested(y_amplicon + y_var ~ x_amplicon + x_var, switch = "both", space = "free", nest_line = TRUE) +
     stat_smooth(method = "loess", formula = y ~ x) +
     geom_abline(aes(intercept = `(Intercept)`, slope = 1),
                 linetype = 2L, alpha = 0.5, data = comparisons) +
     geom_text(
       aes(label = label),
       data = comparisons,
-      x = 0.2,
-      y = 5.5,
+      x = 6,
+      y = 0.7,
       color = "black",
-      hjust = 0,
+      hjust = 1,
       parse = TRUE,
       inherit.aes = FALSE
     ) +
@@ -632,39 +670,6 @@ ggpubr::ggarrange(
   labels = "auto",
   label.x = 0.9
 )
-
-read_comparison <- function(big_table, comparisons, x, y, xlab, ylab) {
-  x_var <- enquo(x)
-  y_var <- enquo(y)
-  big_table %>%
-  filter(!!x_var > 0, !!y_var > 0) %>%
-  ggplot(aes(x = !!x_var, y = !!y_var)) +
-  geom_point(alpha = 0.2, shape = 1) +
-  scale_x_log10() +
-  scale_y_log10(limits = c(1, 1e4)) +
-  coord_equal() +
-  xlab(xlab) +
-  ylab(ylab) +
-  geom_rug(aes(y = !!y_var, x = 1), sides = "l", alpha = 0.2,
-           data = big_table %>% filter(!!x_var == 0, !!y_var > 0)) +
-  geom_rug(aes(y = !!x_var), sides = "b", alpha = 0.2,
-           data = big_table %>% filter(!!y_var == 0, !!x_var > 0)) +
-  stat_smooth(method = "loess", formula = y ~ x) +
-  geom_abline(aes(intercept = mean(log10((!!y_var)[(!!y_var) >= 1])) -
-                    mean(log10((!!x_var)[(!!x_var) >= 1])), slope = 1),
-              linetype = 2L, alpha = 0.5) +
-  geom_text(
-    aes(label = label),
-    data = filter(comparisons, .data$x == quo_name(x_var), .data$y == quo_name(y_var)),
-    x = 1,
-    y = 3.5,
-    color = "black",
-    hjust = 0,
-    parse = TRUE,
-    inherit.aes = FALSE
-  ) +
-  facet_wrap(~type, strip.position = "right", scales = "free")
-}
 ```
 
 The number of ASVs and OTUs shared between the different sequencing strategies are shown in Tables \@ref(tab:venn-table-asv) and \@ref(tab:venn-table-otu), respectively, and graphically in figure \@ref(fig:venn).
@@ -708,7 +713,7 @@ readd(taxon_reads, cache = cache) %>%
   pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac") %>%
   ggplot(aes(x = rank, y = frac, ymax = frac, group = Algorithm, fill = Algorithm)) +
   ggnomics::facet_nested(
-    reference ~ type + tech + amplicon,
+    tech + amplicon ~ type + reference,
     resect = unit(1, "mm"),
     nest_line = TRUE,
     bleed = FALSE
@@ -898,6 +903,7 @@ ASVs which could not be further assigned are labelled "?".
 
 ```{r taxa, fig.cap = "(ref:taxa)", out.width="100%", fig.width = 8}
 set.seed(2)
+theme <- theme_update(panel.border = element_blank())
 readd(taxdata, cache = cache) %>%
   metacoder::heat_tree(
     layout = "davidson-harel",
@@ -920,6 +926,7 @@ readd(taxdata, cache = cache) %>%
     make_edge_legend = FALSE,
     output_file = here("temp/heattree.pdf")
   )
+theme_set(theme)
 ```
 
 
@@ -962,6 +969,7 @@ taxdata2 <- taxdata2$filter_taxa(!is.nan(asv_ratio), !is.nan(read_ratio),
                                  reassign_obs = FALSE)
 
 set.seed(2)
+theme <- theme_update(panel.border = element_blank())
 taxdata2 %>%
   metacoder::heat_tree(
     layout = "davidson-harel",
@@ -998,6 +1006,7 @@ taxdata2 %>%
     # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
     aspect_ratio = 3/2
   )
+theme_set(theme)
 ```
 
 
@@ -1011,7 +1020,7 @@ This suggests that even after `DADA2` denoising, the Ion Torrent dataset still i
 
 ## Distance decay
 
-(ref:correlog-cap) Mantel correlograms showing the correlation between Bray-Curtis (top two rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top row) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
+(ref:correlog-cap) Mantel correlograms showing the correlation between Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
 
 ```{r correlog, fig.cap="(ref:correlog-cap)"}
 
@@ -1027,8 +1036,8 @@ light_plan %>%
   mutate(
     tdist = paste(tdist, "year"),
     guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("all Fungi", "ECM")),
-    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "Weighted UNIFRAC")),
-    amplicon = factor(amplicon, levels = c("short", "long"), labels = c("short amplicon", "long amplicon"))
+    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
+    amplicon = factor(amplicon, levels = c("Short", "Long"))
   ) %>%
   mutate_at("target", purrr::map, readd, character_only = TRUE, cache = cache) %>%
   mutate_at("target", purrr::map, "mantel.res") %>%
@@ -1045,8 +1054,9 @@ light_plan %>%
   scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
   scale_color_discrete(name = "Time lag") +
   xlab("Distance (m)") +
-  ggnomics::facet_nested(metric + tech + amplicon ~ guild, scales = "fixed") +
-  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1))
+  ggnomics::facet_nested(metric + tech + amplicon ~ guild, scales = "fixed", nest_line = TRUE) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1)) +
+  theme(strip.background = element_blank())
 ```
 
 Figure \@ref(fig:correlog): 
@@ -1065,12 +1075,11 @@ variog_data <- light_plan %>%
   select(variofitST, variogST, guild, metric, tech, amplicon) %>%
   mutate_at(c("guild", "metric", "tech", "amplicon"), str_replace_all, "\"", "") %>%
   mutate(
-    guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("all Fungi", "ECM")),
-    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "Weighted UNIFRAC")),
+    guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("All Fungi", "ECM")),
+    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
     amplicon = factor(
       amplicon,
-      levels = c("short", "long"),
-      labels = c("short amplicon", "long amplicon")
+      levels = c("Short", "Long")
     )
   ) %>%
   mutate_at(
@@ -1121,8 +1130,10 @@ variog_empir %>%
   geom_line(data = filter(variog_fit, timelag == 0), size = 0.5, color = "red1", alpha = 0.8) +
   scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
   scale_color_discrete(name = "Time lag") +
+  scale_size_continuous(name = "Comparisons") +
   scale_y_continuous(name = "Community dissimilarity") +
-  ggnomics::facet_nested(metric + tech + amplicon ~ guild, scales = "free")
+  ggnomics::facet_nested(metric + tech + amplicon ~ guild, scales = "free", nest_line = TRUE) +
+  theme(strip.background = element_blank())
 
 ```
 
@@ -1224,40 +1235,86 @@ ggtree::ggtree(extree) +
   scale_y_reverse()
 ```
 
-(ref:full-length) Comparison of the length of sequences from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
+(ref:full-length) Comparison of the length of sequences from different length amplicons and sequencing technologies.  Length distribution (*a*, *c*) and empirical cumulative distribution function (*b*, *d*) for short (*a*, *b*) and long (*c*, *d*) amplicons, respectively.
 
 ```{r full-length, fig.cap = "(ref:full-length)", fig.height = 6}
-full_dens <- 
-  readd(reads_table, cache = cache) %>%
-  dplyr::left_join(dplyr::select(datasets, seq_run, tech)) %>%
+full_dens <- readd(reads_table, cache = cache) %>%
+  dplyr::left_join(dplyr::select(datasets, seq_run, tech, amplicon)) %>%
   dplyr::filter(region %in% c("long", "short")) %>%
   dplyr::group_by(seq_run) %>%
+  dplyr::mutate_at("amplicon", factor, levels = c("Short", "Long")) %>%
+  dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
   dplyr::mutate(
-    amplicon = ifelse(seq_run == "pb_500", "Long", "Short") %>%
-      factor(levels = c("Short", "Long")),
     reads = reads / sum(reads)
-  ) %>%
-  ggplot(aes(length, weight = reads, color = seq_run, group = seq_run)) +
+  )
+
+full_dens_short <- full_dens %>%
+  filter(amplicon == "Short") %>%
+  ggplot(aes(length, weight = reads, color = tech, group = tech)) +
   stat_density(bw = 0.5, geom = "line", position = "identity") +
   scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
   scale_y_continuous(name = "Density") +
-  scale_x_continuous(name = NULL) +
-  facet_wrap(~tech + amplicon, ncol = 1, strip.position = "right", scales = "free_y")
+  scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
+  ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
+  theme(strip.background = element_blank())
+
+full_dens_long <- full_dens %>%
+  filter(amplicon == "Long") %>%
+  ggplot(aes(length, weight = reads, color = tech, group = tech)) +
+  stat_density(bw = 0.5, geom = "line", position = "identity") +
+  scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
+  scale_y_continuous(name = "Density") +
+  scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
+  ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
+  theme(strip.background = element_blank())
 
 full_ecdf <- readd(reads_table, cache = cache) %>%
   dplyr::filter(region  %in% c("long", "short")) %>%
+  left_join(select(datasets, seq_run, amplicon, tech, machine), by = "seq_run") %>%
+  mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
   dplyr::group_by(seq_run) %>%
-  dplyr::mutate(reads = reads / sum(reads)) %>%
-  ggplot(aes(length, weight = reads, color = seq_run, group = seq_run)) +
+  dplyr::mutate(reads = reads / sum(reads))
+
+full_ecdf_short <- full_ecdf %>%
+  filter(amplicon == "Short") %>%
+  ggplot(aes(length, weight = reads, color = tech, group = tech)) +
   stat_ecdf(geom = "line") +
   scale_color_brewer(type = "qual",
-                     labels = c("Short - Ion", "Short - PacBio", "Long - PacBio", "Short - Illumina"),
                      name = NULL, palette = "Set2") +
-  scale_y_continuous(name = "Cumulative read fraction") +
-  scale_x_continuous(name = "Length (bp)") +
-  theme(legend.position = c(1, 0.02), legend.justification = c(1, 0), legend.background = element_blank())
+  scale_y_continuous(name = "ECDF") +
+  scale_x_continuous(name = NULL) +
+  facet_grid( amplicon ~ ., scales = "free_x") +
+  theme(
+    legend.position = c(1, 0.02),
+    legend.justification = c(1, 0),
+    legend.background = element_blank(),
+    strip.background = element_blank()
+  )
 
-ggpubr::ggarrange(full_dens, full_ecdf, ncol = 1, labels = "auto")
+full_ecdf_long <- full_ecdf %>%
+  filter(amplicon == "Long") %>%
+  ggplot(aes(length, weight = reads, color = tech, group = tech)) +
+  stat_ecdf(geom = "line") +
+  scale_color_brewer(type = "qual",
+                     name = NULL, palette = "Set2", direction = -1) +
+  scale_y_continuous(name = "ECDF") +
+  scale_x_continuous(name = "Length (bp)") +
+  facet_grid( amplicon ~ ., scales = "free_x") +
+  theme(
+    legend.position = c(1, 0.02),
+    legend.justification = c(1, 0),
+    legend.background = element_blank(),
+    strip.background = element_blank()
+  )
+
+ggpubr::ggarrange(
+  full_dens_short,
+  full_ecdf_short,
+  full_dens_long,
+  full_ecdf_long,
+  ncol = 1, heights = c(3, 1.7, 1.2, 2), labels = "auto", vjust = 1
+  
+)
 ```
 
 ```{r region-length}
@@ -1327,34 +1384,61 @@ readd(reads_table, cache = cache) %>%
 (ref:ITS2-length) Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
 
 ```{r ITS2-length, fig.cap = "(ref:ITS2-length)", fig.height = 6}
-its2_dens <- readd(reads_table, cache = cache) %>%
-  dplyr::left_join(dplyr::select(datasets, seq_run, tech)) %>%
+its2 <- readd(reads_table, cache = cache) %>%
+  dplyr::left_join(dplyr::select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
+  dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
   dplyr::filter(region == "ITS2") %>%
+  arrange(tech, amplicon) %>%
+  mutate(
+    group = paste(tech, "-", amplicon) %>% factor(levels = unique(.))
+  ) %>%
   dplyr::group_by(seq_run) %>%
   dplyr::mutate(
-    amplicon = ifelse(seq_run == "pb_500", "Long", "Short") %>%
-      factor(levels = c("Short", "Long")),
     reads = reads / sum(reads)
-  ) %>%
-  ggplot(aes(length, weight = reads, color = seq_run, group = seq_run)) +
+  )
+
+its2_dens <- its2 %>%
+  ggplot(aes(length, weight = reads, color = group, group = group)) +
   stat_density(bw = 0.5, geom = "line", position = "identity") +
   scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
   scale_y_continuous(name = "Density") +
-  scale_x_continuous(name = NULL) +
-  facet_wrap(~tech + amplicon, ncol = 1, strip.position = "right", scales = "free_y")
+  scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
+  ggnomics::facet_nested(rows = vars(tech, amplicon), scales = "free_y",
+                         nest_line = TRUE) +
+  theme(strip.background = element_blank())
 
-its2_ecdf <- readd(reads_table, cache = cache) %>%
-  dplyr::filter(region == "ITS2") %>%
-  dplyr::group_by(seq_run) %>%
-  dplyr::mutate(reads = reads / sum(reads)) %>%
-  ggplot(aes(length, weight = reads, color = seq_run, group = seq_run)) +
+its2_ecdf <- its2 %>%
+  mutate(tech = "", amplicon = "") %>%
+  ggplot(aes(length, weight = reads, color = group, group = group)) +
   stat_ecdf(geom = "line") +
-  scale_color_brewer(type = "qual", labels = c("Short amplicon - Ion", "Short amplicon - PacBio", "Long amplicon - PacBio"), name = NULL, palette = "Set2") +
-  scale_y_continuous(name = "Cumulative read fraction") +
+  scale_color_brewer(type = "qual", name = NULL, palette = "Set2") +
+  scale_y_continuous(name = "ECDF") +
   scale_x_continuous(name = "ITS2 Length (bp)") +
-  theme(legend.position = c(0.98, 0.02), legend.justification = c(1, 0))
+  ggnomics::facet_nested(rows = vars(tech, amplicon), scales = "free_y",
+                         nest_line = TRUE) +
+  theme(
+    strip.background = element_blank(),
+    legend.position = c(0.98, 0.02),
+    legend.justification = c(1, 0)
+  )
 
-ggpubr::ggarrange(its2_dens, its2_ecdf, ncol = 1, labels = "auto")
+ggpubr::ggarrange(its2_dens, its2_ecdf, ncol = 1, labels = "auto", heights = c(4, 2))
+```
+
+(ref:short-its) Kingdom-level taxonomic composition of ITS2 ASVs <= 140 bp.
+Vertical axis shows fraction of total reads in each dataset.
+
+```{r short-its, fig.cap = ""}
+readd(big_seq_table_ITS2, cache = cache) %>%
+  colSums() %>%
+  enframe(name = "ITS2", value = "nreads") %>%
+  mutate(length = nchar(ITS2)) %>%
+  filter(length <= 140) %>%
+  mutate_at("ITS2", ~tzara::seqhash(chartr("T", "U", .))) %>%
+  semi_join(readd(taxon_reads, cache = cache), ., by = c("label" = "ITS2")) %>%
+  # group_by(ITS2) %>%
+  # filter(!"Short" %in% amplicon) %>%
+  taxon_plot(kingdom, y = reads)
 ```
 
 (ref:heattree-length-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
@@ -1394,6 +1478,7 @@ taxdata2$data$diff_asv <- metacoder::compare_groups(
 )
 
 set.seed(2)
+oldtheme <- theme_update(panel.border = element_blank())
 taxdata2 %>%
   metacoder::heat_tree(
     layout = "davidson-harel",
@@ -1430,6 +1515,7 @@ taxdata2 %>%
     node_label_size_range = c(0.010, 0.03)
     # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
   )
+theme_set(oldtheme)
 ```
 
 (ref:ecm-heattree) Variation in read abundance and diversity for different amplicons, for ECM taxa only.
@@ -1476,6 +1562,7 @@ taxdata2$data$diff_asv <- metacoder::compare_groups(
 taxdata2 <- taxdata2$filter_taxa(!is.nan(ASV_ratio), !is.nan(read_ratio))
 
 set.seed(3)
+oldtheme <- theme_update(panel.border = element_blank())
 taxdata2 %>%
   metacoder::heat_tree(
     layout = "davidson-harel",
@@ -1507,227 +1594,131 @@ taxdata2 %>%
     # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
     aspect_ratio = 3/2
   )
+theme_set(oldtheme)
 ```
 
-(ref:short-its) Kingdom-level taxonomic composition of ITS2 ASVs <= 140 bp.
-Vertical axis shows fraction of total reads in each dataset.
-
-```{r short-its, fig.cap = ""}
-readd(big_seq_table_ITS2, cache = cache) %>%
-  colSums() %>%
-  enframe(name = "ITS2", value = "nreads") %>%
-  mutate(length = nchar(ITS2)) %>%
-  filter(length <= 140) %>%
-  mutate_at("ITS2", ~tzara::seqhash(chartr("T", "U", .))) %>%
-  semi_join(readd(taxon_reads, cache = cache), ., by = c("label" = "ITS2")) %>%
-  # group_by(ITS2) %>%
-  # filter(!"Short" %in% amplicon) %>%
-  taxon_plot(kingdom, y = reads)
-```
-
-(ref:sample-depth) Sequencing depth along transects at the two sites Ang and Gan for the years 2015 and 2016, after full bioinformatics pipeline.
-Ang 2015 samples are underrepresented, especially in the PacBio long amplicon dataset.
-Dotted horizontal line at proposed cutoff for inclusion in community analysis.
-"2016 X" is using the newer batch of extraction buffer, "2016" is using the older batch.
+(ref:sample-depth) DNA concentrations after extraction (leftmost column) and PCR (second and third columns), and sequencing depth (right three columns) along transects at the two sites Ang and Gan for the years 2015 and 2016.
+Sequencing reads which were filtered out during quality control are colored dark grey.
+Dotted horizontal line at 100 reads indicates cutoff for inclusion in community analysis.
+2016 samples were preserved using two different methods (LifeGuard, Xpedition), while 2015 samples were preserved only using LifeGuard.
 
 ```{r sample-depth, fig.cap = "(ref:sample-depth)"}
-readd(proto_physeq, cache = cache) %>% {
-  mutate(
-    sample_data(.),
-    reads = otu_table(.) %>% rowSums()
-  )
-} %>%
-  filter(tech != "Ion Torrent", !is.na(year), !is.na(seq_run), !is.na(x)) %>%
-  complete(nesting(seq_run, tech, amplicon), site, x, nesting(year, qual)) %>%
-  mutate(
-    qual = fct_collapse(qual, " " = c("*", "")),
-    "Sample group" = paste(year, qual)
+reads_plot <- readd(qstats_n, cache = cache) %>%
+  mutate(file = str_replace(file, ".*/", "") %>%
+           str_replace("[.].*", "")) %>%
+  tidyr::extract(col = "file", into = c("seq_run", "plate", "row", "col", "read"),
+                 regex = "([[:alpha:]]{2}[-_]\\d+)_(\\d+)-([A-H])(\\d+)(_R[12])?[rf]?") %>%
+  filter(is.na(step), !is.na(seq_run), read != "_R2" | is.na(read)) %>%
+  group_by(seq_run, plate, row, col) %>%
+  summarize(raw_reads = sum(nreads)) %>%
+  ungroup() %>%
+  mutate_at("col", as.integer) %>%
+  left_join(
+    readd(proto_physeq, cache = cache) %>% {
+      mutate(
+        sample_data(.),
+        reads = otu_table(.) %>% rowSums()
+      )
+    } %>%
+      select(seq_run, plate, row, column, site, year, qual, sample_type, x, buffer, tech, amplicon, reads) %>%
+      mutate(row = LETTERS[row]) %>%
+      unique(),
+    by = c("seq_run", "plate", "row", "col" = "column")
   ) %>%
+  filter(tech != "Ion Torrent", !is.na(year), !is.na(seq_run), !is.na(x), !is.na(buffer)) %>%
+  complete(nesting(seq_run, tech, amplicon), site, x, nesting(year, buffer)) %>%
+  pivot_longer(cols = c("reads", "raw_reads"), names_to = "type", values_to = "reads") %>%
+  mutate(
+    type = factor(type, levels = c("raw_reads", "reads")),
+    "Sample group" = paste(year, buffer) %>%
+      ifelse(type == "raw_reads", "Raw", .) %>%
+      fct_relevel("Raw")
+  ) %>%
+  arrange(`Sample group`) %>%
   ggplot(aes(x = x, y = reads, group = `Sample group`, fill = `Sample group`)) +
-  geom_col(position = "dodge") +
+  geom_col(position = "identity") +
   ggnomics::facet_nested(
-    cols = vars(tech, amplicon, site),
-    rows = vars(`Sample group`),
+    cols = vars(tech, amplicon),
+    rows = vars(year, buffer, site),
     nest_line = TRUE,
     resect = unit(1, "mm")
   ) +
-  scale_y_log10() +
+  scale_fill_manual(
+    values = c(RColorBrewer::brewer.pal(3, "Set2") %>% set_names(c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition")), Raw = "gray20"),
+    breaks = c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition", "Raw"),
+    labels = c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition", "Filtered")) +
+  scale_y_log10(breaks = c(10, 1e3, 1e5),
+                labels = c("10", "1k", "100k"), position = "right") +
   xlab("x (m)") +
   theme(
     legend.position = "bottom",
-    strip.background = element_blank()
+    strip.background = element_blank(),
+    panel.spacing = unit(1, "mm"),
+    plot.margin = margin(l = 0.5, unit = "mm"),
+    axis.text.x = element_text(angle = 90, vjust = 0.5)
   ) +
   geom_hline(yintercept = 100, linetype = 2, alpha = 0.5)
 
+conc_plot <- readd(proto_physeq, cache = cache) %>% 
+        sample_data(.) %>%
+      select(plate, row, column, site, year, sample_type, x, buffer, amplicon, dna_conc, pcr_conc) %>%
+  arrange(plate, row, column, amplicon) %>% 
+  unique() %>% 
+  mutate_at("dna_conc", as.double) %>%
+  pivot_longer(cols = c("dna_conc", "pcr_conc"), names_to = "step", values_to = "conc", names_pattern = "([[:alpha:]]+)_conc") %>%
+  filter(!is.na(year)) %>%
+  mutate(
+    amplicon = ifelse(step == "dna", "", amplicon),
+    step = factor(step, levels = c("dna", "pcr"), labels = c("DNA", "PCR product")),
+    conc = 1000 * conc,
+    "Sample group" = paste(year, buffer)
+  ) %>%
+  unique() %>%
+  complete(nesting(amplicon, step), site, x, nesting(year, buffer, `Sample group`)) %>%
+  arrange(`Sample group`) %>%
+  ggplot(aes(x = x, y = conc, group = `Sample group`, fill = `Sample group`)) +
+  geom_col() +
+  ggnomics::facet_nested(
+    cols = vars(step, amplicon),
+    rows = vars(year, buffer, site),
+    nest_line = TRUE,
+    resect = unit(1, "mm"),
+    switch = "y"
+  ) +
+  scale_fill_manual(values = RColorBrewer::brewer.pal(3, "Set2") %>% set_names(c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition")), guide = "none") +
+  scale_y_log10(
+    breaks = c(10, 1e3, 1e5),
+    labels = c("0.1", "1", "100"),
+    name = "DNA concentration (ng/µL)"
+  ) +
+  xlab("x (m)") +
+  theme(
+    legend.position = "bottom",
+    strip.background = element_blank(),
+    strip.placement = "outside",
+    panel.spacing = unit(1, "mm"),
+    plot.margin = margin(r = 0.5, unit = "mm"),
+    axis.text.x = element_text(angle = 90, vjust = 0.5)
+  )
+  
+ggpubr::ggarrange(conc_plot, reads_plot, ncol = 2, common.legend = TRUE) +
+  theme(panel.spacing = unit(0, "mm"))
 ```
 
-(ref:plate-depth) Sequencing depth for each well in the sequencing plates (001, 002), after full bioinformatics pipeline.
-Darker shading represents greater sequencing depth, as a fraction of the total number of sequences from the sequencing run.
-The border color for each well where sequences were recovered indicates the sample group, i.e. site name (Ang or Gan), sampling year (2015 or 2016), and buffer batch (presence or absence of X; 2016 samples with X are the good buffer); Pos = positive control, Blank = PCR blank.
-Ion Torrent (is_057) samples for the two plates are mixed, shown here as plate 001.
-Note that many of the Ang2015 samples are missing or have extremely low number of reads for the pb_500 (long PacBio) sequencing run.
-
-```{r plate-depth, fig.cap = "(ref:plate-depth)"}
+```{r plate-loading}
 readd(proto_physeq, cache = cache) %>% {
   mutate(
     sample_data(.),
     reads = otu_table(.) %>% rowSums()
   )
 } %>%
-  group_by(seq_run, plate) %>%
-  mutate(
-    reads = reads/sum(reads),
-    row = factor(LETTERS[row], levels = rev(LETTERS[1:8])),
-    qual = fct_collapse(qual, " " = c("*", "")),
-    "Sample group" = coalesce(
-      str_c(site, year, qual),
-      as.character(sample_type),
-      "Unused"
-      )
-  ) %>%
-  ggplot(aes(x = column, y = row, fill = reads, color = `Sample group`)) +
-  geom_tile(size = 0.4, height = 0.9, width = 0.9) +
-  ggnomics::facet_nested(cols = vars(plate), rows = vars(tech, amplicon),
-                         resect = unit(1, "mm"), nest_line = TRUE) +
-  scale_color_discrete(name = "Sample group") +
-  scale_fill_gradient(low = "gray80", high = "black") +
-  coord_equal() +
-  scale_x_continuous(breaks = 1:9) +
-  theme(strip.background = element_blank())
+  filter(tech != "Ion Torrent", amplicon == "Short", !is.na(year), !is.na(seq_run), !is.na(x)) %>%
+  select(plate, well, tech, reads, year, site, buffer) %>%
+  pivot_wider(names_from = "tech", values_from = "reads") %>%
+  ggplot(aes(x = PacBio, y = Illumina, color = year)) +
+  geom_point()
 ```
 
-(ref:raw-depth) Sequencing depth for each well in the sequencing plates (001, 002), after demultiplexing and primer trimming.
-Darker shading represents greater sequencing depth, as a fraction of the total number of sequences from the sequencing run.
-The border color for each well where sequences were recovered indicates the sample group, i.e. site name (Ang or Gan), sampling year (2015 or 2016), and buffer batch (presence or absence of X; 2016 samples with X are the good buffer); Pos = positive control, Blank = PCR blank, NA = unused well.
-Ion Torrent (is_057) samples for the two plates are mixed, shown here as plate 001.
-Note that many of the Ang2015 samples are missing or have extremely low number of reads for the pb_500 (long PacBio) sequencing run.
-
-```{r raw-depth, fig.cap = "(ref:raw-depth)"}
-readd(qstats_n, cache = cache) %>%
-  mutate(file = str_replace(file, ".*/", "") %>%
-           str_replace("[.].*", "")) %>%
-  tidyr::extract(col = "file", into = c("seq_run", "plate", "row", "col"),
-                 regex = "([[:alpha:]]{2}[-_]\\d+)_(\\d+)-([A-H])(\\d+)") %>%
-  filter(is.na(step), !is.na(seq_run)) %>%
-  mutate_at("col", as.integer) %>%
-  left_join(
-    readd(proto_physeq, cache = cache) %>%
-      sample_data() %>%
-      select(plate, row, column, site, year, qual, sample_type) %>%
-      mutate(row = LETTERS[row]) %>%
-      unique(),
-    by = c("plate", "row", "col" = "column")
-  ) %>%
-  left_join(select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
-  group_by(seq_run, plate) %>%
-  mutate(
-    nreads = nreads/sum(nreads),
-    row = factor(row, levels = rev(LETTERS[1:8])),
-    qual = fct_collapse(qual, " " = c("*", "")),
-    "Sample group" = coalesce(
-      str_c(site, year, qual),
-      as.character(sample_type)
-      )
-  ) %>%
-  ggplot(aes(x = col, y = row, fill = nreads, color = `Sample group`)) +
-  geom_tile(size = 0.4, height = 0.9, width = 0.9) +
-  ggnomics::facet_nested(cols = vars(plate), rows = vars(tech, amplicon),
-                         resect = unit(1, "mm"), nest_line = TRUE) +
-  scale_fill_gradient(low = "gray80", high = "black") +
-  coord_equal() +
-  scale_color_discrete(name = "Sample group") +
-  scale_x_continuous(breaks = 1:9) +
-  theme(strip.background = element_blank())
-```
-
-(ref:pcr-concentration) Concentration of PCR products in ng/µL for the two plates of samples.
-
-```{r pcr-concentration, fig.cap = "(ref:pcr-conentration)"}
-tidyxl::xlsx_cells(here("config/Brendan_soil3.xlsx"), sheets = c("BSoil 1 Pico green", "BSoil 2 pico green", "BSoil 1 Picco Green ITS 1 LR5", "BSoil 2 Picco Green its1 LR5")) %>%
-  filter(between(col, 4, 12), between(row, 77, 84), numeric > 0) %>% 
-  mutate(row = LETTERS[row - 76], col = col - 3,
-         sheet = plyr::mapvalues(sheet, c("BSoil 1 Pico green", "BSoil 2 pico green", "BSoil 1 Picco Green ITS 1 LR5", "BSoil 2 Picco Green its1 LR5"), c("short_001", "short_002", "long_001", "long_002"))) %>%
-  select(sheet, row, col, Concentration = numeric) %>%
-  separate(sheet, into = c("amplicon", "plate")) %>%
-  left_join(
-    readd(proto_physeq, cache = cache) %>%
-      sample_data() %>%
-      select(plate, row, column, site, year, qual, sample_type) %>%
-      mutate(row = LETTERS[row]) %>%
-      unique(),
-    by = c("plate", "row", "col" = "column")
-  ) %>%
-  mutate(
-    row = factor(row, levels = rev(LETTERS[1:8])),
-    qual = fct_collapse(qual, " " = c("*", "")),
-    "Sample group" = coalesce(
-      str_c(site, year, qual),
-      as.character(sample_type)
-      )
-  ) %>%
-  ggplot(aes(x = col, y = row, fill = Concentration, color = `Sample group`)) +
-  geom_tile(size = 0.4, height = 0.9, width = 0.9) +
-  ggnomics::facet_nested(cols = vars(plate), rows = vars(amplicon),
-                         resect = unit(1, "mm"), nest_line = TRUE) +
-  scale_fill_gradient(low = "gray80", high = "black") +
-  coord_equal() +
-  scale_color_discrete(name = "Sample group") +
-  scale_x_continuous(breaks = 1:9) +
-  theme(strip.background = element_blank())
-    
-```
-
-(ref:dna-conc) DNA concentration in soil extracts.
-
-```{r dna-conc, fig.cap = "(ref:dna-conc)"}
-readxl::read_xls(here("config/Brendan soil samples DNA quantification.xls"),
-                 col_types = c("text", "text", "numeric")) %>%
-  filter(str_detect(Sample, "(T\\d-S\\d+|V\\dP\\d T\\d+)")) %>%
-  rename(year = Year) %>%
-  # Sample name is actually three pieces of information
-  tidyr::extract("Sample", c("site", "x", "qual"),
-                 "(V1P[13]|T[12])[ -][ST](\\d+)(\\D*)$") %>%
-  dplyr::mutate_at("x", as.integer) %>%
-  # Sites were recorded differently in the two years
-  dplyr::mutate(
-    year = factor(year),
-    site = dplyr::case_when(site == "V1P1" ~ "Ang",
-                                        site == "V1P3" ~ "Gan",
-                                        site == "T1" ~ "Gan",
-                                        site == "T2" ~ "Ang",
-                                        TRUE ~ NA_character_)) %>%
-  # For some site/years, coordinates were measured from the edge of
-  # the plot rather than numbered from 1--25 
-  dplyr::group_by(year, site) %>%
-  dplyr::mutate(x = x - if (!any(is.na(x)) && max(x) > 25) 12 else 0) %>%
-  dplyr::ungroup() %>%
-  left_join(
-    readd(proto_physeq, cache = cache) %>%
-      sample_data() %>%
-      select(plate, row, column, site, year, qual, sample_type, x) %>%
-      mutate(row = LETTERS[row]) %>%
-      unique(),
-    by = c("site", "year", "qual", "x")
-  ) %>%
-  mutate(
-    row = factor(row, levels = rev(LETTERS[1:8])),
-    qual = ifelse(qual == "*", "", qual),
-    "Sample group" = coalesce(
-      str_c(site, year, qual),
-      as.character(sample_type)
-      )
-  ) %>%
-  ggplot(aes(x = column, y = row, fill = `Conc. (ng/µl)`, color = `Sample group`)) +
-  geom_tile(size = 0.4, height = 0.9, width = 0.9) +
-  ggnomics::facet_nested(cols = vars(plate),
-                         resect = unit(1, "mm"), nest_line = TRUE) +
-  scale_fill_gradient(low = "gray80", high = "black", na.value = "white") +
-  coord_equal() +
-  scale_color_discrete(name = "Sample group") +
-  scale_x_continuous(breaks = 1:9) +
-  theme(strip.background = element_blank())
-
-```
 
 ```{r}
 physeq <- readd(proto_physeq, cache = cache) %>%
@@ -1736,9 +1727,10 @@ physeq <- readd(proto_physeq, cache = cache) %>%
     "qual",
     value = fct_collapse(sample_data(.)$qual, "-" = c("", "*"))
     )) %>%
+  subset_samples(!is.na(site)) %>%
   merge_samples(group = glue::glue_data(
     sample_data(.),
-    "{year}_{qual}_{tech}_{amplicon}"
+    "{year}_{buffer}_{tech}_{amplicon}"
   ))
 
 ranks <- c("root", "kingdom", "phylum", "class", "order", "family", "genus")
@@ -1760,92 +1752,107 @@ physeq <- readd(taxon_reads, cache = cache) %>%
   tax_glom(taxrank = "family", NArm = FALSE)
 ```
 
-```{r}
+(ref:buffer-compare-long) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for long amplicon libraries.
+
+```{r buffer-compare-long, fig.cap = "(ref:buffer-compare-long)"}
 taxmap <- metacoder::parse_phyloseq(physeq)
 taxmap$data$otu_table <- metacoder::calc_obs_props(taxmap, "otu_table")
 taxmap$data$read_count <- metacoder::calc_taxon_abund(taxmap, "otu_table")
-taxmap$data$read_diff <- metacoder::compare_groups(taxmap, "read_count", cols = c("2016_-_PacBio_long", "2016_X_PacBio_long"), groups = c("Xpedition", "Lifeguard"))
-```
-
-```{r}
-taxmap$data$read_diff <- metacoder::compare_groups(taxmap, "read_count", cols = c("2016_-_PacBio_long", "2016_X_PacBio_long"), groups = c("Xpedition", "Lifeguard"))
-taxa::filter_taxa(
-  taxmap,
-  taxmap$data$read_count$`2016_-_PacBio_long` > 0 |
-    taxmap$data$read_count$`2016_X_PacBio_long` > 0,
-  drop_obs = TRUE,
-  reassign_obs = FALSE
-  ) %>%
-metacoder::heat_tree(
-  node_label = taxon_names,
-  node_color = log2_median_ratio,
-  node_size = rowMeans(.$data$read_count[-1]),
-  node_color_range = metacoder::diverging_palette(),
-  edge_size_interval = c(0, 0.3),
-  output_file = here("temp/buffer.pdf")
-)
-
-```
-
-```{r}
 taxmap$data$read_diff <- metacoder::compare_groups(
   taxmap,
   "read_count",
-  cols = c("2015_-_PacBio_long", "2016_X_PacBio_long", "2016_-_PacBio_long"),
-  groups = c("Xpedition 2015", "Xpedition 2016", "Lifeguard 2016")
+  cols = names(taxmap$data$read_count) %>%
+    keep(endsWith, "Long"),
+  groups = names(taxmap$data$read_count) %>%
+    keep(endsWith, "Long") %>%
+    str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
+      paste(.[,3], .[,2])
+    },
+  func = function(abund1, abund2) {
+    list(read_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
+  },
+  combinations = list(
+    c("Xpedition 2016", "Xpedition 2015"),
+    c("Xpedition 2016", "LifeGuard 2016"),
+    c("Xpedition 2015", "LifeGuard 2016")
+  )
 )
+oldtheme <- theme_update(panel.border = element_blank())
 taxa::filter_taxa(
   taxmap,
-  taxmap$data$read_count$`2015_-_PacBio_long` > 0 |
-    taxmap$data$read_count$`2016_X_PacBio_long` > 0 |
-    taxmap$data$read_count$`2016_-_PacBio_long` > 0,
+  taxmap$data$read_count$`2015_Xpedition_PacBio_Long` > 0 |
+    taxmap$data$read_count$`2016_Xpedition_PacBio_Long` > 0 |
+    taxmap$data$read_count$`2016_LifeGuard_PacBio_Long` > 0,
   drop_obs = TRUE,
   reassign_obs = FALSE
   ) %>%
 metacoder::heat_tree_matrix(
   "read_diff",
   node_label = taxon_names,
-  node_color = log2_median_ratio,
+  node_color = read_ratio,
   node_size = rowMeans(.$data$read_count[-1]),
+  node_size_axis_label = "Read fraction",
   node_color_range = metacoder::diverging_palette(),
+  node_color_axis_label = "Log10 Read Ratio",
+  node_color_interval = c(-3, 3),
+  node_color_trans = "linear",
   edge_size = rowMeans(.$data$read_count[-1]),
   edge_size_range = c(0, 0.03),
   edge_size_trans = "linear",
+  edge_size_axis_label = "ASV fraction",
   node_size_range = c(0, 0.03),
   node_label_size_range = c(0.005, 0.03),
   layout = "davidson-harel",
   initial_layout = "reingold-tilford",
   output_file = here("temp/compare_long.pdf")
 )
+theme_set(oldtheme)
 
 ```
 
+(ref:buffer-compare-short) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for long amplicon libraries.
 
-```{r}
+```{r buffer-compare-short, fig.cap = "(ref:buffer-compare-short)"}
 taxmap$data$read_diff <- metacoder::compare_groups(
   taxmap,
   "read_count",
-  cols = c("2015_-_PacBio_short", "2016_X_PacBio_short", "2016_-_PacBio_short"),
-  groups = c("Xpedition 2015", "Xpedition 2016", "Lifeguard 2016")
+  cols = names(taxmap$data$read_count) %>%
+    keep(endsWith, "Short"),
+  groups = names(taxmap$data$read_count) %>%
+    keep(endsWith, "Short") %>%
+    str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
+      paste(.[,3], .[,2])
+    },
+  func = function(abund1, abund2) {
+    list(read_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
+  },
+  combinations = list(
+    c("Xpedition 2016", "Xpedition 2015"),
+    c("Xpedition 2016", "LifeGuard 2016"),
+    c("Xpedition 2015", "LifeGuard 2016")
+  )
 )
 taxa::filter_taxa(
   taxmap,
-  taxmap$data$read_count$`2015_-_PacBio_short` > 0 |
-    taxmap$data$read_count$`2016_X_PacBio_short` > 0 |
-    taxmap$data$read_count$`2016_-_PacBio_short` > 0,
+  taxmap$data$read_count %>% select(ends_with("Short")) %>% rowSums() > 0,
   drop_obs = TRUE,
   reassign_obs = FALSE
   ) %>%
 metacoder::heat_tree_matrix(
   "read_diff",
   node_label = taxon_names,
-  node_color = log2_median_ratio,
+  node_color = read_ratio,
   node_size = rowMeans(.$data$read_count[-1]),
+  node_size_axis_label = "Read fraction",
   node_color_range = metacoder::diverging_palette(),
+  node_color_axis_label = "Log10 Read Ratio",
+  node_color_interval = c(-3, 3),
+  node_color_trans = "linear",
   edge_size = rowMeans(.$data$read_count[-1]),
-  edge_size_range = c(0.0002, 0.03),
+  edge_size_range = c(0, 0.03),
   edge_size_trans = "linear",
-  node_size_range = c(0.0002, 0.03),
+  edge_size_axis_label = "ASV fraction",
+  node_size_range = c(0, 0.03),
   node_label_size_range = c(0.005, 0.03),
   layout = "davidson-harel",
   initial_layout = "reingold-tilford",
@@ -1853,61 +1860,3 @@ metacoder::heat_tree_matrix(
 )
 
 ```
-
-```{r}
-pseq <- readd(proto_physeq, cache = cache) %>%
-  `sample_data<-`(inset2(
-    sample_data(.),
-    "qual",
-    value = fct_collapse(sample_data(.)$qual, "-" = c("", "*"))
-    ))
-
-sample_data(pseq) %>%
-  select(.tech = tech, .amplicon = amplicon, .site = site, .year = year, .qual = qual) %>%
-  filter(.tech != "Ion Torrent", !is.na(.site), !is.na(.year)) %>%
-  unique() %>%
-  rowwise() %>%
-  pmap_dfr(
-    function(.tech, .amplicon, .site, .year, .qual, phyloseq) {
-      selection <- with(sample_data(phyloseq), tech == .tech &
-          amplicon == .amplicon &
-          site == .site &
-          year == .year &
-          qual == .qual)
-      eval(substitute(
-        subset_samples(
-        phyloseq,
-        subset = selection
-      ),
-      list(selection = selection))) %>% 
-        prune_samples(samples = rowSums(otu_table(.)) > 0) %>%
-        prune_taxa(taxa = colSums(otu_table(.)) > 0) %>% {
-        full_join(
-        distance(., "bray") %>% broom::tidy() %>% rename(bray = distance),
-        sample_data(.) %>% rownames_to_column() %$% set_names(x, rowname) %>% dist() %>% broom::tidy()
-      )
-      } %>%
-        mutate(
-          tech = .tech,
-          amplicon = .amplicon,
-          site = .site,
-          year = .year,
-          qual = .qual
-        )
-    },
-    phyloseq = pseq
-  ) %>%
-  group_by(distance, tech, amplicon, site, year, qual) %>%
-  summarize(bray = mean(bray, na.rm = TRUE), n = n()) %>%
-  ggplot(aes(distance, bray, size = n)) +
-  # geom_hline(data = variog_sills, aes(yintercept = sills), linetype = "dashed", color = "gray50") +
-  # geom_vline(data = variog_data, aes(xintercept = range), linetype = "dashed", color = "gray50") +
-  # geom_jitter(shape = 46, alpha = 0.5) +
-  # geom_line(size = 1.5, alpha = 0.5) +
-  geom_point(alpha = 0.5) +
-  # geom_smooth(data = variog_points, aes(fill = timelag), color = FALSE, alpha = 0.5) +
-  scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
-  scale_y_continuous(name = "Community dissimilarity") +
-  ggnomics::facet_nested(year + qual + site ~ tech + amplicon)
-```
-
