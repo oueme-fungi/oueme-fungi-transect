@@ -837,7 +837,7 @@ phylotax_ <- function(tree, taxa, node, ranks, e) {
 
 # Assign taxon labels to nodes in a tree when there is a consensus of IDs on
 # descendent tips.
-phylotax <- function(tree, taxa) {
+phylotax <- function(tree = ape::read.tree(text = paste0("(", paste(unique(taxa$label), collapse = ","), ");")), taxa) {
   e <- new_phylotax_env(tree, taxa)
   ranks <- sort(unique(taxa$rank))
   phylotax_(tree, taxa, phangorn::getRoot(tree), ranks, e)

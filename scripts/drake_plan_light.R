@@ -43,6 +43,23 @@ k_or_M <- function(x, ..., .sep = " ", .function = format) {
 }
 
 datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc")
+
+# combo_meta <- tibble(
+#   group = c("fungi", "euk"),
+#   taxname = "short",
+#   reftree = c("fungi_tree_decipher_unconst_long", "tree_decipher_unconst_long"),
+#   conf_taxon = glue::glue("conf_taxon_short_{group}"),
+#   phylotaxon = glue::glue("phylotaxon_unconst_long_{group}")
+# ) %>%
+#   mutate_at(c("reftree", "conf_taxon", "phylotaxon"), syms)
+
+guilds_meta <- tibble(
+  consensus_taxa = c("phylotaxon_decipher_unconst_long_fungi", "conf_taxon_short_fungi", "best_taxon_short_fungi"),
+  amplicon = c("Long", "Short", "Short"),
+  algorithm = c("PHYLOTAX", "Consensus", "PHYLOTAX+Cons")
+) %>%
+  mutate_at("consensus_taxa", syms)
+
 physeq_meta <-
   tidyr::crossing(
     dplyr::select(datasets, "seq_run", "tech", "dataset", "amplicon"),
@@ -51,7 +68,14 @@ physeq_meta <-
   dplyr::filter(
     seq_run != "is_057", # couldn't be demultiplexed
   ) %>%
-  dplyr::select(-dataset)
+  dplyr::select(-dataset) %>%
+  left_join(select(guilds_meta, amplicon, algorithm), by = "amplicon") %>%
+  mutate(
+    ecm = glue::glue("ecm_{algorithm}"),
+    ecm2 = glue::glue("ecm2_{algorithm}"),
+    ecm3 = glue::glue("ecm3_{algorithm}")
+  ) %>%
+  mutate_at(vars(starts_with("ecm")), compose(syms, make.names))
 
 plan2 <- drake_plan(
   # targets which are imported from first plan
@@ -113,22 +137,31 @@ plan2 <- drake_plan(
   
   tree_decipher_LSU = target(
     raxml_decipher_LSU$bipartitions,
-    transform = map(outname = "decipher_LSU", group = "euk", .tag_in = step, .tag_out = c(euktree, tree))
+    transform = map(
+      treename = "decipher_LSU",
+      group = "euk",
+      .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
   ),
   
   tree_decipher_LSU_long = target(
     raxml_decipher_long$bipartitions,
-    transform = map(outname = "decipher_LSU_long", group = "euk", .tag_in = step, .tag_out = c(euktree, tree))
+    transform = map(
+      treename = "decipher_LSU_long",
+      group = "euk",
+      .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
   ),
   
   tree_decipher_unconst_long = target(
     raxml_decipher_unconst_long$bipartitions,
-    transform = map(outname = "decipher_unconst_long", group = "euk", .tag_in = step, .tag_out = c(euktree, tree))
+    transform = map(
+      treename = "decipher_unconst_long",
+      group = "euk",
+      .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
   ),
   
   # tree_epa_mafft_full = target(
   #   raxml_epa_mafft_full$bestTree,
-  #   transform = map(outname = "epa_mafft_full", .tag_out = tree)
+  #   transform = map(treename = "epa_mafft_full", .tag_out = tree)
   # ),
   
   labeled_tree = target(
@@ -139,11 +172,11 @@ plan2 <- drake_plan(
       chimeras = allchimeras_ITS2
     ) %T>%
       castor::write_tree(file_out(!!glue::glue(
-        "data/trees/{outname}_{group}.tree",
-        outname = outname,
+        "data/trees/{treename}_{group}.tree",
+        treename = treename,
         group = group
       ))),
-    transform = map(tree, outname, group, .tag_in = step, .id = c(outname, group))
+    transform = map(tree, tree, group, .tag_in = step, .id = c(treename, group))
   ),
   
   phylo_labeled_tree = target(
@@ -154,11 +187,11 @@ plan2 <- drake_plan(
       chimeras = allchimeras_ITS2
     ) %T>%
       castor::write_tree(file_out(!!glue::glue(
-        "data/trees/{outname}_{group}_phylo.tree",
-        outname = outname,
+        "data/trees/{treename}_{group}_phylo.tree",
+        treename = treename,
         group = group
       ))),
-    transform = map(tree, phylotaxon_labels, outname, group, .tag_in = step, .id = c(outname, group))
+    transform = map(tree, phylotaxon_labels, treename, group, .tag_in = step, .id = c(treename, group))
   ),
   
   # find the most abundant sequence which we are confident is not a fungus
@@ -177,7 +210,7 @@ plan2 <- drake_plan(
   # the fungi can be indentified.
   rooted_tree = target(
     ape::root(tree, best_nonfungus),
-    transform = map(euktree, .tag_in = step, .id = outname)
+    transform = map(euktree, .tag_in = step, .id = treename)
   ),
   
   # Tulasnella is on a long branch because of a high divergence rate.
@@ -212,7 +245,7 @@ plan2 <- drake_plan(
     ape::getMRCA(rooted_tree, tip = intersect(surefungi, rooted_tree$tip.label)) %>%
     ape::extract.clade(phy = rooted_tree) %>%
     ape::drop.tip(phy = ., intersect(.$tip.label, allchimeras_ITS2)),
-    transform = map(rooted_tree, group = "fungi", .tag_in = step, .tag_out = tree, .id = outname)
+    transform = map(rooted_tree, group = "fungi", .tag_in = step, .tag_out = tree, .id = treename)
   ),
   
   # labeled_fungi_tree = target(
@@ -222,9 +255,9 @@ plan2 <- drake_plan(
   #     new = taxon_labels$tip_label
   #   ) %T>%
   #     castor::write_tree(
-  #       file_out(!!paste0("data/trees/fungi_", outname, ".tree"))
+  #       file_out(!!paste0("data/trees/fungi_", treename, ".tree"))
   #     ),
-  #   transform = map(fungi_tree, outname, .id = outname)
+  #   transform = map(fungi_tree, treename, .id = treename)
   # ),
   # 
   # phylolabeled_fungi_tree = target(
@@ -234,23 +267,89 @@ plan2 <- drake_plan(
   #     new = phylotaxon_labels$tip_label
   #   ) %T>%
   #     castor::write_tree(
-  #       file_out(!!paste0("data/trees/fungi_", outname, "_phylo.tree"))
+  #       file_out(!!paste0("data/trees/fungi_", treename, "_phylo.tree"))
   #     ),
-  #   transform = map(fungi_tree, phylotaxon_labels, outname, .id = outname)
+  #   transform = map(fungi_tree, phylotaxon_labels, treename, .id = treename)
   # ),
   # 
   phylotaxon = target(
     phylotax(tree = tree, taxa = taxon_table),
-    transform = map(tree, .tag_in = step, .id = c(outname, group))
+    transform = map(tree, .tag_in = step, 
+                    .tag_out = consensus_taxa, .id = c(treename, group))
   ),
   
   phylotaxon_labels = target(
     make_taxon_labels(phylotaxon$tip_taxa),
-    transform = map(phylotaxon, .tag_in = step, .id = c(outname, group))
+    transform = map(phylotaxon, .tag_in = step, .id = c(treename, group))
+  ),
+  
+  conf_taxon_short_euk = target(
+    taxon_table %>%
+      group_by(label, method, region, reference) %>%
+      arrange(rank) %>%
+      filter(cumall(n_diff == 1)) %>%
+      ungroup() %>%
+      mutate(
+        name = "consensus",
+        region = "All",
+        reference = "All",
+        ref_region = "All",
+        method = "consensus",
+        confidence = NA
+      ) %>%
+      unique() %>%
+      list(tip_taxa = .),
+    
+    transform = map(
+      taxname = "short",
+      group = "euk",
+      .tag_out = c(consensus_taxa, conf_taxon),
+      .id = FALSE
+    )
+  ),
+  
+  conf_taxon_short_fungi = target(
+    group_by(conf_taxon_short_euk$tip_taxa, label) %>%
+      filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
+      list(tip_taxa = .),
+    transform = map(
+      taxname = "short",
+      group = "fungi",
+      .tag_out = c(consensus_taxa, conf_taxon),
+      .id = FALSE
+    )
+  ),
+  
+  best_taxon_short_euk = target(
+    conf_taxon_short_euk$tip_taxa %>%
+      filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
+      bind_rows(
+        phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
+          filter(method == "phylotax")
+      ) %>%
+      mutate(method = "phylotax+c") %>%
+      list(tip_taxa = .),
+    transform = map(group = "euk",
+                    taxname = "short",
+                    .tag_out = consensus_taxa, .id = FALSE)
+  ),
+  
+  best_taxon_short_fungi = target(
+    conf_taxon_short_fungi$tip_taxa %>%
+      filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
+      bind_rows(
+        phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
+          filter(method == "phylotax")
+      ) %>%
+      mutate(method = "phylotax+c") %>%
+      list(tip_taxa = .),
+    transform = map(group = "fungi",
+                    taxname = "short",
+                    .tag_out = consensus_taxa, .id = FALSE)
   ),
   
   guilds = target(
-    phylotaxon$tip_taxa %>%
+    consensus_taxa$tip_taxa %>%
       dplyr::group_by(label, rank) %>%
       dplyr::filter((!"ITS" %in% region) | region != "Short") %>%
       dplyr::mutate(
@@ -283,22 +382,22 @@ plan2 <- drake_plan(
         by = "label"
       ) %>%
       FUNGuildR::funguild_assign(funguild_db),
-    transform = map(phylotaxon, .tag_in = step, .id = c(outname, group))
+    transform = map(.data = !!guilds_meta, .tag_in = step, .id = algorithm)
   ),
   
   ecm = target(
       dplyr::filter(guilds, grepl("Ectomycorrhizal", guild)),
-      transform = map(guilds, .tag_in = step, .id = c(outname, group))
+      transform = map(guilds, .tag_in = step, .id = algorithm)
   ),
   
   ecm2 = target(
     dplyr::filter(ecm, !taxon %in% c("Peziza", "Pezizaceae", "Pyronemataceae")),
-    transform = map(ecm, .tag_in = step, .id = c(outname, group))
+    transform = map(ecm, .tag_in = step, .id = algorithm)
   ),
   
   ecm3 = target(
     dplyr::filter(ecm, confidenceRanking != "Possible"),
-    transform = map(ecm, .tag_in = step, .id = c(outname, group))
+    transform = map(ecm, .tag_in = step, .id = algorithm)
   ),
   
   proto_physeq = assemble_physeq(
@@ -324,34 +423,34 @@ plan2 <- drake_plan(
         phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["amplicon"]] == amplicon)
       
       if (guild == "ecm") {
-        physeq <- phyloseq::prune_taxa(ecm_decipher_unconst_long_fungi$label, physeq) %>%
+        physeq <- phyloseq::prune_taxa(ecm$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
           
       } else if (guild == "ecm2") {
-        physeq <- phyloseq::prune_taxa(ecm2_decipher_unconst_long_fungi$label, physeq) %>%
+        physeq <- phyloseq::prune_taxa(ecm2$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
         
       } else if (guild == "ecm3") {
-        physeq <- phyloseq::prune_taxa(ecm3_decipher_unconst_long_fungi$label, physeq) %>%
+        physeq <- phyloseq::prune_taxa(ecm3$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
         
       }
       physeq
     },
-    transform = map(.data = !!physeq_meta, .tag_in = step, .id = c(guild, tech, amplicon))
+    transform = map(.data = !!physeq_meta, .tag_in = step, .id = c(guild, tech, amplicon, algorithm))
   ),
   
   correlog = target(
     correlog(physeq, metric, timelag),
     transform = cross(physeq, metric = c("bray", "wunifrac"), timelag = c(0, 1),
-                    .tag_in = step, .id = c(guild, metric, tech, amplicon, timelag))
+                    .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm, timelag))
   ),
   
   variog = target(
     variog(physeq, metric, breaks = c(1:21 - 0.5, 31000)),
     transform = cross(physeq, metric = c("bray", "wunifrac"),
                     .tag_in = step,
-                    .id = c(guild, metric, tech, amplicon))
+                    .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
   variofit = target(
@@ -360,14 +459,14 @@ plan2 <- drake_plan(
       gstat::vgm(variog$gamma[22], "Exp", 3, variog$gamma[22]/2),
       fit.method = 1
     ),
-    transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon))
+    transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
   variogST = target(
     variogST(physeq, metric, breaks = c(1:26 - 0.5, 30000)),
     transform = cross(physeq, metric = c("bray", "wunifrac"),
                       .tag_in = step,
-                      .id = c(guild, metric, tech, amplicon))
+                      .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
   variofitST = target(
@@ -381,7 +480,7 @@ plan2 <- drake_plan(
       ),
       fit.method = 1
     ),
-    transform = map(variogST, .tag_in = step, .id = c(guild, metric, tech, amplicon))
+    transform = map(variogST, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
   reads_table = target(
@@ -792,7 +891,9 @@ plan2 <- drake_plan(
     mutate(
       kingdom = ifelse(!is.na(phylum) & reference == "warcup", "Fungi", kingdom)
     )
-    phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
+    bind_rows(
+      out,
+      phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
       filter(method == "phylotax") %>%
       select(method, label, rank, taxon) %>%
       pivot_wider(names_from = "rank", values_from = "taxon") %>%
@@ -808,20 +909,51 @@ plan2 <- drake_plan(
       mutate(
         method = "PHYLO",
         reference = "All",
-        kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)) %>%
-      bind_rows(out) %>%
-    mutate_at(
-      "method",
-      factor,
-              levels = c("PHYLO", "dada2", "sintax", "idtaxa"),
-              labels = c("PHYLOTAX", "RDPC", "SINTAX", "IDTAXA")
+        kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
+      ),
+      conf_taxon_short_euk$tip_taxa %>%
+        select(method, label, rank, taxon) %>%
+        pivot_wider(names_from = "rank", values_from = "taxon") %>%
+        inner_join(
+          out %>%
+            filter(amplicon == "Short") %>%
+            select(seq_run, label, reads, amplicon, tech) %>%
+            unique(),
+          .,
+          by = "label"
+        ) %>%
+        mutate_at("kingdom", na_if, "NA") %>%
+        mutate(
+          kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
+        ),
+      best_taxon_short_euk$tip_taxa %>%
+        select(method, label, rank, taxon) %>%
+        pivot_wider(names_from = "rank", values_from = "taxon") %>%
+        inner_join(
+          out %>%
+            filter(amplicon == "Short") %>%
+            select(seq_run, label, reads, amplicon, tech) %>%
+            unique(),
+          .,
+          by = "label"
+        ) %>%
+        mutate_at("kingdom", na_if, "NA") %>%
+        mutate(
+          kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
+        )
     ) %>%
-    mutate_at(
-      "reference",
-      factor,
-      levels = c("All", "unite", "warcup", "rdp_train"),
-      labels = c("All", "Unite", "Warcup", "RDP")
-    ) %>%
+      mutate_at(
+        "method",
+        factor,
+        levels = c("PHYLO", "phylotax+c", "consensus", "dada2", "sintax", "idtaxa"),
+        labels = c("PHYLOTAX", "PHYLOTAX+C", "Consensus", "RDPC", "SINTAX", "IDTAXA")
+      ) %>%
+      mutate_at(
+        "reference",
+        factor,
+        levels = c("All", "unite", "warcup", "rdp_train"),
+        labels = c("All", "Unite", "Warcup", "RDP")
+      ) %>%
       mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
       rename(Algorithm = method) %>%
       mutate(

@@ -333,10 +333,15 @@ Inspection of the tree along with taxonomic assignments revealed that two ASVs a
 The kingdom Fungi was then identified as the minimal clade containing all remaining ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
 ASVs falling outside this clade were not included in the fungal community analysis.
 
-Taxonomic assignments of ASVs which were represented in the long amplicon dataset were refined using the phylogenetic tree (Supplementary Figure \@ref(fig:phylotax)).
+Taxonomic assignments of ASVs from the long amplicon dataset were refined using the phylogenetic tree (Supplementary Figure \@ref(fig:phylotax)).
 A taxon at a particular rank was assigned to a node and all its descendents if that taxon was consistent with the reference-based taxonomic assignments for each of the descendents.
 A taxon assignment was considered to be consistent if at least one algorithm assigned that taxon at greater than 50% confidence, or if no algorithm successfully classified the sequence at greater than 50% confidence.
 The result of this process was to give a taxonomic assignment to ASVs which were previously unassigned if they were nested within a clade where which was consistently given an assignment, as well as clarify the assignment of ASVs where different algorithms had resulted in different assignments, but only one of these was consistent with the assignments of other ASVs in the same clade.
+This refinement algorithm is referred to as "PHYLOTAX".
+
+ASVs from the short amplicon datasets were refined using only the final strict consensus step, i.e., an assignment at a given rank was accepted if there was no conflict between the different assignment algorithms at greater than 50% confidence.
+This refinement method is referred to as "Consensus".
+Additionally, a hybrid method, "PHYLOTAX+C", was applied to the short amplicon datasets, in which assignments from PHYLOTAX were used for ASVs which could be linked by an identical ITS2 region to a long amplicon, and assignments from Consensus were used for the remaining ASVs.
 
 <!--
           - preliminary alignment of 32S to RDP covariance model with `cmalign` from Infernal (aligns only conserved regions)
@@ -699,7 +704,7 @@ For all sequencing datasets and taxonomic assignment protocols, a higher proport
 A greater fraction of ITS reads and ASVs were assigned using the Unite database than the Warcup database across sequencing technologies, amplicons, algorithms, and taxonomic ranks.
 Across sequencing technologies, amplicons, and reference databases, the RDPC algorithm assigned the greatest fraction of reads and ASVs, followed by SINTAX, and then IDTAXA, with the exception of lower taxonomic ranks (order for the Long amplicon, family and genus for both amplicons) using the warcup reference database, where SINTAX assigned the greatest fraction of reads, but not ASVs.
 
-(ref:tax-chart) Fraction of ASVs (left) and reads (right) assigned to each taxonomic rank, for different sequencing technologies (PacBio RS II, Ion Torrent Ion S5), amplicons (Long, Short), reference databases (Unite, Warcup, RDP), and assignment algorithms (PHYLOTAX, RDPC, SINTAX, IDTAXA).
+(ref:tax-chart) Fraction of ASVs (left) and reads (right) assigned to each taxonomic rank, for different sequencing technologies (PacBio RS II, Ion Torrent Ion S5), amplicons (Long, Short), reference databases (Unite, Warcup, RDP), and assignment algorithms (PHYLOTAX, PHYLOTAX+C, Consensus, RDPC, SINTAX, IDTAXA).
 
 ```{r tax-chart, fig.cap = "(ref:tax-chart)"}
 readd(taxon_reads, cache = cache) %>%
@@ -713,8 +718,9 @@ readd(taxon_reads, cache = cache) %>%
   mutate_at("rank", factor, levels = c("kingdom", "phylum", "class", "order", "family", "genus")) %>%
   rename(Reads = reads) %>%
   mutate_at("reference", as.character) %>%
+  mutate_at("reference", replace_na, "All") %>%
   mutate(
-    reference = map(reference, ~ if (. == "All") c("Unite", "Warcup", "RDP") else .)
+    reference = map2(reference, amplicon, ~ if (.x == "All") c("Unite", "Warcup", if (.y == "Long") "RDP" else NULL) else .)
   ) %>%
   unnest(reference) %>%
   mutate_at("reference", factor, levels = c("Unite", "Warcup", "RDP")) %>%
@@ -729,11 +735,13 @@ readd(taxon_reads, cache = cache) %>%
   # geom_ribbon(ymin = 0, alpha = 0.5) +
   # geom_line(aes(color = Algorithm)) +
   geom_col(position = "dodge") +
+  # scale_fill_brewer(type = "qual", palette = 2) +
   ylab("Fraction of reads assigned") +
   xlab(NULL) +
   theme(axis.text.x = element_text(vjust = 0.5, angle = 90),
         legend.direction = "horizontal",
         legend.position = "bottom",
+        legend.
         strip.background = element_blank())
 ```
 
@@ -1037,7 +1045,7 @@ light_plan %>%
   select(target) %>%
   separate(
     target,
-    into = c("step", "guild", "metric", "tech", "amplicon", "tdist"),
+    into = c("step", "guild", "metric", "tech", "amplicon", "method", "tdist"),
     sep = "_",
     remove = FALSE
   ) %>%
@@ -1062,7 +1070,7 @@ light_plan %>%
   scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
   scale_color_discrete(name = "Time lag") +
   xlab("Distance (m)") +
-  ggnomics::facet_nested(metric + tech + amplicon ~ guild, scales = "fixed", nest_line = TRUE) +
+  ggnomics::facet_nested(metric + tech + amplicon + method ~ guild, scales = "fixed", nest_line = TRUE) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1)) +
   theme(strip.background = element_blank())
 ```
@@ -1080,14 +1088,19 @@ Figure \@ref(fig:correlog):
 ```{r spatio-temporal, fig.cap = "(ref:spatio)"}
 variog_data <- light_plan %>%
   filter(step == "variofitST") %>%
-  select(variofitST, variogST, guild, metric, tech, amplicon) %>%
-  mutate_at(c("guild", "metric", "tech", "amplicon"), str_replace_all, "\"", "") %>%
+  select(variofitST, variogST, guild, metric, tech, amplicon, algorithm) %>%
+  mutate_at(c("guild", "metric", "tech", "amplicon", "algorithm"), str_replace_all, "\"", "") %>%
   mutate(
     guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("All Fungi", "ECM")),
     metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
     amplicon = factor(
       amplicon,
       levels = c("Short", "Long")
+    ),
+    algorithm = factor(
+      algorithm,
+      levels = c("Consensus", "PHYLOTAX", "PHYLOTAX+Cons"),
+      labels = c("Cons", "PHYLO", "PHYLO+C")
     )
   ) %>%
   mutate_at(
@@ -1103,7 +1116,7 @@ variog_points <- unnest(variog_data, c("variogST")) %>%
 
 variog_empir <- variog_points %>%
   # mutate(bin = cut(dist, c(1:13 - 0.5, 14.5, 16.5, 19.5, 24.5))) %>%
-  group_by(guild, metric, tech, amplicon, dist, timelag) %>%
+  group_by(guild, metric, tech, amplicon, algorithm, dist, timelag) %>%
   summarize(
     gamma = mean(gamma),
     # dist = mean(dist),
@@ -1111,7 +1124,7 @@ variog_empir <- variog_points %>%
   )
 
 variog_confint <- variog_points %>%
-  group_by(guild, metric, tech, amplicon, dist, timelag) %>%
+  group_by(guild, metric, tech, amplicon, algorithm, dist, timelag) %>%
   summarize(
     lower = quantile(gamma, 0.025),
     upper = quantile(gamma, 0.975)
@@ -1140,7 +1153,7 @@ variog_empir %>%
   scale_color_discrete(name = "Time lag") +
   scale_size_continuous(name = "Comparisons") +
   scale_y_continuous(name = "Community dissimilarity") +
-  ggnomics::facet_nested(metric + tech + amplicon ~ guild, scales = "free", nest_line = TRUE) +
+  ggnomics::facet_nested(metric + tech + amplicon + algorithm ~ guild, scales = "free", nest_line = TRUE) +
   theme(strip.background = element_blank())
 
 ```
@@ -1152,8 +1165,8 @@ variog_data %>%
   mutate_at("variofitST", lapply, purrr::compose(as.data.frame, as.list, gstat::extractPar)) %>%
   unnest(variofitST) %>%
   arrange(metric, amplicon, tech, guild) %>%
-  select(Guild = guild, Amplicon = amplicon, Tech = tech, Metric = metric,
-         Range = range, Anisotropy = anis) %>%
+  select(Amplicon = amplicon, Tech = tech, Guild = guild, Algorithm = algorithm,
+         Metric = metric, Range = range, Anisotropy = anis) %>%
   mutate(Range = 3*Range,
          "Time Range" = Range/Anisotropy,
          "Time Range" = ifelse(`Time Range` > 100, NA, `Time Range`)) %>%
@@ -1163,7 +1176,7 @@ variog_data %>%
   mutate_at("Time Range", paste, "a") %>%
   mutate_at("Time Range", str_replace, "NA a", "-") %>%
   mutate_at("Amplicon", fct_relabel, str_replace, " amplicon", "") %>%
-  select(Guild, Amplicon, Tech, Metric, "Space Range" = Range, "Time Range") %>%
+  select(Amplicon, Tech, Guild, Algorithm, Metric, "Space Range" = Range, "Time Range") %>%
   kable(booktabs = TRUE, caption = "(ref:variofit)")
 ```
 
@@ -1436,7 +1449,7 @@ ggpubr::ggarrange(its2_dens, its2_ecdf, ncol = 1, labels = "auto", heights = c(4
 (ref:short-its) Kingdom-level taxonomic composition of ITS2 ASVs <= 140 bp.
 Vertical axis shows fraction of total reads in each dataset.
 
-```{r short-its, fig.cap = ""}
+```{r short-its, fig.cap = "(ref:short-its)"}
 readd(big_seq_table_ITS2, cache = cache) %>%
   colSums() %>%
   enframe(name = "ITS2", value = "nreads") %>%
