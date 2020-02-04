@@ -33,6 +33,15 @@ choosevars <- function(d, g, .data) {
     )
 }
 
+k_or_M <- function(x, ..., .sep = " ", .function = format) {
+  case_when(
+    abs(x) > 1e6 ~ paste(.function(x / 1e6, ...), "M", sep = .sep),
+    abs(x) > 1e3 ~ paste(.function(x / 1e3, ...), "k", sep = .sep),
+    is.na(x) ~ NA_character_,
+    TRUE ~ paste(.function(x, ...), " ", sep = .sep)
+  )
+}
+
 datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc")
 physeq_meta <-
   tidyr::crossing(
@@ -572,7 +581,7 @@ plan2 <- drake_plan(
     mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
     bind_rows(
       group_by(., seq_run) %>%
-        summarize_if(is.numeric, sum) %>%
+        summarize_if(is.numeric, sum, na.rm = TRUE) %>%
         mutate(set = "Total")
     ) %>%
     mutate_at(
@@ -583,19 +592,23 @@ plan2 <- drake_plan(
       drop0trailing = FALSE
     ) %>%
     mutate_at(
-      c("reads", "ASVs"),
-      format
+      "reads",
+      k_or_M,
+      .sep = "",
+      .function = formatC,
+      format = "fg",
+      digits = 2
     ) %>%
     mutate(
-      ASVs_frac = if_else(grepl(" +0", ASVs), "", ASVs_frac),
-      ASVs = if_else(grepl(" +0", ASVs), "", ASVs),
-      reads_frac = if_else(grepl(" +0", reads), "", reads_frac),
-      reads = if_else(grepl(" +0", reads), "", reads)
+      ASVs_frac = if_else(grepl("^ *[0.]+ *$", ASVs), "", ASVs_frac),
+      ASVs = na_if(ASVs, 0),
+      reads_frac = if_else(grepl("^ *[0.]+ *$", reads), "", reads_frac),
+      reads = if_else(grepl("^ *[0.]+ *$", reads), "", reads)
     ) %>%
     select(set, seq_run, ASVs, ASVs_frac, reads, reads_frac) %>% {
       left_join(
         group_by(., set) %>%
-          summarize(ASVs = as.integer(first(ASVs[ASVs != ""]))),
+          summarize(ASVs = max(ASVs, na.rm = TRUE) %>% ifelse(is.finite(.), ., NA)),
         
         select(., set, seq_run, ASV_frac = ASVs_frac, reads, frac = reads_frac) %>%
           pivot_wider(
@@ -608,7 +621,8 @@ plan2 <- drake_plan(
     mutate(n = str_count(set, "1") + 5 * (set == "Total")) %>%
     arrange(n, desc(set)) %>%
     select(set, ASVs, ends_with("pb_500"), ends_with("pb_483"), ends_with("SH-2257"), ends_with("is_057")) %>%
-    column_to_rownames("set"),
+    column_to_rownames("set") %>%
+    inset("Total", 1, nrow(asv_table)),
   
   venn_OTU =
     otu_table %>%
@@ -634,7 +648,7 @@ plan2 <- drake_plan(
     mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
     bind_rows(
       group_by(., seq_run) %>%
-        summarize_if(is.numeric, sum) %>%
+        summarize_if(is.numeric, sum, na.rm = TRUE) %>%
         mutate(set = "Total")
     ) %>%
     mutate_at(
@@ -645,20 +659,23 @@ plan2 <- drake_plan(
       drop0trailing = FALSE
     ) %>%
     mutate_at(
-      c("reads", "OTUs"),
-      format
+      "reads",
+      .funs = k_or_M,
+      format = "fg",
+      digits = 2,
+      .sep = "",
+      .function = formatC
     ) %>%
     mutate(
-      OTUs_frac = if_else(grepl(" +0", OTUs), "", OTUs_frac),
-      OTUs = if_else(grepl(" +0", OTUs), "", OTUs),
-      reads_frac = if_else(grepl(" +0", reads), "", reads_frac),
-      reads = if_else(grepl(" +0", reads), "", reads)
+      OTUs_frac = if_else(grepl("^ *[0.]+ *$", OTUs), "", OTUs_frac),
+      OTUs = na_if(OTUs, 0),
+      reads_frac = if_else(grepl("^ *[0.]+ *$", reads), "", reads_frac),
+      reads = if_else(grepl("^ *[0.]+ *$", reads), "", reads)
     ) %>%
     select(set, seq_run, OTUs, OTUs_frac, reads, reads_frac) %>%  {
       left_join(
         group_by(., set) %>%
-          summarize(OTUs = as.integer(first(OTUs[OTUs != ""]))),
-        
+          summarize(OTUs = max(OTUs, na.rm = TRUE) %>% ifelse(is.finite(.), ., NA)),
         select(., set, seq_run, OTU_frac = OTUs_frac, reads, frac = reads_frac) %>%
           pivot_wider(
             names_from = "seq_run",
@@ -670,7 +687,8 @@ plan2 <- drake_plan(
     mutate(n = str_count(set, "1") + 5 * (set == "Total")) %>%
     arrange(n, desc(set)) %>%
     select(set, OTUs, ends_with("pb_500"), ends_with("pb_483"), ends_with("SH-2257"), ends_with("is_057")) %>%
-    column_to_rownames("set"),
+    column_to_rownames("set") %>%
+    inset("Total", 1, nrow(otu_table)),
   
   big_table = {
     out <- bind_rows(
@@ -1079,10 +1097,10 @@ plan2 <- drake_plan(
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
 
 saveRDS(plan2, "data/plan/drake_light.rds")
-
+options(clustermq.scheduler = "multicore")
 if (interactive()) {
   cache <- drake_cache(".light")
   # dconfig <- drake_config(plan2, cache = cache)
   # vis_drake_graph(dconfig)
-  make(plan2, cache = cache)
+  make(plan2, cache = cache, parallelism = "clustermq", jobs = local_cpus() - 1)
 }

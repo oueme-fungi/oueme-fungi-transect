@@ -101,11 +101,12 @@ loadd(
   cache = cache
 )
 
-k_or_M <- function(x, ...) {
+k_or_M <- function(x, ..., .sep = " ", .fun = format) {
   case_when(
-    abs(x) > 1e6 ~ paste(format(x / 1e6, ...), "M"),
-    abs(x) > 1e3 ~ paste(format(x / 1e3, ...), "k"),
-    TRUE ~ paste(format(x, ...), " ")
+    abs(x) > 1e6 ~ paste(.fun(x / 1e6, ...), "M", sep = .sep),
+    abs(x) > 1e3 ~ paste(.fun(x / 1e3, ...), "k", sep = .sep),
+    is.na(x) ~ NA_character_,
+    TRUE ~ paste(.fun(x, ...), " ", sep = .sep)
   )
 }
 
@@ -201,7 +202,7 @@ However, reads from these sequences were included in the full bioinformatics wor
 ## DNA extraction, amplification, and sequencing
 
 After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit (see above).
-Samples preserved using 
+Samples preserved using LifeGuard were first centrifuged at XX ×g for Y minutes, after which the supernatant was removed and DNA was extracted from the remaining soil using the Soil/Fecal Prep kit as for the other samples.
 DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
 
 Two different fragments of the nuclear rDNA were amplified (Figure \@ref(fig:rDNA)).
@@ -354,7 +355,7 @@ The mean dissimilarity between samples taken in different transects (distance $\
 
 # Results
 
-The number of sequencing reads and ASVs at each stage in the bioinformatics pipeline are shown in Table \@ref(tab:bioinfo).'
+The number of sequencing reads and ASVs at each stage in the bioinformatics pipeline are shown in Table \@ref(tab:bioinfo).
 Long (short) amplicon sequencing with PacBio yielded `r rawcounts["pb_500"]` (`r rawcounts["pb_483"]`) circular consensus reads, of which `r demuxcounts["pb_500"]` (`r demuxcounts["pb_483"]`) were successfully demultiplexed.
 The 5.8S region was detected in `r regioncounts["pb_500"]` (`r regioncounts["pb_483"]`) reads.
 Ion Torrent sequencing yielded `r demuxcounts["is_057"]` demultiplexed reads, with the 5.8S region detected in `r regioncounts["is_057"]`.
@@ -440,9 +441,12 @@ linesep <- venn_ASV %>%
   unlist() %>%
   head(length(.) - 2) %>%
   c("\\midrule")
-
+empty_background = if (options("knitr.table.format") == "html") "#777777" else "gray"
 venn_ASV %>%
   filter(!is.na(ASVs)) %>%
+  mutate_all(~ifelse(
+    . == "",
+    kableExtra::cell_spec("      ", background = empty_background, background_as_tile = FALSE), .)) %>%
   set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
   set_names(gsub("_", " ", names(.))) %>%
   kable(
@@ -450,7 +454,8 @@ venn_ASV %>%
     caption = "(ref:venn-table-asv)",
     linesep = linesep,
     align = ("rcrrcrrcrr"),
-    row.names = FALSE
+    row.names = FALSE,
+    escape = FALSE
   ) %>%
   kableExtra::add_header_above(
     header = c(
@@ -492,16 +497,19 @@ linesep <- venn_OTU %>%
   unlist() %>%
   head(length(.) - 2) %>%
   c("\\midrule")
-
+venn_OTU %>% as.matrix() %>% equals("") %>% which()
 venn_OTU %>%
+  filter(!is.na(OTUs)) %>%
+  mutate_all(~ifelse(. == "", kableExtra::cell_spec("      ", background = empty_background, background_as_tile = FALSE), .)) %>%
   set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
   set_names(gsub("_", " ", names(.))) %>%
   kable(
     booktabs = TRUE,
     caption = "(ref:venn-table-otu)",
     linesep = linesep,
-    align = ("rcrrcrrcrr"),
-    row.names = FALSE
+    align = ("rcrrcrrcrrcrr"),
+    row.names = FALSE,
+    escape = FALSE
   ) %>%
   kableExtra::add_header_above(
     header = c(
@@ -521,8 +529,8 @@ venn_OTU %>%
         rle() %$%
         set_names(lengths, values)
       )
-    
-  )
+  ) %>%
+  kableExtra::landscape()
 ```
 
 (ref:venn) Venn diagrams showing shared ITS2-based ASVs (left) and 97% OTUs (right) between different sequencing strategies.
