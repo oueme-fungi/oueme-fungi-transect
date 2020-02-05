@@ -1,9 +1,10 @@
 name: demultiplex
 channels:
   - bioconda
+  - conda-forge
   - defaults
 dependencies:
-  - cutadapt=1.18
+  - cutadapt=2.8
   - fastx_toolkit=0.0.14
   - python=3.6.7
   - samtools

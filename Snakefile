@@ -468,7 +468,7 @@ rule unite_download:
 localrules: rdp_download
 rule rdp_download:
     output:
-        fasta = "{ref_root}/rdp_train.raw.fasta.gz".format_map(config),
+        fasta = "{ref_root}/rdp_train.fasta.gz".format_map(config),
         taxa  = "{ref_root}/rdp_train.taxa.txt".format_map(config)
     input:
       zip = HTTP.remote(config['rdp_url'], allow_redirects = True, keep_local = True)
