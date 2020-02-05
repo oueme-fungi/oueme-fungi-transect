@@ -419,6 +419,12 @@ agaricus_reads <- readd(proto_physeq, cache = cache) %>%
   merge_samples("seq_run") %>%
   otu_table()
 
+readd(allseqs, cache = cache) %>% filter(hash %in% taxa_names(agaricus_reads)) %$%
+  set_names(short, hash) %>%
+  discard(is.na) %>%
+  Biostrings::RNAStringSet() %>%
+  Biostrings::writeXStringSet(here("temp/agaricus.fasta"))
+
 agaricus_order <- readd(proto_physeq, cache = cache) %>%
   merge_samples("seq_run") %>%
   otu_table() %>%
