@@ -12,6 +12,7 @@ library(glue)
 library(drake)
 library(assertr)
 library(disk.frame)
+library(ape)
 
 source(file.path(config$rdir, "dada.R"))
 source(file.path(config$rdir, "mantel.R"))
@@ -209,7 +210,7 @@ plan2 <- drake_plan(
   # root for Eukaryotes (inside Chlorophyta), but it ensures that
   # the fungi can be indentified.
   rooted_tree = target(
-    ape::root(tree, best_nonfungus),
+    ape::root.phylo(euktree, best_nonfungus),
     transform = map(euktree, .tag_in = step, .id = treename)
   ),
   
