@@ -111,7 +111,7 @@ k_or_M <- function(x, ..., .sep = " ", .fun = format) {
 }
 
 percent <- function(x, ...) {
-  paste0(format(as.numeric(x) * 100), "%")
+  paste0(formatC(as.numeric(x) * 100, ...), "%")
 }
 
 text_list <- function(x, ...) {
@@ -454,10 +454,12 @@ linesep <- venn_ASV %>%
   c("\\midrule")
 empty_background = if (options("knitr.table.format") == "html") "#777777" else "gray"
 venn_ASV %>%
+  rownames_to_column(" ") %>%
   filter(!is.na(ASVs)) %>%
   mutate_all(~ifelse(
     . == "",
-    kableExtra::cell_spec("      ", background = empty_background, background_as_tile = FALSE), .)) %>%
+    kableExtra::cell_spec("  ", background = empty_background, background_as_tile = FALSE), .)) %>%
+  mutate_at(" ", str_replace, "[01]+", "") %>%
   set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
   set_names(gsub("_", " ", names(.))) %>%
   kable(
@@ -470,7 +472,7 @@ venn_ASV %>%
   ) %>%
   kableExtra::add_header_above(
     header = c(
-      " " = 1,
+      " " = 2,
       names(venn_ASV)[-(1)] %>% 
         gsub(pattern = "(ASV_)?(reads|frac)_", replacement = "") %>%
         rle() %$%
@@ -479,7 +481,7 @@ venn_ASV %>%
   ) %>%
   kableExtra::add_header_above(
     header = c(
-      " " = 1,
+      " " = 2,
        names(venn_ASV)[-(1)] %>% 
         gsub(pattern = "(ASV_)?(reads|frac)_", replacement = "") %>%
         plyr::mapvalues(datasets$seq_run, paste(datasets$tech, datasets$machine), FALSE) %>%
@@ -511,8 +513,17 @@ linesep <- venn_OTU %>%
   c("\\midrule")
 venn_OTU %>% as.matrix() %>% equals("") %>% which()
 venn_OTU %>%
+  rownames_to_column(" ") %>%
   filter(!is.na(OTUs)) %>%
-  mutate_all(~ifelse(. == "", kableExtra::cell_spec("      ", background = empty_background, background_as_tile = FALSE), .)) %>%
+  mutate_all(~ifelse(
+    . == "",
+    kableExtra::cell_spec(
+      "  ",
+      background = empty_background,
+      background_as_tile = FALSE
+    ),
+    .)) %>%
+  mutate_at(" ", str_replace, "[01]+", "") %>%
   set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
   set_names(gsub("_", " ", names(.))) %>%
   kable(
@@ -525,7 +536,7 @@ venn_OTU %>%
   ) %>%
   kableExtra::add_header_above(
     header = c(
-      " " = 1,
+      " " = 2,
       names(venn_OTU)[-1] %>% 
         gsub(pattern = "(OTU_)?(reads|frac)_", replacement = "") %>%
         rle() %$%
@@ -534,7 +545,7 @@ venn_OTU %>%
   ) %>%
   kableExtra::add_header_above(
     header = c(
-     " " = 1,
+     " " = 2,
       names(venn_OTU)[-1] %>% 
         gsub(pattern = "(OTU_)?(reads|frac)_", replacement = "") %>%
         plyr::mapvalues(datasets$seq_run, paste(datasets$tech, datasets$machine), FALSE) %>%
@@ -740,7 +751,9 @@ For all sequencing datasets and taxonomic assignment protocols, a higher proport
 A greater fraction of ITS reads and ASVs were assigned using the Unite database than the Warcup database across sequencing technologies, amplicons, algorithms, and taxonomic ranks.
 Across sequencing technologies, amplicons, and reference databases, the RDPC algorithm assigned the greatest fraction of reads and ASVs, followed by SINTAX, and then IDTAXA, with the exception of lower taxonomic ranks (order for the Long amplicon, family and genus for both amplicons) using the warcup reference database, where SINTAX assigned the greatest fraction of reads, but not ASVs.
 
-(ref:tax-chart) Fraction of ASVs (left) and reads (right) assigned to each taxonomic rank, for different sequencing technologies (PacBio RS II, Ion Torrent Ion S5), amplicons (Long, Short), reference databases (Unite, Warcup, RDP), and assignment algorithms (PHYLOTAX, PHYLOTAX+C, Consensus, RDPC, SINTAX, IDTAXA).
+(ref:tax-chart) Fraction of ASVs (left) and reads (right) assigned to each taxonomic rank, for different sequencing technologies (PacBio RS II, Ion Torrent Ion S5), amplicons (Long, Short), reference databases (Unite, Warcup, RDP), and assignment algorithms (PHYLOTAX, Consensus, RDPC, SINTAX, IDTAXA).
+Consensus and PHYLOTAX assignments are based on the consensus of RDPC, SINTAX, and IDTAXA, using all available databases and, in the case of PHYLOTAX, phylogenetic information.
+They are plotted in each column to compare with results for the individual databases.
 
 ```{r tax-chart, fig.cap = "(ref:tax-chart)"}
 readd(taxon_reads, cache = cache) %>%
@@ -777,23 +790,83 @@ readd(taxon_reads, cache = cache) %>%
   theme(axis.text.x = element_text(vjust = 0.5, angle = 90),
         legend.direction = "horizontal",
         legend.position = "bottom",
-        legend.
         strip.background = element_blank())
 ```
 
-Taxonomic composition of the sequenced soil community is summarized in Figure \@ref(fig:taxa).
+(ref:taxa) Heat tree summarizing taxonomic composition of soil community.
+Color and size of nodes represent the fractional read abundance of all ASVs belonging to that taxonomic group.
+Color and thickness of branches represent the fractional ASV richness of that taxonomic group.
+Both measures are a mean across sequencing runs, reference databases, and taxonomic assignment algorithms.
+Diverse but relatively rare groups are thus shown as small, light-colored nodes on relatively thick, darker-green-colored branches (e.g., Dothideomycetes), while common but relatively non-diverse groups are shown as large nodes on relatively thin branches (e.g., Russulales).
+Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "...".
+ASVs which could not be further assigned are labelled "?".
 
-  - what fraction assigned at each level (or representative ranks; phylum, (order), genus)
-  - what fraction are fungi
-  - comparison of different region/database and algorithm
-  - breakdown of groups
-  - fraction ECM
-  
-(ref:taxa-kingdom) Taxonomic assignment of ASVs to kingdom by different reference databases and algorithms.
-"unidentified" denotes ASVs which could not be identified to kingdom level.
-"other" denotes kingdoms represented by less than 1% of reads in all datasets.
-The Warcup database did not include non-Fungi, so for that database, ASVs were considered to be identified to Fungi if they were identified to any phylum.
-Height of each bar represents the fraction of reads represented by that bar.
+```{r taxa, fig.cap = "(ref:taxa)", out.width="100%", fig.width = 8}
+fungi_read <- readd(taxdata, cache = cache) %>%
+  taxa::filter_taxa(
+    taxon_names == "Fungi",
+    reassign_obs = FALSE,
+    reassign_taxa = FALSE
+    ) %>%
+  extract2("data") %>%
+  extract2("tax_read") %>%
+  select(ends_with("PHYLOTAX")) %>%
+  set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
+  unlist()
+
+fungi_asv <- readd(taxdata, cache = cache) %>%
+  taxa::filter_taxa(
+    taxon_names == "Fungi",
+    reassign_obs = FALSE,
+    reassign_taxa = FALSE
+    ) %>%
+  extract2("data") %>%
+  extract2("tax_asv") %>%
+  select(ends_with("PHYLOTAX")) %>%
+  set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
+  unlist()
+
+ecm_counts <- readd(taxon_reads, cache = cache) %>%
+  filter(Algorithm == "PHYLOTAX") %>%
+  group_by(seq_run) %>%
+  mutate(ASVs = 1/n()) %>%
+  filter(ECM %in% c("Possible ECM", "Probable ECM", "Highly Probable ECM")) %>%
+  summarize_at(c("ASVs", "reads"), sum)
+
+ecm_read <- select(ecm_counts, seq_run, reads) %>% deframe()
+ecm_asv <- select(ecm_counts, seq_run, ASVs) %>% deframe()
+
+set.seed(2)
+theme <- theme_update(panel.border = element_blank())
+readd(taxdata, cache = cache) %>%
+  metacoder::heat_tree(
+    layout = "davidson-harel",
+    # initial_layout = "reingold-tilford",
+    node_size = rowMeans(.$data$tax_read[,-1]),
+    node_color = rowMeans(.$data$tax_read[,-1]),
+    node_label = replace_na(taxon_names, "unknown"),
+    node_size_range = c(0.002, .035),
+    node_size_axis_label = "Read abundance",
+    node_color_axis_label = "Read abundance",
+    node_label_size_range = c(0.01, 0.03),
+    edge_size = rowMeans(.$data$tax_asv[,-1]),
+    edge_size_trans = "linear",
+    edge_size_axis_label = "ASV count",
+    edge_size_range = c(0.001, 0.03),
+    edge_color = rowMeans(.$data$tax_asv[,-1]),
+    edge_color_axis_label = "ASV count",
+    # aspect_ratio = 3/2,
+    make_node_legend = FALSE,
+    make_edge_legend = FALSE,
+    output_file = here("temp/heattree.pdf")
+  )
+theme_set(theme)
+```
+
+Taxonomic composition of the sequenced soil community is summarized in Figure \@ref(fig:taxa).
+According to the PHYLOTAX assignments, Fungi represented `r percent(fungi_read["PacBio_Long"], format = "f", digits = 1)` of the reads and `r percent(fungi_asv["PacBio_Long"], format = "f", digits = 1)` of the ASVs in the long amplicon library, compared to `r paste(percent(range(fungi_read[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the reads and `r paste(percent(range(fungi_asv[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the ASVs in the short amplicon library.
+Fungi categorized as ECM made up `r percent(ecm_read["pb_500"], format = "f", digits = 1)` of reads and `r percent(ecm_asv["pb_500"], format = "f", digits = 1)` of ASVs in the long amplicon library, and `r paste(percent(range(ecm_read[c("pb_483", "SH-2257", "is_057")]), format = "f", digits = 1), collapse = "–")` of the reads and `r paste(percent(range(ecm_asv[c("pb_483", "SH-2257", "is_057")]), format = "f", digits = 1), collapse = "–")` of the ASVs in the short amplicon library.
+Assignment to kingdom Fungi and ECM status for different amplicons, sequencing technologies, reference databases, and algorithms are shown in Supplementary Figure \@ref(ref:ecm).
 
 ```{r taxon-plot}
 taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL) {
@@ -846,6 +919,9 @@ taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL) {
   if (rank_label == str_to_lower(rank_label)) rank_label <- str_to_title(rank_label)
   y_label <- as_label(y)
   if (y_label == str_to_lower(y_label)) y_label <- str_to_title(y_label)
+  .data <- .data %>%
+    mutate(tech = fct_relabel(tech, ~ paste(., plyr::mapvalues(., datasets$tech, datasets$machine, FALSE))
+    ))
   ggplot(.data, aes(x = Algorithm, y = !!y, fill = !!rank)) +
     geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
     ggnomics::facet_nested(
@@ -869,119 +945,6 @@ taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL) {
 }
 
 ```
-
-```{r taxa-kingdom, fig.cap = "(ref:taxa-kingdom)", include = FALSE}
-loadd(taxon_reads, cache = cache)
-taxon_plot(taxon_reads, kingdom, cutoff = 0.01)
-```
-
-
-(ref:ASV-kingdom) Taxonomic assignment of ASVs to kingdom by different reference databases and algorithms.
-"unidentified" denotes ASVs which could not be identified to kingdom level.
-"other" denotes kingdoms represented by less than 1% of ASVs in all datasets.
-The Warcup database did not include non-Fungi, so ASVs were considered to be identified to Fungi if they were identified to any phylum.
-Height of each bar represents the fraction of total ASVs represented by that bar.
-
-```{r ASV-kingdom, fig.cap = "(ref:ASV-kingdom)", include = FALSE}
-taxon_plot(taxon_reads, kingdom, y = ASVs, cutoff = 0.01)
-```
-
-(ref:taxa-phylum) Taxonomic assignment of ASVs to fungal phylum.
-Phyla representing less than 1% of total reads are grouped as "other".
-"unidentified" denotes ASVs which were identified as fungi, but could not be identified to phylum level.
-Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
-Height of each bar represents the fraction of reads represented by that bar.
-
-```{r taxa-phylum, fig.cap = "(ref:taxa-phylum)", include = FALSE}
-taxon_plot(taxon_reads, rank = phylum, cutoff = 0.01, kingdom == "Fungi")
-```
-
-(ref:asco-class) Taxonomic assignment of ASVs to ascomycete order.
-Orders representing less than 1% of total reads are grouped as "other".
-"unidentified" denotes ASVs which were identified as Ascomycota, but could not be identified to order level.
-Reads which were not identified to phylum, or which were identified as a non-Ascomycota phylum, are not included.
-Height of each bar represents the fraction of total reads represented by that bar.
-
-```{r asco-class, fig.cap = "(ref:asco-class)", include = FALSE}
-taxon_plot(taxon_reads, order, phylum == "Ascomycota", cutoff = 0.01)
-```
-
-(ref:basid-family) Taxonomic assignment of ASVs to basidiomycete family.
-Families representing less than 1% of total reads are grouped as "other".
-"unidentified" denotes ASVs which were identified as Basidiomycota, but could not be identified to family level.
-Reads which were not identified to phylum, or which were identified as a non-Basidiomycota phylum, are not included.
-Height of each bar represents the fraction of total reads represented by that bar.
-
-```{r basid-family, fig.cap = "(ref:basid-family)", include = FALSE}
-taxon_plot(taxon_reads, family, phylum == "Basidiomycota", cutoff = 0.01)
-```
-
-(ref:ecm) Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic identification by different reference databases and algorithms.
-Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
-"unidentified" denotes ASVs which were identified as Fungi, but could not be identified to family level or could not be assigned ECM status based on the available identification.
-Height of each bar represents the fraction of reads represented by that bar.
-
-
-```{r ECM, fig.cap = "(ref:ecm)"}
-  readd(taxon_reads, cache = cache) %>%
-  taxon_plot(ECM, kingdom == "Fungi")
-```
-
-(ref:ecm-families) Taxonomic composition of 
-
-```{r ECM-families, fig.cap = "(ref:ecm-families)", include = FALSE}
-  readd(taxon_reads, cache = cache) %>%
-  taxon_plot(
-    family,
-    !is.na(as.character(ECM)),
-    ECM != "non-ECM",
-    kingdom == "Fungi",
-    cutoff = 0.01
-  )
-```
-
-
-```{r taxdata}
-loadd(taxdata, cache = cache)
-```
-
-(ref:taxa) Heat tree summarizing taxonomic composition of soil community.
-Color and size of nodes represent the fractional read abundance of all ASVs belonging to that taxonomic group.
-Color and thickness of branches represent the fractional ASV richness of that taxonomic group.
-Both measures are a mean across sequencing runs, reference databases, and taxonomic assignment algorithms.
-Diverse but relatively rare groups are thus shown as small, light-colored nodes on relatively thick, darker-green-colored branches (e.g., Dothideomycetes), while common but relatively non-diverse groups are shown as large nodes on relatively thin branches (e.g., Russulales).
-Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "...".
-ASVs which could not be further assigned are labelled "?".
-
-```{r taxa, fig.cap = "(ref:taxa)", out.width="100%", fig.width = 8}
-set.seed(2)
-theme <- theme_update(panel.border = element_blank())
-readd(taxdata, cache = cache) %>%
-  metacoder::heat_tree(
-    layout = "davidson-harel",
-    # initial_layout = "reingold-tilford",
-    node_size = rowMeans(.$data$tax_read[,-1]),
-    node_color = rowMeans(.$data$tax_read[,-1]),
-    node_label = replace_na(taxon_names, "unknown"),
-    node_size_range = c(0.002, .035),
-    node_size_axis_label = "Read abundance",
-    node_color_axis_label = "Read abundance",
-    node_label_size_range = c(0.01, 0.03),
-    edge_size = rowMeans(.$data$tax_asv[,-1]),
-    edge_size_trans = "linear",
-    edge_size_axis_label = "ASV count",
-    edge_size_range = c(0.001, 0.03),
-    edge_color = rowMeans(.$data$tax_asv[,-1]),
-    edge_color_axis_label = "ASV count",
-    # aspect_ratio = 3/2,
-    make_node_legend = FALSE,
-    make_edge_legend = FALSE,
-    output_file = here("temp/heattree.pdf")
-  )
-theme_set(theme)
-```
-
-
 
 (ref:heattree-db-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
 Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
@@ -1085,6 +1048,7 @@ light_plan %>%
     sep = "_",
     remove = FALSE
   ) %>%
+  filter(startsWith(method, "PHYLOTAX")) %>%
   mutate(
     tdist = paste(tdist, "year"),
     guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("all Fungi", "ECM")),
@@ -1102,11 +1066,11 @@ light_plan %>%
   geom_line(alpha = 0.3, size = 1.5) +
   geom_hline(yintercept = 0, linetype = 2, alpha = 0.5) +
   # geom_line(aes(y = exp(predict(bc_fit)))) +
-  scale_y_continuous(limits = c(-0.05, NA), name = "Mantel correlation") +
+  scale_y_continuous(name = "Mantel correlation") +
   scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
   scale_color_discrete(name = "Time lag") +
   xlab("Distance (m)") +
-  ggnomics::facet_nested(metric + tech + amplicon + method ~ guild, scales = "fixed", nest_line = TRUE) +
+  ggnomics::facet_nested(amplicon + tech + metric ~ guild, scales = "fixed", nest_line = TRUE) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1)) +
   theme(strip.background = element_blank())
 ```
@@ -1119,12 +1083,39 @@ Figure \@ref(fig:correlog):
 
 ## Spatio-temporal variogram
 
-(ref:spatio) Spatiotemporal variogram fits for community dissimilarities. The thick lines represent the empirical variogram (mean of community distances at each spatial distance) for samples taken at the same time (red) or separated by one year (blue). Thin lines are an exponential fit to the variograms.
+(ref:spatio) Relationship between spatiotemporal distance and community dissimilarities.
+Circles represent community data from short (top two rows) and long (bottom two rows) amplicon libraries, sequenced by Illumina MiSeq (top row) or PacBio RS II (bottom three rows).
+Community dissimilarities are calculated using the Bray-Curtis dissimilarity for all datasets (top three rows) and using the weighted UNIFRAC dissimilarity for the long amplicon library, for which a phylogenetic tree could be constructed (bottom row).
+The left column represents the full fungal community, and the right column only sequences identified as ECM.
+The color of each circle represents the time lag between samples being compared (0 or 1 year), and the size represents the number of comparisons for that spatial distance and time lag.
+Lines are the best-fit lines for an exponential decay to max model.
+The model was only fit for datasets where the Mantel test indicated a significant relationship between community dissimilarity and spatial (for the 0 year timelag) or spatiotemporal (for the 1 year time lag) distance.
 
 ```{r spatio-temporal, fig.cap = "(ref:spatio)"}
 variog_data <- light_plan %>%
-  filter(step == "variofitST") %>%
-  select(variofitST, variogST, guild, metric, tech, amplicon, algorithm) %>%
+  filter(step == "correlog") %>%
+  select(correlog, timelag, guild, metric, tech, amplicon, algorithm) %>%
+  mutate_at("correlog", lapply, readd, character_only = TRUE, cache = cache) %>%
+  mutate_at("correlog", map, "mantel.res") %>%
+  mutate_at("correlog", map_lgl, ~ min(.x[,"Pr(corrected)"], na.rm = TRUE) < 0.05) %>%
+  pivot_wider(names_from = "timelag", values_from = "correlog", names_prefix = "mantel_") %>%
+  left_join(
+    light_plan %>%
+      filter(step == "variofit2") %>%
+      select(variofit2, guild, metric, tech, amplicon, algorithm),
+    by = c("guild", "metric", "tech", "amplicon", "algorithm")
+    ) %>%
+  left_join(
+    light_plan %>%
+      filter(step == "variofitST2") %>%
+      select(variofitST2, variogST, guild, metric, tech, amplicon, algorithm),
+    by = c("guild", "metric", "tech", "amplicon", "algorithm")
+    ) %>%
+  mutate(
+    variofit = ifelse(mantel_1, variofitST2, variofit2)
+    ) %>%
+  mutate_at(c("variofit", "variogST", "variofitST2", "variofit2"), map, readd, character_only = TRUE, cache = cache) %>%
+  select(mantel_0, mantel_1, variofitST2, variofit2, variofit, variogST, guild, metric, tech, amplicon, algorithm) %>%
   mutate_at(c("guild", "metric", "tech", "amplicon", "algorithm"), str_replace_all, "\"", "") %>%
   mutate(
     guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("All Fungi", "ECM")),
@@ -1136,17 +1127,12 @@ variog_data <- light_plan %>%
     algorithm = factor(
       algorithm,
       levels = c("Consensus", "PHYLOTAX", "PHYLOTAX+Cons"),
-      labels = c("Cons", "PHYLO", "PHYLO+C")
+      labels = c("Cons", "PHYLO", "PHYLO")
     )
-  ) %>%
-  mutate_at(
-    c("variogST", "variofitST"),
-    lapply,
-    readd,
-    character_only = TRUE,
-    cache = cache)
+  )
 
 variog_points <- unnest(variog_data, c("variogST")) %>%
+  mutate_at("timelag", replace_na, "0") %>%
   filter(dist <= 25) %>%
   mutate_at("timelag", factor)
 
@@ -1167,53 +1153,64 @@ variog_confint <- variog_points %>%
   )
 
 variog_fit <- variog_data %>%
-  mutate_at("variofitST", lapply,
-            gstat:::vgmMetric,
-            expand_grid(spacelag = seq(1, 25, 0.5), timelag = 0:1)
+  mutate_at("variofit", map,
+            ~ mutate(.y, gamma = predict(.x, newdata = .y)),
+            expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
             ) %>%
-  unnest(variofitST) %>%
-  rename(dist = spacelag) %>%
+  unnest(variofit) %>%
+  filter(mantel_1 | timelag == "0", mantel_0) %>%
   mutate_at("timelag", factor)
 
 variog_empir %>%
+  filter(algorithm == "PHYLO") %>%
   ggplot(aes(dist, gamma, color = timelag, size = n)) +
+  ggnomics::facet_nested(amplicon + tech + metric ~ guild, scales = "free", nest_line = TRUE, space = "free_y") +
   # geom_hline(data = variog_sills, aes(yintercept = sills), linetype = "dashed", color = "gray50") +
   # geom_vline(data = variog_data, aes(xintercept = range), linetype = "dashed", color = "gray50") +
   # geom_jitter(shape = 46, alpha = 0.5) +
   # geom_line(size = 1.5, alpha = 0.5) +
   geom_point(alpha = 0.5) +
   # geom_smooth(data = variog_points, aes(fill = timelag), color = FALSE, alpha = 0.5) +
-  geom_line(data = filter(variog_fit, timelag == 1), size = 0.5, color = "darkcyan", alpha = 0.8) +
-  geom_line(data = filter(variog_fit, timelag == 0), size = 0.5, color = "red1", alpha = 0.8) +
+  geom_line(data = filter(variog_fit, timelag == "1", algorithm == "PHYLO"), size = 0.5, color = "darkcyan", alpha = 0.8) +
+  geom_line(data = filter(variog_fit, timelag == "0", algorithm == "PHYLO"), size = 0.5, color = "red1", alpha = 0.8) +
   scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
   scale_color_discrete(name = "Time lag") +
   scale_size_continuous(name = "Comparisons") +
   scale_y_continuous(name = "Community dissimilarity") +
-  ggnomics::facet_nested(metric + tech + amplicon + algorithm ~ guild, scales = "free", nest_line = TRUE) +
   theme(strip.background = element_blank())
 
 ```
 
 (ref:variofit) Parameters for variogram fits shown in Figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value.
 
-```{r variofit}
+```{r variofit, results="asis"}
 variog_data %>%
-  mutate_at("variofitST", lapply, purrr::compose(as.data.frame, as.list, gstat::extractPar)) %>%
-  unnest(variofitST) %>%
-  arrange(metric, amplicon, tech, guild) %>%
-  select(Amplicon = amplicon, Tech = tech, Guild = guild, Algorithm = algorithm,
-         Metric = metric, Range = range, Anisotropy = anis) %>%
-  mutate(Range = 3*Range,
-         "Time Range" = Range/Anisotropy,
-         "Time Range" = ifelse(`Time Range` > 100, NA, `Time Range`)) %>%
-  mutate_at(c("Range", "Time Range"), formatC, digits = 1,
-            format = "f") %>%
-  mutate_at("Range", paste, "m") %>%
-  mutate_at("Time Range", paste, "a") %>%
-  mutate_at("Time Range", str_replace, "NA a", "-") %>%
-  mutate_at("Amplicon", fct_relabel, str_replace, " amplicon", "") %>%
-  select(Amplicon, Tech, Guild, Algorithm, Metric, "Space Range" = Range, "Time Range") %>%
-  kable(booktabs = TRUE, caption = "(ref:variofit)")
+  select(mantel_0, mantel_1, variofit_0 = variofit2, variofit_1 = variofitST2, metric, amplicon, tech, guild, algorithm) %>%
+  pivot_longer(1:4, names_to = c(".value", "timelag"), names_sep = "_") %>%
+  mutate(params = map(variofit, broom::tidy)) %>%
+  unnest(params) %>%
+  bind_cols(
+  pmap_dfr(
+    .,
+    function(mantel, variofit, term, ...) {
+      if (mantel) {
+        tryCatch(broom::confint_tidy(object = variofit, parm = term) %>% as.list %>% as.data.frame,
+                 error = function(e) tibble(conf.low = NA_real_, conf.high = NA_real_))
+      } else {
+        tibble(conf.low = NA_real_, conf.high = NA_real_)
+      }
+    })
+  ) %>%
+  filter(term %in% c("range", "timerange")) %>%
+  mutate(value = ifelse(
+    is.na(estimate) | is.na(conf.low) | is.na(conf.high),
+    "-",
+    sprintf("%.2g (%.2g–%.2g)", estimate, conf.low, conf.high)
+  )) %>%
+  pivot_wider(names_from = "term", values_from = "value", id_cols = c("guild", "amplicon", "tech", "metric", "algorithm")) %>%
+  select(Guild = guild, Amplicon = amplicon, Tech = tech, Algorithm = algorithm, Metric = metric, "Space Range (m)" = range, "Time Range (a)" = timerange) %>%
+  arrange(Guild, Amplicon, Tech, Algorithm, Metric) %>%
+  kable(booktabs = TRUE, caption = "(ref:variofit)", linesep = c(rep("", 5), "\\addlinespace"))
 ```
 
 
@@ -1573,6 +1570,20 @@ taxdata2 %>%
     # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
   )
 theme_set(oldtheme)
+```
+
+(ref:ecm) Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic assignments.
+Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
+"unidentified" denotes ASVs which were assigned to kingdom Fungi, but could not be identified to family level or could not be assigned ECM status based on the available identification.
+Height of each bar represents the fraction of reads represented by that bar.
+Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
+
+
+```{r ECM, fig.cap = "(ref:ecm)"}
+  readd(taxon_reads, cache = cache) %>%
+  mutate_at("reference", replace_na, "All") %>%
+  taxon_plot(ECM, kingdom == "Fungi") +
+  theme(legend.position = "bottom", legend.title = element_blank())
 ```
 
 (ref:ecm-heattree) Variation in read abundance and diversity for different amplicons, for ECM taxa only.

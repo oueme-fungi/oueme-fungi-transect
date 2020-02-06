@@ -448,7 +448,7 @@ plan2 <- drake_plan(
   ),
   
   variog = target(
-    variog(physeq, metric, breaks = c(1:21 - 0.5, 31000)),
+    variog(physeq, metric, breaks = c(1:25 - 0.5, 31000)),
     transform = cross(physeq, metric = c("bray", "wunifrac"),
                     .tag_in = step,
                     .id = c(guild, metric, tech, amplicon, algorithm))
@@ -463,8 +463,28 @@ plan2 <- drake_plan(
     transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
+  variofit2 = target(
+      variog %>%
+        filter(!is.na(bin)) %>%
+        nls(
+          gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp(dist/range*log(0.05)),
+          data = .,
+          start = list(
+            nugget = min(.$gamma),
+            sill = 1 - max(.$gamma),
+            range = 30
+          ),
+          upper = list(nugget = 0.99, sill = 0.99, range = Inf),
+          lower = list(nugget = 0, sill = 0, range = 0.001),
+          algorithm = "port",
+          weights = pmin(1/.$dist, 1),
+          control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
+        ),
+    transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
+  ),
+  
   variogST = target(
-    variogST(physeq, metric, breaks = c(1:26 - 0.5, 30000)),
+    variogST(physeq, metric, breaks = c(1:25 - 0.5, 30000)),
     transform = cross(physeq, metric = c("bray", "wunifrac"),
                       .tag_in = step,
                       .id = c(guild, metric, tech, amplicon, algorithm))
@@ -482,6 +502,29 @@ plan2 <- drake_plan(
       fit.method = 1
     ),
     transform = map(variogST, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
+  ),
+  
+  variofitST2 = target(
+    variogST %>%
+      filter(!is.na(bin)) %>% {
+      nls(
+        gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp((dist/range + timelag/timerange)*log(0.05)),
+        # add the parameters from the spatial-only fit.
+        data = .,
+        start = c(
+          list(timerange = 2),
+          as.list(variofit2$m$getPars())
+        ),
+        lower = c(
+          list(timerange = 0.001),
+          as.list(variofit2$m$getPars())
+        ),
+        algorithm = "port",
+        weights = pmin(1/.$dist, 1),
+        control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
+      )
+    },
+    transform = map(variogST, variofit2, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
   reads_table = target(
@@ -947,13 +990,23 @@ plan2 <- drake_plan(
         "method",
         factor,
         levels = c("PHYLO", "phylotax+c", "consensus", "dada2", "sintax", "idtaxa"),
-        labels = c("PHYLOTAX", "PHYLOTAX+C", "Consensus", "RDPC", "SINTAX", "IDTAXA")
+        labels = c("PHYLOTAX", "PHYLOTAX", "Consensus", "RDPC", "SINTAX", "IDTAXA")
+      ) %>%
+      mutate_at(
+        "reference",
+        replace_na,
+        "All"
       ) %>%
       mutate_at(
         "reference",
         factor,
         levels = c("All", "unite", "warcup", "rdp_train"),
         labels = c("All", "Unite", "Warcup", "RDP")
+      ) %>%
+      mutate_at(
+        "reference",
+        replace_na,
+        "All"
       ) %>%
       mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
       rename(Algorithm = method) %>%
@@ -1235,5 +1288,5 @@ if (interactive()) {
   cache <- drake_cache(".light")
   # dconfig <- drake_config(plan2, cache = cache)
   # vis_drake_graph(dconfig)
-  make(plan2, cache = cache, parallelism = "clustermq", jobs = local_cpus() - 1)
+  make(plan2, cache = cache)#, parallelism = "clustermq", jobs = local_cpus() - 1)
 }

@@ -20,6 +20,7 @@ as_variogram <- function(vario) {
       np = as.numeric(dplyr::n()),
       dist = mean(dist),
       gamma = mean(gamma),
+      var = var(gamma),
       dir.hor = 0,
       dir.ver = 0,
       id = "var1"
