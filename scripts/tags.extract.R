@@ -74,7 +74,7 @@ revcomp <- function(s)
   map_chr(s, ~ c2s(rev(comp(s2c(.), ambiguous = TRUE, forceToLower = FALSE))))
 
 # read the dataset definitions
-dataset <- read_csv(dataset.file, col_types = "ccccicccccicc") %>%
+dataset <- read_csv(dataset.file, col_types = "cccccccicccccicc") %>%
   mutate(
     tagfile_name = file.path(tags.dir, paste0(seq_run, ".fasta")),
     forward_name = file.path(tags.dir, paste0(seq_run, "_R1.fasta")),
@@ -108,7 +108,7 @@ dataset <- read_csv(dataset.file, col_types = "ccccicccccicc") %>%
         mutate_at("seq_fwd", revcomp) %>%
         left_join(select(plate_key, starts_with("tag"), well)) %>%
         transmute(name = replace_na(well, "unnamed"),
-                  object = paste0("^", seq_rev, ";optional...", seq_fwd))
+                  object = paste0("^", seq_rev, "...", seq_fwd))
     )
   )
 # Write the outputs

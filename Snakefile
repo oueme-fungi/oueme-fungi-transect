@@ -414,6 +414,7 @@ checkpoint demux_illumina:
          """
          mkdir -p {output} &&
          cutadapt \\
+           --pair-adapters\\
            -a file:{input.barcode_R1}\\
            -A file:{input.barcode_R2}\\
            -m 1\\
@@ -424,6 +425,7 @@ checkpoint demux_illumina:
            {input.fastq_R1} \\
            {input.fastq_R2} >>{log} 2>&1 &&
            cutadapt \\
+           --pair-adapters\\
            -a file:{input.barcode_R1}\\
            -A file:{input.barcode_R2}\\
            -m 1\\
