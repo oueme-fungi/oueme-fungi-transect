@@ -1,5 +1,5 @@
-dataset,tech,machine,protocol,techlong,amplicon,seq_run,runs,forward,reverse,adapter_forward,adapter_reverse,barcode_forward,barcode_reverse,primer_forward,primer_reverse,regions,plate_key,hgp,band_size,pool,err_region
-short-pacbio,PacBio,RS II,,single molecule real-time,Short,pb_483,2,gits7_tag,its4,ionA,,ion_barcode,,gits7,its4,"ITS2,short,5_8S,LSU1",gITS7_platekey.csv,NULL,16,TRUE,short
-long-pacbio,PacBio,RS II,,single molecule real-time,Long,pb_500,2,its1_tag,lr5_tag,its1_pad,lr5_pad,its1_barcode,lr5_barcode,its1,lr5,"ITS1,ITS2,LSU1,D1,LSU2,D2,LSU3,D3,LSU4,ITS,LSU,long,5_8S,32S",ITS1_LR5_platekey.csv,NULL,16,TRUE,5_8S
-short-ion,Ion Torrent,Ion S5,Ion 530,ion semiconductor,Short,is_057,1,gits7,its4,,,,,gits7,its4,"ITS2,short,5_8S,LSU1",gITS7_platekey.csv,-1,32,"""pseudo""",short
-short-illumina,Illumina,MiSeq,v3 300bp,Illumina dye,Short,SH-2257,2,gits7_tag,its4,ionA,,ion_barcode,,gits7,its4,"ITS2,short",gITS7_platekey.csv,NULL,16,"""pseudo""",short
+dataset,tech,machine,protocol,techlong,amplicon,seq_run,runs,forward,reverse,regions,plate_key,hgp,band_size,pool,err_region
+short-pacbio,PacBio,RS II,,single molecule real-time,Short,pb_483,2,gits7_tag,its4,"ITS2,short,5_8S,LSU1",gITS7_platekey.csv,NULL,16,TRUE,short
+long-pacbio,PacBio,RS II,,single molecule real-time,Long,pb_500,2,its1_tag,lr5_tag,"ITS1,ITS2,LSU1,D1,LSU2,D2,LSU3,D3,LSU4,ITS,LSU,long,5_8S,32S",ITS1_LR5_platekey.csv,NULL,16,TRUE,5_8S
+short-ion,Ion Torrent,Ion S5,Ion 530,ion semiconductor,Short,is_057,1,gits7,its4,"ITS2,short,5_8S,LSU1",gITS7_platekey.csv,-1,32,"""pseudo""",short
+short-illumina,Illumina,MiSeq,v3 300bp,Illumina dye,Short,SH-2257,2,gits7_tag,its4,"ITS2,short",gITS7_platekey.csv,NULL,16,"""pseudo""",short

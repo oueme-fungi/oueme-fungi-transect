@@ -346,16 +346,10 @@ def ion_find(seqrun, plate):
 # look up the primers/barcodes file based on the plate ID.
 def find_barcode_illumina(wildcards):
     return {
-        'adapter': "{tagdir}/{seq_run}_R1_adapter.fasta"
+        'barcode_R1': "{tagdir}/{seq_run}_R1.fasta"
                        .format(tagdir = config['tagdir'],
                                seq_run = wildcards.seq_run),
-        'barcode': "{tagdir}/{seq_run}_R1_barcode.fasta"
-                       .format(tagdir = config['tagdir'],
-                               seq_run = wildcards.seq_run),
-        'primer_R1': "{tagdir}/{seq_run}_R1_primer.fasta"
-                       .format(tagdir = config['tagdir'],
-                               seq_run = wildcards.seq_run),
-        'primer_R2': "{tagdir}/{seq_run}_R2_primer.fasta"
+        'barcode_R2': "{tagdir}/{seq_run}_R2.fasta"
                        .format(tagdir = config['tagdir'],
                                seq_run = wildcards.seq_run)
     }
@@ -385,13 +379,9 @@ checkpoint demux_illumina:
         unpack(find_fastq_illumina),
         unpack(find_barcode_illumina)
     output:
-        directory("{demuxdir}/{{seq_run}}_00{{plate}}".format_map(config)),
-        trimmed_R1f = temp("{seq_run}_00{plate}_R1f.fastq.gz"),
-        trimmed_R1r = temp("{seq_run}_00{plate}_R1r.fastq.gz"),
-        trimmed_R2f = temp("{seq_run}_00{plate}_R2f.fastq.gz"),
-        trimmed_R2r = temp("{seq_run}_00{plate}_R2r.fastq.gz")
+        directory("{trimdir}/{{seq_run}}_00{{plate}}".format_map(config))
     params:
-        fpattern_R1 = lambda wildcards: ("{demuxdir}/{seq_run}_00{plate}/{seq_run}_00{plate}-{{name}}_R1f.trim.fastq.gz"
+        fpattern_R1 = lambda wildcards: ("{trimdir}/{seq_run}_00{plate}/{seq_run}_00{plate}-{{name}}_R1f.trim.fastq.gz"
                                       .format(trimdir = config['trimdir'],
                                               seq_run = wildcards.seq_run,
                                               plate = wildcards.plate)),
@@ -426,7 +416,6 @@ checkpoint demux_illumina:
          cutadapt \\
            -a file:{input.barcode_R1}\\
            -A file:{input.barcode_R2}\\
-           --pair-filter=both\\
            -m 1\\
            -o {params.fpattern_R1}\\
            -p {params.fpattern_R2}\\
@@ -437,7 +426,6 @@ checkpoint demux_illumina:
            cutadapt \\
            -a file:{input.barcode_R1}\\
            -A file:{input.barcode_R2}\\
-           --pair-filter=both\\
            -m 1\\
            --trimmed-only\\
            -o {params.rpattern_R2}\\
