@@ -406,7 +406,6 @@ checkpoint demux_illumina:
                                               
     resources:
         walltime=5
-    threads: 8
     conda: "config/conda/demultiplex.yaml"
     group: "illumina"
     shadow: "shallow"
@@ -419,7 +418,6 @@ checkpoint demux_illumina:
            -a file:{input.barcode_R1}\\
            -A file:{input.barcode_R2}\\
            -m 1\\
-           -j {threads}\\
            -o {params.fpattern_R1}\\
            -p {params.fpattern_R2}\\
            --untrimmed-output {params.untrim_R1}\\
@@ -431,7 +429,6 @@ checkpoint demux_illumina:
            -a file:{input.barcode_R1}\\
            -A file:{input.barcode_R2}\\
            -m 1\\
-           -j {threads}\\
            --trimmed-only\\
            -o {params.rpattern_R2}\\
            -p {params.rpattern_R1}\\
