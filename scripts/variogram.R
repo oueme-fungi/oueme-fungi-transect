@@ -59,6 +59,7 @@ as_variogramST <- function(vario) {
       np = as.numeric(dplyr::n()),
       dist = mean(dist),
       gamma = mean(gamma),
+      var = var(gamma),
       id = "var1"
     ) %>%
     dplyr::group_by(bin) %>%

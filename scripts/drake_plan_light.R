@@ -454,18 +454,19 @@ plan2 <- drake_plan(
                     .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
-  variofit = target(
-    gstat::fit.variogram(
-      as_variogram(variog),
-      gstat::vgm(variog$gamma[22], "Exp", 3, variog$gamma[22]/2),
-      fit.method = 1
-    ),
-    transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
-  ),
+  # variofit = target(
+  #   gstat::fit.variogram(
+  #     as_variogram(variog),
+  #     gstat::vgm(variog$gamma[22], "Exp", 3, variog$gamma[22]/2),
+  #     fit.method = 1
+  #   ),
+  #   transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
+  # ),
   
   variofit2 = target(
       variog %>%
-        filter(!is.na(bin)) %>%
+        # filter(!is.na(bin)) %>%
+        as_variogram() %>%
         nls(
           gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp(dist/range*log(0.05)),
           data = .,
@@ -477,7 +478,7 @@ plan2 <- drake_plan(
           upper = list(nugget = 0.99, sill = 0.99, range = Inf),
           lower = list(nugget = 0, sill = 0, range = 0.001),
           algorithm = "port",
-          weights = pmin(1/.$dist, 1),
+          weights = pmin(.$np/.$dist, 1),
           control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
         ),
     transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
@@ -490,23 +491,24 @@ plan2 <- drake_plan(
                       .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
-  variofitST = target(
-    gstat::fit.StVariogram(
-      as_variogramST(variogST) %>%
-        inset(,"np", ifelse(.$dist > 30, 1, .$np)),
-      gstat::vgmST(
-        "metric",
-        joint = gstat::vgm(max(variogST$gamma), "Exp", 5, quantile(variogST$gamma, 0.25)),
-        stAni = 1
-      ),
-      fit.method = 1
-    ),
-    transform = map(variogST, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
-  ),
+  # variofitST = target(
+  #   gstat::fit.StVariogram(
+  #     as_variogramST(variogST) %>%
+  #       inset(,"np", ifelse(.$dist > 30, 1, .$np)),
+  #     gstat::vgmST(
+  #       "metric",
+  #       joint = gstat::vgm(max(variogST$gamma), "Exp", 5, quantile(variogST$gamma, 0.25)),
+  #       stAni = 1
+  #     ),
+  #     fit.method = 1
+  #   ),
+  #   transform = map(variogST, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
+  # ),
   
   variofitST2 = target(
     variogST %>%
-      filter(!is.na(bin)) %>% {
+      # filter(!is.na(bin)) %>%
+      as_variogramST() %>% {
       nls(
         gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp((dist/range + timelag/timerange)*log(0.05)),
         # add the parameters from the spatial-only fit.
@@ -520,7 +522,7 @@ plan2 <- drake_plan(
           as.list(variofit2$m$getPars())
         ),
         algorithm = "port",
-        weights = pmin(1/.$dist, 1),
+        weights = pmin(.$np/.$dist, 1),
         control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
       )
     },

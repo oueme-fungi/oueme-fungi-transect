@@ -1077,9 +1077,8 @@ light_plan %>%
 
 Figure \@ref(fig:correlog): 
 
-  - Long amplicons found longer autocorrelation of Bray-Curtis for all fungi, but not ECM.  Is this due to some particular group?
-  - Long amplicon also detects some autocorrelation even after 1 year, absent in other tests.
-  - Unifrac has less significant autocorrelation.
+  - Very similar results for different amplicons and technologies
+  - Unifrac shows very little distance structure.
 
 ## Spatio-temporal variogram
 
@@ -1190,16 +1189,17 @@ variog_data %>%
   mutate(params = map(variofit, broom::tidy)) %>%
   unnest(params) %>%
   bind_cols(
-  pmap_dfr(
-    .,
-    function(mantel, variofit, term, ...) {
-      if (mantel) {
-        tryCatch(broom::confint_tidy(object = variofit, parm = term) %>% as.list %>% as.data.frame,
-                 error = function(e) tibble(conf.low = NA_real_, conf.high = NA_real_))
-      } else {
-        tibble(conf.low = NA_real_, conf.high = NA_real_)
-      }
-    })
+    pmap_dfr(
+      .,
+      function(mantel, variofit, term, ...) {
+        if (mantel) {
+          tryCatch(broom::confint_tidy(object = variofit, parm = term) %>% as.list %>% inset2("term", term) %>% as.data.frame,
+                   error = function(e) tibble(term = term, conf.low = NA_real_, conf.high = NA_real_))
+        } else {
+          tibble(term = term, conf.low = NA_real_, conf.high = NA_real_)
+        }
+      }) %>%
+      select(-term)
   ) %>%
   filter(term %in% c("range", "timerange")) %>%
   mutate(value = ifelse(
@@ -1207,6 +1207,7 @@ variog_data %>%
     "-",
     sprintf("%.2g (%.2g–%.2g)", estimate, conf.low, conf.high)
   )) %>%
+  filter(timelag == "0" | term == "timerange") %>%
   pivot_wider(names_from = "term", values_from = "value", id_cols = c("guild", "amplicon", "tech", "metric", "algorithm")) %>%
   select(Guild = guild, Amplicon = amplicon, Tech = tech, Algorithm = algorithm, Metric = metric, "Space Range (m)" = range, "Time Range (a)" = timerange) %>%
   arrange(Guild, Amplicon, Tech, Algorithm, Metric) %>%
@@ -1216,12 +1217,10 @@ variog_data %>%
 
 Figure \@ref(fig:spatio-temporal) and Table \@ref(tab:variofit):
 
- - Fit looks good for long Pacbio w/Bray-Curtis.
+ - Spatial ranges are all consistent, given the wide confidence intervals.
+ - For most models the temporal aspect showed poor convergence.
  - Unifrac shows unconvincing distance structure. (No surprise that the model doesn't fit well)
- - Distance structure for short amplicon is really confusing.  Why are the samples 25 m apart so similar? (Even after 1 year?) Could the samples be mixed up? Or is this just a statistical artifact (very few sample pairs have that separation).
- - ECM has shorter range and less anisotropy for all metrics
-   - shorter range = more spatially variable
-   - less anisotropy = less temporally variable
+ - similar results for whole community and ECM -- ECM dominate community.
 
 # Discussion
 
