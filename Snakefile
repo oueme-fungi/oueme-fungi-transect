@@ -155,10 +155,11 @@ rule tagfiles:
             seqrun = datasets["seq_run"][datasets.tech != "Illumina"]
         ),
         expand(
-            "{tagdir}/{seqrun}_R{dir}.fasta",
+            "{tagdir}/{seqrun}_R{dir}{type}.fasta",
             tagdir = config['tagdir'],
             seqrun = datasets["seq_run"][datasets.tech == "Illumina"],
-            dir = [1, 2]
+            dir = [1, 2],
+            type = ['', '_adapter', '_barcode', '_primer']
         )
     resources:
         walltime=5
@@ -343,15 +344,21 @@ def ion_find(seqrun, plate):
             for well in wells]
 
 #### Illumina demultiplexing
-# look up the primers/barcodes file based on the plate ID.
+# look up the adapters file based on the plate ID.
+def find_adapter_illumina(wildcards):
+    return {
+        'adapter': "{tagdir}/{seq_run}_R1_adapter.fasta".format(tagdir = config['tagdir'], seq_run = wildcards.seq_run)
+    }
+# look up the barcodes file based on the plate ID.
 def find_barcode_illumina(wildcards):
     return {
-        'barcode_R1': "{tagdir}/{seq_run}_R1.fasta"
-                       .format(tagdir = config['tagdir'],
-                               seq_run = wildcards.seq_run),
-        'barcode_R2': "{tagdir}/{seq_run}_R2.fasta"
-                       .format(tagdir = config['tagdir'],
-                               seq_run = wildcards.seq_run)
+        'barcode': "{tagdir}/{seq_run}_R1_barcode.fasta".format(tagdir = config['tagdir'], seq_run = wildcards.seq_run)
+    }
+# look up the primers file based on the plate ID.
+def find_primers_illumina(wildcards):
+    return {
+        'primer_R1': "{tagdir}/{seq_run}_R1_primer.fasta".format(tagdir = config['tagdir'], seq_run = wildcards.seq_run),
+        'primer_R2': "{tagdir}/{seq_run}_R2_primer.fasta".format(tagdir = config['tagdir'], seq_run = wildcards.seq_run)
     }
 
 def find_fastq_illumina(wildcards):
@@ -374,79 +381,157 @@ def find_fastq_illumina(wildcards):
         )
     }
 
-checkpoint demux_illumina:
-    input:
-        unpack(find_fastq_illumina),
-        unpack(find_barcode_illumina)
+rule forward_adapter_illumina:
     output:
-        directory("{trimdir}/{{seq_run}}_00{{plate}}".format_map(config))
-    params:
-        fpattern_R1 = lambda wildcards: ("{trimdir}/{seq_run}_00{plate}/{seq_run}_00{plate}-{{name}}_R1f.trim.fastq.gz"
-                                      .format(trimdir = config['trimdir'],
-                                              seq_run = wildcards.seq_run,
-                                              plate = wildcards.plate)),
-        rpattern_R1 = lambda wildcards: ("{trimdir}/{seq_run}_00{plate}/{seq_run}_00{plate}-{{name}}_R1r.trim.fastq.gz"
-                                      .format(trimdir = config['trimdir'],
-                                              seq_run = wildcards.seq_run,
-                                              plate = wildcards.plate)),
-        fpattern_R2 = lambda wildcards: ("{trimdir}/{seq_run}_00{plate}/{seq_run}_00{plate}-{{name}}_R2f.trim.fastq.gz"
-                                      .format(trimdir = config['trimdir'],
-                                              seq_run = wildcards.seq_run,
-                                              plate = wildcards.plate)),
-        rpattern_R2 = lambda wildcards: ("{trimdir}/{seq_run}_00{plate}/{seq_run}_00{plate}-{{name}}_R2r.trim.fastq.gz"
-                                      .format(trimdir = config['trimdir'],
-                                              seq_run = wildcards.seq_run,
-                                              plate = wildcards.plate)),
-        untrim_R1 = lambda wildcards: ("{seq_run}_{plate}_untrim_R1.fastq.gz"
-                                        .format(seq_run = wildcards.seq_run,
-                                                plate = wildcards.plate)),
-        untrim_R2 = lambda wildcards: ("{seq_run}_{plate}_untrim_R2.fastq.gz"
-                                        .format(seq_run = wildcards.seq_run,
-                                                plate = wildcards.plate))
-                                              
-    resources:
-        walltime=5
+        trimmed = pipe("{seq_run}_00{plate}f.fastq.gz"),
+        untrim_R1 = temp("{seq_run}_00{plate}_untrim_R1.fastq.gz"),
+        untrim_R2 = temp("{seq_run}_00{plate}_untrim_R2.fastq.gz")
+    input:
+        unpack(find_adapter_illumina),
+        unpack(find_fastq_illumina)
     conda: "config/conda/demultiplex.yaml"
     group: "illumina"
-    shadow: "shallow"
-    log: "{logdir}/illumina_demux_{{seq_run}}_{{plate}}.log".format_map(config)
+    log: "{logdir}/illumina_forward_adapter_{{seq_run}}_{{plate}}.log".format_map(config)
+    shell:
+         """
+         cutadapt \\
+           -g file:{input.adapter}\\
+           -m 1\\
+           --interleaved\\
+           -o {output.trimmed}\\
+           --untrimmed-output {output.untrim_R1}\\
+           --untrimmed-paired-output {output.untrim_R2}\\
+           {input.fastq_R1} \\
+           {input.fastq_R2} >{log} 2>&1
+         """
+
+#R2 and R1 are intentionally switched here!
+rule reverse_adapter_illumina:
+    output:
+        trimmed = pipe("{seq_run}_00{plate}r.fastq.gz")
+    input:
+        unpack(find_adapter_illumina),
+        untrim_R1 = "{seq_run}_00{plate}_untrim_R2.fastq.gz",
+        untrim_R2 = "{seq_run}_00{plate}_untrim_R1.fastq.gz"
+    conda: "config/conda/demultiplex.yaml"
+    group: "illumina"
+    log: "{logdir}/illumina_reverse_adapter_{{seq_run}}_{{plate}}.log".format_map(config)
+    shell:
+         """
+         cutadapt \\
+           -g file:{input.adapter}\\
+           -m 1\\
+           --interleaved\\
+           --trimmed-only\\
+           -o {output.trimmed}\\
+           {input.untrim_R1} \\
+           {input.untrim_R2} >{log} 2>&1
+         """
+
+R1 = {"f": "R1f", "r": "R2r"}
+R2 = {"f": "R2f", "r": "R1r"}
+
+def illumina_trimmed(wildcards):
+    return {
+        'trimmed_R1': "{{seq_run}}_00{{plate}}_{R}.fastq.gz".format(R = R1[wildcards.dir]).format_map(wildcards),
+        'trimmed_R2': "{{seq_run}}_00{{plate}}_{R}.fastq.gz".format(R = R2[wildcards.dir]).format_map(wildcards)
+    }
+
+checkpoint demux_illumina:
+    output:
+        temp(directory("{demuxdir}/{{seq_run}}_00{{plate}}{{dir}}".format_map(config)))
+    input:
+        unpack(find_barcode_illumina),
+        trimmed = "{seq_run}_00{plate}{dir}.fastq.gz"
+    params:
+        pattern = lambda wildcards: ("{demuxdir}/{seq_run}_00{plate}{dir}/{seq_run}_00{plate}-{{name}}{dir}.fastq.gz"
+                                      .format(demuxdir = config['demuxdir'],
+                                              seq_run = wildcards.seq_run,
+                                              plate = wildcards.plate,
+                                              dir = wildcards.dir))
+    conda: "config/conda/demultiplex.yaml"
+    group: "illumina"
+    log: "{logdir}/illumina_demux_{{seq_run}}_{{plate}}_{{dir}}.log".format_map(config)
     shell:
          """
          mkdir -p {output} &&
          cutadapt \\
-           --pair-adapters\\
-           -a file:{input.barcode_R1}\\
-           -A file:{input.barcode_R2}\\
+           -g file:{input.barcode}\\
            -m 1\\
-           -o {params.fpattern_R1}\\
-           -p {params.fpattern_R2}\\
-           --untrimmed-output {params.untrim_R1}\\
-           --untrimmed-paired-output {params.untrim_R2}\\
-           {input.fastq_R1} \\
-           {input.fastq_R2} >>{log} 2>&1 &&
-           cutadapt \\
-           --pair-adapters\\
-           -a file:{input.barcode_R1}\\
-           -A file:{input.barcode_R2}\\
-           -m 1\\
-           --trimmed-only\\
-           -o {params.rpattern_R2}\\
-           -p {params.rpattern_R1}\\
-           {params.untrim_R2} \\
-           {params.untrim_R1} >>{log} 2>&1
+           --interleaved\\
+           -o {params.pattern}\\
+           {input.trimmed} >{log} 2>&1
          """
+
+def illumina_demuxed(wildcards):
+    return {
+        'demux': "{demuxdir}/{{seq_run}}_00{{plate}}/{{seq_run}}_00{{plate}}-{{name}}{dir}.fastq.gz"
+            .format(R = R1[wildcards.dir], demuxdir = config['demuxdir'])
+            .format_map(wildcards),
+        'R2': "{demuxdir}/{{seq_run}}_00{{plate}}/{{seq_run}}_00{{plate}}-{{name}}_{R}.fastq.gz"
+            .format(R = R2[wildcards.dir], demuxdir = config['demuxdir'])
+            .format_map(wildcards)
+    }
+
+def illumina_trimmed(wildcards):
+    return {
+        'R1': "{trimdir}/{{seq_run}}_00{{plate}}/{{seq_run}}_00{{plate}}-{{name}}_{R}.trim.fastq.gz"
+            .format(R = R1[wildcards.dir], trimdir = config['trimdir'])
+            .format_map(wildcards),
+        'R2': "{trimdir}/{{seq_run}}_00{{plate}}/{{seq_run}}_00{{plate}}-{{name}}_{R}.trim.fastq.gz"
+            .format(R = R2[wildcards.dir], trimdir = config['trimdir'])
+            .format_map(wildcards)
+    }
+
+
+rule trim_illumina:
+    output:
+        "{trimdir}/{{seq_run}}_00{{plate}}/{{seq_run}}_00{{plate}}-{{name}}_R1{{dir}}.trim.fastq.gz".format_map(config),
+        "{trimdir}/{{seq_run}}_00{{plate}}/{{seq_run}}_00{{plate}}-{{name}}_R2{{dir}}.trim.fastq.gz".format_map(config)
+    input:
+        unpack(find_primers_illumina),
+        demux = "{demuxdir}/{{seq_run}}_00{{plate}}{{dir}}/{{seq_run}}_00{{plate}}-{{name}}{{dir}}".format_map(config)
+    params:
+        unpack(illumina_trimmed)
+    conda: "config/conda/demultiplex.yaml"
+    group: "illumina"
+    shadow: "shallow"
+    log: "{logdir}/illumina_trim_{{seq_run}}_{{plate}}_{{name}}{{dir}}.log".format_map(config)
+    shell:
+         """
+         mkdir -p {output} &&
+         cutadapt \\
+           -a file:{input.primer_R1}\\
+           -A file:{input.primer_R2}\\
+           -m 1\\
+           --interleaved\\
+           -o {params.R1}\\
+           -p {params.R2}\\
+           {input.demux} >>{log} 2>&1
+         """
+
 
 # Return a closure which calls checkpoints.pacbio_demux.get() to indicate to Snakemake that this rule is
 # dynamically calculated after completion of pacbio_demux, and then find all the demultiplexed pacbio files
 # for the given plate.
-def illumina_find(seq_run, plate):
+def illumina_find(seq_run, plate, dir):
     def subfind(wildcards):
-        checkpoints.demux_illumina.get(seq_run = seq_run, plate = plate)
-        return glob("{trimdir}/{seq_run}_00{plate}/{seq_run}_00{plate}-*.trim.fastq.gz"
-                    .format(trimdir = config['trimdir'],
+        checkpoints.demux_illumina.get(seq_run = seq_run, plate = plate, dir = dir)
+        files = glob("{demuxdir}/{seq_run}_00{plate}_{dir}/{seq_run}_00{plate}-*.fastq.gz"
+                    .format(demuxdir = config['demuxdir'],
                             seq_run = seq_run,
-                            plate = plate))
+                            plate = plate,
+                            dir = dir))
+        outdir = "{trimdir}/{seq_run}_00{plate}".format(trimdir = config['trimdir'], seq_run = seq_run, plate = plate)
+        [os.path.join(outdir, re.sub(os.path.basename(f), "fastq\\.gz$", "trim.fastq.gz")) for f in files]
     return subfind
+
+rule demux_illumina_all:
+    input:
+        illumina_find("SH-2257", "1", "f"),
+        illumina_find("SH-2257", "1", "r"),
+        illumina_find("SH-2257", "2", "f"),
+        illumina_find("SH-2257", "2", "r")
 
 #### Reference databases ####
 
@@ -642,8 +727,10 @@ rule hash_demux:
     demux_find('pb_483_001'),
     demux_find('pb_483_002'),
     ion_find('is_057', '001'),
-    illumina_find('SH-2257', '1'),
-    illumina_find('SH-2257', '2')
+    illumina_find("SH-2257", "1", "f"),
+    illumina_find("SH-2257", "1", "r"),
+    illumina_find("SH-2257", "2", "f"),
+    illumina_find("SH-2257", "2", "r")
   threads: maxthreads
   resources:
     walltime = 60
