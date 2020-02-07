@@ -10,7 +10,7 @@ HTTP = HTTPRemoteProvider()
 
 # For testing, parse the yaml file (this is automatically done by Snakemake)
 #import yaml
-#with open("config/config.yaml", 'r') as ymlfile: config = yaml.load(ymlfile)
+#with open("config/config.yaml", 'r') as ymlfile: config = yaml.safe_load(ymlfile)
 
 configfile: "config/config.yaml"
 
@@ -453,7 +453,7 @@ def illumina_find(seq_run, plate):
 # Download the Unite database
 localrules: unite_download
 rule unite_download:
-    output: "{ref_root}/unite.raw.fasta.gz".format_map(config)
+    output: "{ref_root}/unite.fasta.gz".format_map(config)
     input:
       zip = HTTP.remote(config['unite_url'], allow_redirects = True, keep_local = True)
     shadow: "shallow"
@@ -610,6 +610,9 @@ rule translate_references:
            ref_root = config['ref_root'],
            dbname = ['rdp_train', 'warcup', 'unite'],
            type = ['fasta.gz', 'pre.sed']),
+    expand("{ref_root}/{reference}.fasta.gz",
+           ref_root = config['ref_root'],
+           reference = regions['reference'].dropna().str.split(',').explode().unique()),
     "{rdir}/taxonomy.R".format_map(config),
     tedersoo = rules.tedersoo_classification.output,
     regions = config['regions'],
