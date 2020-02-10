@@ -415,30 +415,6 @@ bioinf_table %>%
 ```
 
 
-```{r agaricus-check}
-agaricus <- readd(taxon_table, cache = cache) %>%
-  filter(rank == "genus", taxon == "Agaricus", n_diff == 1) %$%
-  unique(label)
-agaricus_reads <- readd(proto_physeq, cache = cache) %>%
-  phyloseq::subset_samples(sample_type == "Pos") %>%
-  prune_taxa(taxa = agaricus) %>%
-  prune_taxa(taxa = colSums(otu_table(.)) > 0) %>%
-  merge_samples("seq_run") %>%
-  otu_table()
-
-readd(allseqs, cache = cache) %>% filter(hash %in% taxa_names(agaricus_reads)) %$%
-  set_names(short, hash) %>%
-  discard(is.na) %>%
-  Biostrings::RNAStringSet() %>%
-  Biostrings::writeXStringSet(here("temp/agaricus.fasta"))
-
-agaricus_order <- readd(proto_physeq, cache = cache) %>%
-  merge_samples("seq_run") %>%
-  otu_table() %>%
-  apply(MARGIN = 1, order, decreasing = TRUE) %>%
-  apply(MARGIN = 2, match, x = 1)
-```
-
 ### Reproducibility of read counts from different technologies
 
 (ref:venn-table-asv) Correspondences between ASVs found by different sequencing strategies.
@@ -894,18 +870,68 @@ theme_set(theme)
 
 ### Positive control
 
-*Agaricus bisporus*, the positive control, was represented by a single ASV in both long- and short-amplicon PacBio datasets.
-It was the most abundant ASV in the long-amplicon dataset, and the fifth most abundant ASV in the short-amplicon dataset.
-The same ASV was also the most abundant ASV in the Ion Torrent dataset, but three additional ASVs identified as *Agaricus bisporus* were also present in that dataset.
-The abundances of these ASVs (`r glue::glue_collapse(c(unclass(agaricus_reads["is_057", ])), sep = ", ", last = ", and ")`) was inconsistent with both heterozygosity (which would tend toward equal read counts for two variants) and intragenomic variation (which would tend toward ratios on the order of the number of rDNA regions in the genome, i.e. 10--1000).
-This suggests that even after `DADA2` denoising, the Ion Torrent dataset still includes spurious ASVs due to PCR and/or sequencing errors.
+```{r agaricus-check}
+agaricus <- readd(taxon_table, cache = cache) %>%
+  filter(rank == "genus", taxon == "Agaricus", n_diff == 1) %$%
+  unique(label)
+agaricus_reads <- readd(proto_physeq, cache = cache) %>%
+  phyloseq::subset_samples(sample_type == "Pos" | (seq_run == "is_057" & well == "E7")) %>%
+  prune_taxa(taxa = agaricus) %>%
+  prune_taxa(taxa = colSums(otu_table(.)) > 0) %>%
+  otu_table()
+
+pos_control <- agaricus_reads %>% as.matrix() %>% colSums() %>% which.max() %>% names()
+
+pos_control_reads <- readd(proto_physeq, cache = cache) %>%
+  phyloseq::subset_samples(sample_type != "Pos" & !(seq_run == "is_057" & well == "E7")) %>%
+  prune_taxa(taxa = pos_control) %>%
+  otu_table() %>%
+  rowSums()
+all_reads <- readd(proto_physeq, cache = cache) %>%
+  phyloseq::subset_samples(sample_type != "Pos" & !(seq_run == "is_057" & well == "E7")) %>%
+  otu_table() %>%
+  as.matrix() %>%
+  rowSums()
+
+pos_control_data <-
+  readd(proto_physeq, cache = cache) %>%
+  phyloseq::subset_samples(sample_type != "Pos" & !(seq_run == "is_057" & well == "E7")) %>%
+  sample_data() %>%
+  as.data.frame() %>%
+  mutate(
+    pc_reads = pos_control_reads,
+    all_reads = all_reads,
+    pc_frac = pc_reads/all_reads
+) %>%
+  select(seq_run, well, plate, pc_frac, pc_reads, all_reads)
+
+readd(allseqs, cache = cache) %>% filter(hash %in% taxa_names(agaricus_reads)) %$%
+  set_names(short, hash) %>%
+  discard(is.na) %>%
+  Biostrings::RNAStringSet() %>%
+  Biostrings::writeXStringSet(here("temp/agaricus.fasta"))
+
+agaricus_order <- readd(proto_physeq, cache = cache) %>%
+  merge_samples("seq_run") %>%
+  otu_table() %>%
+  apply(MARGIN = 1, order, decreasing = TRUE) %>%
+  apply(MARGIN = 2, match, x = 1)
+```
+
+*Agaricus bisporus*, the positive control, was represented by a single ASV in the positive control samples for both long- and short-amplicon PacBio datasets, and in the Ion Torrent dataset.
+Additional ASVs belonging to the genus *Agaricus* were also detected in the same wells as the positive control in the Ion Torrent dataset, but these were sufficiently different that they probably represent additional *Agaricus* species from the field samples, and were found in the same wells due to incomplete demultiplexing.
+*A. bisporus* was represented by two ASVs in the Illumina dataset, which differed at one base pair.
+The abundance of the second ASV was `r agaricus_reads %>% as.data.frame() %>% with(f2ab49e8/`39d80c19`) %>% keep(~. > 0) %>% percent(format = "f", digits = 2) %>% paste(collapse = " and ")` that of the primary ASV in the two Illumina positive controls.
+The consistency of this ratio suggests that it represents true inter-copy variation within the specimen, rather than sequencing or PCR error.
+
+The primary *A. bisporus* ASV was the most abundant ASV in the long-amplicon PacBio dataset and the Ion Torrent dataset, and the fifth most abundant ASV in the short-amplicon PacBio dataset, and the third most abundant ASV in the Illumina dataset.
+This ASV was also found in `r pos_control_data %>% filter(!is.na(pc_frac)) %>% group_by(seq_run) %>% summarize(well_frac = sum(pc_frac > 0) / n()) %>% deframe() %>% magrittr::extract(c("pb_500", "pb_483", "SH-2257", "is_057")) %>% percent(format = "f", digits = 1) %>% text_list()` of the non-control samples, and represented `r pos_control_data %>% filter(complete.cases(.)) %>% group_by(seq_run) %>% summarize(read_frac = sum(pc_reads) / sum(all_reads)) %>% deframe() %>% magrittr::extract(c("pb_500", "pb_483", "SH-2257", "is_057")) %>% percent(format = "f", digits = 2) %>% text_list()` of non-control reads, in the PacBio long, PacBio short, Illumina, and Ion Torrent datasets, respectively.
 
 ## Distance decay
 
 (ref:correlog-cap) Mantel correlograms showing the correlation between Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
 
 ```{r correlog, fig.cap="(ref:correlog-cap)"}
-
 light_plan %>%
   filter(startsWith(target, "correlog")) %>%
   select(target) %>%
