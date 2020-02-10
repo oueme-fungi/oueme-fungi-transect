@@ -438,57 +438,8 @@ agaricus_order <- readd(proto_physeq, cache = cache) %>%
 Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datasets, including the fraction of total ASVs for each dataset (*ASV frac*), the number of reads represented by those ASVs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
 
 ```{r venn-table-asv}
-loadd(venn_ASV, cache = cache)
-
-linesep <- venn_ASV %>%
-  filter(!is.na(ASVs)) %>%
-  select(starts_with("reads")) %>%
-  mutate_all(nchar) %>%
-  as.matrix %>%
-  is_greater_than(0) %>%
-  rowSums %>%
-  rle() %$%
-  map(lengths, ~ c(rep("", . - 1), "\\addlinespace")) %>%
-  unlist() %>%
-  head(length(.) - 2) %>%
-  c("\\midrule")
-empty_background = if (options("knitr.table.format") == "html") "#777777" else "gray"
-venn_ASV %>%
-  rownames_to_column(" ") %>%
-  filter(!is.na(ASVs)) %>%
-  mutate_all(~ifelse(
-    . == "",
-    kableExtra::cell_spec("  ", background = empty_background, background_as_tile = FALSE), .)) %>%
-  mutate_at(" ", str_replace, "[01]+", "") %>%
-  set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
-  set_names(gsub("_", " ", names(.))) %>%
-  kable(
-    booktabs = TRUE,
-    caption = "(ref:venn-table-asv)",
-    linesep = linesep,
-    align = ("rcrrcrrcrr"),
-    row.names = FALSE,
-    escape = FALSE
-  ) %>%
-  kableExtra::add_header_above(
-    header = c(
-      " " = 2,
-      names(venn_ASV)[-(1)] %>% 
-        gsub(pattern = "(ASV_)?(reads|frac)_", replacement = "") %>%
-        rle() %$%
-        set_names(lengths, plyr::mapvalues(values, datasets$seq_run, datasets$amplicon, FALSE))
-      )
-  ) %>%
-  kableExtra::add_header_above(
-    header = c(
-      " " = 2,
-       names(venn_ASV)[-(1)] %>% 
-        gsub(pattern = "(ASV_)?(reads|frac)_", replacement = "") %>%
-        plyr::mapvalues(datasets$seq_run, paste(datasets$tech, datasets$machine), FALSE) %>%
-        rle() %$%
-        set_names(lengths, values)
-      )
-  )
+readd(venn_ASV, cache = cache) %>%
+venn_table(ASVs, "(ref:venn-table-asv)")
 ```
 
 
@@ -496,125 +447,34 @@ venn_ASV %>%
 Each row shows the number of OTUs (*OTUs*) shared uniquely by one or more datasets, including the fraction of total OTUs for each dataset (*OTU frac*), the number of reads represented by those OTUs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
 
 ```{r venn-table-otu}
-loadd(venn_OTU, cache = cache)
-
-
-linesep <- venn_OTU %>%
-  filter(!is.na(OTUs)) %>%
-  select(starts_with("reads")) %>%
-  mutate_all(nchar) %>%
-  as.matrix %>%
-  is_greater_than(0) %>%
-  rowSums %>%
-  rle() %$%
-  map(lengths, ~ c(rep("", . - 1), "\\addlinespace")) %>%
-  unlist() %>%
-  head(length(.) - 2) %>%
-  c("\\midrule")
-venn_OTU %>% as.matrix() %>% equals("") %>% which()
-venn_OTU %>%
-  rownames_to_column(" ") %>%
-  filter(!is.na(OTUs)) %>%
-  mutate_all(~ifelse(
-    . == "",
-    kableExtra::cell_spec(
-      "  ",
-      background = empty_background,
-      background_as_tile = FALSE
-    ),
-    .)) %>%
-  mutate_at(" ", str_replace, "[01]+", "") %>%
-  set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
-  set_names(gsub("_", " ", names(.))) %>%
-  kable(
-    booktabs = TRUE,
-    caption = "(ref:venn-table-otu)",
-    linesep = linesep,
-    align = ("rcrrcrrcrrcrr"),
-    row.names = FALSE,
-    escape = FALSE
-  ) %>%
-  kableExtra::add_header_above(
-    header = c(
-      " " = 2,
-      names(venn_OTU)[-1] %>% 
-        gsub(pattern = "(OTU_)?(reads|frac)_", replacement = "") %>%
-        rle() %$%
-        set_names(lengths, plyr::mapvalues(values, datasets$seq_run, datasets$amplicon, FALSE))
-      )
-  ) %>%
-  kableExtra::add_header_above(
-    header = c(
-     " " = 2,
-      names(venn_OTU)[-1] %>% 
-        gsub(pattern = "(OTU_)?(reads|frac)_", replacement = "") %>%
-        plyr::mapvalues(datasets$seq_run, paste(datasets$tech, datasets$machine), FALSE) %>%
-        rle() %$%
-        set_names(lengths, values)
-      )
-  ) %>%
-  kableExtra::landscape()
+readd(venn_OTU, cache = cache) %>%
+venn_table(OTUs, "(ref:venn-table-otu)")
 ```
 
 (ref:venn) Venn diagrams showing shared ITS2-based ASVs (left) and 97% OTUs (right) between different sequencing strategies.
 In each region, the number of ASVs/OTUs is given above, while the fractions of reads for each sequencing strategy are shown below.
 
 ```{r venn, fig.cap = "(ref:venn)", out.height = "30%", fig.show="hold"}
-vennplot_ASV <- venn_ASV %>%
-  rownames_to_column("set") %>%
-  filter(set != "Total") %>%
-  mutate(set = map_chr(set,
-                       ~ strsplit(., "")[[1]] %>%
-                     as.integer() %>%
-                     as.logical() %>%
-                     magrittr::extract(LETTERS[seq_along(.)], .) %>%
-                     paste(collapse = "&"))) %>%
-  mutate(
-    reads_frac = paste(frac_pb_500, frac_pb_483, frac_is_057, `frac_SH-2257`,
-                       sep = "/") %>%
-      gsub("/+", "/", .) %>%
-      gsub("(^/|/$)", "", .),
-    label = str_c(ASVs, reads_frac, sep = "\n") %>%
-      replace_na("-")
-  )
-
-eulerr::venn(deframe(select(vennplot_ASV, set, ASVs)) %>% replace_na(0)) %>%
+readd(vennplot_ASV, cache = cache) %>% {
   plot(
+    select(., set, ASVs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
     legend = list(
       labels = c("PacBio Long", "PacBio Short", "Ion Torrent", "Illumina")
     ),
-    quantities = vennplot_ASV$label,
-    main = "ASV",
-    gp = grid::gpar(cex = 0.8)
+    quantities = .$label,
+    main = "ASV"
   )
+}
 
-vennplot_OTU <- venn_OTU %>%
-  rownames_to_column("set") %>%
-  filter(set != "Total") %>%
-  mutate(set = map_chr(set,
-                       ~ strsplit(., "")[[1]] %>%
-                     as.integer() %>%
-                     as.logical() %>%
-                     magrittr::extract(LETTERS[seq_along(.)], .) %>%
-                     paste(collapse = "&"))) %>%
-  mutate(
-    reads_frac = paste(frac_pb_500, frac_pb_483, frac_is_057, `frac_SH-2257`,
-                       sep = "/") %>%
-      gsub("/+", "/", .) %>%
-      gsub("(^/|/$)", "", .),
-    label = str_c(OTUs, reads_frac, sep = "\n") %>%
-      replace_na("-")
-  )
-
-eulerr::venn(deframe(select(vennplot_OTU, set, OTUs)) %>% replace_na(0)) %>%
+readd(vennplot_OTU, cache = cache) %>% {
   plot(
+    select(., set, OTUs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
     legend = FALSE,
     labels = FALSE,
-    quantities = vennplot_OTU$label,
-    main = "OTU",
-    gp = grid::gpar(cex = 0.6)
+    quantities = .$label,
+    main = "OTU"
   )
-
+}
 
 ```
 

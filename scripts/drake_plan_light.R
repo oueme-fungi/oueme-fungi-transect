@@ -20,6 +20,7 @@ source(file.path(config$rdir, "variogram.R"))
 source(file.path(config$rdir, "qstats.R"))
 source(file.path(config$rdir, "taxonomy.R"))
 source(file.path(config$rdir, "plate_check.R"))
+source(file.path(config$rdir, "output_functions.R"))
 
 choosevars <- function(d, g, .data) {
   .data %>%
@@ -702,138 +703,13 @@ plan2 <- drake_plan(
     arrange(step) %>%
     column_to_rownames("step"),
   
-  venn_ASV =
-    asv_table %>%
-    select(seq, pb_500, pb_483, `SH-2257`, is_057) %>%
-    mutate_if(is.numeric, list(found = ~. > 0)) %>%
-    group_by_at(vars(ends_with("_found"))) %>%
-    summarize_if(is.numeric, list(ASVs = ~sum(. > 0), reads = sum)) %>%
-    ungroup() %>%
-    mutate_at(vars(ends_with("_found")), as.integer) %>%
-    complete(pb_500_found, pb_483_found, `SH-2257_found`, is_057_found) %>%
-    mutate_if(is.integer, replace_na, 0L) %>%
-    mutate_if(is.double, replace_na, 0L) %>%
-    tidyr::unite(col = "set", 1:4, sep = "") %>%
-    filter(set != "0000") %>%
-    pivot_longer(
-      -1,
-      names_to = c("seq_run", "what"),
-      values_to = "value",
-      names_pattern = "([[:alpha:]]+[-._]\\d+)_(.+)"
-    ) %>%
-    pivot_wider(names_from = "what", values_from = "value") %>%
-    group_by(seq_run) %>%
-    mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
-    bind_rows(
-      group_by(., seq_run) %>%
-        summarize_if(is.numeric, sum, na.rm = TRUE) %>%
-        mutate(set = "Total")
-    ) %>%
-    mutate_at(
-      vars(ends_with("_frac")),
-      formatC,
-      digits = 2,
-      format = "f",
-      drop0trailing = FALSE
-    ) %>%
-    mutate_at(
-      "reads",
-      k_or_M,
-      .sep = "",
-      .function = formatC,
-      format = "fg",
-      digits = 2
-    ) %>%
-    mutate(
-      ASVs_frac = if_else(grepl("^ *[0.]+ *$", ASVs), "", ASVs_frac),
-      ASVs = na_if(ASVs, 0),
-      reads_frac = if_else(grepl("^ *[0.]+ *$", reads), "", reads_frac),
-      reads = if_else(grepl("^ *[0.]+ *$", reads), "", reads)
-    ) %>%
-    select(set, seq_run, ASVs, ASVs_frac, reads, reads_frac) %>% {
-      left_join(
-        group_by(., set) %>%
-          summarize(ASVs = max(ASVs, na.rm = TRUE) %>% ifelse(is.finite(.), ., NA)),
-        
-        select(., set, seq_run, ASV_frac = ASVs_frac, reads, frac = reads_frac) %>%
-          pivot_wider(
-            names_from = "seq_run",
-            values_from = c("ASV_frac", "reads", "frac")
-          ),
-        by = "set"
-      )
-    } %>%
-    mutate(n = str_count(set, "1") + 5 * (set == "Total")) %>%
-    arrange(n, desc(set)) %>%
-    select(set, ASVs, ends_with("pb_500"), ends_with("pb_483"), ends_with("SH-2257"), ends_with("is_057")) %>%
-    column_to_rownames("set") %>%
-    inset("Total", 1, nrow(asv_table)),
+  venn_ASV = venndata(asv_table, ASVs),
   
-  venn_OTU =
-    otu_table %>%
-    select(seq, pb_500, pb_483, `SH-2257`, is_057) %>%
-    mutate_if(is.numeric, list(found = ~. > 0)) %>%
-    group_by_at(vars(ends_with("_found"))) %>%
-    summarize_if(is.numeric, list(OTUs = ~sum(. > 0), reads = sum)) %>%
-    ungroup() %>%
-    mutate_at(vars(ends_with("_found")), as.integer) %>%
-    complete(pb_500_found, pb_483_found, `SH-2257_found`, is_057_found) %>%
-    mutate_if(is.integer, replace_na, 0L) %>%
-    mutate_if(is.double, replace_na, 0L) %>%
-    tidyr::unite(col = "set", 1:4, sep = "") %>%
-    filter(set != "0000") %>%
-    pivot_longer(
-      -1,
-      names_to = c("seq_run", "what"),
-      values_to = "value",
-      names_pattern = "([[:alpha:]]+[-._]\\d+)_(.+)"
-    ) %>%
-    pivot_wider(names_from = "what", values_from = "value") %>%
-    group_by(seq_run) %>%
-    mutate_if(is.numeric, list(frac = ~./sum(.))) %>%
-    bind_rows(
-      group_by(., seq_run) %>%
-        summarize_if(is.numeric, sum, na.rm = TRUE) %>%
-        mutate(set = "Total")
-    ) %>%
-    mutate_at(
-      vars(ends_with("_frac")),
-      formatC,
-      digits = 2,
-      format = "f",
-      drop0trailing = FALSE
-    ) %>%
-    mutate_at(
-      "reads",
-      .funs = k_or_M,
-      format = "fg",
-      digits = 2,
-      .sep = "",
-      .function = formatC
-    ) %>%
-    mutate(
-      OTUs_frac = if_else(grepl("^ *[0.]+ *$", OTUs), "", OTUs_frac),
-      OTUs = na_if(OTUs, 0),
-      reads_frac = if_else(grepl("^ *[0.]+ *$", reads), "", reads_frac),
-      reads = if_else(grepl("^ *[0.]+ *$", reads), "", reads)
-    ) %>%
-    select(set, seq_run, OTUs, OTUs_frac, reads, reads_frac) %>%  {
-      left_join(
-        group_by(., set) %>%
-          summarize(OTUs = max(OTUs, na.rm = TRUE) %>% ifelse(is.finite(.), ., NA)),
-        select(., set, seq_run, OTU_frac = OTUs_frac, reads, frac = reads_frac) %>%
-          pivot_wider(
-            names_from = "seq_run",
-            values_from = c("OTU_frac", "reads", "frac")
-          ),
-        by = "set"
-      )
-    } %>%
-    mutate(n = str_count(set, "1") + 5 * (set == "Total")) %>%
-    arrange(n, desc(set)) %>%
-    select(set, OTUs, ends_with("pb_500"), ends_with("pb_483"), ends_with("SH-2257"), ends_with("is_057")) %>%
-    column_to_rownames("set") %>%
-    inset("Total", 1, nrow(otu_table)),
+  vennplot_ASV = vennplot_data(venn_ASV, ASVs),
+  
+  venn_OTU = venndata(otu_table, OTUs),
+  
+  vennplot_OTU = vennplot_data(venn_OTU, OTUs),
   
   big_table = {
     out <- bind_rows(
