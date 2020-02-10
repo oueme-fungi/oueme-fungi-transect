@@ -1,8 +1,13 @@
 library(drake)
-load("data/plan/drake.Rdata")
-dc <- drake_cache()
-cached <- dc$list()
 library(futile.logger)
+load("data/plan/drake.Rdata")
+
+flog.info("Copying cache to temporary location.")
+tmpcache <- tempdir()
+file.copy(".drake", tmpcache, recursive = TRUE)
+dc <- drake_cache(file.path(tmpcache, ".drake"))
+
+cached <- dc$list()
 flog.info("%d cached targets", length(cached))
 
 cached <- cached[!startsWith(cached, "p-")]
@@ -24,3 +29,7 @@ if (length(cached) > 0) {
 } else {
   flog.info("No unused targets to remove.")
 }
+
+flog.info("Copying back from temporary directory.")
+unlink(".drake", recursive = TRUE)
+file.copy(file.path(tmpcache, ".drake"), ".", recursive = TRUE)
