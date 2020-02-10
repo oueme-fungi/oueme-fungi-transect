@@ -131,24 +131,57 @@ filterReads <- function(reads, maxLen = Inf, minLen = 0,
   reads
 }
 
-filterReadPairs <- function(reads1, reads2, maxLen = Inf, minLen = 0,
+filterReadPairs <- function(reads1, reads2, trimR = 0, truncQ = 0, maxLen = Inf, minLen = 0,
                         maxEE = Inf) {
   assertthat::assert_that(
     methods::is(reads1, "ShortReadQ"),
-    methods::is(reads2, "ShortReadQ")
+    methods::is(reads2, "ShortReadQ"),
+    is.numeric(trimR),
+    length(trimR) %in% 1L:2L,
+    is.numeric(truncQ),
+    length(truncQ) %in% 1L:2L,
+    is.numeric(maxLen),
+    length(maxLen) %in% 1L:2L,
+    is.numeric(minLen),
+    length(minLen) %in% 1L:2L,
+    is.numeric(maxEE),
+    length(maxEE) %in% 1L:2L
   )
-  shortenough <- ShortRead::width(reads1) <= maxLen &
-    ShortRead::width(reads2) <= maxLen
-  longenough <- ShortRead::width(reads1) >= minLen &
-    ShortRead::width(reads2) >= minLen
+  
+  if (!missing(trimR)) {
+    if (length(trimR == 1)) trimR <- c(trimR, trimR)
+    reads1 <- ShortRead::narrow(reads1, end = pmax(ShortRead::width(reads1) - trimR[1], 0))
+    reads2 <- ShortRead::narrow(reads2, end = pmax(ShortRead::width(reads2) - trimR[1], 0))
+  }
+  
+  if (!missing(truncQ)) {
+    if (length(truncQ == 1)) truncQ <- c(truncQ, truncQ)
+    w1 <- apply(methods::as(reads1@quality, "matrix") <= truncQ[1],
+                MARGIN = 1, match, x = TRUE)
+    reads1 <- ShortRead::narrow(reads1, end = w1 - 1)
+    w2 <- apply(methods::as(reads2@quality, "matrix") <= truncQ[2],
+                MARGIN = 1, match, x = TRUE)
+    reads2 <- ShortRead::narrow(reads2, end = w2 - 1)
+  }
+  
+  if (length(maxLen == 1)) maxLen <- c(maxLen, maxLen)
+  shortenough <- ShortRead::width(reads1) <= maxLen[1] &
+    ShortRead::width(reads2) <= maxLen[2]
+  
+  if (length(maxLen == 1)) minLen <- c(minLen, minLen)
+  longenough <- ShortRead::width(reads1) >= minLen[1] &
+    ShortRead::width(reads2) >= minLen[1]
+  
   noN <- !grepl("N", as.character(reads1@sread)) &
     !grepl("N", as.character(reads2@sread))
+  
+  if (length(maxLen == 1)) maxEE <- c(maxEE, maxEE)
   ee1 <- rowSums(10 ^ (-1 * (methods::as(reads1@quality, "matrix") / 10)),
                 na.rm = TRUE)
   ee2 <- rowSums(10 ^ (-1 * (methods::as(reads2@quality, "matrix") / 10)),
                  na.rm = TRUE)
-  reads1 <- reads1[shortenough & longenough & noN & ee1 <= maxEE & ee2 <= maxEE]
-  reads2 <- reads2[shortenough & longenough & noN & ee1 <= maxEE & ee2 <= maxEE]
+  reads1 <- reads1[shortenough & longenough & noN & ee1 <= maxEE[1] & ee2 <= maxEE[2]]
+  reads2 <- reads2[shortenough & longenough & noN & ee1 <= maxEE[1] & ee2 <= maxEE[2]]
   list(R1 = reads1, R2 = reads2)
 }
 
@@ -218,12 +251,12 @@ extract_and_derep <- function(positions, trim_file, region, region_start, region
   out
 }
 
-filter_and_derep_pairs <- function(trim_file_1, trim_file_2, max_length,
+filter_and_derep_pairs <- function(trim_file_1, trim_file_2, trimR, truncQ, max_length,
                                    min_length, max_ee, ID, ...) {
   reads1 <- ShortRead::readFastq(trim_file_1)
   reads2 <- ShortRead::readFastq(trim_file_2)
   
-  filter_reads <- filterReadPairs(reads1, reads2, max_length, min_length, max_ee)
+  filter_reads <- filterReadPairs(reads1, reads2, trimR, truncQ, max_length, min_length, max_ee)
   reads1 <- filter_reads$R1
   reads2 <- filter_reads$R2
   

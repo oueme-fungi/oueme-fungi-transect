@@ -407,6 +407,7 @@ plan <- drake_plan(
     filter_and_derep_pairs(
       trim_file_1 = illumina_group$trim_file_R1,
       trim_file_2 = illumina_group$trim_file_R2,
+      truncQ = 10,
       max_length = 2999,
       min_length = 50,
       max_ee = 3,
