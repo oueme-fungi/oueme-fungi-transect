@@ -830,7 +830,6 @@ plan <- drake_plan(
   
   # Get the LSU sequences ready to align.
   prealn_decipher_LSU = 
-    aln_decipher_LSU =
     allseqs %>%
     dplyr::select(hash, long, LSU, ITS1, ITS2) %>%
     dplyr::filter(
