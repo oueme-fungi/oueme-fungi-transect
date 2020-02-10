@@ -935,12 +935,24 @@ light_plan %>%
   theme(strip.background = element_blank())
 ```
 
-Figure \@ref(fig:correlog): 
+Mantel correlograms of the Bray-Curtis and weighted UNIFRAC community dissimilarities with respect to spatial distance and time lag are shown in Figure \@ref(fig:correlog).
+Results are qualitatively similar between the two amplicon libraries and between PacBio and Illumina sequencing, with significant autocorrelation ($p < 0.05$, filled red circles) in the Bray-Curtis metric at ranges of up to 3m for the total fungal community, and 1–2m for the ECM community.
+In both cases, the greatest correlation magnitudes and distances are associated with Illumina sequencing of the short amplicon library, followed by PacBio sequencing of the long amplicon library, with PacBio sequencing of the short amplicon library detecting the least spatial structure.
 
-  - Very similar results for different amplicons and technologies
-  - Unifrac shows very little distance structure.
+In contrast, the weighted UNIFRAC distance, which was only calculated for the long amplicon library, shows very little spatial structure, with only the total fungal community in the 1m 
+distance class showing a significant correlation at $p < 0.05$.
+
+The Bray-Curtis metric showed significant ($p < 0.05$) positive correlation at a time lag of 1 year and 0m separation (filled blue circles) for both the total fungal and ECM communities in the long amplicon library.
+For the short amplicon library, although the general profile of the correlograms was similar, correlation at 0m and 1 year was not significant, but there was a negative correlation at time lag of 1 year and a distance of 1m for both sequencing technologies.
+This negative correlation was significant in each short amplicon correlogram except for the ECM community sequenced by Illumina.
 
 ## Spatio-temporal variogram
+
+Variograms relating community dissimilarities and spatial distances are shown in Figure \@ref(fig:spatio).
+For the cases where the Mantel correlogram detected a significant positive correlation, the best-fit exponential curve is also displayed; for the long amplicon library, where there was also a significant positive correlation after a time lag of one year, the best fit curve for time lag is also included.
+The best fit spatial and temporal ranges, along with a 95% confidence interval, are shown in \@ref(tab:variofit).
+Although a model was fit for the weighted UNIFRAC distance applied to the total fungal community, the result was very poorly constrained, and a range of 0m was included in the 95% confidence interval.
+Although the best fit spatial ranges vary between the different datasets by a factor of about 3, there is overlap of the 95% confidence intervals for all of the Bray-Curtis variograms across communities, amplicon libraries, and sequencing technologies.
 
 (ref:spatio) Relationship between spatiotemporal distance and community dissimilarities.
 Circles represent community data from short (top two rows) and long (bottom two rows) amplicon libraries, sequenced by Illumina MiSeq (top row) or PacBio RS II (bottom three rows).
@@ -950,13 +962,13 @@ The color of each circle represents the time lag between samples being compared 
 Lines are the best-fit lines for an exponential decay to max model.
 The model was only fit for datasets where the Mantel test indicated a significant relationship between community dissimilarity and spatial (for the 0 year timelag) or spatiotemporal (for the 1 year time lag) distance.
 
-```{r spatio-temporal, fig.cap = "(ref:spatio)"}
+```{r spatio, fig.cap = "(ref:spatio)"}
 variog_data <- light_plan %>%
   filter(step == "correlog") %>%
   select(correlog, timelag, guild, metric, tech, amplicon, algorithm) %>%
   mutate_at("correlog", lapply, readd, character_only = TRUE, cache = cache) %>%
   mutate_at("correlog", map, "mantel.res") %>%
-  mutate_at("correlog", map_lgl, ~ min(.x[,"Pr(corrected)"], na.rm = TRUE) < 0.05) %>%
+  mutate_at("correlog", map_lgl, ~ any(.x[,"Pr(corrected)"] < 0.05 & .x[, "Mantel.cor"] > 0, na.rm = TRUE)) %>%
   pivot_wider(names_from = "timelag", values_from = "correlog", names_prefix = "mantel_") %>%
   left_join(
     light_plan %>%
@@ -1037,7 +1049,6 @@ variog_empir %>%
   scale_size_continuous(name = "Comparisons") +
   scale_y_continuous(name = "Community dissimilarity") +
   theme(strip.background = element_blank())
-
 ```
 
 (ref:variofit) Parameters for variogram fits shown in Figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value.
@@ -1062,8 +1073,9 @@ variog_data %>%
       select(-term)
   ) %>%
   filter(term %in% c("range", "timerange")) %>%
+  mutate_at("conf.low", replace_na, 0) %>%
   mutate(value = ifelse(
-    is.na(estimate) | is.na(conf.low) | is.na(conf.high),
+    is.na(estimate) | is.na(conf.high),
     "-",
     sprintf("%.2g (%.2g–%.2g)", estimate, conf.low, conf.high)
   )) %>%
@@ -1074,32 +1086,40 @@ variog_data %>%
   kable(booktabs = TRUE, caption = "(ref:variofit)", linesep = c(rep("", 5), "\\addlinespace"))
 ```
 
-
-Figure \@ref(fig:spatio-temporal) and Table \@ref(tab:variofit):
-
- - Spatial ranges are all consistent, given the wide confidence intervals.
- - For most models the temporal aspect showed poor convergence.
- - Unifrac shows unconvincing distance structure. (No surprise that the model doesn't fit well)
- - similar results for whole community and ECM -- ECM dominate community.
-
 # Discussion
 
-## Comparison of tech
+## Comparison of technologies
 
   - length bias not clearly observed between PacBio and Ion Torrent short reads
-  - long reads had more very short ITS2 sequences -- who are these?
+  - long reads had more very short ITS2 sequences Supplementary Figure \@ref(fig:ITS2-length)) -- these are mostly Alveolata (Supplementary Figure \@ref(fig:short-its))
   - lots of ASVs/OTUs detected in only one tech
 
-  - very few PacBio OTUs undetected by Ion torrent from same library; only rare OTUS undetected by PacBio
+  - very few PacBio OTUs undetected by Ion torrent/Illumina from same library; only rare OTUS undetected by PacBio -- sequencing depth seems to be the biggest effect.
+  
   - sequencing technologies yield comparable results (given read depth) with sufficient clustering
   - not such good match with ASVs -- suggests DADA2 doesn't perform equally on different datasets
-  - No "hook", because depth is similar
+  
   - still lots of ASVs/OTUs detected by only one amplicon -- primer bias.
+
+## Use of Phylogeny to improve taxonomic identification
+
+  - Strict consensus usually increases the number of assigned sequences relative to any single method, except for family and genus level identifications.
+  - Different methods and databases bring mostly complementary, non-contradictory information.
+  - Unite (using full ITS) identifies a similar fraction of reads and ASVs as RDP using LSU.
+  
+## Differences in taxonomic bias of different amplicons
+  - Long amplicon library includes more non-fungi, particularly Alveolates and Metazoans.
+  - Also more of a few isolated fungal genera -- Tremellodendron, Marcelleina, Tulasnella.
+  - Short amplicon recovers more Sordariomycetes, Saccharomycetes, Glomeromycota -- the latter two maybe due to sequencing depth.
+
+## Bias in ecological results using different amplicons and sequencing technologies
+  - UNIFRAC does not detect spatial structure within this relatively homogeneous community -- largest fraction of weighted branch length is between Ascomycota and Basidiomycota.
+  - choice of PCR primer (and possibly PCR replicate?) is more important for repeatability that choice of sequencing technology.
 
 # Acknowledgements
 
 The authors would like to acknowledge support of the National Genomics Infrastructure (NGI) / Uppsala Genome Center and UPPMAX for providing assistance in massive parallel sequencing and computational infrastructure.
-Work performed at NGI / Uppsala Genome Center has been funded by RFI / VR and and Science for Life Laboratory, Sweden
+Work performed at NGI / Uppsala Genome Center has been funded by RFI / VR and and Science for Life Laboratory, Sweden.
 
 # Bibliography {-}
 
