@@ -230,18 +230,22 @@ Each PCR run also included a blank sample and a positive control consisting of f
 Amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically as above.
 An aliquot of 100 ng of DNA from each sample (or the total PCR product if less than 100 ng) was pooled into two libraries each for long and short amplicons.
 Each library was sequenced using Single Molecule Real Time (SMRT) sequencing on a Pacific Biosciences (PacBio) RS II sequencer at the Uppsala Genome Center (UGC; Uppsala Genome Center, Science
-for Life Laboratory, Dept. of Immunology, Genetics and Pathology, Uppsala University, BMC, Box 815, SE-752 37 UPPSALA).
+for Life Laboratory, Dept. of Immunology, Genetics and Pathology, Uppsala University, BMC, Box 815, SE-752 37 UPPSALA, Sweden).
 Short amplicon libraries were sequenced on two SMRT cells each, while long amplicon libraries were sequenced on four SMRT cells each.
 
-Additionally the short amplicon libraries were combined and sequenced using an Ion S5  (Ion Torrent) sequencer using one 520 chip at UGC.
+Additionally the short amplicon libraries were combined and sequenced using an Ion S5  (Ion Torrent) sequencer using one 520 chip at UGC, and a MiSeq (Illumina Inc.) sequencer using v3 chemistry with a paired-end read lengh of 300 bp at the SNP&SEQ Technology Platform (Dept. of Medical Sciences, Uppsala University, BMC, Box 1432, SE-751 44 UPPSALA, Sweden).
   
 ## Bioinformatics
 
-Circular consensus sequence (CCS) basecalls for SMRT sequences were made using `ccs` version 3.4 [@pacificbiosciences2019] using the default settings.
-The resulting sequences were demultiplexed and sequencing primers were removed using `cutadapt` version 1.18 [@martin2011].
+Circular consensus sequence (CCS) basecalls for PacBio sequences were made using `ccs` version 3.4 [@pacificbiosciences2019] using the default settings.
+The resulting sequences, as well as the paired-end Illumina sequences, were demultiplexed and sequencing primers were removed using `cutadapt` version 2.8 [@martin2011].
 Sequencing primers were similarly removed from the Ion Torrent sequences, but interference between the tagged gITS7 primers and the Ion XPress tags used in library prep made full demultiplexing of the Ion Torrent sequences impossible.
 
+
 ### Denoising
+
+Forward and reverse Illumina reads were quality controlled (max 3 expected errors in either read) and denoised using `DADA2`.
+Forward and reverse reads were 
 
 We attempted to denoise both long and short amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019.
 However, only `r region_table$ASVs[region_table$region=="long"]` amplicon sequence variants (ASVs) were obtained for the long amplicons, representing `r round(100*region_table$reads[region_table$region == "long"]/as.integer(gsub(" ", "", demuxcounts["pb_500"])), 1)`% of the trimmed reads.
@@ -371,13 +375,16 @@ The 5.8S region was located in `r text_list(bioin)
 
 (ref:readcounts) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages.
 *Raw*: raw reads as delivered by sequencing center;
-*Trim*: reads with primers and demultiplexing indices removed;
+*Trim*: reads with primers and demultiplexing barcodes removed;
 *LSUx*: reads with a positive CM hit for 5.8S, allowing regions to be extracted;
 *ITS2*: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
 *short*, *ITS*, *LSU*, *long*: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"long\" denote the full-length short and long amplicons, respectively.
 Short amplicons were mapped to full ITS, LSU, and long amplicon ASVs when they had a perfect match in the ITS2 region.
 
 ```{r bioinfo}
+#TODO add filtered reads (currently inflated numbers for non-Illumina)
+#TODO add Illumina raw reads
+#TODO asterisks for mappde ASVs
 loadd(bioinf_table, cache = cache)
 options(knitr.kable.NA = '–')
 bioinf_header <- tibble(name = names(bioinf_table)) %>%
