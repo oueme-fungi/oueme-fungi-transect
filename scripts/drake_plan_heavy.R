@@ -827,8 +827,9 @@ plan <- drake_plan(
 
   #### Plan Section 5: Build phylogenetic trees. ####
   
-  # Align the consensus LSU sequences
-  aln_decipher_LSU =
+  # Get the LSU sequences ready to align.
+  prealn_decipher_LSU = 
+    aln_decipher_LSU =
     allseqs %>%
     dplyr::select(hash, long, LSU, ITS1, ITS2) %>%
     dplyr::filter(
@@ -844,11 +845,16 @@ plan <- drake_plan(
     dplyr::filter(!duplicated(LSU)) %$%
     set_names(LSU, hash) %>%
     chartr("T", "U", .) %>%
-    Biostrings::RNAStringSet() %>%
-    DECIPHER::AlignSeqs(iterations = 10,
-                        refinements = 10,
-                        processors = ignore(ncpus)),
-
+    Biostrings::RNAStringSet(),
+  
+  # Align the consensus LSU sequences
+  aln_decipher_LSU = DECIPHER::AlignSeqs(
+    prealn_decipher_LSU,
+    iterations = 10,
+    refinements = 10,
+    processors = ignore(ncpus)
+  ),
+  
   # Trim the intron-containing regions
   aln_decipher_LSU_trim = trim_LSU_intron(aln_decipher_LSU),
 
@@ -876,10 +882,9 @@ plan <- drake_plan(
     setwd(wd)
     result
   },
-
-  # Align the consensus long reads
-  aln_decipher_long =
-    allseqs %>%
+  
+  # Get the LSU sequences ready to align.
+  prealn_decipher_long = allseqs %>%
     dplyr::select(hash, long, ITS1, ITS2) %>%
     dplyr::filter(
       complete.cases(.),
@@ -892,10 +897,16 @@ plan <- drake_plan(
     dplyr::filter(!duplicated(long)) %$%
     set_names(long, hash) %>%
     chartr("T", "U", .) %>%
-    Biostrings::RNAStringSet() %>%
-    DECIPHER::AlignSeqs(iterations = 10,
-                        refinements = 10,
-                        processors = ignore(ncpus)),
+    Biostrings::RNAStringSet(),
+  
+  # Align the consensus long reads
+  aln_decipher_long =
+    DECIPHER::AlignSeqs(
+      prealn_decipher_long,
+      iterations = 10,
+      refinements = 10,
+      processors = ignore(ncpus)
+    ),
   
   # Trim the intron-containing region
   aln_decipher_long_trim = trim_LSU_intron(aln_decipher_long),
@@ -924,10 +935,10 @@ plan <- drake_plan(
         threads = ignore(ncpus))
     setwd(wd)
     result
-    },
+  },
   
-  # Add the short reads to the long reads alignment using MAFFT
-  aln_mafft_full =
+  # Get the short and long reads ready to align with MAFFT.
+  prealn_mafft_full =
     allseqs %>%
     dplyr::select(hash, full) %>%
     dplyr::filter(complete.cases(.)) %>%
@@ -937,10 +948,13 @@ plan <- drake_plan(
     dplyr::filter(!hash %in% names(aln_decipher_long_trim)) %$%
     set_names(full, hash) %>%
     chartr("U", "T", .) %>%
-    Biostrings::DNAStringSet() %>%
+    Biostrings::DNAStringSet(),
+  
+  # Add the short reads to the long reads alignment using MAFFT
+  aln_mafft_full =
     mafft_add(
       x = Biostrings::DNAStringSet(aln_decipher_long_trim),
-      y = .,
+      y = prealn_mafft_full,
       add = "add",
       method = "10merpair",
       maxiterate = "2",
@@ -1021,8 +1035,7 @@ plan <- drake_plan(
     result
   },
   
-  # align the short reads
-  aln_decipher_short =
+  prealn_decipher_short =
     allseqs %>%
     dplyr::select(hash, short, ITS2) %>%
     dplyr::filter(
@@ -1038,10 +1051,16 @@ plan <- drake_plan(
     ) %$%
     set_names(short, hash) %>%
     chartr("T", "U", .) %>%
-    Biostrings::RNAStringSet() %>%
-    DECIPHER::AlignSeqs(iterations = 20, # give extra iterations here
-                        refinements = 10,
-                        processors = ignore(ncpus)),
+    Biostrings::RNAStringSet(),
+  
+  # align the short reads
+  aln_decipher_short =
+    DECIPHER::AlignSeqs(
+      prealn_decipher_short,
+      iterations = 20, # give extra iterations here
+      refinements = 10,
+      processors = ignore(ncpus)
+    ),
   
   # merge the short read alignment with the long read alignment
   aln_decipher_full =
