@@ -1180,7 +1180,7 @@ plan <- drake_plan(
   
   qstats_derep2 = target(
     attr(derep2, "qstats") %>%
-      mutate(region = symbols_to_values(region)) %>%
+      mutate(region = region) %>%
       as.data.frame(),
     transform = map(derep2, region, .id = FALSE),
     dynamic = map(derep2),
