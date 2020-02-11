@@ -1,3 +1,22 @@
+
+k_or_M <- function(x, ..., .sep = " ", .fun = format) {
+  case_when(
+    abs(x) > 1e6 ~ paste(.fun(x / 1e6, ...), "M", sep = .sep),
+    abs(x) > 1e3 ~ paste(.fun(x / 1e3, ...), "k", sep = .sep),
+    is.na(x) ~ NA_character_,
+    TRUE ~ paste(.fun(x, ...), " ", sep = .sep)
+  )
+}
+
+percent <- function(x, ...) {
+  paste0(formatC(as.numeric(x) * 100, ...), "%")
+}
+
+text_list <- function(x, ...) {
+  x = format(x, ...)
+  glue::glue_collapse(x, sep = ", ", last = ", and ")
+}
+
 # compile data to make a table 
 venndata <- function(data, vennvar, cols = names(data)[-1]) {
   vennvar <- enquo(vennvar)
@@ -159,4 +178,168 @@ venn_table <- function(venndata, var, caption) {
           set_names(lengths, values)
       )
     )
+}
+
+compR2 <- function(x, y, type) {
+  xamp <- plyr::mapvalues(
+    x,
+    datasets$seq_run,
+    datasets$amplicon,
+    FALSE
+  )
+  yamp <- plyr::mapvalues(
+    y,
+    datasets$seq_run,
+    datasets$amplicon,
+    FALSE
+  )
+  x <- plyr::mapvalues(
+    x,
+    datasets$seq_run,
+    paste(
+      datasets$tech,
+      datasets$machine),
+    FALSE
+  )
+  y <- plyr::mapvalues(
+    y,
+    datasets$seq_run,
+    paste(
+      datasets$tech,
+      datasets$machine),
+    FALSE
+  )
+  formatC(
+    filter(
+      readd(comparisons, cache = cache),
+      x == x_var,
+      xamp == x_amplicon,
+      y == y_var,
+      yamp == y_amplicon,
+      type == !!type
+    )$r.squared,
+    digits = 2,
+    format = "f")
+}
+
+read_comparison <- function(multi_table, comparisons, type) {
+  multi_table <- filter(multi_table, type == !!type)
+  comparisons <- filter(comparisons, type == !!type)
+  p <- multi_table %>%
+    filter(x > 0, y > 0) %>%
+    ggplot(aes(y = y, x = x)) +
+    geom_point(alpha = 0.2, shape = 1) +
+    scale_x_log10(
+      breaks = c(1, 1000, 1000000),
+      labels = c("1", "1k", "1M"),
+      minor_breaks = c(10, 100, 10000, 100000),
+      limits = c(1, 1e6)
+    ) +
+    scale_y_log10(
+      breaks = c(1, 1000, 1000000),
+      labels = c("1", "1k", "1M"),
+      minor_breaks = c(10, 100, 10000, 100000),
+      limits = c(1, 1e6)
+    ) +
+    coord_equal() +
+    xlab(NULL) +
+    ylab(NULL) +
+    geom_rug(aes(y = y), sides = "l", alpha = 0.2,
+             data = multi_table %>% filter(x == 0, y > 0)) +
+    geom_rug(aes(x = x), sides = "b", alpha = 0.2,
+             data = multi_table %>% filter(y == 0, x > 0)) +
+    ggnomics::facet_nested(y_amplicon + y_var ~ x_amplicon + x_var, switch = "both", space = "free", nest_line = TRUE) +
+    stat_smooth(method = "loess", formula = y ~ x) +
+    geom_abline(aes(intercept = `(Intercept)`, slope = 1),
+                linetype = 2L, alpha = 0.5, data = comparisons) +
+    geom_text(
+      aes(label = label),
+      data = comparisons,
+      x = 6,
+      y = 0.7,
+      color = "black",
+      hjust = 1,
+      parse = TRUE,
+      inherit.aes = FALSE
+    ) +
+    theme(strip.placement = "outside", strip.background = element_blank())
+  g <- ggplotGrob(p)
+  g$grobs[g$layout$name %in% c("panel-1-2", "panel-1-3", "panel-2-3")] <- NULL
+  g$layout <- g$layout[!(g$layout$name %in% c("panel-1-2", "panel-1-3", "panel-2-3")),]
+  g
+}
+
+taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL, datasets = get0("datasets")) {
+  rank <- enquo(rank)
+  y <- enquo(y)
+  ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
+  .data <- .data %>%
+    group_by(reference, Algorithm, tech, amplicon) %>%
+    mutate(ASVs = n()) %>%
+    ungroup() %>%
+    filter(...) %>%
+    arrange_at(ranks) %>%
+    mutate_at(
+      ranks,
+      ~ factor(
+        .,
+        levels = c(NA, "other", discard(unique(.), is.na)),
+        exclude = NULL
+      )
+    ) %>%
+    group_by(reference, Algorithm, tech, amplicon, !!rank) %>%
+    summarize(reads = sum(reads), ASVs = n()/max(ASVs)) %>%
+    ungroup()
+  
+  if (!is.null(cutoff)) {
+    .data <- group_by(.data, !!rank) %>%
+      group_map(
+        
+        ~ if (all(pull(.x, !!y) < cutoff)) {
+          mutate(.x, !!rank := factor("other", levels = levels(!!rank)))
+        } else {
+          .x
+        },
+        keep = TRUE
+      ) %>%
+      bind_rows() %>%
+      group_by(reference, Algorithm, !!rank, tech, amplicon) %>%
+      summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
+      ungroup()
+  }
+  
+  rank_label <- as_label(rank)
+  
+  .data <- mutate(.data, !!rank := fct_drop(!!rank))
+  vals <- levels(pull(.data, !!rank))
+  # if ("other" %in% vals) vals <- c("other", vals) %>% magrittr::extract(!duplicated(.))
+  # if (any(is.na(vals))) vals <- c(NA, vals) %>% magrittr::extract(!duplicated(.))
+  
+  
+  if (rank_label == str_to_lower(rank_label)) rank_label <- str_to_title(rank_label)
+  y_label <- as_label(y)
+  if (y_label == str_to_lower(y_label)) y_label <- str_to_title(y_label)
+  .data <- .data %>%
+    mutate(tech = fct_relabel(tech, ~ paste(., plyr::mapvalues(., datasets$tech, datasets$machine, FALSE))
+    ))
+  ggplot(.data, aes(x = Algorithm, y = !!y, fill = !!rank)) +
+    geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
+    ggnomics::facet_nested(
+      cols = vars(tech, amplicon, reference),
+      scales = "free_x",
+      space = "free_x",
+      nest_line = TRUE,
+      bleed = FALSE,
+      resect = unit(1, "mm")
+    ) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+          strip.background = element_blank(),
+          panel.spacing = unit(3, "pt")) +
+    scale_fill_discrete(
+      breaks = vals,
+      labels = replace_na(as.character(vals), "unidentified"),
+      name = rank_label
+    ) +
+    ylab(paste("Fraction of", y_label))
+  
 }

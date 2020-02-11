@@ -22,6 +22,8 @@ source(file.path(config$rdir, "taxonomy.R"))
 source(file.path(config$rdir, "plate_check.R"))
 source(file.path(config$rdir, "output_functions.R"))
 
+remove(readd, loadd)
+
 choosevars <- function(d, g, .data) {
   .data %>%
     filter(type == g$type) %>%
@@ -81,6 +83,7 @@ physeq_meta <-
 
 plan2 <- drake_plan(
   # targets which are imported from first plan
+  allseqs = target(trigger = trigger(mode = "blacklist")),
   taxon_table = target(trigger = trigger(mode = "blacklist")),
   taxon = target(
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
@@ -245,8 +248,8 @@ plan2 <- drake_plan(
   # fungi (except Tulasnella).
   fungi_tree = target(
     ape::getMRCA(rooted_tree, tip = intersect(surefungi, rooted_tree$tip.label)) %>%
-    ape::extract.clade(phy = rooted_tree) %>%
-    ape::drop.tip(phy = ., intersect(.$tip.label, allchimeras_ITS2)),
+      ape::extract.clade(phy = rooted_tree) %>%
+      ape::drop.tip(phy = ., intersect(.$tip.label, allchimeras_ITS2)),
     transform = map(rooted_tree, group = "fungi", .tag_in = step, .tag_out = tree, .id = treename)
   ),
   
@@ -388,8 +391,8 @@ plan2 <- drake_plan(
   ),
   
   ecm = target(
-      dplyr::filter(guilds, grepl("Ectomycorrhizal", guild)),
-      transform = map(guilds, .tag_in = step, .id = algorithm)
+    dplyr::filter(guilds, grepl("Ectomycorrhizal", guild)),
+    transform = map(guilds, .tag_in = step, .id = algorithm)
   ),
   
   ecm2 = target(
@@ -427,7 +430,7 @@ plan2 <- drake_plan(
       if (guild == "ecm") {
         physeq <- phyloseq::prune_taxa(ecm$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
-          
+        
       } else if (guild == "ecm2") {
         physeq <- phyloseq::prune_taxa(ecm2$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
@@ -445,14 +448,14 @@ plan2 <- drake_plan(
   correlog = target(
     correlog(physeq, metric, timelag),
     transform = cross(physeq, metric = c("bray", "wunifrac"), timelag = c(0, 1),
-                    .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm, timelag))
+                      .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm, timelag))
   ),
   
   variog = target(
     variog(physeq, metric, breaks = c(1:25 - 0.5, 31000)),
     transform = cross(physeq, metric = c("bray", "wunifrac"),
-                    .tag_in = step,
-                    .id = c(guild, metric, tech, amplicon, algorithm))
+                      .tag_in = step,
+                      .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
   # variofit = target(
@@ -465,23 +468,23 @@ plan2 <- drake_plan(
   # ),
   
   variofit2 = target(
-      variog %>%
-        # filter(!is.na(bin)) %>%
-        as_variogram() %>%
-        nls(
-          gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp(dist/range*log(0.05)),
-          data = .,
-          start = list(
-            nugget = min(.$gamma),
-            sill = 1 - max(.$gamma),
-            range = 30
-          ),
-          upper = list(nugget = 0.99, sill = 0.99, range = Inf),
-          lower = list(nugget = 0, sill = 0, range = 0.001),
-          algorithm = "port",
-          weights = pmin(.$np/.$dist, 1),
-          control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
+    variog %>%
+      # filter(!is.na(bin)) %>%
+      as_variogram() %>%
+      nls(
+        gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp(dist/range*log(0.05)),
+        data = .,
+        start = list(
+          nugget = min(.$gamma),
+          sill = 1 - max(.$gamma),
+          range = 30
         ),
+        upper = list(nugget = 0.99, sill = 0.99, range = Inf),
+        lower = list(nugget = 0, sill = 0, range = 0.001),
+        algorithm = "port",
+        weights = pmin(.$np/.$dist, 1),
+        control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
+      ),
     transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
@@ -510,23 +513,23 @@ plan2 <- drake_plan(
     variogST %>%
       # filter(!is.na(bin)) %>%
       as_variogramST() %>% {
-      nls(
-        gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp((dist/range + timelag/timerange)*log(0.05)),
-        # add the parameters from the spatial-only fit.
-        data = .,
-        start = c(
-          list(timerange = 2),
-          as.list(variofit2$m$getPars())
-        ),
-        lower = c(
-          list(timerange = 0.001),
-          as.list(variofit2$m$getPars())
-        ),
-        algorithm = "port",
-        weights = pmin(.$np/.$dist, 1),
-        control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
-      )
-    },
+        nls(
+          gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp((dist/range + timelag/timerange)*log(0.05)),
+          # add the parameters from the spatial-only fit.
+          data = .,
+          start = c(
+            list(timerange = 2),
+            as.list(variofit2$m$getPars())
+          ),
+          lower = c(
+            list(timerange = 0.001),
+            as.list(variofit2$m$getPars())
+          ),
+          algorithm = "port",
+          weights = pmin(.$np/.$dist, 1),
+          control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
+        )
+      },
     transform = map(variogST, variofit2, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
@@ -655,7 +658,7 @@ plan2 <- drake_plan(
       filter(reads > 0) %>%
       mutate_at("seq", chartr, old = "T", new = "U") %>%
       inner_join(
-        select(readd(allseqs, cache = cache), seq = ITS2, long, short, ITS, LSU) %>%
+        select(allseqs, seq = ITS2, long, short, ITS, LSU) %>%
           pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
           filter(!is.na(consensus)) %>%
           select(-consensus) %>%
@@ -703,11 +706,18 @@ plan2 <- drake_plan(
     arrange(step) %>%
     column_to_rownames("step"),
   
-  venn_ASV = venndata(asv_table, ASVs),
+  bioinf_header =
+    tibble(name = names(bioinf_table)) %>%
+    separate(name, into = c("tech", "amplicon", "type"), sep = "_") %>%
+    mutate(
+      tech = paste(tech, plyr::mapvalues(tech, datasets$tech, datasets$machine, FALSE))
+    ),
+  
+  venn_ASV = venndata(asv_table, ASVs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
   
   vennplot_ASV = vennplot_data(venn_ASV, ASVs),
   
-  venn_OTU = venndata(otu_table, OTUs),
+  venn_OTU = venndata(otu_table, OTUs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
   
   vennplot_OTU = vennplot_data(venn_OTU, OTUs),
   
@@ -733,12 +743,12 @@ plan2 <- drake_plan(
     arrange(tech, amplicon) %>%
     mutate(var = paste(tech, machine) %>%
              factor(ordered = TRUE, levels = unique(.))) %>% {
-      crossing(
-        select(., x_var = var, x_amplicon = amplicon),
-        select(., y_var = var, y_amplicon = amplicon),
-        type = c("ASV", "OTU")
-      ) 
-    } %>%
+               crossing(
+                 select(., x_var = var, x_amplicon = amplicon),
+                 select(., y_var = var, y_amplicon = amplicon),
+                 type = c("ASV", "OTU")
+               ) 
+             } %>%
     filter(
       x_var < y_var | (x_var == y_var & x_amplicon < y_amplicon),
       paste(x_var, x_amplicon, sep = " - ") %in% names(big_table),
@@ -810,29 +820,29 @@ plan2 <- drake_plan(
         ,
         by = c("label", "reference", "region", "method")
       ) %>%
-    mutate(
-      kingdom = ifelse(!is.na(phylum) & reference == "warcup", "Fungi", kingdom)
-    )
+      mutate(
+        kingdom = ifelse(!is.na(phylum) & reference == "warcup", "Fungi", kingdom)
+      )
     bind_rows(
       out,
       phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
-      filter(method == "phylotax") %>%
-      select(method, label, rank, taxon) %>%
-      pivot_wider(names_from = "rank", values_from = "taxon") %>%
-      left_join(
-        out %>%
-          filter(seq_run == "pb_500") %>%
-          select(seq_run, label, reads, amplicon, tech) %>%
-          unique(),
-        .,
-        by = "label"
-      ) %>%
-      mutate_at("kingdom", na_if, "NA") %>%
-      mutate(
-        method = "PHYLO",
-        reference = "All",
-        kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
-      ),
+        filter(method == "phylotax") %>%
+        select(method, label, rank, taxon) %>%
+        pivot_wider(names_from = "rank", values_from = "taxon") %>%
+        left_join(
+          out %>%
+            filter(seq_run == "pb_500") %>%
+            select(seq_run, label, reads, amplicon, tech) %>%
+            unique(),
+          .,
+          by = "label"
+        ) %>%
+        mutate_at("kingdom", na_if, "NA") %>%
+        mutate(
+          method = "PHYLO",
+          reference = "All",
+          kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
+        ),
       conf_taxon_short_euk$tip_taxa %>%
         select(method, label, rank, taxon) %>%
         pivot_wider(names_from = "rank", values_from = "taxon") %>%
@@ -912,128 +922,327 @@ plan2 <- drake_plan(
       select(-Taxonomy)
   },
   
-    taxdata = {
-      ranks <- c("domain", "kingdom", "phylum", "class", "order", "family", "genus")
-      out <- taxon_reads %>%
-        mutate(domain = "Root", ASVs = 1) %>%
-        select(-region, -seq_run, -label) %>%
-        mutate_at(
-          ranks,
-          replace_na,
-          "?"
-        ) %>%
-        group_by_at(vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
-        mutate(ASVs = ASVs / sum(ASVs))
-      for (i in seq_along(ranks)) {
-        out <- out %>%
-          group_by_at(rev(ranks)[i]) %>%
-          group_map(
-            function(x, y, i) {
-              d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
-                summarize_at(c("reads", "ASVs"), sum)
-              if (max(c((d$reads), (d$ASVs))) < 0.01) {
-                mutate_at(x, rev(ranks)[i], ~"*")
-              } else {
-                x
-              }
-            },
-            i = i,
-            keep = TRUE
-          ) %>%
-          bind_rows()
-      }
-      out <- group_by_at(out, vars(-one_of("reads", "ASVs", "ECM"))) %>%
-        summarize(reads = sum(reads), ASVs = sum(ASVs), ECM = min(ECM)) %>%
-        pivot_wider(
-          names_from = c("tech", "amplicon", "reference", "Algorithm"),
-          values_from = c("reads", "ASVs"),
-          values_fill = list(reads = 0, ASVs = 0),
-          names_repair = "universal"
-        ) %>% 
-        taxa::parse_tax_data(
-          class_cols = ranks
-        ) %>%
-        taxa::filter_taxa(
-          taxon_names != "incertae_sedis",
-          drop_obs = TRUE,
-          reassign_obs = FALSE,
-          reassign_taxa = TRUE
-        )
-      
-      read_cols <- keep(names(out$data$tax_data), startsWith, "reads_")
-      asv_cols <- keep(names(out$data$tax_data), startsWith, "ASVs_")
-      
-      out$data$asv_table <- metacoder::calc_obs_props(out, "tax_data", cols = asv_cols)
-      out$data$read_table <- metacoder::calc_obs_props(out, "tax_data", cols = read_cols)
-      out$data$tax_asv <- metacoder::calc_taxon_abund(out, "asv_table", cols = asv_cols)
-      out$data$tax_read <- metacoder::calc_taxon_abund(out, "read_table", cols = read_cols)
-      
-      child_of_unknown <-  unlist(
-        out$supertaxa(
-          recursive = FALSE,
-          value = "taxon_names",
-          na = TRUE
-        )
-      ) %in% c("?", "*")
-      unknown_taxa <- out$taxon_names() %in% c("?", "*")
-      out <- out$filter_taxa(
-        !(child_of_unknown & unknown_taxa) | taxon_names == "Root",
-        reassign_obs = FALSE
+  tax_chart =
+    taxon_reads %>%
+    pivot_longer(
+      names_to = "rank",
+      cols = c("kingdom", "phylum", "class", "order", "family", "genus"),
+      values_to = "taxon"
+    ) %>%
+    group_by(amplicon, tech, Algorithm, reference, rank, ID = !is.na(taxon)) %>%
+    summarize(reads = sum(reads), ASVs = n()) %>%
+    group_by(amplicon, tech, Algorithm, reference, rank) %>%
+    mutate(ASVs = ASVs / sum(ASVs)) %>%
+    ungroup() %>%
+    filter(ID) %>%
+    mutate_at("rank", factor,
+              levels = c("kingdom", "phylum", "class", "order", "family", "genus")
+    ) %>%
+    rename(Reads = reads) %>%
+    mutate_at("reference", as.character) %>%
+    mutate_at("reference", replace_na, "All") %>%
+    mutate(
+      reference = map2(
+        reference,
+        amplicon,
+        ~ if (.x == "All") {
+          c("Unite", "Warcup", if (.y == "Long") "RDP" else NULL)
+          } else {.}
       )
-      dangling_taxa <- map_lgl(
-        out$subtaxa(recursive = FALSE)[unlist(out$supertaxa(recursive = FALSE, na = TRUE))],
-        ~all(out$taxon_names()[.] %in% c("?", "*") | is.na(out$taxon_names()[.]))
+    ) %>%
+    unnest(reference) %>%
+    mutate_at("reference", factor, levels = c("Unite", "Warcup", "RDP")) %>%
+    pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac") %>%
+    ggplot(aes(x = rank, y = frac, ymax = frac, group = Algorithm, fill = Algorithm)) +
+    ggnomics::facet_nested(
+      tech + amplicon ~ type + reference,
+      resect = unit(1, "mm"),
+      nest_line = TRUE,
+      bleed = FALSE
+    ) +
+    # geom_ribbon(ymin = 0, alpha = 0.5) +
+    # geom_line(aes(color = Algorithm)) +
+    geom_col(position = "dodge") +
+    # scale_fill_brewer(type = "qual", palette = 2) +
+    ylab("Fraction of reads assigned") +
+    xlab(NULL) +
+    theme(axis.text.x = element_text(vjust = 0.5, angle = 90),
+          legend.direction = "horizontal",
+          legend.position = "bottom",
+          strip.background = element_blank()),
+  
+  agaricus =
+    taxon_table %>%
+    filter(rank == "genus", taxon == "Agaricus", n_diff == 1) %$%
+    unique(label),
+  
+  agaricus_reads =
+    pos_control_physeq %>%
+    phyloseq::prune_taxa(taxa = agaricus) %>%
+    phyloseq::prune_taxa(taxa = colSums(phyloseq::otu_table(.)) > 0) %>%
+    phyloseq::otu_table(),
+  
+  pos_control_physeq = 
+    phyloseq::subset_samples(
+      proto_physeq,
+      sample_type == "Pos" |
+        (seq_run == "is_057" & well == "E7")
+    ),
+  
+  nonpos_control_physeq = 
+    phyloseq::subset_samples(
+      proto_physeq,
+      sample_type != "Pos" &
+        !(seq_run == "is_057" & well == "E7")
+    ),
+  
+  pos_control =
+    agaricus_reads %>%
+    as.matrix() %>%
+    colSums() %>%
+    which.max() %>%
+    names(),
+  
+  pos_control_reads =
+    nonpos_control_physeq %>%
+    phyloseq::prune_taxa(taxa = pos_control) %>%
+    phyloseq::otu_table() %>%
+    rowSums(),
+  
+  all_reads =
+    nonpos_control_physeq %>%
+    phyloseq::otu_table() %>%
+    as.matrix() %>%
+    rowSums(),
+  
+  pos_control_data =
+    nonpos_control_physeq %>%
+    phyloseq::sample_data() %>%
+    as.data.frame() %>%
+    mutate(
+      pc_reads = pos_control_reads,
+      all_reads = all_reads,
+      pc_frac = pc_reads/all_reads
+    ) %>%
+    select(seq_run, well, plate, pc_frac, pc_reads, all_reads),
+  
+  agaricus_fasta =
+    allseqs %>%
+    filter(hash %in% phyloseq::taxa_names(agaricus_reads)) %$%
+    set_names(short, hash) %>%
+    discard(is.na) %>%
+    Biostrings::RNAStringSet() %>%
+    Biostrings::writeXStringSet(file_out("temp/agaricus.fasta")),
+  
+  agaricus_order =
+    phyloseq::merge_samples(proto_physeq, "seq_run") %>%
+    phyloseq::otu_table() %>%
+    apply(MARGIN = 1, order, decreasing = TRUE) %>%
+    apply(MARGIN = 2, match, x = 1),
+  
+  variog_data = target(
+    ignore(plan2) %>%
+    filter(step == "correlog") %>%
+    select("correlog", timelag, guild, metric, tech, amplicon, algorithm) %>%
+    mutate_at("correlog", lapply, readd, character_only = TRUE, cache = ignore(cache)) %>%
+    mutate_at("correlog", map, "mantel.res") %>%
+    mutate_at("correlog", map_lgl, ~ any(.x[,"Pr(corrected)"] < 0.05 & .x[, "Mantel.cor"] > 0, na.rm = TRUE)) %>%
+    pivot_wider(names_from = "timelag", values_from = "correlog", names_prefix = "mantel_") %>%
+    left_join(
+      ignore(plan2) %>%
+        filter(step == "variofit2") %>%
+        select("variofit2", guild, metric, tech, amplicon, algorithm),
+      by = c("guild", "metric", "tech", "amplicon", "algorithm")
+    ) %>%
+    left_join(
+      ignore(plan2) %>%
+        filter(step == "variofitST2") %>%
+        select("variofitST2", "variogST", guild, metric, tech, amplicon, algorithm),
+      by = c("guild", "metric", "tech", "amplicon", "algorithm")
+    ) %>%
+    mutate(
+      variofit = ifelse(mantel_1, .data[["variofitST2"]], .data[["variofit2"]])
+    ) %>%
+    mutate_at(
+      c("variofit", "variogST", "variofitST2", "variofit2"),
+      map,
+      readd,
+      character_only = TRUE,
+      cache = ignore(cache)
+    ) %>%
+    select(mantel_0, mantel_1, "variofitST2", "variofit2", "variofit",
+           "variogST", guild, metric, tech, amplicon, algorithm) %>%
+    mutate_at(c("guild", "metric", "tech", "amplicon", "algorithm"),
+              str_replace_all, "\"", "") %>%
+    mutate(
+      guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("All Fungi", "ECM")),
+      metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
+      amplicon = factor(
+        amplicon,
+        levels = c("Short", "Long")
+      ),
+      algorithm = factor(
+        algorithm,
+        levels = c("Consensus", "PHYLOTAX", "PHYLOTAX+Cons"),
+        labels = c("Cons", "PHYLO", "PHYLO")
       )
-      out <- out$filter_taxa(
-        !dangling_taxa | taxon_names == "Root",
-        reassign_obs = FALSE
-      )
-      
-      retaxa_table <- tibble::tibble(
-        classification = out$classifications(),
-        id = out$taxon_ids()
+    ),
+    transform = combine(correlog, variog, variogST, variofit2, variofitST2)
+  ),
+  
+  variog_points = unnest(variog_data, "variogST") %>%
+    mutate_at("timelag", replace_na, "0") %>%
+    filter(dist <= 25) %>%
+    mutate_at("timelag", factor),
+  
+  variog_empir = variog_points %>%
+    # mutate(bin = cut(dist, c(1:13 - 0.5, 14.5, 16.5, 19.5, 24.5))) %>%
+    group_by(guild, metric, tech, amplicon, algorithm, dist, timelag) %>%
+    summarize(
+      gamma = mean(gamma),
+      # dist = mean(dist),
+      n = n()
+    ),
+  
+  variog_confint =
+    variog_points %>%
+    group_by(guild, metric, tech, amplicon, algorithm, dist, timelag) %>%
+    summarize(
+      lower = quantile(gamma, 0.025),
+      upper = quantile(gamma, 0.975)
+    ),
+  
+  variog_fit = variog_data %>%
+    mutate_at("variofit", map,
+              ~ mutate(.y, gamma = predict(.x, newdata = .y)),
+              expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
+    ) %>%
+    unnest("variofit") %>%
+    filter(mantel_1 | timelag == "0", mantel_0) %>%
+    mutate_at("timelag", factor),
+  
+  taxdata = {
+    ranks <- c("domain", "kingdom", "phylum", "class", "order", "family", "genus")
+    out <- taxon_reads %>%
+      mutate(domain = "Root", ASVs = 1) %>%
+      select(-region, -seq_run, -label) %>%
+      mutate_at(
+        ranks,
+        replace_na,
+        "?"
       ) %>%
-        group_by(classification) %>%
-        mutate(newid = first(id)) %>%
-        filter(id != newid)
-      for (n in names(out$data)) {
-        if ("taxon_id" %in% names(out$data[[n]]))
+      group_by_at(vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
+      mutate(ASVs = ASVs / sum(ASVs))
+    for (i in seq_along(ranks)) {
+      out <- out %>%
+        group_by_at(rev(ranks)[i]) %>%
+        group_map(
+          function(x, y, i) {
+            d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
+              summarize_at(c("reads", "ASVs"), sum)
+            if (max(c((d$reads), (d$ASVs))) < 0.01) {
+              mutate_at(x, rev(ranks)[i], ~"*")
+            } else {
+              x
+            }
+          },
+          i = i,
+          keep = TRUE
+        ) %>%
+        bind_rows()
+    }
+    out <- group_by_at(out, vars(-one_of("reads", "ASVs", "ECM"))) %>%
+      summarize(reads = sum(reads), ASVs = sum(ASVs), ECM = min(ECM)) %>%
+      pivot_wider(
+        names_from = c("tech", "amplicon", "reference", "Algorithm"),
+        values_from = c("reads", "ASVs"),
+        values_fill = list(reads = 0, ASVs = 0),
+        names_repair = "universal"
+      ) %>% 
+      taxa::parse_tax_data(
+        class_cols = ranks
+      ) %>%
+      taxa::filter_taxa(
+        taxon_names != "incertae_sedis",
+        drop_obs = TRUE,
+        reassign_obs = FALSE,
+        reassign_taxa = TRUE
+      )
+    
+    read_cols <- keep(names(out$data$tax_data), startsWith, "reads_")
+    asv_cols <- keep(names(out$data$tax_data), startsWith, "ASVs_")
+    
+    out$data$asv_table <- metacoder::calc_obs_props(out, "tax_data", cols = asv_cols)
+    out$data$read_table <- metacoder::calc_obs_props(out, "tax_data", cols = read_cols)
+    out$data$tax_asv <- metacoder::calc_taxon_abund(out, "asv_table", cols = asv_cols)
+    out$data$tax_read <- metacoder::calc_taxon_abund(out, "read_table", cols = read_cols)
+    
+    child_of_unknown <-  unlist(
+      out$supertaxa(
+        recursive = FALSE,
+        value = "taxon_names",
+        na = TRUE
+      )
+    ) %in% c("?", "*")
+    unknown_taxa <- out$taxon_names() %in% c("?", "*")
+    out <- out$filter_taxa(
+      !(child_of_unknown & unknown_taxa) | taxon_names == "Root",
+      reassign_obs = FALSE
+    )
+    dangling_taxa <- map_lgl(
+      out$subtaxa(recursive = FALSE)[unlist(out$supertaxa(recursive = FALSE, na = TRUE))],
+      ~all(out$taxon_names()[.] %in% c("?", "*") | is.na(out$taxon_names()[.]))
+    )
+    out <- out$filter_taxa(
+      !dangling_taxa | taxon_names == "Root",
+      reassign_obs = FALSE
+    )
+    
+    retaxa_table <- tibble::tibble(
+      classification = out$classifications(),
+      id = out$taxon_ids()
+    ) %>%
+      group_by(classification) %>%
+      mutate(newid = first(id)) %>%
+      filter(id != newid)
+    for (n in names(out$data)) {
+      if ("taxon_id" %in% names(out$data[[n]]))
         out$data[[n]]$taxon_id <- plyr::mapvalues(
           out$data[[n]]$taxon_id,
           retaxa_table$id,
           retaxa_table$newid,
           FALSE
         )
-      }
-      for (n in c("asv_table", "read_table", "tax_asv", "tax_read")) {
-        out$data[[n]] <- out$data[[n]] %>%
-          group_by(taxon_id) %>%
-          summarize_all(sum)
-      }
-      out <- out$filter_taxa(!taxon_ids %in% retaxa_table$id, drop_obs = TRUE,
-                             reassign_obs = FALSE, reassign_taxa = FALSE)
-      
-      out$data$tax_read$mean = rowMeans(out$data$tax_read[,-1])
-      out$data$tax_read$max = do.call(pmax, out$data$tax_read[,-1])
-      out$data$tax_asv$mean = rowMeans(out$data$tax_asv[,-1])
-      out$data$tax_asv$mean = do.call(pmax, out$data$tax_asv[,-1])
-      
-      out$data$diff_read <- metacoder::compare_groups(
-        out,
-        data = "tax_read",
-        cols = c(read_cols, "mean"),
-        groups = c(read_cols, "mean"),
-        combinations = lapply(read_cols, c, "mean")
-      )
-      out$data$diff_asv <- metacoder::compare_groups(
-        out,
-        data = "tax_read",
-        cols = c(read_cols, "mean"),
-        groups = c(read_cols, "mean"),
-        combinations = lapply(read_cols, c, "mean")
-      )
-      out
-    },
+    }
+    for (n in c("asv_table", "read_table", "tax_asv", "tax_read")) {
+      out$data[[n]] <- out$data[[n]] %>%
+        group_by(taxon_id) %>%
+        summarize_all(sum)
+    }
+    out <- out$filter_taxa(!taxon_ids %in% retaxa_table$id, drop_obs = TRUE,
+                           reassign_obs = FALSE, reassign_taxa = FALSE)
+    
+    out$data$tax_read$mean = rowMeans(out$data$tax_read[,-1])
+    out$data$tax_read$max = do.call(pmax, out$data$tax_read[,-1])
+    out$data$tax_asv$mean = rowMeans(out$data$tax_asv[,-1])
+    out$data$tax_asv$mean = do.call(pmax, out$data$tax_asv[,-1])
+    
+    out$data$diff_read <- metacoder::compare_groups(
+      out,
+      data = "tax_read",
+      cols = c(read_cols, "mean"),
+      groups = c(read_cols, "mean"),
+      combinations = lapply(read_cols, c, "mean")
+    )
+    out$data$diff_asv <- metacoder::compare_groups(
+      out,
+      data = "tax_read",
+      cols = c(read_cols, "mean"),
+      groups = c(read_cols, "mean"),
+      combinations = lapply(read_cols, c, "mean")
+    )
+    out
+  },
   taxdata_ECM = {
     ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%

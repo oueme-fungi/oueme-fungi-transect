@@ -80,7 +80,18 @@ if (opts_chunk$get("dev") == "tikz") {
   # styles$Unit <- paste0("\\si{", styles$LaTeX.Unit, "}")
 }
 write_bib(c("base", "phyloseq", "gstat"), file = "R.bib", tweak = TRUE)
-cache = drake_cache(here(".light"))
+
+# use the "light" plan cache instead of the default cache at .drake
+cache <- drake_cache(here(".light"))
+readd <- function(..., cache = drake_cache(here(".light"))) {
+  force(cache)
+  drake::readd(..., cache = cache)
+}
+loadd <- function(..., cache = drake_cache(here(".light"))) {
+  force(cache)
+  drake::loadd(..., cache = cache, envir = parent.frame())
+}
+
 light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
 
@@ -101,23 +112,7 @@ loadd(
   cache = cache
 )
 
-k_or_M <- function(x, ..., .sep = " ", .fun = format) {
-  case_when(
-    abs(x) > 1e6 ~ paste(.fun(x / 1e6, ...), "M", sep = .sep),
-    abs(x) > 1e3 ~ paste(.fun(x / 1e3, ...), "k", sep = .sep),
-    is.na(x) ~ NA_character_,
-    TRUE ~ paste(.fun(x, ...), " ", sep = .sep)
-  )
-}
-
-percent <- function(x, ...) {
-  paste0(formatC(as.numeric(x) * 100, ...), "%")
-}
-
-text_list <- function(x, ...) {
-  x = format(x, ...)
-  glue::glue_collapse(x, sep = ", ", last = ", and ")
-}
+source(here(file.path("scripts", "output_functions.R")))
 ```
 
 # Introduction
@@ -247,8 +242,8 @@ Sequencing primers were similarly removed from the Ion Torrent sequences, but in
 Forward and reverse Illumina reads were quality controlled (max 3 expected errors in either read) and denoised using `DADA2`.
 Forward and reverse reads were 
 
-We attempted to denoise both long and short amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019.
-However, only `r region_table$ASVs[region_table$region=="long"]` amplicon sequence variants (ASVs) were obtained for the long amplicons, representing `r round(100*region_table$reads[region_table$region == "long"]/as.integer(gsub(" ", "", demuxcounts["pb_500"])), 1)`% of the trimmed reads.
+We attempted to denoise both long and short PacBio amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019.
+However, only `r readd(region_table)$ASVs[readd(region_table)$region=="long"]` amplicon sequence variants (ASVs) were obtained for the long amplicons, representing `r percent(readd(region_table)$reads[readd(region_table)$region == "long"]/as.integer(gsub(" ", "", readd(demuxcounts)["pb_500"])), format = "d")` of the trimmed reads.
 We believe that this poor performance was due to a combination of long read length and low sequencing depth relative to community diversity.
 The `DADA2` algorithm requires that the seed sequence of each ASV be represented by at least two error-free reads [@callahan2016].
 If sequencing errors are uniformly distributed, then the probability that a given read will be error-free is $(1-\epsilon)^L$, where $\epsilon$ is the sequencing error rate and $L$ is the read length in base pairs.
@@ -371,8 +366,6 @@ Ion Torrent sequencing yielded `r demuxcounts["is_057"]` demultiplexed reads, wi
 
 ### Region extraction
 
-The 5.8S region was located in `r text_list(bioin)
-
 (ref:readcounts) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages.
 *Raw*: raw reads as delivered by sequencing center;
 *Trim*: reads with primers and demultiplexing barcodes removed;
@@ -383,14 +376,11 @@ Short amplicons were mapped to full ITS, LSU, and long amplicon ASVs when they h
 
 ```{r bioinfo}
 #TODO add filtered reads (currently inflated numbers for non-Illumina)
-#TODO add Illumina raw reads
-#TODO asterisks for mappde ASVs
-loadd(bioinf_table, cache = cache)
+#TODO asterisks for mapped ASVs
+# loadd(bioinf_table)
 options(knitr.kable.NA = '–')
-bioinf_header <- tibble(name = names(bioinf_table)) %>%
-  separate(name, into = c("tech", "amplicon", "type"), sep = "_") %>%
-  mutate(tech = paste(tech, plyr::mapvalues(tech, datasets$tech, datasets$machine, FALSE)))
-bioinf_table %>%
+
+readd(bioinf_table) %>%
   set_names(gsub(".*_", "", names(.))) %>%
   kable(
     booktabs = TRUE,
@@ -403,13 +393,13 @@ bioinf_table %>%
   kableExtra::add_header_above(
     header = c(
       " " = 1,
-      bioinf_header$amplicon[c(TRUE, FALSE)] %>% set_names(rep(2, length(.)), .)
+      readd(bioinf_header)$amplicon[c(TRUE, FALSE)] %>% set_names(rep(2, length(.)), .)
     )
   ) %>%
   kableExtra::add_header_above(
     header = c(
       " " = 1,
-      rle(bioinf_header$tech) %$% set_names(lengths, values)
+      rle(readd(bioinf_header)$tech) %$% set_names(lengths, values)
     )
   )
 ```
@@ -421,7 +411,7 @@ bioinf_table %>%
 Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datasets, including the fraction of total ASVs for each dataset (*ASV frac*), the number of reads represented by those ASVs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
 
 ```{r venn-table-asv}
-readd(venn_ASV, cache = cache) %>%
+readd(venn_ASV) %>%
 venn_table(ASVs, "(ref:venn-table-asv)")
 ```
 
@@ -430,7 +420,7 @@ venn_table(ASVs, "(ref:venn-table-asv)")
 Each row shows the number of OTUs (*OTUs*) shared uniquely by one or more datasets, including the fraction of total OTUs for each dataset (*OTU frac*), the number of reads represented by those OTUs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
 
 ```{r venn-table-otu}
-readd(venn_OTU, cache = cache) %>%
+readd(venn_OTU) %>%
 venn_table(OTUs, "(ref:venn-table-otu)")
 ```
 
@@ -438,7 +428,7 @@ venn_table(OTUs, "(ref:venn-table-otu)")
 In each region, the number of ASVs/OTUs is given above, while the fractions of reads for each sequencing strategy are shown below.
 
 ```{r venn, fig.cap = "(ref:venn)", out.height = "30%", fig.show="hold"}
-readd(vennplot_ASV, cache = cache) %>% {
+readd(vennplot_ASV) %>% {
   plot(
     select(., set, ASVs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
     legend = list(
@@ -449,7 +439,7 @@ readd(vennplot_ASV, cache = cache) %>% {
   )
 }
 
-readd(vennplot_OTU, cache = cache) %>% {
+readd(vennplot_OTU) %>% {
   plot(
     select(., set, OTUs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
     legend = FALSE,
@@ -461,107 +451,20 @@ readd(vennplot_OTU, cache = cache) %>% {
 
 ```
 
-(ref:readcap) Comparison between read numbers for different sequencing strategies, by ASV (left) and 97% OTU (right). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
+(ref:readcap) Comparison between read numbers for different sequencing strategies, by ASV (top) and 97% OTU (bottom). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
 
 ```{r pb-vs-it, fig.cap="(ref:readcap)", fig.height=8}
-loadd(
-  big_table,
-  multi_table,
-  comparisons,
-  cache = cache
-)
-
-compR2 <- function(x, y, type) {
-  xamp <- plyr::mapvalues(
-    x,
-    datasets$seq_run,
-    datasets$amplicon,
-    FALSE
-  )
-  yamp <- plyr::mapvalues(
-    y,
-    datasets$seq_run,
-    datasets$amplicon,
-    FALSE
-  )
-  x <- plyr::mapvalues(
-    x,
-    datasets$seq_run,
-    paste(
-      datasets$tech,
-      datasets$machine),
-    FALSE
-  )
-  y <- plyr::mapvalues(
-    y,
-    datasets$seq_run,
-    paste(
-      datasets$tech,
-      datasets$machine),
-    FALSE
-  )
-  formatC(
-    filter(
-      comparisons,
-      x == x_var,
-      xamp == x_amplicon,
-      y == y_var,
-      yamp == y_amplicon,
-      type == !!type
-    )$r.squared,
-    digits = 2,
-    format = "f")
-}
-
-read_comparison <- function(multi_table, comparisons, type) {
-  multi_table <- filter(multi_table, type == !!type)
-  comparisons <- filter(comparisons, type == !!type)
-  p <- multi_table %>%
-    filter(x > 0, y > 0) %>%
-    ggplot(aes(y = y, x = x)) +
-    geom_point(alpha = 0.2, shape = 1) +
-    scale_x_log10(
-      breaks = c(1, 1000, 1000000),
-      labels = c("1", "1k", "1M"),
-      minor_breaks = c(10, 100, 10000, 100000),
-      limits = c(1, 1e6)
-    ) +
-    scale_y_log10(
-      breaks = c(1, 1000, 1000000),
-      labels = c("1", "1k", "1M"),
-      minor_breaks = c(10, 100, 10000, 100000),
-      limits = c(1, 1e6)
-    ) +
-    coord_equal() +
-    xlab(NULL) +
-    ylab(NULL) +
-    geom_rug(aes(y = y), sides = "l", alpha = 0.2,
-             data = multi_table %>% filter(x == 0, y > 0)) +
-    geom_rug(aes(x = x), sides = "b", alpha = 0.2,
-             data = multi_table %>% filter(y == 0, x > 0)) +
-    ggnomics::facet_nested(y_amplicon + y_var ~ x_amplicon + x_var, switch = "both", space = "free", nest_line = TRUE) +
-    stat_smooth(method = "loess", formula = y ~ x) +
-    geom_abline(aes(intercept = `(Intercept)`, slope = 1),
-                linetype = 2L, alpha = 0.5, data = comparisons) +
-    geom_text(
-      aes(label = label),
-      data = comparisons,
-      x = 6,
-      y = 0.7,
-      color = "black",
-      hjust = 1,
-      parse = TRUE,
-      inherit.aes = FALSE
-    ) +
-    theme(strip.placement = "outside", strip.background = element_blank())
-  g <- ggplotGrob(p)
-  g$grobs[g$layout$name %in% c("panel-1-2", "panel-1-3", "panel-2-3")] <- NULL
-  g$layout <- g$layout[!(g$layout$name %in% c("panel-1-2", "panel-1-3", "panel-2-3")),]
-  g
-}
 ggpubr::ggarrange(
-  read_comparison(multi_table, comparisons, type = "ASV"),
-  read_comparison(multi_table, comparisons, type = "OTU"),
+  read_comparison(
+    readd(multi_table),
+    readd(comparisons),
+    type = "ASV"
+  ),
+  read_comparison(
+    readd(multi_table),
+    readd(comparisons),
+    type = "OTU"
+  ),
   ncol = 1,
   labels = "auto",
   label.x = 0.9
@@ -569,14 +472,14 @@ ggpubr::ggarrange(
 ```
 
 The number of ASVs and OTUs shared between the different sequencing strategies are shown in Tables \@ref(tab:venn-table-asv) and \@ref(tab:venn-table-otu), respectively, and graphically in figure \@ref(fig:venn).
-ASVs shared between all datasets represented `r text_list(percent(venn_ASV["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))` of the reads for the long and short PacBio datasets, Illumina dataset, and Ion Torrent dataset, respectively.
-These fractions increased to `r text_list(percent(venn_OTU["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))` when differences at the intra-species scale were removed by clustering the ASVs into 97% OTUs.
-In particular, `r text_list(percent(colSums(mutate_all(venn_OTU[c("0111", "1111"), c("frac_pb_483", "frac_SH-2257", "frac_is_057")], as.numeric))))` of reads in the PacBio, Illumina, and Ion Torrent short-amplicon datasets belonged to OTUs shared between all three datasets.
-In contrast, `r percent(venn_ASV["1000", "frac_pb_500"])` of reads in the long PacBio dataset belonged to ASVs which were unique to that dataset, and the fraction only reduced to `r percent(venn_OTU["1000", "frac_pb_500"])` after OTU clustering.
+ASVs shared between all datasets represented `r text_list(percent(readd(venn_ASV)["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))` of the reads for the long and short PacBio datasets, Illumina dataset, and Ion Torrent dataset, respectively.
+These fractions increased to `r text_list(percent(readd(venn_OTU)["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))` when differences at the intra-species scale were removed by clustering the ASVs into 97% OTUs.
+In particular, `r text_list(percent(colSums(mutate_all(readd(venn_OTU)[c("0111", "1111"), c("frac_pb_483", "frac_SH-2257", "frac_is_057")], as.numeric), na.rm = TRUE)))` of reads in the PacBio, Illumina, and Ion Torrent short-amplicon datasets belonged to OTUs shared between all three datasets.
+In contrast, `r percent(readd(venn_ASV)["1000", "frac_pb_500"])` of reads in the long PacBio dataset belonged to ASVs which were unique to that dataset, and the fraction only reduced to `r percent(readd(venn_OTU)["1000", "frac_pb_500"])` after OTU clustering.
 
 
 Figure \@ref(fig:pb-vs-it) shows the correspondence between the read count for different ASVs/OTUs in the different technologies, where shared ASVs/OTUs are plotted as circles, and unshared OTUs are plotted on the margins.
-In all cases, the read counts for shared ASVs/OTUs were correlated ($R^2 = compR2("SH-2257", "is_057", "OTU")`$).
+In all cases, the read counts for shared ASVs/OTUs were correlated ($R^2 = `r compR2("SH-2257", "is_057", "OTU")`$).
 Correlations between read counts for the three technologies using the short amplicon library were increased by OTU clustering
 (`r compR2("pb_483", "SH-2257", "ASV")` to `r compR2("pb_483", "SH-2257", "OTU")`,
 `r compR2("pb_483", "is_057", "ASV")` to `r compR2("pb_483", "is_057", "OTU")`, and
@@ -599,41 +502,7 @@ Consensus and PHYLOTAX assignments are based on the consensus of RDPC, SINTAX, a
 They are plotted in each column to compare with results for the individual databases.
 
 ```{r tax-chart, fig.cap = "(ref:tax-chart)"}
-readd(taxon_reads, cache = cache) %>%
-  pivot_longer(names_to = "rank", cols = c("kingdom", "phylum", "class", "order", "family", "genus"), values_to = "taxon") %>%
-  group_by(amplicon, tech, Algorithm, reference, rank, ID = !is.na(taxon)) %>%
-  summarize(reads = sum(reads), ASVs = n()) %>%
-  group_by(amplicon, tech, Algorithm, reference, rank) %>%
-  mutate(ASVs = ASVs / sum(ASVs)) %>%
-  ungroup() %>%
-  filter(ID) %>%
-  mutate_at("rank", factor, levels = c("kingdom", "phylum", "class", "order", "family", "genus")) %>%
-  rename(Reads = reads) %>%
-  mutate_at("reference", as.character) %>%
-  mutate_at("reference", replace_na, "All") %>%
-  mutate(
-    reference = map2(reference, amplicon, ~ if (.x == "All") c("Unite", "Warcup", if (.y == "Long") "RDP" else NULL) else .)
-  ) %>%
-  unnest(reference) %>%
-  mutate_at("reference", factor, levels = c("Unite", "Warcup", "RDP")) %>%
-  pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac") %>%
-  ggplot(aes(x = rank, y = frac, ymax = frac, group = Algorithm, fill = Algorithm)) +
-  ggnomics::facet_nested(
-    tech + amplicon ~ type + reference,
-    resect = unit(1, "mm"),
-    nest_line = TRUE,
-    bleed = FALSE
-  ) +
-  # geom_ribbon(ymin = 0, alpha = 0.5) +
-  # geom_line(aes(color = Algorithm)) +
-  geom_col(position = "dodge") +
-  # scale_fill_brewer(type = "qual", palette = 2) +
-  ylab("Fraction of reads assigned") +
-  xlab(NULL) +
-  theme(axis.text.x = element_text(vjust = 0.5, angle = 90),
-        legend.direction = "horizontal",
-        legend.position = "bottom",
-        strip.background = element_blank())
+readd(tax_chart)
 ```
 
 (ref:taxa) Heat tree summarizing taxonomic composition of soil community.
@@ -641,11 +510,11 @@ Color and size of nodes represent the fractional read abundance of all ASVs belo
 Color and thickness of branches represent the fractional ASV richness of that taxonomic group.
 Both measures are a mean across sequencing runs, reference databases, and taxonomic assignment algorithms.
 Diverse but relatively rare groups are thus shown as small, light-colored nodes on relatively thick, darker-green-colored branches (e.g., Dothideomycetes), while common but relatively non-diverse groups are shown as large nodes on relatively thin branches (e.g., Russulales).
-Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "...".
+Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
 ASVs which could not be further assigned are labelled "?".
 
 ```{r taxa, fig.cap = "(ref:taxa)", out.width="100%", fig.width = 8}
-fungi_read <- readd(taxdata, cache = cache) %>%
+fungi_read <- readd(taxdata) %>%
   taxa::filter_taxa(
     taxon_names == "Fungi",
     reassign_obs = FALSE,
@@ -657,7 +526,7 @@ fungi_read <- readd(taxdata, cache = cache) %>%
   set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
   unlist()
 
-fungi_asv <- readd(taxdata, cache = cache) %>%
+fungi_asv <- readd(taxdata) %>%
   taxa::filter_taxa(
     taxon_names == "Fungi",
     reassign_obs = FALSE,
@@ -669,7 +538,7 @@ fungi_asv <- readd(taxdata, cache = cache) %>%
   set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
   unlist()
 
-ecm_counts <- readd(taxon_reads, cache = cache) %>%
+ecm_counts <- readd(taxon_reads) %>%
   filter(Algorithm == "PHYLOTAX") %>%
   group_by(seq_run) %>%
   mutate(ASVs = 1/n()) %>%
@@ -681,7 +550,7 @@ ecm_asv <- select(ecm_counts, seq_run, ASVs) %>% deframe()
 
 set.seed(2)
 theme <- theme_update(panel.border = element_blank())
-readd(taxdata, cache = cache) %>%
+readd(taxdata) %>%
   metacoder::heat_tree(
     layout = "davidson-harel",
     # initial_layout = "reingold-tilford",
@@ -711,90 +580,12 @@ According to the PHYLOTAX assignments, Fungi represented `r percent(fungi_read["
 Fungi categorized as ECM made up `r percent(ecm_read["pb_500"], format = "f", digits = 1)` of reads and `r percent(ecm_asv["pb_500"], format = "f", digits = 1)` of ASVs in the long amplicon library, and `r paste(percent(range(ecm_read[c("pb_483", "SH-2257", "is_057")]), format = "f", digits = 1), collapse = "–")` of the reads and `r paste(percent(range(ecm_asv[c("pb_483", "SH-2257", "is_057")]), format = "f", digits = 1), collapse = "–")` of the ASVs in the short amplicon library.
 Assignment to kingdom Fungi and ECM status for different amplicons, sequencing technologies, reference databases, and algorithms are shown in Supplementary Figure \@ref(ref:ecm).
 
-```{r taxon-plot}
-taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL) {
-  rank <- enquo(rank)
-  y <- enquo(y)
-  ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
-  .data <- .data %>%
-    group_by(reference, Algorithm, tech, amplicon) %>%
-    mutate(ASVs = n()) %>%
-    ungroup() %>%
-    filter(...) %>%
-    arrange_at(ranks) %>%
-    mutate_at(
-      ranks,
-      ~ factor(
-        .,
-        levels = c(NA, "other", discard(unique(.), is.na)),
-        exclude = NULL
-      )
-    ) %>%
-    group_by(reference, Algorithm, tech, amplicon, !!rank) %>%
-    summarize(reads = sum(reads), ASVs = n()/max(ASVs)) %>%
-    ungroup()
-  
-  if (!is.null(cutoff)) {
-    .data <- group_by(.data, !!rank) %>%
-      group_map(
-        
-        ~ if (all(pull(.x, !!y) < cutoff)) {
-          mutate(.x, !!rank := factor("other", levels = levels(!!rank)))
-        } else {
-          .x
-        },
-        keep = TRUE
-      ) %>%
-      bind_rows() %>%
-      group_by(reference, Algorithm, !!rank, tech, amplicon) %>%
-      summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
-      ungroup()
-  }
-  
-  rank_label <- as_label(rank)
-  
-  .data <- mutate(.data, !!rank := fct_drop(!!rank))
-  vals <- levels(pull(.data, !!rank))
-  # if ("other" %in% vals) vals <- c("other", vals) %>% magrittr::extract(!duplicated(.))
-  # if (any(is.na(vals))) vals <- c(NA, vals) %>% magrittr::extract(!duplicated(.))
-  
-  
-  if (rank_label == str_to_lower(rank_label)) rank_label <- str_to_title(rank_label)
-  y_label <- as_label(y)
-  if (y_label == str_to_lower(y_label)) y_label <- str_to_title(y_label)
-  .data <- .data %>%
-    mutate(tech = fct_relabel(tech, ~ paste(., plyr::mapvalues(., datasets$tech, datasets$machine, FALSE))
-    ))
-  ggplot(.data, aes(x = Algorithm, y = !!y, fill = !!rank)) +
-    geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
-    ggnomics::facet_nested(
-      cols = vars(tech, amplicon, reference),
-      scales = "free_x",
-      space = "free_x",
-      nest_line = TRUE,
-      bleed = FALSE,
-      resect = unit(1, "mm")
-      ) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
-          strip.background = element_blank(),
-          panel.spacing = unit(3, "pt")) +
-    scale_fill_discrete(
-      breaks = vals,
-      labels = replace_na(as.character(vals), "unidentified"),
-      name = rank_label
-    ) +
-    ylab(paste("Fraction of", y_label))
-  
-}
-
-```
-
 (ref:heattree-db-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
 Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
 Values are log_2_ of the ratio of median values across all datasets (sequencing technology, reference database, assignment algorithm) for each amplicon.
 
 ```{r heattree-db-compare, fig.cap = "(ref:heattree-db-compare)", include = FALSE}
-taxdata2 <- readd(taxdata, cache = cache)
+taxdata2 <- readd(taxdata)
 # taxdata2$data$asv_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = asv_cols)
 # taxdata2$data$read_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = read_cols)
 # taxdata2$data$tax_asv <- metacoder::calc_taxon_abund(taxdata2, "asv_table", cols = asv_cols)
@@ -870,62 +661,14 @@ theme_set(theme)
 
 ### Positive control
 
-```{r agaricus-check}
-agaricus <- readd(taxon_table, cache = cache) %>%
-  filter(rank == "genus", taxon == "Agaricus", n_diff == 1) %$%
-  unique(label)
-agaricus_reads <- readd(proto_physeq, cache = cache) %>%
-  phyloseq::subset_samples(sample_type == "Pos" | (seq_run == "is_057" & well == "E7")) %>%
-  prune_taxa(taxa = agaricus) %>%
-  prune_taxa(taxa = colSums(otu_table(.)) > 0) %>%
-  otu_table()
-
-pos_control <- agaricus_reads %>% as.matrix() %>% colSums() %>% which.max() %>% names()
-
-pos_control_reads <- readd(proto_physeq, cache = cache) %>%
-  phyloseq::subset_samples(sample_type != "Pos" & !(seq_run == "is_057" & well == "E7")) %>%
-  prune_taxa(taxa = pos_control) %>%
-  otu_table() %>%
-  rowSums()
-all_reads <- readd(proto_physeq, cache = cache) %>%
-  phyloseq::subset_samples(sample_type != "Pos" & !(seq_run == "is_057" & well == "E7")) %>%
-  otu_table() %>%
-  as.matrix() %>%
-  rowSums()
-
-pos_control_data <-
-  readd(proto_physeq, cache = cache) %>%
-  phyloseq::subset_samples(sample_type != "Pos" & !(seq_run == "is_057" & well == "E7")) %>%
-  sample_data() %>%
-  as.data.frame() %>%
-  mutate(
-    pc_reads = pos_control_reads,
-    all_reads = all_reads,
-    pc_frac = pc_reads/all_reads
-) %>%
-  select(seq_run, well, plate, pc_frac, pc_reads, all_reads)
-
-readd(allseqs, cache = cache) %>% filter(hash %in% taxa_names(agaricus_reads)) %$%
-  set_names(short, hash) %>%
-  discard(is.na) %>%
-  Biostrings::RNAStringSet() %>%
-  Biostrings::writeXStringSet(here("temp/agaricus.fasta"))
-
-agaricus_order <- readd(proto_physeq, cache = cache) %>%
-  merge_samples("seq_run") %>%
-  otu_table() %>%
-  apply(MARGIN = 1, order, decreasing = TRUE) %>%
-  apply(MARGIN = 2, match, x = 1)
-```
-
 *Agaricus bisporus*, the positive control, was represented by a single ASV in the positive control samples for both long- and short-amplicon PacBio datasets, and in the Ion Torrent dataset.
 Additional ASVs belonging to the genus *Agaricus* were also detected in the same wells as the positive control in the Ion Torrent dataset, but these were sufficiently different that they probably represent additional *Agaricus* species from the field samples, and were found in the same wells due to incomplete demultiplexing.
 *A. bisporus* was represented by two ASVs in the Illumina dataset, which differed at one base pair.
-The abundance of the second ASV was `r agaricus_reads %>% as.data.frame() %>% with(f2ab49e8/`39d80c19`) %>% keep(~. > 0) %>% percent(format = "f", digits = 2) %>% paste(collapse = " and ")` that of the primary ASV in the two Illumina positive controls.
-The consistency of this ratio suggests that it represents true inter-copy variation within the specimen, rather than sequencing or PCR error.
+The abundance of the second ASV was `r readd(agaricus_reads) %>% as.data.frame() %>% {.[["f2ab49e8"]]/.[["39d80c19"]]} %>% keep(~. > 0) %>% percent(format = "f", digits = 2) %>% paste(collapse = " and ")` that of the primary ASV in the two Illumina positive controls.
+The consistency of this ratio across PCR replicates suggests that it represents true inter-copy variation within the specimen, rather than sequencing or PCR error.
 
 The primary *A. bisporus* ASV was the most abundant ASV in the long-amplicon PacBio dataset and the Ion Torrent dataset, and the fifth most abundant ASV in the short-amplicon PacBio dataset, and the third most abundant ASV in the Illumina dataset.
-This ASV was also found in `r pos_control_data %>% filter(!is.na(pc_frac)) %>% group_by(seq_run) %>% summarize(well_frac = sum(pc_frac > 0) / n()) %>% deframe() %>% magrittr::extract(c("pb_500", "pb_483", "SH-2257", "is_057")) %>% percent(format = "f", digits = 1) %>% text_list()` of the non-control samples, and represented `r pos_control_data %>% filter(complete.cases(.)) %>% group_by(seq_run) %>% summarize(read_frac = sum(pc_reads) / sum(all_reads)) %>% deframe() %>% magrittr::extract(c("pb_500", "pb_483", "SH-2257", "is_057")) %>% percent(format = "f", digits = 2) %>% text_list()` of non-control reads, in the PacBio long, PacBio short, Illumina, and Ion Torrent datasets, respectively.
+This ASV was also found in `r readd(pos_control_data) %>% filter(!is.na(pc_frac)) %>% group_by(seq_run) %>% summarize(well_frac = sum(pc_frac > 0) / n()) %>% deframe() %>% magrittr::extract(c("pb_500", "pb_483", "SH-2257", "is_057")) %>% percent(format = "f", digits = 1) %>% text_list()` of the non-control samples, and represented `r readd(pos_control_data) %>% filter(complete.cases(.)) %>% group_by(seq_run) %>% summarize(read_frac = sum(pc_reads) / sum(all_reads)) %>% deframe() %>% magrittr::extract(c("pb_500", "pb_483", "SH-2257", "is_057")) %>% percent(format = "f", digits = 2) %>% text_list()` of non-control reads, in the PacBio long, PacBio short, Illumina, and Ion Torrent datasets, respectively.
 
 ## Distance decay
 
@@ -948,7 +691,7 @@ light_plan %>%
     metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
     amplicon = factor(amplicon, levels = c("Short", "Long"))
   ) %>%
-  mutate_at("target", purrr::map, readd, character_only = TRUE, cache = cache) %>%
+  mutate_at("target", purrr::map, readd, character_only = TRUE) %>%
   mutate_at("target", purrr::map, "mantel.res") %>%
   mutate_at("target", purrr::map, as.data.frame) %>%
   unnest(target) %>%
@@ -996,76 +739,9 @@ Lines are the best-fit lines for an exponential decay to max model.
 The model was only fit for datasets where the Mantel test indicated a significant relationship between community dissimilarity and spatial (for the 0 year timelag) or spatiotemporal (for the 1 year time lag) distance.
 
 ```{r spatio, fig.cap = "(ref:spatio)"}
-variog_data <- light_plan %>%
-  filter(step == "correlog") %>%
-  select(correlog, timelag, guild, metric, tech, amplicon, algorithm) %>%
-  mutate_at("correlog", lapply, readd, character_only = TRUE, cache = cache) %>%
-  mutate_at("correlog", map, "mantel.res") %>%
-  mutate_at("correlog", map_lgl, ~ any(.x[,"Pr(corrected)"] < 0.05 & .x[, "Mantel.cor"] > 0, na.rm = TRUE)) %>%
-  pivot_wider(names_from = "timelag", values_from = "correlog", names_prefix = "mantel_") %>%
-  left_join(
-    light_plan %>%
-      filter(step == "variofit2") %>%
-      select(variofit2, guild, metric, tech, amplicon, algorithm),
-    by = c("guild", "metric", "tech", "amplicon", "algorithm")
-    ) %>%
-  left_join(
-    light_plan %>%
-      filter(step == "variofitST2") %>%
-      select(variofitST2, variogST, guild, metric, tech, amplicon, algorithm),
-    by = c("guild", "metric", "tech", "amplicon", "algorithm")
-    ) %>%
-  mutate(
-    variofit = ifelse(mantel_1, variofitST2, variofit2)
-    ) %>%
-  mutate_at(c("variofit", "variogST", "variofitST2", "variofit2"), map, readd, character_only = TRUE, cache = cache) %>%
-  select(mantel_0, mantel_1, variofitST2, variofit2, variofit, variogST, guild, metric, tech, amplicon, algorithm) %>%
-  mutate_at(c("guild", "metric", "tech", "amplicon", "algorithm"), str_replace_all, "\"", "") %>%
-  mutate(
-    guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("All Fungi", "ECM")),
-    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
-    amplicon = factor(
-      amplicon,
-      levels = c("Short", "Long")
-    ),
-    algorithm = factor(
-      algorithm,
-      levels = c("Consensus", "PHYLOTAX", "PHYLOTAX+Cons"),
-      labels = c("Cons", "PHYLO", "PHYLO")
-    )
-  )
 
-variog_points <- unnest(variog_data, c("variogST")) %>%
-  mutate_at("timelag", replace_na, "0") %>%
-  filter(dist <= 25) %>%
-  mutate_at("timelag", factor)
 
-variog_empir <- variog_points %>%
-  # mutate(bin = cut(dist, c(1:13 - 0.5, 14.5, 16.5, 19.5, 24.5))) %>%
-  group_by(guild, metric, tech, amplicon, algorithm, dist, timelag) %>%
-  summarize(
-    gamma = mean(gamma),
-    # dist = mean(dist),
-    n = n()
-  )
-
-variog_confint <- variog_points %>%
-  group_by(guild, metric, tech, amplicon, algorithm, dist, timelag) %>%
-  summarize(
-    lower = quantile(gamma, 0.025),
-    upper = quantile(gamma, 0.975)
-  )
-
-variog_fit <- variog_data %>%
-  mutate_at("variofit", map,
-            ~ mutate(.y, gamma = predict(.x, newdata = .y)),
-            expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
-            ) %>%
-  unnest(variofit) %>%
-  filter(mantel_1 | timelag == "0", mantel_0) %>%
-  mutate_at("timelag", factor)
-
-variog_empir %>%
+readd(variog_empir) %>%
   filter(algorithm == "PHYLO") %>%
   ggplot(aes(dist, gamma, color = timelag, size = n)) +
   ggnomics::facet_nested(amplicon + tech + metric ~ guild, scales = "free", nest_line = TRUE, space = "free_y") +
@@ -1075,8 +751,8 @@ variog_empir %>%
   # geom_line(size = 1.5, alpha = 0.5) +
   geom_point(alpha = 0.5) +
   # geom_smooth(data = variog_points, aes(fill = timelag), color = FALSE, alpha = 0.5) +
-  geom_line(data = filter(variog_fit, timelag == "1", algorithm == "PHYLO"), size = 0.5, color = "darkcyan", alpha = 0.8) +
-  geom_line(data = filter(variog_fit, timelag == "0", algorithm == "PHYLO"), size = 0.5, color = "red1", alpha = 0.8) +
+  geom_line(data = filter(readd(variog_fit), timelag == "1", algorithm == "PHYLO"), size = 0.5, color = "darkcyan", alpha = 0.8) +
+  geom_line(data = filter(readd(variog_fit), timelag == "0", algorithm == "PHYLO"), size = 0.5, color = "red1", alpha = 0.8) +
   scale_x_continuous(expand = expand_scale(0, 0), limits = c(0, 25), name = "Distance (m)") +
   scale_color_discrete(name = "Time lag") +
   scale_size_continuous(name = "Comparisons") +
@@ -1204,7 +880,7 @@ ggtree::ggtree(extree) +
 (ref:full-length) Comparison of the length of sequences from different length amplicons and sequencing technologies.  Length distribution (*a*, *c*) and empirical cumulative distribution function (*b*, *d*) for short (*a*, *b*) and long (*c*, *d*) amplicons, respectively.
 
 ```{r full-length, fig.cap = "(ref:full-length)", fig.height = 6}
-full_dens <- readd(reads_table, cache = cache) %>%
+full_dens <- readd(reads_table) %>%
   dplyr::left_join(dplyr::select(datasets, seq_run, tech, amplicon)) %>%
   dplyr::filter(region %in% c("long", "short")) %>%
   dplyr::group_by(seq_run) %>%
@@ -1234,7 +910,7 @@ full_dens_long <- full_dens %>%
   ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
   theme(strip.background = element_blank())
 
-full_ecdf <- readd(reads_table, cache = cache) %>%
+full_ecdf <- readd(reads_table) %>%
   dplyr::filter(region  %in% c("long", "short")) %>%
   left_join(select(datasets, seq_run, amplicon, tech, machine), by = "seq_run") %>%
   mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
@@ -1300,7 +976,7 @@ regions %>%
 (ref:region-asv) Plot of total number of ASVs recovered vs. fraction of reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`. Some reggions were formed by concatenation of extracted regions, as follows: LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4; ITS = ITS1--5.8S--ITS2; 32S = 5.8S--ITS2--LSU; long = ITS--LSU. For this figure, subregions were concatenated prior to generating ASVs with `DADA2`.
 
 ```{r regions, fig.cap="(ref:region-asv)"}
-readd(region_table, cache = cache) %>%
+readd(region_table) %>%
   dplyr::filter(seq_run == "pb_500") %>%
   ggplot(aes(reads, ASVs, color = length_med, label = region)) +
   geom_point() +
@@ -1329,7 +1005,7 @@ region_limits <- dplyr::filter(regions, region %in% baseregions) %>%
   )
   
 
-readd(reads_table, cache = cache) %>%
+readd(reads_table) %>%
   dplyr::filter(region %in% baseregions,
          seq_run == "pb_500") %>%
   dplyr::mutate_at(
@@ -1350,7 +1026,7 @@ readd(reads_table, cache = cache) %>%
 (ref:ITS2-length) Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
 
 ```{r ITS2-length, fig.cap = "(ref:ITS2-length)", fig.height = 6}
-its2 <- readd(reads_table, cache = cache) %>%
+its2 <- readd(reads_table) %>%
   dplyr::left_join(dplyr::select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
   dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
   dplyr::filter(region == "ITS2") %>%
@@ -1395,13 +1071,13 @@ ggpubr::ggarrange(its2_dens, its2_ecdf, ncol = 1, labels = "auto", heights = c(4
 Vertical axis shows fraction of total reads in each dataset.
 
 ```{r short-its, fig.cap = "(ref:short-its)"}
-readd(big_seq_table_ITS2, cache = cache) %>%
+readd(big_seq_table_ITS2) %>%
   colSums() %>%
   enframe(name = "ITS2", value = "nreads") %>%
   mutate(length = nchar(ITS2)) %>%
   filter(length <= 140) %>%
   mutate_at("ITS2", ~tzara::seqhash(chartr("T", "U", .))) %>%
-  semi_join(readd(taxon_reads, cache = cache), ., by = c("label" = "ITS2")) %>%
+  semi_join(readd(taxon_reads), ., by = c("label" = "ITS2")) %>%
   # group_by(ITS2) %>%
   # filter(!"Short" %in% amplicon) %>%
   taxon_plot(kingdom, y = reads)
@@ -1414,7 +1090,7 @@ Only nodes with a log read abundance ratio greater than 0.5 (abundance ratio > 3
 Refer to Figure \@ref(fig:taxa) for complete taxon labeling.
 
 ```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare)"}
-taxdata2 <- readd(taxdata, cache = cache)
+taxdata2 <- readd(taxdata)
 # taxdata2$data$asv_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = asv_cols)
 # taxdata2$data$read_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = read_cols)
 # taxdata2$data$tax_asv <- metacoder::calc_taxon_abund(taxdata2, "asv_table", cols = asv_cols)
@@ -1492,7 +1168,7 @@ Results are shown for different sequencing technologies, amplicons (Long, Short)
 
 
 ```{r ECM, fig.cap = "(ref:ecm)"}
-  readd(taxon_reads, cache = cache) %>%
+  readd(taxon_reads) %>%
   mutate_at("reference", replace_na, "All") %>%
   taxon_plot(ECM, kingdom == "Fungi") +
   theme(legend.position = "bottom", legend.title = element_blank())
@@ -1503,7 +1179,7 @@ Red nodes/edges represent increased read/ASV count for the short amplicon librar
 Values are log_10_ of the ratio of mean values across all datasets (sequencing technology, assignment algorithm, reference database) for each amplicon.
 
 ```{r ecm-heattree, fig.cap = "(ref:ecm-heattree)"}
-taxdata2 <- readd(taxdata_ECM, cache = cache)
+taxdata2 <- readd(taxdata_ECM)
 
 val_cols <- names(taxdata2$data$tax_read) %>%
     keep(str_detect, "reads_.+_.+_Unite_.+")
@@ -1583,7 +1259,7 @@ Dotted horizontal line at 100 reads indicates cutoff for inclusion in community 
 2016 samples were preserved using two different methods (LifeGuard, Xpedition), while 2015 samples were preserved only using LifeGuard.
 
 ```{r sample-depth, fig.cap = "(ref:sample-depth)"}
-reads_plot <- readd(qstats_n, cache = cache) %>%
+reads_plot <- readd(qstats_n) %>%
   mutate(file = str_replace(file, ".*/", "") %>%
            str_replace("[.].*", "")) %>%
   tidyr::extract(col = "file", into = c("seq_run", "plate", "row", "col", "read"),
@@ -1594,7 +1270,7 @@ reads_plot <- readd(qstats_n, cache = cache) %>%
   ungroup() %>%
   mutate_at("col", as.integer) %>%
   left_join(
-    readd(proto_physeq, cache = cache) %>% {
+    readd(proto_physeq) %>% {
       mutate(
         sample_data(.),
         reads = otu_table(.) %>% rowSums()
@@ -1639,7 +1315,7 @@ reads_plot <- readd(qstats_n, cache = cache) %>%
   ) +
   geom_hline(yintercept = 100, linetype = 2, alpha = 0.5)
 
-conc_plot <- readd(proto_physeq, cache = cache) %>% 
+conc_plot <- readd(proto_physeq) %>% 
         sample_data(.) %>%
       select(plate, row, column, site, year, sample_type, x, buffer, amplicon, dna_conc, pcr_conc) %>%
   arrange(plate, row, column, amplicon) %>% 
@@ -1686,7 +1362,7 @@ ggpubr::ggarrange(conc_plot, reads_plot, ncol = 2, common.legend = TRUE) +
 ```
 
 ```{r plate-loading}
-readd(proto_physeq, cache = cache) %>% {
+readd(proto_physeq) %>% {
   mutate(
     sample_data(.),
     reads = otu_table(.) %>% rowSums()
@@ -1701,7 +1377,7 @@ readd(proto_physeq, cache = cache) %>% {
 
 
 ```{r}
-physeq <- readd(proto_physeq, cache = cache) %>%
+physeq <- readd(proto_physeq) %>%
   `sample_data<-`(inset2(
     sample_data(.),
     "qual",
@@ -1714,7 +1390,7 @@ physeq <- readd(proto_physeq, cache = cache) %>%
   ))
 
 ranks <- c("root", "kingdom", "phylum", "class", "order", "family", "genus")
-physeq <- readd(taxon_reads, cache = cache) %>%
+physeq <- readd(taxon_reads) %>%
   mutate(root = "Root") %>%
   group_by(label) %>%
   arrange(amplicon, reference, Algorithm, .by_group = TRUE) %>%
