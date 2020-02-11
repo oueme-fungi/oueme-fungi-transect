@@ -407,7 +407,6 @@ plan <- drake_plan(
     filter_and_derep_pairs(
       trim_file_1 = illumina_group$trim_file_R1,
       trim_file_2 = illumina_group$trim_file_R2,
-      trimR = 0,
       truncQ = 10,
       max_length = 2999,
       min_length = 50,
@@ -1179,8 +1178,10 @@ plan <- drake_plan(
   #### Plan section 6: Gather stats ####
   
   qstats_derep2 = target(
-    attr(derep2, "qstats") %>% as.data.frame(),
-    transform = map(derep2, .id = FALSE),
+    attr(derep2, "qstats") %>%
+      mutate(region = symbols_to_values(region)) %>%
+      as.data.frame(),
+    transform = map(derep2, region, .id = FALSE),
     dynamic = map(derep2),
     format = "fst"
   ),
@@ -1249,17 +1250,17 @@ plan <- drake_plan(
   ),
   
   qstats_n = qstats %>%
-    dplyr::group_by(file, step) %>%
+    dplyr::group_by(file, step, region) %>%
     dplyr::summarize(nreads = dplyr::n()) %>%
     dplyr::ungroup(),
   
   qstats_length = qstats %>%
-    dplyr::group_by(file, step, length) %>%
+    dplyr::group_by(file, step, region, length) %>%
     dplyr::summarize(nreads = dplyr::n()) %>%
     dplyr::ungroup(),
   
   qstats_minq = qstats %>%
-    dplyr::group_by(file, step, minq) %>%
+    dplyr::group_by(file, step, region, minq) %>%
     dplyr::summarize(nreads = dplyr::n()) %>%
     dplyr::ungroup(),
   
@@ -1268,21 +1269,21 @@ plan <- drake_plan(
   # first
   qstats_eexp = qstats %>%
     dplyr::mutate(eexp = round(log(eexp), 2)) %>%
-    dplyr::group_by(file, step, eexp) %>%
+    dplyr::group_by(file, step, region, eexp) %>%
     dplyr::summarize(nreads = dplyr::n()) %>%
     dplyr::ungroup() %>%
     dplyr::mutate(eexp = exp(eexp)),
   
   qstats_erate = qstats %>%
     dplyr::mutate(erate = round(log(erate) - log1p(-erate), 2)) %>%
-    dplyr::group_by(file, step, erate) %>%
+    dplyr::group_by(file, step, region, erate) %>%
     dplyr::summarize(nreads = dplyr::n()) %>%
     dplyr::ungroup() %>%
     dplyr::mutate(erate = exp(erate)/(1 + exp(erate))),
   
   qstats_pnoerr = qstats %>%
     dplyr::mutate(p.noerr = round(log(p.noerr) - log1p(-p.noerr), 2)) %>%
-    dplyr::group_by(file, step, p.noerr) %>%
+    dplyr::group_by(file, step, region, p.noerr) %>%
     dplyr::summarize(nreads = dplyr::n()) %>%
     dplyr::ungroup() %>%
     dplyr::mutate(p.noerr = exp(p.noerr)/(1 + exp(p.noerr))),
