@@ -119,67 +119,74 @@ source(here(file.path("scripts", "output_functions.R")))
 
 ## Introduction to ECM communities
 
-- Ectomycorrhizas (ECM) are a symbiosis between fungi and plant roots.
-- x% of plants, y% of fungi <!-- Brundrett for plants and Ornella Comandini , Andrea C. Rinaldi, Thomas W. Kuyper for fungi (with some calculations) - Martin -->
-- The plants are often ecologically and economically important trees (Pinaceae, Fagaceae, Dipterocarpaceae, Amherstiae)
-- The fungi provide nutrients and protection from pathogens, the plant provides sugar.
+Ectomycorrhizas (ECM) are a symbiosis between fungi and plant root tips.
+The fungi provide nutrients and protection from pathogens in exchange for sugards from the plant [@Smith2010].
+Approximately 8% of described fungal species [@ainsworth2008ainsworth;@Rinaldi2008] and 2% of land plant species [@Brundrett2017a] form ECM.
+The plants include ecologically and economically important stand-forming trees belonging to both temperate/boreal groups such as Pinaceae and Fagaceae, and tropical groups such as Dipterocarpaceae, and Fabaceae tr. Amherstieae.
 
-## section
+Although many well-known mushrooms are produced by ECM fungi (e.g., *Amanita*, *Cantharellus*, *Boletus*), many ECM fungi instead produce inconspicuous (e.g., *Tomentella*) or no (e.g., *Cenococcum*) fruit bodies.
+Even when fruitbodies are large, they are ephemeral, so study of ECM communities is facilitated by looking at vegetative structures.
+Unlike many saprotrophic fungi which grow easily in axenic culture, ECM fungi are usually difficult to culture, so DNA barcoding is increasingly used to investigate vegetative structures.
+The advent of high-thoughput sequencing (HTS) has facilitated such studies by providing enough sequencing depth for metabarcoding of bulk environmental samples such as soils.
 
-- Many well-known mushrooms are produced by ECM (Amanita, Cantharellus, Boletus) but many ECM produce inconspicuous (Tomentella) or no (Cenococcum) fruit bodies.
-- Anyway the fruitbodies are ephemeral, so study of ECM communities requires looking at vegetative structures.
-- Not easy to culture, so we need molecular methods. <!-- I think these two points should be very brief, like maybe one sentence for both. - Martin-->
+## Metabarcoding methods
 
-## Long reads vs short reads/phylogenetic methods
+As additional techniques and methods are developed for HTS, there is an increasing array of choices for researchers investigating fungal communities.
+Traditionally, fungal metabarcoding studies have targetted the ITS1 or ITS2 regions, which provide sufficient resolution to distinguish fungal species in many groups, and which are usually short enough for HTS [@schoch2012;@Lindahl2013].
+The resulting sequencing reads are clustered by sequence similarity to form operational taxonomic units (OTUs), which are then used as the units for further community analysis.
+If taxonomic identification is desired, it has usually been performed by database searches using BLAST (ref).
+This approach comes with some weaknesses.
 
-- Clustering vs. phylogenetic methods
-  - Clustering-based OTU approach may both "clump" and "split" species.
-<!-- It would be nice with a transition here from previous paragraph. Possible effects of splitting and lumping on turnover. Or what turnover may depend on. e.g. individual size, niche turnover. Martin-->
-  - Distance-based clustering conflates intra-species variation and sequencing error
-  - Denoising (DADA2 [@callahan2017], Deblur [@amir2017], UNOISE2 [@edgar2016]) attempts to control for sequencing error while leaving intra-species variation.
-  - Phylogenetic community distance measures like UNIFRAC [@wong2016, look for earlier reference] are relatively insensitive to species/OTU delimitation, but require a phylogenetic tree.
+While ITS1 and ITS2 often have suitable variation to distinguish species, they cannot be reliably aligned over the large taxonomic scales typically present in environmental samples.
+Additionally the wide range of length variation of these regions may introduce bias in recovery of different taxa.
+Further bias is introduced by variation in the 5.8S region which separates the two ITS regions, which makes it difficult to design primers that are suitable for all fungi [@tedersoo2015].
+The recent advent of long-read HTS technologies such as Pacific Biosciences Single Molecule Real Time sequencing (PacBio) introduce the possibility of sequencing longer amplicons which include both the ITS regions and the flanking, more conserved SSU and/or LSU regions [@Tedersoo2018].
+This has the potential to improve taxonomic placement of sequences without close database matches, and to allow the alignment of metabarcoding reads.
+However, long-read technologies are currently more expensive per read, and so their use entails a trade-off with sequencing depth and/or sample number [@Kennedy2018].
 
-- Short reads
-  - 454 [@buee2009] <!--I'm personally not very found of this reference because it’s the kind of sloppy and fast work that some people do to be first rather than doing a good job. You can use it if you like but I think it already has more reference than it deserves.-AR-->, Ion Torrent, Illumina [@schmidt2013].
-  - For fungi, frequently ITS1 or ITS2 [@schoch2012]
-  - Dependent on matching to database for taxonomic placement.
-  - Phylogenetic placement algorithms [@matsen2010; @berger2011] are not easy to apply because ITS is not in most LSU alignments (different situation than V4/V5 of 18S)
-  - Possible to place on taxonomy-based tree [@tedersoo2018]
+Distance-based clustering conflates intra-species variation and sequencing error, and results are dataset-specific.
+In contrast, more recent denoising methods such as DADA2 [@callahan2017], Deblur [@amir2017], and UNOISE2 [@edgar2016] utilize read quality information to control for sequencing error while leaving intra-species variation.
+The resulting units are known as amplicon sequence variants (ASVs) or exact sequence variants (ESVs), as they should represent all true amplicon sequences from the sample.
+Unlike cluster-based OTUs, ASVs can capture variation of as little as one base pair, and are not as dataset specific [@callahan2017].
 
-- Long reads
-  - Can include both LSU/SSU and ITS in same amplicon for better taxonomic placement [@Tedersoo2018]
-  - can build tree directly
-  - short reads from same location can potentially be mapped to tree. (but we didn't find that this works)
-  - Sequencing depth tradeoff [@Kennedy2018] <!--Maybe this should start the short/long read part. Or be part of a transition between with the connection of OTU/phylogenetic methods and sequencing strategy. - Martin-->
+Assignment of taxonomic identities using BLAST requires *a priori* choice of threshholds for different taxonomic ranks.
+Several algorithms specifically designed for taxonomic assignment have been published which use information about variability within different taxa in the reference database to assign unknown sequences, along with confidence estimates for these assignments [e.g.,@wang2007;@edgar2016a;@murali2018a].
+In addition, methods have been published which integrate predictions from multiple algorithms to increase the reliability of assignments [@somervuo2016;@gdanetz2017].
+
+Phylogenetic information has the potential to both improve taxonomic assignment and provide alternative measures of community alpha and beta diversity.
+Because OTU clustering may both "clump" different species in a single OTU, and "split" a single species into multiple OTUS [@ryberg2015], diversity measures based on counting species within a community or shared species between two communities may give different results depending on the clustering threshold.
+In contrast, phylogenetic community distance measures like UNIFRAC [@wong2016] are relatively insensitive to species/OTU delimitation, but require a phylogenetic tree.
+Phylogenetic placement algorithms [@matsen2010; @berger2011] are not easy to apply to ITS sequences because they require that the query sequences be aligned to a reference alignment.
+Additionally, methods exist to place OTUs on a simplified tree based on taxonomic assignments [@tedersoo2018].
+However, long amplicon sequencing allows the inclusion of alignable regions for construction of more fully resolved phylogenetic trees directly from metabarcoding reads.
+
+We investigated the effects of different sequencing strategies and post-analysis on biological conclusions using measurement of the spatial community turnover rate along a transect in an ECM Soudanian woodland in Benin.
 
 ## Turnover scale in ECM forests
 
-*why is turnover scale interesting*
+Turnover scale is the distance at which two communities can be considered to be independent samples of the local species pool.
+Knowledge of turnover scale is import when planning studies of local diversity and its environmental correlates.
+It varies between different ecosystems and taxonomic groups.
+Turnover scale is often measured by the range at which Moran's I statistic indicates significant autocorrelation, or by fitting a function to an empirical distance-decay curve community dissimilarity vs. distance [@legendre2012].
 
-- @lilleskov2004 - autocorrelation only <2.6 m at most sites.  Based on Sanger sequencing root tips in temperate forests.
+Several studies have investigated the turnover scale in ECM forests, but so far they have been based on analysis of ECM root tips, rather than bulk soil.
+@lilleskov2004 found autocorrelation only at ranges <2.6 m at most sites in temperate forests, based on Sanger sequencing.
+Similarly, @pickles2012a found autocorrelation at distances <3.4 m, also in temperate forests, based on T-RFLP.
+Two studies have included data from tropical African woodlands and wooded savannahs.
+@tedersoo2011 found autocorrelation at ranges <10 m in Miombo woodland based on Sanger sequencing.
+However, this study was based on irregular sampling with a minimum spacing of 8 m, so this as the smallest distance class.
+@Bahram2013 performed a meta-analysis of turnover scale in ECM communities, including data from Benin, where they found turnover range of 65 m based on distance-decay curves.
+They concluded that the range of distance decay is greater in tropical forests than temperate forests.
 
-- Meta analysis @Bahram2013
-  - Includes data from Benin (same site? ask Nourou/Leho) but this is unpublished
-  - conclude that there is greater range of distance decay in tropical forests; because of less host availability? older forests?  *Russulaceae*?
-  - 65 m in Benin
-
-- @pickles2012a
-  - T-RFLP of root tips, temperate forest
-  - Autocorrelation < 3.4 m
-
-- Data from African wooded savannas - @tedersoo2011 but only southern band
-  - Irregular sampling with no samples nearer than 8m
-  - based on sanger sequencing root tips
-  - Significant Moran's I only in <10m class
-
-*statement of question*
+We investigated turnover range in both the total fungal community and ECM community by metabarcoding of bulk soil, sampled at narrow intervals, over two years.
+We compare three different sequencing platforms (PacBio RS II, Illumina MiSeq, Ion Torrent Ion S5), long and short amplicons, three different taxonomic assignment algorithms (RPP classifier, SINTAX, IDTAXA) and reference databases (Unite, Warcup, RDP), and two different community distance measures (Bray-Curtis vs. weighted UNIFRAC).
+We also present new algorithms for dividing the rDNA into regions, combining denoising results from multiple regions, and incorporating phylogenetic information into taxonomic assignments.
 
 # Methods
 
 ## Sampling
 
-Sampling was conducted at two sites (Ang: N 9.75456° W 2.14064
-°; Gan: N 9.75678° W 2.31058 °) approximately 30 km apart in the _Forêt Reservée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
+Sampling was conducted at two sites (Ang: N 9.75456° W 2.14064°; Gan: N 9.75678° W 2.31058 °) approximately 30 km apart in the _Forêt Reservée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
 Both locations were located in woodlands dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
 At each site, 25 soil samples were collected along a linear transect at intervals of 1 m in May 2015.
 One third of the sample locations (3-m spacing) were resampled one year later in June 2016.
@@ -667,7 +674,7 @@ The consistency of this ratio across PCR replicates suggests that it represents 
 The primary *A. bisporus* ASV was the most abundant ASV in the long-amplicon PacBio dataset and the Ion Torrent dataset, and the fifth most abundant ASV in the short-amplicon PacBio dataset, and the third most abundant ASV in the Illumina dataset.
 This ASV was also found in `r readd(pos_control_data) %>% filter(!is.na(pc_frac)) %>% group_by(seq_run) %>% summarize(well_frac = sum(pc_frac > 0) / n()) %>% deframe() %>% magrittr::extract(c("pb_500", "pb_483", "SH-2257", "is_057")) %>% percent(format = "f", digits = 1) %>% text_list()` of the non-control samples, and represented `r readd(pos_control_data) %>% filter(complete.cases(.)) %>% group_by(seq_run) %>% summarize(read_frac = sum(pc_reads) / sum(all_reads)) %>% deframe() %>% magrittr::extract(c("pb_500", "pb_483", "SH-2257", "is_057")) %>% percent(format = "f", digits = 2) %>% text_list()` of non-control reads, in the PacBio long, PacBio short, Illumina, and Ion Torrent datasets, respectively.
 
-## Distance decay
+## Spatial analysis
 
 (ref:correlog-cap) Mantel correlograms showing the correlation between Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
 
