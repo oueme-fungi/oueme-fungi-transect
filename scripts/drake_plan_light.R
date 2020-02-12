@@ -105,13 +105,7 @@ plan2 <- drake_plan(
     transform = map(region = !!(region_meta$region), .id = region),
     trigger = trigger(mode = "blacklist")
   ),
-  qstats_n = target(trigger = trigger(mode = "blacklist")),
-  qstats_length = target(trigger = trigger(mode = "blacklist")),
-  qstats_eexp = target(trigger = trigger(mode = "blacklist")),
-  qstats_erate = target(trigger = trigger(mode = "blacklist")),
-  qstats_pnoerr = target(trigger = trigger(mode = "blacklist")),
-  qstats_minq = target(trigger = trigger(mode = "blacklist")),
-  
+  qstats = target(trigger = trigger(mode = "blacklist")),
   
   # big_fasta ----
   # write the big_seq_table as a fasta files so that they can be clustered by
@@ -599,39 +593,41 @@ plan2 <- drake_plan(
       tidyr::spread(key = seq_run, value = reads, fill = 0)
   },
   
-  demuxlength =  parse_qstat(qstats_length) %>%
-    filter(is.na(read) | read != "_R2") %>%
+  parsed_qstat = parse_qstat(qstats),
+  
+  demuxlength =  parsed_qstat %>%
+    filter(is.na(read) | read != "_R2", stat == "length") %>%
     filter(is.na(step), !is.na(well), ) %>%
     group_by(seq_run) %>%
-    summarize(length = reldist::wtd.quantile(length, weight = nreads)) %>%
+    summarize(value = reldist::wtd.quantile(value, weight = nreads)) %>%
     deframe(),
   
-  demuxqual = parse_qstat(qstats_erate) %>%
-    filter(is.na(read) | read != "_R2") %>%
+  demuxqual = parsed_qstat %>%
+    filter(is.na(read) | read != "_R2", stat == "erate") %>%
     filter(is.na(step), !is.na(well)) %>%
     group_by(seq_run) %>%
-    summarize(qual = round(weighted.mean(erate, w = nreads, na.rm = TRUE), 4)) %>%
+    summarize(value = round(weighted.mean(value, w = nreads, na.rm = TRUE), 4)) %>%
     deframe(),
   
-  readcounts = parse_qstat(qstats_n) %>% filter(is.na(read) | read != "_R2"),
+  readcounts = parsed_qstat %>% filter(is.na(read) | read != "_R2", stat == "n"),
   
   rawcounts = readcounts %>%
     filter(is.na(step), is.na(well)) %>%
     group_by(seq_run) %>%
-    summarize(nreads =  prettyNum(sum(nreads), big.mark = " ")) %>%
+    summarize(value =  prettyNum(sum(value), big.mark = " ")) %>%
     deframe(),
   
   demuxcounts = readcounts %>%
     filter(is.na(step), !is.na(well)) %>%
     group_by(seq_run) %>%
-    summarize(nreads = prettyNum(sum(nreads), big.mark = " ")) %>%
+    summarize(value = prettyNum(sum(value), big.mark = " ")) %>%
     deframe(),
   
   regioncounts = readcounts %>%
     filter(step == "lsux") %>%
     group_by(seq_run) %>%
-    summarize(nreads = prettyNum(
-      sum(nreads) %/% if (seq_run[1] == "pb_500") 14 else 4,
+    summarize(value = prettyNum(
+      sum(value) %/% if (seq_run[1] == "pb_500") 14 else 4,
       big.mark = " ")
     ) %>%
     deframe(),

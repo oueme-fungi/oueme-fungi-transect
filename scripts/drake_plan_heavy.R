@@ -1205,17 +1205,27 @@ plan <- drake_plan(
       pattern = ".fastq.gz$",
       full.names = TRUE,
       recursive = TRUE
+    ),
+    list.files(
+      file_in(!!file.path(config$rawdir, datasets$dataset[datasets$tech == "Ion Torrent"])),
+      pattern = "rawlib.basecaller.bam",
+      full.names = TRUE,
+      recursive = TRUE
     )
   ),
     
   qstats_raw = target(
-    q_stats(raw_fastq) %>% as.data.frame(),
+    q_stats(raw_fastq, step = "raw") %>%
+      mutate(
+        file = ifelse(endsWith(file, "rawlib.basecaller.bam"), "is_057-001", file)
+      ) %>%
+      as.data.frame(),
     dynamic = map(raw_fastq),
     format = "fst"
   ),
   
   qstats_demux = target(
-    q_stats(file_meta$trim_file) %>% as.data.frame(),
+    q_stats(file_meta$trim_file, step = "demux") %>% as.data.frame(),
     transform = map(file_meta, .id = FALSE),
     dynamic = map(file_meta),
     format = "fst"
@@ -1241,7 +1251,9 @@ plan <- drake_plan(
       qstats_demux_illumina
     )) %>%
       as.data.frame() %>%
-      tibble::as_tibble(),
+      tibble::as_tibble() %>%
+      dplyr::group_by_at(dplyr::vars(-nreads)) %>%
+      dplyr::summarize_at("nreads", sum),
     transform = combine(
       qstats_derep2,
       qstats_demux,
@@ -1249,45 +1261,6 @@ plan <- drake_plan(
       qstats_demux_illumina
     )
   ),
-  
-  qstats_n = qstats %>%
-    dplyr::group_by(file, step, region) %>%
-    dplyr::summarize(nreads = dplyr::n()) %>%
-    dplyr::ungroup(),
-  
-  qstats_length = qstats %>%
-    dplyr::group_by(file, step, region, length) %>%
-    dplyr::summarize(nreads = dplyr::n()) %>%
-    dplyr::ungroup(),
-  
-  qstats_minq = qstats %>%
-    dplyr::group_by(file, step, region, minq) %>%
-    dplyr::summarize(nreads = dplyr::n()) %>%
-    dplyr::ungroup(),
-  
-  # for floating points, we need to make bins so that there aren't
-  # too many unique values.  Do transforms to preserve relevant distinctions
-  # first
-  qstats_eexp = qstats %>%
-    dplyr::mutate(eexp = round(log(eexp), 2)) %>%
-    dplyr::group_by(file, step, region, eexp) %>%
-    dplyr::summarize(nreads = dplyr::n()) %>%
-    dplyr::ungroup() %>%
-    dplyr::mutate(eexp = exp(eexp)),
-  
-  qstats_erate = qstats %>%
-    dplyr::mutate(erate = round(log(erate) - log1p(-erate), 2)) %>%
-    dplyr::group_by(file, step, region, erate) %>%
-    dplyr::summarize(nreads = dplyr::n()) %>%
-    dplyr::ungroup() %>%
-    dplyr::mutate(erate = exp(erate)/(1 + exp(erate))),
-  
-  qstats_pnoerr = qstats %>%
-    dplyr::mutate(p.noerr = round(log(p.noerr) - log1p(-p.noerr), 2)) %>%
-    dplyr::group_by(file, step, region, p.noerr) %>%
-    dplyr::summarize(nreads = dplyr::n()) %>%
-    dplyr::ungroup() %>%
-    dplyr::mutate(p.noerr = exp(p.noerr)/(1 + exp(p.noerr))),
   
   trace = TRUE
 )
