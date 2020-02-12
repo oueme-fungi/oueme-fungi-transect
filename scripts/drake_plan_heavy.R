@@ -938,6 +938,51 @@ plan <- drake_plan(
     result
   },
   
+  # Align the long reads to the CM
+  # Don't include any positions which are in the variable regions or which
+  # are insertions with respect to the CM.
+  aln_infernal_32S = 
+    readd(allseqs, cache = drake_cache(".light")) %>%
+    dplyr::select(hash, `32S`, long, ITS1, ITS2) %>%
+    dplyr::filter(
+      complete.cases(.),
+      startsWith(long, ITS1),
+      stringi::stri_detect_fixed(`32S`, ITS2),
+      !hash %in% readd(allchimeras_ITS2, cache = drake_cache(".light"))
+    ) %>%
+    unique() %>%
+    dplyr::arrange(hash) %>%
+    set_names(`32S`, hash) %>%
+    chartr("T", "U", .) %>%
+    Biostrings::RNAStringSet() %>%
+    cmalign(cmfile = "reference/fungi_32S_LR5.cm") %>%
+    remove_nonconsensus_nongaps(noncons_chars = c(".", "v", "p")),
+  
+  # Make a tree based on the conserved parts of the long reads
+  raxml_infernal_32S = {
+    if (!dir.exists(!!config$raxml_dir))
+      dir.create(!!config$raxml_dir, recursive = TRUE)
+    wd <- setwd(!!config$raxml_dir)
+    result <-
+      aln_infernal_32S %>%
+      Biostrings::DNAStringSet() %>%
+      ape::as.DNAbin() %>%
+      as.matrix() %>%
+      ips::raxml(
+        DNAbin = .,
+        m = "GTRGAMMA",
+        f = "a",
+        N = "autoMRE_IGN",
+        p = 12345,
+        x = 827,
+        k = TRUE,
+        file = "decipher_32S",
+        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
+        threads = ignore(ncpus))
+    setwd(wd)
+    result
+  },
+  
   # Get the short and long reads ready to align with MAFFT.
   prealn_mafft_full =
     allseqs %>%

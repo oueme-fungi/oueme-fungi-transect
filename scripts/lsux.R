@@ -371,11 +371,11 @@ read_clustalw_ss <- function(clustal) {
   out
 }
 
-remove_nonconsensus_nongaps <- function(aln, gapfrac = 1) {
+remove_nonconsensus_nongaps <- function(aln, gapfrac = 1, noncons_chars = ".") {
   # rle gives a list with "value" and "length" for each run
   # turn it into a tibble, and calculate the begin and end of each run
   # TRUE = nonconsensus position, FALSE = consensus position
-  rle(seqinr::s2c(aln$SS_cons) == ".") %>%
+  rle(seqinr::s2c(aln$RF) %in% noncons_chars) %>%
     unclass() %>%
     tibble::as_tibble() %>%
     dplyr::mutate(
