@@ -64,17 +64,14 @@ q_stats.character <- function(sreadq, ..., qualityType = "FastqQuality") {
     out <- dplyr::group_by_at(out, dplyr::vars(-nreads))
     out <- dplyr::summarize(out, nreads = sum(nreads))
   }
-  out <- dplyr::bind_rows(out)
+  out <- dplyr::ungroup(out)
   
   if (nrow(out) == 0) {
     out <- tibble::tibble(
       ...,
-      length = NA_integer_,
-      minq = NA_integer_,
-      eexp = NA_real_,
-      erate = NA_real_,
-      p.noerr = NA_real_,
-      reads = 0
+      stat = c("length", "minq", "eexp", "erate", "p.noerr"),
+      value = NA_real_,
+      nreads = 0
     )
   }
   out
