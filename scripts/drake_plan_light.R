@@ -1365,6 +1365,79 @@ plan2 <- drake_plan(
     )
     out
   },
+  
+  ecm_heattree = {
+    taxdata2 <- taxdata_ECM
+    
+    val_cols <- names(taxdata2$data$tax_read) %>%
+      keep(str_detect, "reads_.+_.+_Unite_.+")
+    
+    taxdata2$filter_obs(
+      "tax_read",
+      rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
+      drop_taxa = TRUE,
+      drop_obs = TRUE,
+      supertaxa = TRUE,
+      reassign_obs = FALSE) %>%
+      invisible()
+    
+    taxdata2$data$diff_read <- metacoder::compare_groups(
+      taxdata2,
+      data = "tax_read",
+      cols = val_cols,
+      groups = val_cols %>%
+        str_replace("reads_.+_(.+)_Unite_.+", "\\1"),
+      func = function(abund1, abund2) {
+        list(read_ratio = log10(mean(abund1) / mean(abund2)))
+      }
+    )
+    taxdata2$data$diff_asv <- metacoder::compare_groups(
+      taxdata2,
+      data = "tax_asv",
+      cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
+      groups = names(taxdata2$data$tax_asv) %>%
+        keep(startsWith, "ASVs_") %>%
+        str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
+      func = function(abund1, abund2) {
+        list(ASV_ratio = log10(mean(abund1) / mean(abund2)))
+      }
+    )
+    
+    taxdata2 <- taxdata2$filter_taxa(!is.nan(ASV_ratio), !is.nan(read_ratio))
+    
+    set.seed(3)
+    taxdata2 %>%
+      metacoder::heat_tree(
+        layout = "davidson-harel",
+        initial_layout = "reingold-tilford",
+        
+        node_size = rowMeans(.$data$tax_read[,-1]),
+        node_size_range = c(0.002, .035),
+        node_size_axis_label = "Read abundance",
+        
+        node_color = read_ratio,
+        node_color_range = metacoder::diverging_palette(),
+        node_color_trans = "linear",
+        node_color_axis_label = "Read abundance ratio",
+        node_color_interval = c(-3, 3),
+        
+        edge_size = rowMeans(.$data$tax_asv[,-1]),
+        edge_size_range = c(0.001, 0.03),
+        edge_size_trans = "linear",
+        edge_size_axis_label = "ASV count",
+        
+        edge_color = ASV_ratio,
+        edge_color_range = metacoder::diverging_palette(),
+        edge_color_trans = "linear",
+        edge_color_axis_label = "ASV count ratio",
+        edge_color_interval = c(-0.75, 0.75),
+        
+        node_label = taxon_names,
+        node_label_size_range = c(0.02, 0.03),
+        # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
+        aspect_ratio = 3/2
+      )
+  },
   trace = TRUE
 ) %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
