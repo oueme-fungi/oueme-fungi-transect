@@ -1,3 +1,4 @@
+remove(list = ls())
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
@@ -13,6 +14,7 @@ library(drake)
 library(assertr)
 library(disk.frame)
 library(ape)
+library(ggplot2)
 
 source(file.path(config$rdir, "dada.R"))
 source(file.path(config$rdir, "mantel.R"))
@@ -21,8 +23,6 @@ source(file.path(config$rdir, "qstats.R"))
 source(file.path(config$rdir, "taxonomy.R"))
 source(file.path(config$rdir, "plate_check.R"))
 source(file.path(config$rdir, "output_functions.R"))
-
-remove(readd, loadd)
 
 choosevars <- function(d, g, .data) {
   .data %>%
@@ -37,16 +37,8 @@ choosevars <- function(d, g, .data) {
     )
 }
 
-k_or_M <- function(x, ..., .sep = " ", .function = format) {
-  case_when(
-    abs(x) > 1e6 ~ paste(.function(x / 1e6, ...), "M", sep = .sep),
-    abs(x) > 1e3 ~ paste(.function(x / 1e3, ...), "k", sep = .sep),
-    is.na(x) ~ NA_character_,
-    TRUE ~ paste(.function(x, ...), " ", sep = .sep)
-  )
-}
-
 datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc")
+regions <- read_csv(config$regions, col_types = "cccciiiiic")
 
 # combo_meta <- tibble(
 #   group = c("fungi", "euk"),
@@ -627,6 +619,20 @@ plan2 <- drake_plan(
     summarize(nreads = prettyNum(sum(nreads), big.mark = " ")) %>%
     deframe(),
   
+  filtercounts_full = readcounts %>%
+    filter(step == "filter", is.na(region) | region %in% c("long", "short")) %>%
+    group_by(seq_run, region) %>%
+    summarize(nreads = prettyNum(sum(nreads), big.mark = " ")) %>%
+    select(seq_run, nreads) %>%
+    deframe(), 
+  
+  filtercounts_ITS2 = readcounts %>%
+    filter(step == "filter", region == "ITS2") %>%
+    group_by(seq_run, region) %>%
+    summarize(nreads = prettyNum(sum(nreads), big.mark = " ")) %>%
+    select(seq_run, nreads) %>%
+    deframe(),
+    
   regioncounts = readcounts %>%
     filter(step == "lsux") %>%
     group_by(seq_run) %>%
@@ -651,6 +657,16 @@ plan2 <- drake_plan(
       mutate(
         reads = as.integer(gsub(" ", "", reads)),
         step = "LSUx"
+      ),
+    enframe(filtercounts_full, name = "seq_run", value = "reads") %>%
+      mutate(
+        reads = as.integer(gsub(" ", "", reads)),
+        step = "Filter (full)"
+      ),
+    enframe(filtercounts_ITS2, name = "seq_run", value = "reads") %>%
+      mutate(
+        reads = as.integer(gsub(" ", "", reads)),
+        step = "Filter (ITS2)"
       ),
     filter(region_table, region == "ITS2") %>%
       select(seq_run, reads, step = region, ASVs),
@@ -691,7 +707,7 @@ plan2 <- drake_plan(
     pivot_longer(c("reads", "ASVs"), names_to = "type", values_to = "count") %>%
     filter(!is.na(count)) %>%
     mutate(
-      step = factor(step, levels = c("Raw", "Trim", "LSUx", "ITS2",
+      step = factor(step, levels = c("Raw", "Trim", "LSUx", "Filter (full)", "Filter (ITS2)", "ITS2",
                                      "short", "ITS", "LSU", "long")),
       tech = factor(tech, levels = c("PacBio", "Ion Torrent", "Illumina")),
       amplicon = factor(stringr::str_to_title(amplicon), levels = c("Long", "Short")),
@@ -1364,6 +1380,173 @@ plan2 <- drake_plan(
       combinations = lapply(read_cols, c, "mean")
     )
     out
+  },
+  
+  # data for supplementary figures ####
+  phylotax_fig = 
+    treeio::as.treedata(
+      ape::read.tree(text = "(A:1,((B:1,C:1):1,((E:1,F:1):1,D:1):1):1);")
+    ) %>%
+    tidytree::full_join(
+      tibble(label = LETTERS[1:6],
+             tax1 = c("unk", "Tax1", "Tax2", "Tax2", "unk", "unk"),
+             tax2 = c("unk", "Tax2", "Tax2", "Tax1", "unk", "Tax1")),
+      by = "label"
+    ) %>%
+    ggtree::ggtree() +
+    ggtree::geom_tiplab(x = 4, align = 2) +
+    xlim(0, 6) +
+    ggtree::geom_tiplab(
+      aes(color = tax1, label = tax1),
+      x = 4.7,
+      hjust = 0.5
+    ) +
+    ggtree::geom_tiplab(
+      aes(color = tax2, label = tax2),
+      x = 5.7,
+      hjust = 0.5
+    ) +
+    ggtree::geom_tiplab(x = 5.2, label = "/", hjust = 0.5) +
+    ggtree::geom_nodelab(aes(label = node - 6), geom = "label") +
+    ggtree::geom_hilight(node = 10, fill = "steelblue", extendto = 4) +
+    ggtree::geom_hilight(node = 9, fill = "tomato", extendto = 4) +
+    scale_color_manual(
+      values = c(Tax1 = "steelblue", Tax2 = "tomato", unk = "grey50")
+    ) +
+    scale_y_reverse(),
+  
+  length_table = 
+    pivot_longer(asv_table, -1, names_to = "seq_run", values_to = "reads") %>%
+    filter(reads > 0) %>%
+    mutate_at("seq", chartr, old = "T", new = "U") %>%
+    inner_join(
+       select(allseqs, seq = ITS2, short, long) %>%
+           mutate(ITS2 = seq) %>%
+           pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
+           filter(!is.na(consensus)) %>%
+           unique(),
+       by = "seq"
+      ) %>%
+    mutate(length = nchar(consensus)) %>%
+    group_by(seq_run, region, length) %>%
+    summarize_at("reads", sum) %>%
+    group_by(seq_run, region) %>%
+    arrange(length) %>%
+    mutate(reads = reads/sum(reads), ecdf = cumsum(reads)) %>%
+    dplyr::left_join(dplyr::select(datasets, seq_run, tech, amplicon)) %>%
+    dplyr::mutate_at("amplicon", factor, levels = c("Short", "Long")) %>%
+    dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
+    arrange(tech, amplicon) %>%
+    mutate(group = paste(tech, "-", amplicon) %>% factor(levels = unique(.))),
+  
+  full_dens_short = length_table %>%
+    filter(amplicon == "Short", region == "short") %>%
+    ggplot(aes(length, weight = reads, color = tech, group = tech)) +
+    stat_density(bw = 0.5, geom = "line", position = "identity") +
+    scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
+    scale_y_continuous(name = "Density") +
+    scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
+    ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
+    theme(strip.background = element_blank()),
+  
+  full_dens_long = length_table %>%
+    filter(amplicon == "Long", region == "long") %>%
+    ggplot(aes(length, weight = reads, color = tech, group = tech)) +
+    stat_density(bw = 0.5, geom = "line", position = "identity") +
+    scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
+    scale_y_continuous(name = "Density") +
+    scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
+    ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
+    theme(strip.background = element_blank()),
+  
+  full_ecdf_short = length_table %>%
+    filter(amplicon == "Short", region == "short") %>%
+    ggplot(aes(x = length, y = ecdf, color = tech, group = tech)) +
+    geom_step() +
+    scale_color_brewer(type = "qual",
+                       name = NULL, palette = "Set2") +
+    scale_y_continuous(name = "ECDF") +
+    scale_x_continuous(name = NULL) +
+    facet_grid( amplicon ~ ., scales = "free_x") +
+    theme(
+      legend.position = c(1, 0.02),
+      legend.justification = c(1, 0),
+      legend.background = element_blank(),
+      strip.background = element_blank()
+    ),
+  
+  full_ecdf_long = length_table %>%
+    filter(amplicon == "Long", region == "long") %>%
+    ggplot(aes(x = length, y = ecdf, color = tech, group = tech)) +
+    geom_step() +
+    scale_color_brewer(type = "qual",
+                       name = NULL, palette = "Set2", direction = -1) +
+    scale_y_continuous(name = "ECDF") +
+    scale_x_continuous(name = "Length (bp)") +
+    facet_grid( amplicon ~ ., scales = "free_x") +
+    theme(
+      legend.position = c(1, 0.02),
+      legend.justification = c(1, 0),
+      legend.background = element_blank(),
+      strip.background = element_blank()
+    ),
+  
+  its2_dens = length_table %>%
+    filter(region == "ITS2") %>%
+    ggplot(aes(length, weight = reads, color = group, group = group)) +
+    stat_density(bw = 0.5, geom = "line", position = "identity") +
+    scale_color_brewer(type = "qual", guide = "none", palette = "Set2", direction = -1) +
+    scale_y_continuous(name = "Density") +
+    scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
+    ggnomics::facet_nested(rows = vars(tech, amplicon), scales = "free_y",
+                           nest_line = TRUE) +
+    theme(strip.background = element_blank()),
+  
+  its2_ecdf = length_table %>%
+    filter(region == "ITS2") %>%
+    mutate(tech = "", amplicon = "") %>%
+    ggplot(aes(x = length, y = ecdf, color = group, group = group)) +
+    geom_step() +
+    scale_color_brewer(type = "qual",
+                       name = NULL, palette = "Set2", direction = -1) +
+    scale_y_continuous(name = "ECDF") +
+    scale_x_continuous(name = "ITS2 Length (bp)") +
+    facet_grid(rows = vars(tech, amplicon), scales = "free_y") +
+    theme(
+      strip.background = element_blank(),
+      legend.position = c(0.98, 0.02),
+      legend.justification = c(1, 0),
+      legend.background = element_blank()
+    ),
+    
+  
+  region_length_fig = {
+    baseregions <-
+      c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")
+    
+    region_limits <-
+      dplyr::filter(regions, region %in% baseregions) %>%
+      dplyr::mutate_at("region", factor, levels = baseregions) %>%
+      dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
+      tidyr::pivot_longer(
+        cols = c("min_length", "max_length"),
+        names_to = "limit",
+        names_pattern = "(min|max)_length",
+        values_to = "length"
+      )
+    
+    reads_table %>%
+      dplyr::filter(region %in% baseregions, seq_run == "pb_500") %>%
+      dplyr::mutate_at("region", factor, levels = baseregions) %>%
+      dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
+      ggplot(aes(length, weight = reads)) +
+      stat_density(bw = 0.5, color = "#8da0cb", geom = "line") +
+      geom_vline(data = region_limits,
+                 aes(xintercept = length),
+                 linetype = "dashed", alpha = 0.5) +
+      facet_wrap(~region,ncol = 1, strip.position = "right", scales = "free_y") +
+      scale_y_continuous(breaks = NULL, labels = NULL, name = "Read density") +
+      scale_x_continuous(limits = c(0, 500), name = "Length (bp)")
   },
   
   ecm_heattree = {

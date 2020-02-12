@@ -20,7 +20,7 @@ text_list <- function(x, ...) {
 # compile data to make a table 
 venndata <- function(data, vennvar, cols = names(data)[-1]) {
   vennvar <- enquo(vennvar)
-  vennvarfrac <- paste0(as_label(vennvar), "_frac") %>% parse_quo(env = global_env())
+  vennvarfrac <- paste0(as_label(vennvar), "_frac") %>% rlang::parse_quo(env = globalenv())
   colpattern <- paste0("(", paste(cols, collapse = "|"), ")_(reads|", as_label(vennvar), ")")
   data %>%
     select_at(c("seq", cols)) %>%

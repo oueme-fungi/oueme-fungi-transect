@@ -26,14 +26,14 @@ bibliography:
 csl: molecular-ecology.csl
 always_allow_html: true
 output:
+  bookdown::word_document2: 
+    keep_md: yes
   bookdown::pdf_document2:
     fig_crop: yes
     keep_tex: yes
     latex_engine: lualatex
     includes:
       in_header: preamble.tex
-  bookdown::word_document2: 
-    keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -175,7 +175,7 @@ We also present new algorithms for dividing the rDNA into regions, combining den
 Sampling was conducted at two sites (Ang: N 9.75456° W 2.14064°; Gan: N 9.75678° W 2.31058 °) approximately 30 km apart in the _Forêt Reservée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
 Both locations were located in woodlands dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
 At each site, 25 soil samples were collected along a linear transect at intervals of 1 m in May 2015.
-One third of the sample locations (3-m spacing) were resampled one year later in June 2016.
+One third of the sample locations (3 m spacing) were resampled one year later in June 2016.
 For each sample, any coarse organic debris <!--Do you have any definition? Wider than 5 mm? MR--> was removed from the soil surface and a sample of approximately 5cm×5cm×5cm was extracted with a <!-- sterilized? -MR--> knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
 Approximately 50 mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0 mL microtube containing 750 mL of lysis buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA) and lysed in the field using a handheld bead-beater (TerraLyser^TM^; Zymo Research Corporation).
@@ -243,10 +243,10 @@ Read pairs where the primers were found in reverse orientation were kept in sepe
 
 ### Denoising
 
-Forward and reverse Illumina reads were quality controlled (truncation after first base with quality <= 10, and then max 3 expected errors in either read) and denoised using `DADA2`.
-Forward and reverse reads were denoised using seperate error models and then merged.
+Forward and reverse Illumina reads were truncated after the first base with quality score <= 10, and then reads with more than 3 expected errors in either read were discarded.
+Forward and reverse reads were denoised using `DADA2` version `r packageVersion("dada2")` [@callahan2016] using seperate error models and then merged.
 
-We attempted to denoise both long and short PacBio amplicons using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019] according to the steps outlined in  the supplementary information in @callahan2019.
+We attempted to denoise both long and short PacBio amplicons using `DADA2` according to the steps outlined in  the supplementary information in @callahan2019.
 However, only `r readd(region_table)$ASVs[readd(region_table)$region=="long"]` amplicon sequence variants (ASVs) were obtained for the long amplicons, representing `r percent(readd(region_table)$reads[readd(region_table)$region == "long"]/as.integer(gsub(" ", "", readd(demuxcounts)["pb_500"])), format = "d")` of the trimmed reads.
 We believe that this poor performance was due to a combination of long read length and low sequencing depth relative to community diversity.
 The `DADA2` algorithm requires that the seed sequence of each ASV be represented by at least two error-free reads [@callahan2016].
@@ -354,9 +354,9 @@ where $D$, $d$, and $t$ represent the community dissimilarity, spatial distance,
 # Results
 
 The number of sequencing reads and ASVs at each stage in the bioinformatics pipeline are shown in Table \@ref(tab:bioinfo).
-Long (short) amplicon sequencing with PacBio yielded `r readd(rawcounts)["pb_500"]` (`r readd(rawcounts)["pb_483"]`) circular consensus reads, of which `r readd(demuxcounts)["pb_500"]` (`r readd(demuxcounts)["pb_483"]`) were successfully demultiplexed.
-The 5.8S region was detected in `r readd(regioncounts)["pb_500"]` (`r readd(regioncounts)["pb_483"]`) reads.
-Ion Torrent sequencing yielded `r readd(demuxcounts)["is_057"]` demultiplexed reads, with the 5.8S region detected in `r readd(regioncounts)["is_057"]`.
+Long (short) amplicon sequencing with PacBio yielded `r readd(rawcounts)["pb_500"]` (`r readd(rawcounts)["pb_483"]`) circular consensus reads, of which `r readd(demuxcounts)["pb_500"]` (`r readd(demuxcounts)["pb_483"]`) were successfully trimmed and demultiplexed.
+Illumina sequencing yielded `r readd(rawcounts)["SH-2257"]` read pairs, of which `r readd(demuxcounts)["SH-2257"]` were successfully trimmed and demultiplexed, and `r readd(filtercounts_full)["SH-2257"]` passed quality filtering.
+Ion Torrent sequencing yielded `r readd(demuxcounts)["is_057"]` demultiplexed reads.
 
 (ref:readcounts) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages.
 *Raw*: raw reads as delivered by sequencing center;
@@ -541,9 +541,8 @@ These fractions increased to `r text_list(percent(readd(venn_OTU)["1111", c("fra
 In particular, `r text_list(percent(colSums(mutate_all(readd(venn_OTU)[c("0111", "1111"), c("frac_pb_483", "frac_SH-2257", "frac_is_057")], as.numeric), na.rm = TRUE)))` of reads in the PacBio, Illumina, and Ion Torrent short-amplicon datasets belonged to OTUs shared between all three datasets.
 In contrast, `r percent(readd(venn_ASV)["1000", "frac_pb_500"])` of reads in the long PacBio dataset belonged to ASVs which were unique to that dataset, and the fraction only reduced to `r percent(readd(venn_OTU)["1000", "frac_pb_500"])` after OTU clustering.
 
-
 Figure \@ref(fig:pb-vs-it) shows the correspondence between the read count for different ASVs/OTUs in the different technologies, where shared ASVs/OTUs are plotted as circles, and unshared OTUs are plotted on the margins.
-In all cases, the read counts for shared ASVs/OTUs were correlated ($R^2 = `r compR2("SH-2257", "is_057", "OTU")`$).
+In all cases, the read counts for shared ASVs/OTUs were correlated ($R^2 = `r compR2("SH-2257", "is_057", "OTU")` to $).
 Correlations between read counts for the three technologies using the short amplicon library were increased by OTU clustering
 (`r compR2("pb_483", "SH-2257", "ASV")` to `r compR2("pb_483", "SH-2257", "OTU")`,
 `r compR2("pb_483", "is_057", "ASV")` to `r compR2("pb_483", "is_057", "OTU")`, and
@@ -792,12 +791,10 @@ The Bray-Curtis metric showed significant ($p < 0.05$) positive correlation at a
 For the short amplicon library, although the general profile of the correlograms was similar, correlation at 0m and 1 year was not significant, but there was a negative correlation at time lag of 1 year and a distance of 1m for both sequencing technologies.
 This negative correlation was significant in each short amplicon correlogram except for the ECM community sequenced by Illumina.
 
-## Spatio-temporal variogram
-
-Variograms relating community dissimilarities and spatial distances are shown in Figure \@ref(fig:spatio).
+Distance-decay curves relating community dissimilarities and spatial distances are shown in Figure \@ref(fig:spatio).
 For the cases where the Mantel correlogram detected a significant positive correlation, the best-fit exponential curve is also displayed; for the long amplicon library, where there was also a significant positive correlation after a time lag of one year, the best fit curve for time lag is also included.
 The best fit spatial and temporal ranges, along with a 95% confidence interval, are shown in \@ref(tab:variofit).
-Although a model was fit for the weighted UNIFRAC distance applied to the total fungal community, the result was very poorly constrained, and a range of 0m was included in the 95% confidence interval.
+Although a model was fit for the weighted UNIFRAC distance applied to the total fungal community, the result was very poorly constrained, and a range of 0 m was included in the 95% confidence interval.
 Although the best fit spatial ranges vary between the different datasets by a factor of about 3, there is overlap of the 95% confidence intervals for all of the Bray-Curtis variograms across communities, amplicon libraries, and sequencing technologies.
 
 (ref:spatio) Relationship between spatiotemporal distance and community dissimilarities.
