@@ -1261,7 +1261,7 @@ plan <- drake_plan(
     
   qstats_raw = target(
     q_stats(raw_fastq, step = "raw") %>%
-      mutate(
+      dplyr::mutate(
         file = ifelse(endsWith(file, "rawlib.basecaller.bam"), "is_057-001", file)
       ) %>%
       as.data.frame(),
