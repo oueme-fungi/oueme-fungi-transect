@@ -1,10 +1,10 @@
 
-k_or_M <- function(x, ..., .sep = " ", .fun = format) {
+k_or_M <- function(x, ..., .sep = " ", .function = format) {
   case_when(
-    abs(x) > 1e6 ~ paste(.fun(x / 1e6, ...), "M", sep = .sep),
-    abs(x) > 1e3 ~ paste(.fun(x / 1e3, ...), "k", sep = .sep),
+    abs(x) > 1e6 ~ paste(.function(x / 1e6, ...), "M", sep = .sep),
+    abs(x) > 1e3 ~ paste(.function(x / 1e3, ...), "k", sep = .sep),
     is.na(x) ~ NA_character_,
-    TRUE ~ paste(.fun(x, ...), " ", sep = .sep)
+    TRUE ~ paste(.function(x, ...), " ", sep = .sep)
   )
 }
 
@@ -21,6 +21,7 @@ text_list <- function(x, ...) {
 venndata <- function(data, vennvar, cols = names(data)[-1]) {
   vennvar <- enquo(vennvar)
   vennvarfrac <- paste0(as_label(vennvar), "_frac") %>% parse_quo(env = global_env())
+  colpattern <- paste0("(", paste(cols, collapse = "|"), ")_(reads|", as_label(vennvar), ")")
   data %>%
     select_at(c("seq", cols)) %>%
     mutate_at(cols, list(found = ~. > 0)) %>%
@@ -40,7 +41,7 @@ venndata <- function(data, vennvar, cols = names(data)[-1]) {
       -1,
       names_to = c("seq_run", "what"),
       values_to = "value",
-      names_pattern = "([[:alpha:]]+[-._]\\d+)_(.+)"
+      names_pattern = colpattern
     ) %>%
     pivot_wider(names_from = "what", values_from = "value") %>%
     group_by(seq_run) %>%
@@ -66,7 +67,7 @@ venndata <- function(data, vennvar, cols = names(data)[-1]) {
       digits = 2
     ) %>%
     mutate(
-      !!vennvarfrac := if_else(grepl("^ *[0.]+ *$", !!vennvar), "", !!vennvarfrac),
+      !!vennvarfrac := if_else(grepl("^ *[0.]+ *$", !!vennvarfrac), "", !!vennvarfrac),
       !!vennvar := na_if(!!vennvar, 0),
       reads_frac = if_else(grepl("^ *[0.]+ *$", reads), "", reads_frac),
       reads = if_else(grepl("^ *[0.]+ *$", reads), "", reads)
@@ -269,7 +270,7 @@ read_comparison <- function(multi_table, comparisons, type) {
   g
 }
 
-taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL, datasets = get0("datasets")) {
+taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL, datasets) {
   rank <- enquo(rank)
   y <- enquo(y)
   ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")

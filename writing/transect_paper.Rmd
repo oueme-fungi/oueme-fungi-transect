@@ -98,20 +98,6 @@ theme_set(theme_bw())
 datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 
-loadd(
-  reads_table,
-  region_table,
-  asv_table,
-  otu_table,
-  demuxlength,
-  demuxqual,
-  readcounts,
-  rawcounts,
-  demuxcounts,
-  regioncounts,
-  cache = cache
-)
-
 source(here(file.path("scripts", "output_functions.R")))
 ```
 
@@ -121,7 +107,7 @@ source(here(file.path("scripts", "output_functions.R")))
 
 Ectomycorrhizas (ECM) are a symbiosis between fungi and plant root tips.
 The fungi provide nutrients and protection from pathogens in exchange for sugards from the plant [@Smith2010].
-Approximately 8% of described fungal species [@ainsworth2008ainsworth;@Rinaldi2008] and 2% of land plant species [@Brundrett2017a] form ECM.
+Approximately 8% of described fungal species [@ainsworth2008ainsworth;@Rinaldi2008] and 2% of land plant species [@brundrett2017a] form ECM.
 The plants include ecologically and economically important stand-forming trees belonging to both temperate/boreal groups such as Pinaceae and Fagaceae, and tropical groups such as Dipterocarpaceae, and Fabaceae tr. Amherstieae.
 
 Although many well-known mushrooms are produced by ECM fungi (e.g., *Amanita*, *Cantharellus*, *Boletus*), many ECM fungi instead produce inconspicuous (e.g., *Tomentella*) or no (e.g., *Cenococcum*) fruit bodies.
@@ -167,7 +153,7 @@ We investigated the effects of different sequencing strategies and post-analysis
 Turnover scale is the distance at which two communities can be considered to be independent samples of the local species pool.
 Knowledge of turnover scale is import when planning studies of local diversity and its environmental correlates.
 It varies between different ecosystems and taxonomic groups.
-Turnover scale is often measured by the range at which Moran's I statistic indicates significant autocorrelation, or by fitting a function to an empirical distance-decay curve community dissimilarity vs. distance [@legendre2012].
+Turnover scale is often measured by the range at which a Mantel correlogram indicates significant autocorrelation, or by fitting a function to an empirical distance-decay curve community dissimilarity vs. distance [@legendre2012].
 
 Several studies have investigated the turnover scale in ECM forests, but so far they have been based on analysis of ECM root tips, rather than bulk soil.
 @lilleskov2004 found autocorrelation only at ranges <2.6 m at most sites in temperate forests, based on Sanger sequencing.
@@ -266,9 +252,9 @@ We believe that this poor performance was due to a combination of long read leng
 The `DADA2` algorithm requires that the seed sequence of each ASV be represented by at least two error-free reads [@callahan2016].
 If sequencing errors are uniformly distributed, then the probability that a given read will be error-free is $(1-\epsilon)^L$, where $\epsilon$ is the sequencing error rate and $L$ is the read length in base pairs.
 Then the number of reads of a given sequence that would be required to obtain two error-free reads in expectation is $2/(1-\epsilon)^L$.
-For the combination of long reads (median $L=`r demuxlength['pb_500']` \text{ bp}$ after trimming) and moderate error rate (mean $\epsilon= `r format(demuxqual['pb_500'], digits = 4)`$ based on ccs quality scores) for the long amplicon in this study, the expected number of reads required to achieve two error-free reads is `r format(as.integer(round(2/(1 - demuxqual['pb_500'])^demuxlength['pb_500'])), big.mark = " ")`.
-Given the high diversity relative to sequencing depth in this study (`r region_table$ASVs[region_table$seq_run == "pb_483" & region_table$region == "short"]` ASVs based on PacBio short amplicons, `r demuxcounts["pb_500"]` trimmed long amplicon reads), this requirement could not have been met for the long amplicons except by the most abundant sequences.
-In comparison, the equivalent requirement for the short amplicon ($L=`r demuxlength['pb_483']` \text{ bp}$, $\epsilon=`r demuxqual['pb_483']`$) is only `r round(2/(1 - demuxqual['pb_483'])^demuxlength['pb_483'], 1)` reads.
+For the combination of long reads (median $L=`r readd(demuxlength)['pb_500']` \text{ bp}$ after trimming) and moderate error rate (mean $\epsilon= `r format(readd(demuxqual)['pb_500'], digits = 4)`$ based on ccs quality scores) for the long amplicon in this study, the expected number of reads required to achieve two error-free reads is `r format(as.integer(round(2/(1 - readd(demuxqual)['pb_500'])^readd(demuxlength)['pb_500'])), big.mark = " ")`.
+Given the high diversity relative to sequencing depth in this study (`r readd(region_table)$ASVs[readd(region_table)$seq_run == "pb_483" & readd(region_table)$region == "short"]` ASVs based on PacBio short amplicons, `r readd(demuxcounts)["pb_500"]` trimmed long amplicon reads), this requirement could not have been met for the long amplicons except by the most abundant sequences.
+In comparison, the equivalent requirement for the short amplicon ($L=`r readd(demuxlength)['pb_483']` \text{ bp}$, $\epsilon=`r readd(demuxqual)['pb_483']`$) is only `r round(2/(1 - readd(demuxqual)['pb_483'])^readd(demuxlength)['pb_483'], 1)` reads.
 We therefore developed a new workflow to assemble ASVs from the long amplicons, as follows:
 
 Raw reads were divided into shorter regions by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure [@eddy1994].
@@ -358,17 +344,19 @@ Ecological community dissimilarity matrices were calculated using the ASV/OTU ba
 Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12 m.
 Separate correlograms were drawn for samples taken during the same year, and samples separated in time by one year, in order to assess the degree to which the soil community changes over the course of one year.
 
-Additionally, empirical variograms were generated by plotting mean community dissimilarity as a function of spatial distance and temporal separation, and fit using a joint exponential spatio-temporal model using the `fit.StVariogram` function from `gstat` version `r packageVersion("gstat")` [@R-gstat].
-The mean dissimilarity between samples taken in different transects (distance $\approx$ 30 km) was also included as a single point for each year for the purposes of fitting the variogram function.
+Additionally, empirical distance-decay curves were generated by plotting mean community dissimilarity as a function of spatial distance, and fit to an exponential model of the form given by @Legendre2012 using the `nls` function in R.
+Points in the empirical distance-decay curve were weighted by the number of comparisons within the distance class and the inverse of the distance for the purposes of model fitting.
+For datasets where the Mantel corellogram indicated spatial correlation between samples taken in seperate years, the model was re-fit with an additional term to represent temporal correlation:
+$$D = C_0 + C_1\left[1 - \exp\left(-3  \left(\frac{d}{a_d} + \frac{t}{a_t}\right)\right)\right]$$
+where $D$, $d$, and $t$ represent the community dissimilarity, spatial distance, and time lag between samples, respectively, and the parameters are $C_0$, the community dissimilarity from replicate samples ("nugget"); $C_0 + C_1$, the community dissimilarity at long distances ("sill"); $a_d$ the spatial range at which the community dissimilarity has moved 95% of the way from "nugget" to "sill", and $a_t$ the equivalent temporal range.
+95% confidence intervals were calculated for the spatial and temporal range parameters by profiling using the `MASS` package in R.
 
 # Results
 
 The number of sequencing reads and ASVs at each stage in the bioinformatics pipeline are shown in Table \@ref(tab:bioinfo).
-Long (short) amplicon sequencing with PacBio yielded `r rawcounts["pb_500"]` (`r rawcounts["pb_483"]`) circular consensus reads, of which `r demuxcounts["pb_500"]` (`r demuxcounts["pb_483"]`) were successfully demultiplexed.
-The 5.8S region was detected in `r regioncounts["pb_500"]` (`r regioncounts["pb_483"]`) reads.
-Ion Torrent sequencing yielded `r demuxcounts["is_057"]` demultiplexed reads, with the 5.8S region detected in `r regioncounts["is_057"]`.
-
-### Region extraction
+Long (short) amplicon sequencing with PacBio yielded `r readd(rawcounts)["pb_500"]` (`r readd(rawcounts)["pb_483"]`) circular consensus reads, of which `r readd(demuxcounts)["pb_500"]` (`r readd(demuxcounts)["pb_483"]`) were successfully demultiplexed.
+The 5.8S region was detected in `r readd(regioncounts)["pb_500"]` (`r readd(regioncounts)["pb_483"]`) reads.
+Ion Torrent sequencing yielded `r readd(demuxcounts)["is_057"]` demultiplexed reads, with the 5.8S region detected in `r readd(regioncounts)["is_057"]`.
 
 (ref:readcounts) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages.
 *Raw*: raw reads as delivered by sequencing center;
@@ -408,6 +396,10 @@ readd(bioinf_table) %>%
   )
 ```
 
+### Region extraction
+
+- Fraction where 5.8S was detected
+- Length/ASV count/ASV fraction of extracted regions.
 
 ### Reproducibility of read counts from different technologies
 
@@ -418,7 +410,6 @@ Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datase
 readd(venn_ASV) %>%
 venn_table(ASVs, "(ref:venn-table-asv)")
 ```
-
 
 (ref:venn-table-otu) Correspondences between 97% OTUs found by different sequencing strategies.
 Each row shows the number of OTUs (*OTUs*) shared uniquely by one or more datasets, including the fraction of total OTUs for each dataset (*OTU frac*), the number of reads represented by those OTUs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
@@ -452,7 +443,76 @@ readd(vennplot_OTU) %>% {
     main = "OTU"
   )
 }
+```
 
+(ref:venn2) (*alternate to \@ref(fig:venn)*) Venn diagrams showing shared ITS2-based ASVs (left) and 97% OTUs (right) between different sequencing technologies from the same short amplicon library.
+In each region, the number of ASVs/OTUs is given above, while the fractions of reads for each sequencing strategy are shown below.
+
+```{r venn2, fig.cap = "(ref:venn2)", out.height = "30%", fig.show="hold"}
+venndata(readd(asv_table), ASVs, cols = c("pb_483", "SH-2257", "is_057")) %>%
+  vennplot_data(ASVs) %>% {
+  plot(
+     select(., set, ASVs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
+     legend = list(
+         labels = c("PacBio Short", "Illumina", "Ion Torrent")
+     ),
+     quantities = .$label,
+     main = "ASV",
+     fills = c("grey85", "lightblue", "lightcoral"))
+  }
+
+venndata(readd(otu_table), OTUs, cols = c("pb_483", "SH-2257", "is_057")) %>%
+  vennplot_data(OTUs) %>% {
+  plot(
+    select(., set, OTUs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
+    legend = FALSE,
+    labels = FALSE,
+    quantities = .$label,
+    main = "OTU",
+     fills = c("grey85", "lightblue", "lightcoral")
+  )
+}
+```
+
+(ref:venn3) (*alternate to \@ref(fig:venn)*) Venn diagrams showing shared ITS2-based ASVs (left) and 97% OTUs (right) between different amplicons.
+In each region, the number of ASVs/OTUs is given above, while the fractions of reads for each amplicon are shown below.
+Long amplicons were sequenced on PacBio RS II, short amplicons were sequenced on PacBio RS II, Illumina MiSeq, and Ion Torrent Ion S5.
+ASV/OTU counts for short amplicons reflect detection by any of the three technologies, and read counts represent the mean fraction of reads across the three technologies.
+
+```{r venn3, fig.cap = "(ref:venn2)", out.height = "30%", fig.show="hold"}
+readd(asv_table) %>%
+  mutate_if(is.numeric, ~ . / sum(.)) %>%
+  mutate(long = pb_500,
+         short = rowMeans(.[,c("pb_483", "SH-2257", "is_057")])) %>%
+  select(seq, long, short) %>%
+venndata(ASVs, cols = c("long", "short")) %>%
+  vennplot_data(ASVs) %>% {
+  plot(
+     select(., set, ASVs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
+     legend = list(
+         labels = c("Long amplicon", "Short amplicon")
+     ),
+     quantities = .$label,
+     main = "ASV",
+     fills = c("white", "slateblue1"))
+  }
+
+readd(otu_table) %>%
+  mutate_if(is.numeric, ~ . / sum(.)) %>%
+  mutate(long = pb_500,
+         short = rowMeans(.[,c("pb_483", "SH-2257", "is_057")])) %>%
+  select(seq, long, short) %>%
+venndata(OTUs, cols = c("long", "short")) %>%
+  vennplot_data(OTUs) %>% {
+  plot(
+    select(., set, OTUs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
+    legend = FALSE,
+    labels = FALSE,
+    quantities = .$label,
+    main = "OTU",
+     fills = c("white", "slateblue1")
+  )
+}
 ```
 
 (ref:readcap) Comparison between read numbers for different sequencing strategies, by ASV (top) and 97% OTU (bottom). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
@@ -493,6 +553,10 @@ but this was not, or only weakly, the case for correlations between the long amp
 (`r compR2("pb_500", "pb_483", "ASV")` to `r compR2("pb_500", "pb_483", "OTU")`,
 `r compR2("pb_500", "SH-2257", "ASV")` to `r compR2("pb_500", "SH-2257", "OTU")`, and
 `r compR2("pb_500", "is_057", "ASV")` to `r compR2("pb_500", "is_057", "OTU")`, for PacBio long amplicon reads vs PacBio, Illumina, and Ion Torrent short reads, respectively).
+
+Almost all of the short amplicons from all three technologies were between 240 and 375 bp long (Supplementary Figure \@ref(fig:full-length)a).
+Although the length profile of the three requencing runs were very similar, Illumina MiSeq had the largest fraction of reads near the top of the range, followed by Ion Torrent Ion S5 and PacBio RS II (Supplementary Figure \@ref(fig:full-length)b).
+In contrast, the length of the long amplicon reads varied widely, from `r filter(readd(reads_table), region == "long") %$% range(length) %>% paste(collapse = " to ")` bp, with a median of 
 
 ## Taxonomic assignment
 
@@ -676,6 +740,8 @@ This ASV was also found in `r readd(pos_control_data) %>% filter(!is.na(pc_frac)
 
 ## Spatial analysis
 
+### Autocorrelation
+
 (ref:correlog-cap) Mantel correlograms showing the correlation between Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
 
 ```{r correlog, fig.cap="(ref:correlog-cap)"}
@@ -767,7 +833,7 @@ readd(variog_empir) %>%
 (ref:variofit) Parameters for variogram fits shown in Figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value.
 
 ```{r variofit, results="asis"}
-variog_data %>%
+readd(variog_data) %>%
   select(mantel_0, mantel_1, variofit_0 = variofit2, variofit_1 = variofitST2, metric, amplicon, tech, guild, algorithm) %>%
   pivot_longer(1:4, names_to = c(".value", "timelag"), names_sep = "_") %>%
   mutate(params = map(variofit, broom::tidy)) %>%
@@ -852,114 +918,19 @@ Node 3 is assigned to Tax1 because this is consistent with at least one of the a
 Node 4 (and thus also node 5) is assigned to Tax2 because this is consistent with at least one of the assignments for D and F, and because E is completely unassigned.
 
 ```{r phylotax, fig.height = 2, fig.width = 3, fig.cap = "(ref:phylotax)"}
-extree <-
-  treeio::as.treedata(ape::read.tree(text = "(A:1,((B:1,C:1):1,((E:1,F:1):1,D:1):1):1);")) %>%
-  tidytree::full_join(
-    tibble(label = LETTERS[1:6],
-           tax1 = c("unk", "Tax1", "Tax2", "Tax2", "unk", "unk"),
-           tax2 = c("unk", "Tax2", "Tax2", "Tax1", "unk", "Tax1")),
-    by = "label"
-  )
-ggtree::ggtree(extree) +
-  ggtree::geom_tiplab(x = 4, align = 2) +
-  xlim(0, 6) +
-  ggtree::geom_tiplab(
-    aes(color = tax1, label = tax1),
-    x = 4.7,
-    hjust = 0.5
-  ) +
-  ggtree::geom_tiplab(
-    aes(color = tax2, label = tax2),
-    x = 5.7,
-    hjust = 0.5
-  ) +
-  ggtree::geom_tiplab(x = 5.2, label = "/", hjust = 0.5) +
-  ggtree::geom_nodelab(aes(label = node - 6), geom = "label") +
-  ggtree::geom_hilight(node = 10, fill = "steelblue", extendto = 4) +
-  ggtree::geom_hilight(node = 9, fill = "tomato", extendto = 4) +
-  scale_color_manual(values = c(Tax1 = "steelblue", Tax2 = "tomato", unk = "grey50")) +
-  scale_y_reverse()
+readd(phylotax_fig)
 ```
 
-(ref:full-length) Comparison of the length of sequences from different length amplicons and sequencing technologies.  Length distribution (*a*, *c*) and empirical cumulative distribution function (*b*, *d*) for short (*a*, *b*) and long (*c*, *d*) amplicons, respectively.
+(ref:full-length) Comparison of the length of denoised sequences from different length amplicons and sequencing technologies.
+Length distribution (*a*, *c*) and empirical cumulative distribution function (ECDF; *b*, *d*) for short (*a*, *b*) and long (*c*, *d*) amplicons, respectively.
 
 ```{r full-length, fig.cap = "(ref:full-length)", fig.height = 6}
-full_dens <- readd(reads_table) %>%
-  dplyr::left_join(dplyr::select(datasets, seq_run, tech, amplicon)) %>%
-  dplyr::filter(region %in% c("long", "short")) %>%
-  dplyr::group_by(seq_run) %>%
-  dplyr::mutate_at("amplicon", factor, levels = c("Short", "Long")) %>%
-  dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
-  dplyr::mutate(
-    reads = reads / sum(reads)
-  )
-
-full_dens_short <- full_dens %>%
-  filter(amplicon == "Short") %>%
-  ggplot(aes(length, weight = reads, color = tech, group = tech)) +
-  stat_density(bw = 0.5, geom = "line", position = "identity") +
-  scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
-  scale_y_continuous(name = "Density") +
-  scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
-  ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
-  theme(strip.background = element_blank())
-
-full_dens_long <- full_dens %>%
-  filter(amplicon == "Long") %>%
-  ggplot(aes(length, weight = reads, color = tech, group = tech)) +
-  stat_density(bw = 0.5, geom = "line", position = "identity") +
-  scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
-  scale_y_continuous(name = "Density") +
-  scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
-  ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
-  theme(strip.background = element_blank())
-
-full_ecdf <- readd(reads_table) %>%
-  dplyr::filter(region  %in% c("long", "short")) %>%
-  left_join(select(datasets, seq_run, amplicon, tech, machine), by = "seq_run") %>%
-  mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
-  dplyr::group_by(seq_run) %>%
-  dplyr::mutate(reads = reads / sum(reads))
-
-full_ecdf_short <- full_ecdf %>%
-  filter(amplicon == "Short") %>%
-  ggplot(aes(length, weight = reads, color = tech, group = tech)) +
-  stat_ecdf(geom = "line") +
-  scale_color_brewer(type = "qual",
-                     name = NULL, palette = "Set2") +
-  scale_y_continuous(name = "ECDF") +
-  scale_x_continuous(name = NULL) +
-  facet_grid( amplicon ~ ., scales = "free_x") +
-  theme(
-    legend.position = c(1, 0.02),
-    legend.justification = c(1, 0),
-    legend.background = element_blank(),
-    strip.background = element_blank()
-  )
-
-full_ecdf_long <- full_ecdf %>%
-  filter(amplicon == "Long") %>%
-  ggplot(aes(length, weight = reads, color = tech, group = tech)) +
-  stat_ecdf(geom = "line") +
-  scale_color_brewer(type = "qual",
-                     name = NULL, palette = "Set2", direction = -1) +
-  scale_y_continuous(name = "ECDF") +
-  scale_x_continuous(name = "Length (bp)") +
-  facet_grid( amplicon ~ ., scales = "free_x") +
-  theme(
-    legend.position = c(1, 0.02),
-    legend.justification = c(1, 0),
-    legend.background = element_blank(),
-    strip.background = element_blank()
-  )
-
 ggpubr::ggarrange(
-  full_dens_short,
-  full_ecdf_short,
-  full_dens_long,
-  full_ecdf_long,
+  readd(full_dens_short),
+  readd(full_ecdf_short),
+  readd(full_dens_long),
+  readd(full_ecdf_long),
   ncol = 1, heights = c(3, 1.7, 1.2, 2), labels = "auto", vjust = 1
-  
 )
 ```
 
@@ -977,98 +948,36 @@ regions %>%
   )
 ```
 
-(ref:region-asv) Plot of total number of ASVs recovered vs. fraction of reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`. Some reggions were formed by concatenation of extracted regions, as follows: LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4; ITS = ITS1--5.8S--ITS2; 32S = 5.8S--ITS2--LSU; long = ITS--LSU. For this figure, subregions were concatenated prior to generating ASVs with `DADA2`.
+(ref:region-asv) Plot of total number of ASVs recovered vs. fraction of reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`. Some regions were formed by concatenation of extracted regions, as follows: LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4; ITS = ITS1--5.8S--ITS2; 32S = 5.8S--ITS2--LSU; long = ITS--LSU. For this figure, subregions were concatenated prior to generating ASVs with `DADA2`.
 
 ```{r regions, fig.cap="(ref:region-asv)"}
 readd(region_table) %>%
   dplyr::filter(seq_run == "pb_500") %>%
+  mutate(reads = reads / sum(filter(readd(readcounts), seq_run == "pb_500", is.na(step), !is.na(well))$nreads)) %>%
+  dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
   ggplot(aes(reads, ASVs, color = length_med, label = region)) +
   geom_point() +
   ggrepel::geom_text_repel() +
   scale_color_gradientn(colors = c("blue", "red", "green1"), limits = c(30, 2000), breaks = c(50, 150, 400, 1000), trans = "log10", name = "median length") +
-  xlab("Mapped reads")
+  scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1))
 ```
 
 (ref:region-length) Length distribution for each region extracted from long amplicons.  Filtering limits are shown as dashed vertical lines.
 
 ```{r region-lengths, fig.cap = "(ref:region-length)", fig.height = 6}
-baseregions <- c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3",
-               "LSU4")
-
-region_limits <- dplyr::filter(regions, region %in% baseregions) %>%
-  dplyr::mutate_at(
-    "region",
-    factor,
-    levels = baseregions
-    ) %>%
-  tidyr::pivot_longer(
-    cols = c("min_length", "max_length"),
-    names_to = "limit",
-    names_pattern = "(min|max)_length",
-    values_to = "length"
-  )
-  
-
-readd(reads_table) %>%
-  dplyr::filter(region %in% baseregions,
-         seq_run == "pb_500") %>%
-  dplyr::mutate_at(
-    "region",
-    factor,
-    levels = baseregions
-    ) %>%
-  ggplot(aes(length, weight = reads)) +
-  stat_density(bw = 0.5, color = "#8da0cb", geom = "line") +
-  geom_vline(data = region_limits,
-             aes(xintercept = length),
-             linetype = "dashed", alpha = 0.5) +
-  facet_wrap(~region,ncol = 1, strip.position = "right", scales = "free_y") +
-  scale_y_continuous(breaks = NULL, labels = NULL, name = "Read density") +
-  scale_x_continuous(limits = c(0, 500), name = "Length (bp)")
+readd(region_length_fig)
 ```
 
 (ref:ITS2-length) Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies.  *a*) Length distribution.  *b*) Empirical cumulative distribution function.
 
 ```{r ITS2-length, fig.cap = "(ref:ITS2-length)", fig.height = 6}
-its2 <- readd(reads_table) %>%
-  dplyr::left_join(dplyr::select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
-  dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
-  dplyr::filter(region == "ITS2") %>%
-  arrange(tech, amplicon) %>%
-  mutate(
-    group = paste(tech, "-", amplicon) %>% factor(levels = unique(.))
-  ) %>%
-  dplyr::group_by(seq_run) %>%
-  dplyr::mutate(
-    reads = reads / sum(reads)
-  )
-
-its2_dens <- its2 %>%
-  ggplot(aes(length, weight = reads, color = group, group = group)) +
-  stat_density(bw = 0.5, geom = "line", position = "identity") +
-  scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
-  scale_y_continuous(name = "Density") +
-  scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
-  ggnomics::facet_nested(rows = vars(tech, amplicon), scales = "free_y",
-                         nest_line = TRUE) +
-  theme(strip.background = element_blank())
-
-its2_ecdf <- its2 %>%
-  mutate(tech = "", amplicon = "") %>%
-  ggplot(aes(length, weight = reads, color = group, group = group)) +
-  stat_ecdf(geom = "line") +
-  scale_color_brewer(type = "qual", name = NULL, palette = "Set2") +
-  scale_y_continuous(name = "ECDF") +
-  scale_x_continuous(name = "ITS2 Length (bp)") +
-  ggnomics::facet_nested(rows = vars(tech, amplicon), scales = "free_y",
-                         nest_line = TRUE) +
-  theme(
-    strip.background = element_blank(),
-    legend.position = c(0.98, 0.02),
-    legend.justification = c(1, 0)
-  )
-
-ggpubr::ggarrange(its2_dens, its2_ecdf, ncol = 1, labels = "auto", heights = c(4, 2))
+ggpubr::ggarrange(
+  readd(its2_dens),
+  readd(its2_ecdf),
+  ncol = 1,
+  labels = "auto",
+  heights = c(4, 2)
+)
 ```
 
 (ref:short-its) Kingdom-level taxonomic composition of ITS2 ASVs <= 140 bp.
@@ -1084,7 +993,7 @@ readd(big_seq_table_ITS2) %>%
   semi_join(readd(taxon_reads), ., by = c("label" = "ITS2")) %>%
   # group_by(ITS2) %>%
   # filter(!"Short" %in% amplicon) %>%
-  taxon_plot(kingdom, y = reads)
+  taxon_plot(kingdom, y = reads, datasets = datasets)
 ```
 
 (ref:heattree-length-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
@@ -1174,7 +1083,7 @@ Results are shown for different sequencing technologies, amplicons (Long, Short)
 ```{r ECM, fig.cap = "(ref:ecm)"}
   readd(taxon_reads) %>%
   mutate_at("reference", replace_na, "All") %>%
-  taxon_plot(ECM, kingdom == "Fungi") +
+  taxon_plot(ECM, kingdom == "Fungi", datasets = datasets) +
   theme(legend.position = "bottom", legend.title = element_blank())
 ```
 
