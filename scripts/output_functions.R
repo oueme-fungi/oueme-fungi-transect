@@ -14,7 +14,7 @@ percent <- function(x, ...) {
 
 text_list <- function(x, ...) {
   x = format(x, ...)
-  glue::glue_collapse(x, sep = ", ", last = ", and ")
+  glue::glue_collapse(x, sep = ", ", last = if (length(x) > 2) ", and " else " and ")
 }
 
 # compile data to make a table 

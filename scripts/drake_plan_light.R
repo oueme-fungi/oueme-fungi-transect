@@ -610,62 +610,92 @@ plan2 <- drake_plan(
   rawcounts = readcounts %>%
     filter(is.na(step), is.na(well)) %>%
     group_by(seq_run) %>%
-    summarize(nreads =  prettyNum(sum(nreads), big.mark = " ")) %>%
+    summarize(
+      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      nreads = sum(nreads)
+    ) %>%
     deframe(),
   
   demuxcounts = readcounts %>%
     filter(is.na(step), !is.na(well)) %>%
     group_by(seq_run) %>%
-    summarize(nreads = prettyNum(sum(nreads), big.mark = " ")) %>%
+    summarize(
+      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      nreads = sum(nreads)
+    ) %>%
     deframe(),
   
   filtercounts_full = readcounts %>%
     filter(step == "filter", is.na(region) | region %in% c("long", "short")) %>%
     group_by(seq_run, region) %>%
-    summarize(nreads = prettyNum(sum(nreads), big.mark = " ")) %>%
+    summarize(
+      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      nreads = sum(nreads)
+    ) %>%
     select(seq_run, nreads) %>%
     deframe(), 
   
   filtercounts_ITS2 = readcounts %>%
     filter(step == "filter", region == "ITS2") %>%
     group_by(seq_run, region) %>%
-    summarize(nreads = prettyNum(sum(nreads), big.mark = " ")) %>%
+    summarize(
+      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      nreads = sum(nreads)
+    ) %>%
     select(seq_run, nreads) %>%
     deframe(),
     
   regioncounts = readcounts %>%
-    filter(step == "lsux") %>%
+    filter(step == "lsux", region == "5_8S") %>%
     group_by(seq_run) %>%
-    summarize(nreads = prettyNum(
-      sum(nreads) %/% if (seq_run[1] == "pb_500") 14 else 4,
-      big.mark = " ")
+    summarize(
+      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      nreads = sum(nreads)
     ) %>%
     deframe(),
+  
+  asvcounts =
+    pivot_longer(asv_table, -1, names_to = "seq_run", values_to = "reads") %>%
+    filter(reads > 0) %>%
+    mutate_at("seq", chartr, old = "T", new = "U") %>%
+    inner_join(
+      select(allseqs, seq = ITS2, everything()) %>%
+        select(-hash, -nread) %>%
+        mutate(ITS2 = seq) %>%
+        pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
+        filter(!is.na(consensus)) %>%
+        select(-consensus) %>%
+        unique(),
+      by = "seq"
+    ) %>%
+    group_by(seq_run, region) %>%
+    summarize(reads = sum(reads, na.rm = TRUE), ASVs = n()) %>%
+    select(seq_run, reads, step = region, ASVs),
   
   bioinf_table = bind_rows(
     enframe(rawcounts, name = "seq_run", value = "reads") %>%
       mutate(
-        reads = as.integer(gsub(" ", "", reads)),
+        # reads = as.integer(gsub(" ", "", reads)),
         step = "Raw"
       ),
     enframe(demuxcounts, name = "seq_run", value = "reads") %>%
       mutate(
-        reads = as.integer(gsub(" ", "", reads)),
+        # reads = as.integer(gsub(" ", "", reads)),
         step = "Trim"
       ),
     enframe(regioncounts, name = "seq_run", value = "reads") %>%
       mutate(
-        reads = as.integer(gsub(" ", "", reads)),
+        # reads = as.integer(gsub(" ", "", reads)),
         step = "LSUx"
       ),
     enframe(filtercounts_full, name = "seq_run", value = "reads") %>%
       mutate(
-        reads = as.integer(gsub(" ", "", reads)),
+        # reads = as.integer(gsub(" ", "", reads)),
         step = "Filter (full)"
       ),
     enframe(filtercounts_ITS2, name = "seq_run", value = "reads") %>%
       mutate(
-        reads = as.integer(gsub(" ", "", reads)),
+        # reads = as.integer(gsub(" ", "", reads)),
         step = "Filter (ITS2)"
       ),
     filter(region_table, region == "ITS2") %>%
@@ -714,6 +744,7 @@ plan2 <- drake_plan(
       type = factor(type, c("ASVs", "reads"))
     ) %>%
     arrange(tech, amplicon, type) %>%
+    filter(ifelse(amplicon == "Short", !step  %in% c("ITS", "LSU", "long"), step != "short")) %>%
     pivot_wider(
       id_cols = "step",
       names_from = c("tech", "amplicon", "type"),
@@ -968,7 +999,10 @@ plan2 <- drake_plan(
     ) %>%
     unnest(reference) %>%
     mutate_at("reference", factor, levels = c("Unite", "Warcup", "RDP")) %>%
-    pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac") %>%
+    pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac"),
+  
+  tax_chart_plot =
+    tax_chart %>%
     ggplot(aes(x = rank, y = frac, ymax = frac, group = Algorithm, fill = Algorithm)) +
     ggnomics::facet_nested(
       tech + amplicon ~ type + reference,
@@ -1549,6 +1583,100 @@ plan2 <- drake_plan(
       scale_x_continuous(limits = c(0, 500), name = "Length (bp)")
   },
   
+  heattree = {
+    set.seed(3)
+    theme_update(panel.border = element_blank())
+    taxdata %>%
+      metacoder::heat_tree(
+        layout = "davidson-harel",
+        # initial_layout = "reingold-tilford",
+        node_size = rowMeans(.$data$tax_read[,-1]),
+        node_color = rowMeans(.$data$tax_read[,-1]),
+        node_label = replace_na(taxon_names, "unknown"),
+        node_size_range = c(0.002, .035),
+        node_size_axis_label = "Read abundance",
+        node_color_axis_label = "Read abundance",
+        node_label_size_range = c(0.01, 0.03),
+        edge_size = rowMeans(.$data$tax_asv[,-1]),
+        edge_size_trans = "linear",
+        edge_size_axis_label = "ASV count",
+        edge_size_range = c(0.001, 0.03),
+        edge_color = rowMeans(.$data$tax_asv[,-1]),
+        edge_color_axis_label = "ASV count",
+        # aspect_ratio = 3/2,
+        make_node_legend = FALSE,
+        make_edge_legend = FALSE,
+        output_file = file_out("temp/heattree.pdf")
+      )
+  },
+  
+  heattree_length_compare = {
+  taxdata2 <- taxdata
+  taxdata2$data$diff_read <- metacoder::compare_groups(
+    taxdata2,
+    data = "tax_read",
+    cols = names(taxdata2$data$tax_read) %>%
+      keep(str_detect, "reads_.+_.+_.+_.+"),
+    groups = names(taxdata2$data$tax_read) %>%
+      keep(str_detect, "reads_.+_.+_.+_.+") %>%
+      str_replace("reads_.+_(.+)_.+_.+", "\\1"),
+    func = function(abund1, abund2) {
+      list(read_ratio = log10(mean(abund1) / mean(abund2)))
+    }
+  )
+  taxdata2$data$diff_asv <- metacoder::compare_groups(
+    taxdata2,
+    data = "tax_asv",
+    cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
+    groups = names(taxdata2$data$tax_asv) %>%
+      keep(startsWith, "ASVs_") %>%
+      str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
+    func = function(abund1, abund2) {
+      list(asv_ratio = log10(mean(abund1) / mean(abund2)))
+    }
+  )
+  
+  set.seed(3)
+  theme_update(panel.border = element_blank())
+  taxdata2 %>%
+    metacoder::heat_tree(
+      layout = "davidson-harel",
+      # initial_layout = "reingold-tilford",
+      
+      node_size = rowMeans(.$data$tax_read[,-1]),
+      node_size_range = c(0.002, .035),
+      node_size_axis_label = "Read abundance",
+      
+      node_color = read_ratio,
+      node_color_range = metacoder::diverging_palette(),
+      node_color_trans = "linear",
+      node_color_axis_label = "Read abundance ratio",
+      node_color_interval = c(-6, 6),
+      
+      edge_size = rowMeans(.$data$tax_asv[,-1]),
+      edge_size_range = c(0.001, 0.03),
+      edge_size_trans = "linear",
+      edge_size_axis_label = "ASV count",
+      
+      edge_color = asv_ratio,
+      edge_color_range = metacoder::diverging_palette(),
+      edge_color_trans = "linear",
+      edge_color_axis_label = "ASV count ratio",
+      edge_color_interval = c(-3, 3),
+      
+      node_label = ifelse(
+        pmax(abs(.$data$diff_read$read_ratio),
+             abs(.$data$diff_asv$asv_ratio)) > 0.5,
+        taxon_names,
+        ""
+      ),
+      # aspect_ratio = 3/2,
+      node_label_size_range = c(0.010, 0.03),
+      output_file = file_out("temp/heattree_amplicons.pdf")
+      # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
+    )
+  },
+  
   ecm_heattree = {
     taxdata2 <- taxdata_ECM
     
@@ -1589,6 +1717,7 @@ plan2 <- drake_plan(
     taxdata2 <- taxdata2$filter_taxa(!is.nan(ASV_ratio), !is.nan(read_ratio))
     
     set.seed(3)
+    theme_update(panel.border = element_blank())
     taxdata2 %>%
       metacoder::heat_tree(
         layout = "davidson-harel",
@@ -1618,7 +1747,150 @@ plan2 <- drake_plan(
         node_label = taxon_names,
         node_label_size_range = c(0.02, 0.03),
         # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
-        aspect_ratio = 3/2
+        aspect_ratio = 3/2,
+        output_file = file_out("temp/ecm_heattree.pdf")
+        
+      )
+  },
+  
+  buffer_compare_physeq = {
+    physeq <- proto_physeq %>%
+      `sample_data<-`(inset2(
+        sample_data(.),
+        "qual",
+        value = fct_collapse(sample_data(.)$qual, "-" = c("", "*"))
+      )) %>%
+      subset_samples(!is.na(site)) %>%
+      merge_samples(group = glue::glue_data(
+        sample_data(.),
+        "{year}_{buffer}_{tech}_{amplicon}"
+      ))
+    
+    ranks <- c("root", "kingdom", "phylum", "class", "order", "family", "genus")
+    taxon_reads %>%
+      mutate(root = "Root") %>%
+      group_by(label) %>%
+      arrange(amplicon, reference, Algorithm, .by_group = TRUE) %>%
+      summarize_at(ranks, first) %>%
+      left_join(
+        tibble(label = taxa_names(physeq)),
+        .,
+        by = "label"
+      ) %>% {
+        split(select(., -label), .$label)
+      } %>%
+      lapply(unlist) %>%
+      build_tax_table() %>%
+      `tax_table<-`(physeq, .) %>%
+      tax_glom(taxrank = "family", NArm = FALSE)
+  },
+  
+  buffer_compare_taxmap = {
+    taxmap <- metacoder::parse_phyloseq(buffer_compare_physeq)
+    taxmap$data$otu_table <- metacoder::calc_obs_props(taxmap, "otu_table")
+    taxmap$data$read_count <- metacoder::calc_taxon_abund(taxmap, "otu_table")
+    taxmap
+  },
+  
+  buffer_compare_long = {
+    taxmap <- buffer_compare_taxmap
+    taxmap$data$read_diff <- metacoder::compare_groups(
+      taxmap,
+      "read_count",
+      cols = names(taxmap$data$read_count) %>%
+        keep(endsWith, "Long"),
+      groups = names(taxmap$data$read_count) %>%
+        keep(endsWith, "Long") %>%
+        str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
+          paste(.[,3], .[,2])
+        },
+      func = function(abund1, abund2) {
+        list(read_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
+      },
+      combinations = list(
+        c("Xpedition 2016", "Xpedition 2015"),
+        c("Xpedition 2016", "LifeGuard 2016"),
+        c("Xpedition 2015", "LifeGuard 2016")
+      )
+    )
+    theme_update(panel.border = element_blank())
+    taxa::filter_taxa(
+      taxmap,
+      taxmap$data$read_count$`2015_Xpedition_PacBio_Long` > 0 |
+        taxmap$data$read_count$`2016_Xpedition_PacBio_Long` > 0 |
+        taxmap$data$read_count$`2016_LifeGuard_PacBio_Long` > 0,
+      drop_obs = TRUE,
+      reassign_obs = FALSE
+    ) %>%
+      metacoder::heat_tree_matrix(
+        "read_diff",
+        node_label = taxon_names,
+        node_color = read_ratio,
+        node_size = rowMeans(.$data$read_count[-1]),
+        node_size_axis_label = "Read fraction",
+        node_color_range = metacoder::diverging_palette(),
+        node_color_axis_label = "Log10 Read Ratio",
+        node_color_interval = c(-3, 3),
+        node_color_trans = "linear",
+        edge_size = rowMeans(.$data$read_count[-1]),
+        edge_size_range = c(0, 0.03),
+        edge_size_trans = "linear",
+        edge_size_axis_label = "ASV fraction",
+        node_size_range = c(0, 0.03),
+        node_label_size_range = c(0.005, 0.03),
+        layout = "davidson-harel",
+        initial_layout = "reingold-tilford",
+        output_file = file_out("temp/compare_long.pdf")
+      )
+  },
+  
+  buffer_compare_short = {
+    taxmap <- buffer_compare_taxmap
+    taxmap$data$read_diff <- metacoder::compare_groups(
+      taxmap,
+      "read_count",
+      cols = names(taxmap$data$read_count) %>%
+        keep(endsWith, "Short"),
+      groups = names(taxmap$data$read_count) %>%
+        keep(endsWith, "Short") %>%
+        str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
+          paste(.[,3], .[,2])
+        },
+      func = function(abund1, abund2) {
+        list(read_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
+      },
+      combinations = list(
+        c("Xpedition 2016", "Xpedition 2015"),
+        c("Xpedition 2016", "LifeGuard 2016"),
+        c("Xpedition 2015", "LifeGuard 2016")
+      )
+    )
+    theme_update(panel.border = element_blank())
+    taxa::filter_taxa(
+      taxmap,
+      taxmap$data$read_count %>% select(ends_with("Short")) %>% rowSums() > 0,
+      drop_obs = TRUE,
+      reassign_obs = FALSE
+    ) %>%
+      metacoder::heat_tree_matrix(
+        "read_diff",
+        node_label = taxon_names,
+        node_color = read_ratio,
+        node_size = rowMeans(.$data$read_count[-1]),
+        node_size_axis_label = "Read fraction",
+        node_color_range = metacoder::diverging_palette(),
+        node_color_axis_label = "Log10 Read Ratio",
+        node_color_interval = c(-3, 3),
+        node_color_trans = "linear",
+        edge_size = rowMeans(.$data$read_count[-1]),
+        edge_size_range = c(0, 0.03),
+        edge_size_trans = "linear",
+        edge_size_axis_label = "ASV fraction",
+        node_size_range = c(0, 0.03),
+        node_label_size_range = c(0.005, 0.03),
+        layout = "davidson-harel",
+        initial_layout = "reingold-tilford",
+        output_file = file_out("temp/compare_short.pdf")
       )
   },
   trace = TRUE

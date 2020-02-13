@@ -1,6 +1,5 @@
 ---
-title: "A Tale of Two Transects"
-subtitle: "Also Two Sequencing Technologies, and Two Amplicons"
+title: "Long- and Short-Read Metabarcoding Give Similar Results for Spatial Turnover Range in an Ectomycorrhizal Savanna Woodland"
 author: 
   - Brendan Furneaux^1^,
     Mohammad Bahram^1^,
@@ -101,38 +100,46 @@ regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 source(here(file.path("scripts", "output_functions.R")))
 ```
 
+# Abstract
+
+Ectomycorrhizal (ECM) communities are characterized by mutualistic symbiosis between certain fungi and plant roots.
+Spatial turnover rate is one important characteristic of ecological communities, which is relevant for biodiversity assessment and sampling design.
+We investigated turnover rate in an ECM fungal community using soil metabarcoding with four different sequencing strategies: short amplicon sequencing of the ITS2 region (300--400 bp) with Illumina MiSeq, Ion Torrent Ion S5, and PacBio RS II, as well as long amplicon sequencing of the full ITS and partial LSU regions (1200--1600 bp) with PacBio RS II.
+Resulting turnover rates depended more on statistical method than sequencing technology.
+We found significant autocorrelation in distance classes <3 m using a Mantel correlogram, and a best-fit distance-decay curve range of 17--19 m, both shorter than previously reported for similar habitats.
+The use of long-amplicon sequencing enables construction of a phylogenetic tree from metabarcoding reads, which facilitates taxonomic identification of sequences.
+However, long reads present issues for denoising algorithms in diverse communities.
+We present a solution that splits the reads into shorter homologous regions prior to denoising, and then reconstructs the full denoised reads.
+In the choice between short and long amplicons, we suggest a hybrid approach using short amplicons for sampling breadth and depth, and long amplicons to characterize the local species pool for improved identification and phylogenetic analyses.
+
 # Introduction
 
-## Introduction to ECM communities
-
 Ectomycorrhizas (ECM) are a symbiosis between fungi and plant root tips.
-The fungi provide nutrients and protection from pathogens in exchange for sugards from the plant [@Smith2010].
-Approximately 8% of described fungal species [@ainsworth2008ainsworth;@Rinaldi2008] and 2% of land plant species [@brundrett2017a] form ECM.
-The plants include ecologically and economically important stand-forming trees belonging to both temperate/boreal groups such as Pinaceae and Fagaceae, and tropical groups such as Dipterocarpaceae, and Fabaceae tr. Amherstieae.
+The fungi provide nutrients and protection from pathogens in exchange for sugars from the plant [@Smith2010].
+Approximately 8% of described fungal species are believed to take part in ECM symbiosis [@ainsworth2008ainsworth;@Rinaldi2008].
+Although only about 2% of land plant species form ECM, these include ecologically and economically important stand-forming trees belonging to both temperate/boreal groups such as Pinaceae and Fagaceae, and tropical groups such as Dipterocarpaceae, and Fabaceae tr. Amherstieae [@brundrett2017a].
 
 Although many well-known mushrooms are produced by ECM fungi (e.g., *Amanita*, *Cantharellus*, *Boletus*), many ECM fungi instead produce inconspicuous (e.g., *Tomentella*) or no (e.g., *Cenococcum*) fruit bodies.
-Even when fruitbodies are large, they are ephemeral, so study of ECM communities is facilitated by looking at vegetative structures.
+Even when fruitbodies are large, they are ephemeral, so study of ECM communities is facilitated by looking at vegetative structures [@horton2001].
 Unlike many saprotrophic fungi which grow easily in axenic culture, ECM fungi are usually difficult to culture, so DNA barcoding is increasingly used to investigate vegetative structures.
-The advent of high-thoughput sequencing (HTS) has facilitated such studies by providing enough sequencing depth for metabarcoding of bulk environmental samples such as soils.
-
-## Metabarcoding methods
+The advent of high-thoughput sequencing (HTS) has facilitated such studies by providing enough sequencing depth for metabarcoding of bulk environmental samples such as soils [@Lindahl2013].
 
 As additional techniques and methods are developed for HTS, there is an increasing array of choices for researchers investigating fungal communities.
 Traditionally, fungal metabarcoding studies have targetted the ITS1 or ITS2 regions, which provide sufficient resolution to distinguish fungal species in many groups, and which are usually short enough for HTS [@schoch2012;@Lindahl2013].
-The resulting sequencing reads are clustered by sequence similarity to form operational taxonomic units (OTUs), which are then used as the units for further community analysis.
-If taxonomic identification is desired, it has usually been performed by database searches using BLAST (ref).
-This approach comes with some weaknesses.
+The resulting sequencing reads are clustered by sequence similarity to form operational taxonomic units (OTUs), which are then used as the units for further community analysis [@Lindahl2013].
+If taxonomic identification is desired in order to put OTUs in a wider context and associate functional information, it has usually been performed by database searches using BLAST [@altschul1990;@Lindahl2013].
+However, this traditional approach comes with some potential weaknesses.
 
-While ITS1 and ITS2 often have suitable variation to distinguish species, they cannot be reliably aligned over the large taxonomic scales typically present in environmental samples.
+While ITS1 and ITS2 often have suitable variation to distinguish species, they cannot be reliably aligned over the large taxonomic scales typically present in environmental samples [@Lindahl2013].
 Additionally the wide range of length variation of these regions may introduce bias in recovery of different taxa.
 Further bias is introduced by variation in the 5.8S region which separates the two ITS regions, which makes it difficult to design primers that are suitable for all fungi [@tedersoo2015].
 The recent advent of long-read HTS technologies such as Pacific Biosciences Single Molecule Real Time sequencing (PacBio) introduce the possibility of sequencing longer amplicons which include both the ITS regions and the flanking, more conserved SSU and/or LSU regions [@Tedersoo2018].
-This has the potential to improve taxonomic placement of sequences without close database matches, and to allow the alignment of metabarcoding reads.
+This has the potential to improve taxonomic placement of sequences that lack close database matches, and to allow the alignment of metabarcoding reads.
 However, long-read technologies are currently more expensive per read, and so their use entails a trade-off with sequencing depth and/or sample number [@Kennedy2018].
 
 Distance-based clustering conflates intra-species variation and sequencing error, and results are dataset-specific.
 In contrast, more recent denoising methods such as DADA2 [@callahan2017], Deblur [@amir2017], and UNOISE2 [@edgar2016] utilize read quality information to control for sequencing error while leaving intra-species variation.
-The resulting units are known as amplicon sequence variants (ASVs) or exact sequence variants (ESVs), as they should represent all true amplicon sequences from the sample.
+The resulting units are known as amplicon sequence variants (ASVs) or exact sequence variants (ESVs), as they should represent true amplicon sequences from the sample.
 Unlike cluster-based OTUs, ASVs can capture variation of as little as one base pair, and are not as dataset specific [@callahan2017].
 
 Assignment of taxonomic identities using BLAST requires *a priori* choice of threshholds for different taxonomic ranks.
@@ -140,15 +147,13 @@ Several algorithms specifically designed for taxonomic assignment have been publ
 In addition, methods have been published which integrate predictions from multiple algorithms to increase the reliability of assignments [@somervuo2016;@gdanetz2017].
 
 Phylogenetic information has the potential to both improve taxonomic assignment and provide alternative measures of community alpha and beta diversity.
-Because OTU clustering may both "clump" different species in a single OTU, and "split" a single species into multiple OTUS [@ryberg2015], diversity measures based on counting species within a community or shared species between two communities may give different results depending on the clustering threshold.
+Because OTU clustering may both "clump" different species into a single OTU, and "split" a single species into multiple OTUs [@ryberg2015], diversity measures based on counting species within a community or shared species between two communities may give different results depending on the clustering threshold.
 In contrast, phylogenetic community distance measures like UNIFRAC [@wong2016] are relatively insensitive to species/OTU delimitation, but require a phylogenetic tree.
-Phylogenetic placement algorithms [@matsen2010; @berger2011] are not easy to apply to ITS sequences because they require that the query sequences be aligned to a reference alignment.
+Phylogenetic placement algorithms have been developed to place short amplicon reads onto a reference tree [@matsen2010; @berger2011], but are not easy to apply to ITS sequences because they require that the query sequences be aligned to a reference alignment.
 Additionally, methods exist to place OTUs on a simplified tree based on taxonomic assignments [@tedersoo2018].
 However, long amplicon sequencing allows the inclusion of alignable regions for construction of more fully resolved phylogenetic trees directly from metabarcoding reads.
 
 We investigated the effects of different sequencing strategies and post-analysis on biological conclusions using measurement of the spatial community turnover rate along a transect in an ECM Soudanian woodland in Benin.
-
-## Turnover scale in ECM forests
 
 Turnover scale is the distance at which two communities can be considered to be independent samples of the local species pool.
 Knowledge of turnover scale is import when planning studies of local diversity and its environmental correlates.
@@ -182,7 +187,7 @@ Approximately 50 mg total of soil was collected from two locations in the homoge
 <!--The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis. -->
 
 An additional sample was collected at every sampling location (1-m spacing) in 2016 using LifeGuard^TM^ Soil Preservation Solution (MO BIO, Carlsbad, CA; USA) for preservation, without field lysis.
-Sequencing results for these samples were found not to be comparable with results preserved using the Xpedition^TM^ lysis buffer (Supplementary figure \@ref(fig:)), so these samples were not included in spatial analyses.
+Sequencing results for these samples were found not to be comparable with results preserved using the Xpedition^TM^ lysis buffer (Supplementary Figures \@ref(fig:buffer-compare-long) and \@ref(fig:buffer-compare-short)), so these samples were not included in spatial analyses.
 However, reads from these sequences were included in the full bioinformatics workflow, including ASV calling, OTU clustering, and phylogenetic trees.
 
 <!-- ## Soil Chemistry
@@ -197,12 +202,12 @@ After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit
 Samples preserved using LifeGuard were first centrifuged at 10000×g for 1 minute, after which the supernatant was removed and DNA was extracted from the remaining soil using the Soil/Fecal Prep kit as for the other samples.
 DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
 
-Two different fragments of the nuclear rDNA were amplified (Figure \@ref(fig:rDNA)).
-The short amplicon (approximately 300 bp) included the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] as the reverse primer (hereafter, ITS4m).
-The long amplicon (approximately 1500 bp) included approximately 12 bp at the 3' end of the small subunit (SSU) rDNA, the full ITS region including the 5.8S rDNA, and approximately 950 bp at the 5' end of the LSU, including the first three variable regions (Figure \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
+Two different fragments of the nuclear rDNA were amplified (Figure\ \@ref(fig:rDNA)).
+The short amplicon (approximately 300 bp) targetted the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] as the reverse primer (hereafter, ITS4m).
+The long amplicon (approximately 1500 bp) targetted the full ITS region including the 5.8S rDNA and approximately 950 bp at the 5' end of the LSU, including the first three variable regions (Figure\ \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
 
-The gITS7 primers for the short amplicon were indexed for multiplexing (**supp info**).
-Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200 µM dNTP mix, 250 µM indexed gITS7 primer, 150µM ITS4m, 2mM McCl_2_, 0.1 U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7 ng purified DNA in Dream *Taq* buffer.
+The gITS7 primers for the short amplicon were indexed for multiplexing (**Supplementary File**).
+Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200 µM dNTP mix, 250 µM indexed gITS7 primer, 150µM ITS4m, 2mM MgCl~2~, 0.1 U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7 ng purified DNA in Dream *Taq* buffer.
 The reaction conditions were 10 min at 95°, followed by 35 cycles of 60 s at 95°, 45 s at 56°, and 50 s at 72°, and finally 3 min at 72°.
 Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity, which were pooled after amplification.
 
@@ -213,7 +218,7 @@ Each reaction was conducted in three technical replicates to reduce the effect o
 
 ```
 
-Both primers for the long amplicon were indexed for multiplexing (**supp info**).
+Both primers for the long amplicon were indexed for multiplexing (**Supplementary File**).
 PCR was performed as for the short amplicons, but with 500 µM of each of the two primers.
 Reaction conditions were 10 min at 95°, 30 cycles of 45 s at 95°, 45 s at 59°, and 90 s at 72°, and finally 10 min at 72°.
 Each reaction was performed in three technical replicates as for short amplicons.
@@ -222,7 +227,6 @@ Each PCR run also included a blank sample and a positive control consisting of f
 
 Amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically as above.
 An aliquot of 100 ng of DNA from each sample (or the total PCR product if less than 100 ng) was pooled into two libraries each for long and short amplicons.
-The first library contained all samples from 2016 plus one PCR blank and one positive control (68 total samples), and the second containes all samples from 2015 plus one PCR blank and one positive control (42 total samples).
 Each library was sequenced using Single Molecule Real Time (SMRT) sequencing on a Pacific Biosciences (PacBio) RS II sequencer at the Uppsala Genome Center (UGC; Uppsala Genome Center, Science
 for Life Laboratory, Dept. of Immunology, Genetics and Pathology, Uppsala University, BMC, Box 815, SE-752 37 UPPSALA, Sweden).
 Short amplicon libraries were sequenced on two SMRT cells each, while long amplicon libraries were sequenced on four SMRT cells each.
@@ -244,7 +248,7 @@ Read pairs where the primers were found in reverse orientation were kept in sepe
 ### Denoising
 
 Forward and reverse Illumina reads were truncated after the first base with quality score <= 10, and then reads with more than 3 expected errors in either read were discarded.
-Forward and reverse reads were denoised using `DADA2` version `r packageVersion("dada2")` [@callahan2016] using seperate error models and then merged.
+Forward and reverse reads were denoised using `DADA2` version `r packageVersion("dada2")` [@callahan2016] using seperate error models and pseudo-pooling, and then forward and reverse reads were merged.
 
 We attempted to denoise both long and short PacBio amplicons using `DADA2` according to the steps outlined in  the supplementary information in @callahan2019.
 However, only `r readd(region_table)$ASVs[readd(region_table)$region=="long"]` amplicon sequence variants (ASVs) were obtained for the long amplicons, representing `r percent(readd(region_table)$reads[readd(region_table)$region == "long"]/as.integer(gsub(" ", "", readd(demuxcounts)["pb_500"])), format = "d")` of the trimmed reads.
@@ -264,12 +268,12 @@ No attempt was made to remove the approximately 12 bp fragment of the SSU from t
 A reference alignment including conserved RNA base pairing between and within the 5.8S and relevant portions of LSU was generated from the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 [@glockner2017; @cole2014] by truncating after the LR5 primer site and using the reference line to annotate the variable regions *sensu* @michot1984 and @raue1988.
 A CM was generated from the alignment using `cmbuild` from Infernal.
 The fragment of each read beginning with the 5.8S rDNA was then aligned to the CM using `cmalign` from Infernal.
-The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved regions as shown in Figure \@ref(fig:rDNA),
+The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved regions as shown in Figure\ \@ref(fig:rDNA),
 where LSU1-4 represent the conserved regions of LSU flanking the variable D1-3 regions [@michot1984].
 For short amplicons, only (partial) 5.8S, ITS2, and (partial) LSU1 were extracted.
 Code to extract the regions, including annotated seed alignments and CMs, is available in the new R package `LSUx`, available on github (https://github.com/brendanf/LSUx).
 
-Each of the extracted regions was independently filtered for length (Table \@ref(tab:region-length)) and a maximum of three expected errors.
+Each of the extracted regions was independently filtered for length (Supplementary Table\ \@ref(tab:region-limits)) and a maximum of three expected errors.
 Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using `DADA2` version `r packageVersion("dada2")` [@callahan2016; @callahan2019].
 The error model for `DADA2` denoising was fit using the 5.8S region for long amplicons, and using the entire read for short amplicons.
 Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, different sequencing technologies).
@@ -279,12 +283,12 @@ Chimeras within each region were removed using `removeBimeraDenovoTable` from `D
 
 For each ITS2 ASV from the long amplicon data set, the denoised sequences for the other regions corresponding to the same sequencing reads were concatenated to form a set of full-length reads.
 For reads which were not assigned a denoised sequence for each region, the raw read for the region was used instead.
-Because ITS2 is the most variable of the amplified regions (Supplementary Figure \@ref(fig:regions)), reads with identical ITS2 regions are expected have highly similar sequences in the other regions, unless the amplicon was chimeric.
+Because ITS2 is the most variable of the amplified regions (Supplementary Figure\ \@ref(fig:regions)), reads with identical ITS2 regions are expected have highly similar sequences in the other regions, unless the amplicon was chimeric.
 The concatenated ASVs representing each long read were aligned in R using the `DECIPHER` package [@wright2015].
 Outlier sequences, as determined by mean pairwise distance from the rest of the alignment, were removed from each alignment using the `odseq` package [@jehl2015], using the default threshold of 0.025.
 The consensus of the remaining aligned sequences was assigned as the full-length ASV sequence.
-Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleotide >50% at a given position) were removed *(how many)*.
-The count and sample distribution of reads assigned to each ASV were calculated in order to form a sample x ASV community matrix.
+Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleotide >50% at a given position) were removed.
+The count and sample distribution of reads assigned to each ASV were calculated in order to form a sample × ASV community matrix.
 A similar process was used to generate a consensus ITS (ITS1--5.8S--ITS2) and LSU (LSU1--D1--LSU2--D2--LSU3--D3--LSU4) sequence for each ASV.
 The process of assigning consensus full-length ASVs was carried out using the new `tzara` package for R, available on github (https://github.com/brendanf/tzara).
 
@@ -314,9 +318,9 @@ For comparison with clustering-based methods, ASVs were clustered into operation
 
 Unique LSU regions from long amplicon ASVs were aligned using DECIPHER [@wright2015] with up to 10 iterations of progressive alignment and conserved RNA secondary structure calculation and 10 refinement iterations.
 <!-- The LSU tree ends up not looking as nice as the tree which includes ITS (I don't know why, except that maybe 5.8S is more helpful than ITS is harmful?) so I'm using that. Maybe I don't need to mention the LSU-only tree.-->
-This alignment was truncated at a position after the D3 region corresponding to base 907 of the *Saccharomyces cerevisiae* S288C reference sequence for LSU, because several sequences had type 1 introns
+This alignment was truncated at a position after the D3 region corresponding to base 907 of the *Saccharomyces cerevisiae* S288C reference sequence for LSU, because several sequences had introns
 <!-- Just curious, what are Type 1 introns -AR--> <!-- It has to do with the enzyme that cuts them out, I think, but I don't actually know my introns are Type 1, just that this is a location where Type 1 introns are known to occur. -BF-->
-after this position [@holst-jensen1999].
+after this position, as also observed in several fungal species by @holst-jensen1999.
 Full length long amplicon ASVs (including ITS1, 5.8S, and ITS2 regions) were aligned and truncated in the same way.
 
 ML trees were produced using RAxML version 8.2.12 [@stamatakis2014] using the GTR+GAMMA model and rapid bootstrapping with the MRE_IGN stopping criterion.
@@ -328,7 +332,7 @@ Assignments based on Warcup were not used at this step because non-Fungi are not
 The kingdom Fungi was identified as the minimal clade containing all ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
 ASVs falling outside this clade were not included in the fungal community analysis.
 
-Taxonomic assignments of ASVs from the long amplicon dataset were refined using the phylogenetic tree (Supplementary Figure \@ref(fig:phylotax)).
+Taxonomic assignments of ASVs from the long amplicon dataset were refined using the phylogenetic tree (Supplementary Figure\ \@ref(fig:phylotax)).
 A taxon at a particular rank was assigned to a node and all its descendents if that taxon was consistent with the reference-based taxonomic assignments for each of the descendents.
 A taxon assignment was considered to be consistent if at least one algorithm assigned that taxon at greater than 50% confidence, or if no algorithm successfully classified the sequence at greater than 50% confidence.
 The result of this process was to give a taxonomic assignment to ASVs which were previously unassigned if they were nested within a clade where which was consistently given an assignment, as well as clarify the assignment of ASVs where different algorithms had resulted in different assignments, but only one of these was consistent with the assignments of other ASVs in the same clade.
@@ -344,7 +348,7 @@ Ecological community dissimilarity matrices were calculated using the ASV/OTU ba
 Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12 m.
 Separate correlograms were drawn for samples taken during the same year, and samples separated in time by one year, in order to assess the degree to which the soil community changes over the course of one year.
 
-Additionally, empirical distance-decay curves were generated by plotting mean community dissimilarity as a function of spatial distance, and fit to an exponential model of the form given by @Legendre2012 using the `nls` function in R.
+Additionally, empirical distance-decay curves were generated by plotting mean community dissimilarity as a function of spatial distance, and fit to an exponential model of the form given by @legendre2012 using the `nls` function in R.
 Points in the empirical distance-decay curve were weighted by the number of comparisons within the distance class and the inverse of the distance for the purposes of model fitting.
 For datasets where the Mantel corellogram indicated spatial correlation between samples taken in seperate years, the model was re-fit with an additional term to represent temporal correlation:
 $$D = C_0 + C_1\left[1 - \exp\left(-3  \left(\frac{d}{a_d} + \frac{t}{a_t}\right)\right)\right]$$
@@ -353,10 +357,11 @@ where $D$, $d$, and $t$ represent the community dissimilarity, spatial distance,
 
 # Results
 
-The number of sequencing reads and ASVs at each stage in the bioinformatics pipeline are shown in Table \@ref(tab:bioinfo).
+The number of sequencing reads and ASVs at each stage in the bioinformatics pipeline are shown in Table\ \@ref(tab:bioinfo).
 Long (short) amplicon sequencing with PacBio yielded `r readd(rawcounts)["pb_500"]` (`r readd(rawcounts)["pb_483"]`) circular consensus reads, of which `r readd(demuxcounts)["pb_500"]` (`r readd(demuxcounts)["pb_483"]`) were successfully trimmed and demultiplexed.
 Illumina sequencing yielded `r readd(rawcounts)["SH-2257"]` read pairs, of which `r readd(demuxcounts)["SH-2257"]` were successfully trimmed and demultiplexed, and `r readd(filtercounts_full)["SH-2257"]` passed quality filtering.
 Ion Torrent sequencing yielded `r readd(demuxcounts)["is_057"]` demultiplexed reads.
+`r readd(filtercounts_full)['pb_500']` (`r percent(readd(filtercounts_full)['pb_500']/readd(demuxcounts)['pb_500'], digits = 1, format = "f")`) of long amplicon PacBio reads passed length and quality filtering stages, compared with `r readd(filtercounts_full)['pb_483']` (`r percent(readd(filtercounts_full)['pb_483']/readd(demuxcounts)['pb_483'], digits = 1, format = "f")`) of short amplicon PacBio reads, `r readd(filtercounts_full)['SH-2257']` (`r percent(readd(filtercounts_full)['SH-2257']/readd(demuxcounts)['SH-2257'], digits = 1, format = "f")`) of Illumina read pairs, and `r readd(filtercounts_full)['is_057']` (`r percent(readd(filtercounts_full)['is_057']/readd(demuxcounts)['is_057'], digits = 1, format = "f")`) of Ion Torrent reads.
 
 (ref:readcounts) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages.
 *Raw*: raw reads as delivered by sequencing center;
@@ -396,124 +401,95 @@ readd(bioinf_table) %>%
   )
 ```
 
-### Region extraction
+## Region extraction
 
-- Fraction where 5.8S was detected
-- Length/ASV count/ASV fraction of extracted regions.
+The 5.8S rDNA was located in `r readd(regioncounts)['pb_500']` long amplicon PacBio reads (`r percent(readd(regioncounts)['pb_500']/readd(demuxcounts)['pb_500'], digits = 1, format = "f")` of demultiplexed total), `r readd(regioncounts)['pb_483']` short amplicon PacBio reads (`r percent(readd(regioncounts)['pb_483']/readd(demuxcounts)['pb_483'], digits = 1, format = "f")`), and `r readd(regioncounts)['is_057']` Ion Torrent reads (`r percent(readd(regioncounts)['is_057']/readd(demuxcounts)['is_057'], digits = 1, format = "f")`).
+Length and quality filtering resulted in `r readd(filtercounts_ITS2)['pb_500']` (`r percent(readd(filtercounts_ITS2)['pb_500']/readd(demuxcounts)['pb_500'], digits = 1, format = "f")` of demultiplexed total) ITS2 sequences from the long amplicon PacBio reads, `r readd(filtercounts_ITS2)['pb_483']` (`r percent(readd(filtercounts_ITS2)['pb_483']/readd(demuxcounts)['pb_483'], digits = 1, format = "f")`) ITS2 sequences from the short amplicon PacBio reads, and `r readd(filtercounts_ITS2)['is_057']` (`r percent(readd(filtercounts_ITS2)['is_057']/readd(demuxcounts)['is_057'], digits = 1, format = "f")`) ITS2 sequences from the Ion torrent reads.
+The length distribution of different regions extracted from the long amplicon are shown in Supplementary Figure\ \@ref(fig:region-lengths).
 
-### Reproducibility of read counts from different technologies
+## Reproducibility of read counts from different technologies
 
-(ref:venn-table-asv) Correspondences between ASVs found by different sequencing strategies.
-Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datasets, including the fraction of total ASVs for each dataset (*ASV frac*), the number of reads represented by those ASVs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
-
-```{r venn-table-asv}
-readd(venn_ASV) %>%
-venn_table(ASVs, "(ref:venn-table-asv)")
-```
-
-(ref:venn-table-otu) Correspondences between 97% OTUs found by different sequencing strategies.
-Each row shows the number of OTUs (*OTUs*) shared uniquely by one or more datasets, including the fraction of total OTUs for each dataset (*OTU frac*), the number of reads represented by those OTUs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
-
-```{r venn-table-otu}
-readd(venn_OTU) %>%
-venn_table(OTUs, "(ref:venn-table-otu)")
-```
-
-(ref:venn) Venn diagrams showing shared ITS2-based ASVs (left) and 97% OTUs (right) between different sequencing strategies.
+(ref:venn) Venn diagrams showing shared ITS2-based ASVs (*a*, *c*) and 97% OTUs (*b*, *d*) between different sequencing technologies from the same short amplicon library (*a*, *b*), and between long and short amplicon libraries (*c*, *d*).
 In each region, the number of ASVs/OTUs is given above, while the fractions of reads for each sequencing strategy are shown below.
+For short amplicons in *c* and *d*, ASV/OTU counts reflect detection by any of the three technologies, and read counts represent the mean fraction of reads across the three technologies.
 
-```{r venn, fig.cap = "(ref:venn)", out.height = "30%", fig.show="hold"}
-readd(vennplot_ASV) %>% {
-  plot(
-    select(., set, ASVs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
-    legend = list(
-      labels = c("PacBio Long", "PacBio Short", "Ion Torrent", "Illumina")
-    ),
-    quantities = .$label,
-    main = "ASV"
-  )
-}
-
-readd(vennplot_OTU) %>% {
-  plot(
-    select(., set, OTUs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
-    legend = FALSE,
-    labels = FALSE,
-    quantities = .$label,
-    main = "OTU"
-  )
-}
-```
-
-(ref:venn2) (*alternate to \@ref(fig:venn)*) Venn diagrams showing shared ITS2-based ASVs (left) and 97% OTUs (right) between different sequencing technologies from the same short amplicon library.
-In each region, the number of ASVs/OTUs is given above, while the fractions of reads for each sequencing strategy are shown below.
-
-```{r venn2, fig.cap = "(ref:venn2)", out.height = "30%", fig.show="hold"}
-venndata(readd(asv_table), ASVs, cols = c("pb_483", "SH-2257", "is_057")) %>%
+```{r venn, fig.cap="(ref:venn)", fig.show="hold", out.width = "90%"}
+venn_A <- venndata(readd(asv_table), ASVs, cols = c("pb_483", "SH-2257", "is_057")) %>%
   vennplot_data(ASVs) %>% {
-  plot(
-     select(., set, ASVs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
-     legend = list(
-         labels = c("PacBio Short", "Illumina", "Ion Torrent")
-     ),
-     quantities = .$label,
-     main = "ASV",
-     fills = c("grey85", "lightblue", "lightcoral"))
+    plot(
+      select(., set, ASVs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
+      legend = FALSE,
+      labels = FALSE,
+      quantities = .$label,
+      main = "a",
+      fills = c("grey85", "lightblue", "lightcoral"))
   }
 
-venndata(readd(otu_table), OTUs, cols = c("pb_483", "SH-2257", "is_057")) %>%
+venn_B <- venndata(readd(otu_table), OTUs, cols = c("pb_483", "SH-2257", "is_057")) %>%
   vennplot_data(OTUs) %>% {
-  plot(
-    select(., set, OTUs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
-    legend = FALSE,
-    labels = FALSE,
-    quantities = .$label,
-    main = "OTU",
-     fills = c("grey85", "lightblue", "lightcoral")
-  )
-}
-```
+    plot(
+      select(., set, OTUs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
+      legend = FALSE,
+      labels = FALSE,
+      quantities = .$label,
+      main = "b",
+      fills = c("grey85", "lightblue", "lightcoral")
+    )
+  }
+ggpubr::ggarrange(venn_A, venn_B, ncol = 2)
 
-(ref:venn3) (*alternate to \@ref(fig:venn)*) Venn diagrams showing shared ITS2-based ASVs (left) and 97% OTUs (right) between different amplicons.
-In each region, the number of ASVs/OTUs is given above, while the fractions of reads for each amplicon are shown below.
-Long amplicons were sequenced on PacBio RS II, short amplicons were sequenced on PacBio RS II, Illumina MiSeq, and Ion Torrent Ion S5.
-ASV/OTU counts for short amplicons reflect detection by any of the three technologies, and read counts represent the mean fraction of reads across the three technologies.
+grid::grid.legend(
+  labels =  c("PacBio Short", "Illumina", "Ion Torrent"),
+  nrow = 1,
+  pch = 21,
+  gp = grid::gpar(fill = c("grey85", "lightblue", "lightcoral")),
+  vp = grid::viewport(y = unit(0.1, "npc"))
+)
 
-```{r venn3, fig.cap = "(ref:venn2)", out.height = "30%", fig.show="hold"}
-readd(asv_table) %>%
+grid::grid.newpage()
+
+venn_C <- readd(asv_table) %>%
   mutate_if(is.numeric, ~ . / sum(.)) %>%
   mutate(long = pb_500,
          short = rowMeans(.[,c("pb_483", "SH-2257", "is_057")])) %>%
   select(seq, long, short) %>%
-venndata(ASVs, cols = c("long", "short")) %>%
+  venndata(ASVs, cols = c("long", "short")) %>%
   vennplot_data(ASVs) %>% {
-  plot(
-     select(., set, ASVs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
-     legend = list(
-         labels = c("Long amplicon", "Short amplicon")
-     ),
-     quantities = .$label,
-     main = "ASV",
-     fills = c("white", "slateblue1"))
+    plot(
+      select(., set, ASVs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
+      legend = FALSE,
+      labels = FALSE,
+      quantities = .$label,
+      main = "c",
+      fills = c("white", "slateblue1"))
   }
 
-readd(otu_table) %>%
+venn_D <- readd(otu_table) %>%
   mutate_if(is.numeric, ~ . / sum(.)) %>%
   mutate(long = pb_500,
          short = rowMeans(.[,c("pb_483", "SH-2257", "is_057")])) %>%
   select(seq, long, short) %>%
-venndata(OTUs, cols = c("long", "short")) %>%
+  venndata(OTUs, cols = c("long", "short")) %>%
   vennplot_data(OTUs) %>% {
-  plot(
-    select(., set, OTUs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
-    legend = FALSE,
-    labels = FALSE,
-    quantities = .$label,
-    main = "OTU",
-     fills = c("white", "slateblue1")
-  )
-}
+    plot(
+      select(., set, OTUs) %>% deframe() %>% replace_na(0) %>% eulerr::venn(),
+      legend = FALSE,
+      labels = FALSE,
+      quantities = .$label,
+      main = "d",
+      fills = c("white", "slateblue1")
+    )
+  }
+# ggpubr::ggarrange(venn_C, venn_D, ncol = 2)
+# grid::grid.legend(
+#   labels =  c("Long amplicon", "Short amplicon"),
+#   nrow = 1,
+#   pch = 21,
+#   gp = grid::gpar(fill = c("white", "slateblue1")),
+#   vp = grid::viewport(y = unit(0.2, "npc"))
+# )
 ```
+
 
 (ref:readcap) Comparison between read numbers for different sequencing strategies, by ASV (top) and 97% OTU (bottom). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
 
@@ -535,14 +511,14 @@ ggpubr::ggarrange(
 )
 ```
 
-The number of ASVs and OTUs shared between the different sequencing strategies are shown in Tables \@ref(tab:venn-table-asv) and \@ref(tab:venn-table-otu), respectively, and graphically in figure \@ref(fig:venn).
+The number of ASVs and OTUs shared between the different sequencing strategies are shown in Supplementary Tables \@ref(tab:venn-table-asv) and \@ref(tab:venn-table-otu), respectively, and graphically in Figure\ \@ref(fig:venn).
 ASVs shared between all datasets represented `r text_list(percent(readd(venn_ASV)["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))` of the reads for the long and short PacBio datasets, Illumina dataset, and Ion Torrent dataset, respectively.
 These fractions increased to `r text_list(percent(readd(venn_OTU)["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))` when differences at the intra-species scale were removed by clustering the ASVs into 97% OTUs.
 In particular, `r text_list(percent(colSums(mutate_all(readd(venn_OTU)[c("0111", "1111"), c("frac_pb_483", "frac_SH-2257", "frac_is_057")], as.numeric), na.rm = TRUE)))` of reads in the PacBio, Illumina, and Ion Torrent short-amplicon datasets belonged to OTUs shared between all three datasets.
 In contrast, `r percent(readd(venn_ASV)["1000", "frac_pb_500"])` of reads in the long PacBio dataset belonged to ASVs which were unique to that dataset, and the fraction only reduced to `r percent(readd(venn_OTU)["1000", "frac_pb_500"])` after OTU clustering.
 
-Figure \@ref(fig:pb-vs-it) shows the correspondence between the read count for different ASVs/OTUs in the different technologies, where shared ASVs/OTUs are plotted as circles, and unshared OTUs are plotted on the margins.
-In all cases, the read counts for shared ASVs/OTUs were correlated ($R^2 = `r compR2("SH-2257", "is_057", "OTU")` to $).
+Figure\ \@ref(fig:pb-vs-it) shows the correspondence between the read count for different ASVs/OTUs in the different technologies, where shared ASVs/OTUs are plotted as circles, and unshared OTUs are plotted on the margins.
+In all cases, the read counts for shared ASVs/OTUs were correlated , with a minimum $R^2$ value of `r compR2("pb_500", "is_057", "ASV")`.
 Correlations between read counts for the three technologies using the short amplicon library were increased by OTU clustering
 (`r compR2("pb_483", "SH-2257", "ASV")` to `r compR2("pb_483", "SH-2257", "OTU")`,
 `r compR2("pb_483", "is_057", "ASV")` to `r compR2("pb_483", "is_057", "OTU")`, and
@@ -553,13 +529,13 @@ but this was not, or only weakly, the case for correlations between the long amp
 `r compR2("pb_500", "SH-2257", "ASV")` to `r compR2("pb_500", "SH-2257", "OTU")`, and
 `r compR2("pb_500", "is_057", "ASV")` to `r compR2("pb_500", "is_057", "OTU")`, for PacBio long amplicon reads vs PacBio, Illumina, and Ion Torrent short reads, respectively).
 
-Almost all of the short amplicons from all three technologies were between 240 and 375 bp long (Supplementary Figure \@ref(fig:full-length)a).
-Although the length profile of the three requencing runs were very similar, Illumina MiSeq had the largest fraction of reads near the top of the range, followed by Ion Torrent Ion S5 and PacBio RS II (Supplementary Figure \@ref(fig:full-length)b).
-In contrast, the length of the long amplicon reads varied widely, from `r filter(readd(reads_table), region == "long") %$% range(length) %>% paste(collapse = " to ")` bp, with a median of 
+Almost all of the short amplicons from all three technologies were between 240 and 375 bp long (Supplementary Figure\ \@ref(fig:full-length)a).
+Although the length profile of the three requencing runs were very similar, Illumina MiSeq had the largest fraction of reads near the top of the range, followed by Ion Torrent Ion S5 and PacBio RS II (Supplementary Figure\ \@ref(fig:full-length)b).
+In contrast, the length of the long amplicon reads varied widely, from `r filter(readd(reads_table), region == "long") %$% range(length) %>% paste(collapse = " to ")` bp, with a median of `r filter(readd(reads_table), region == "long") %$% reldist::wtd.quantile(length, weight = reads)` bp.
 
 ## Taxonomic assignment
 
-The fraction of reads and ASVs assigned to each taxonomic rank is shown in Figure \@ref(fig:tax-chart).
+The fraction of reads and ASVs assigned to each taxonomic rank is shown in Figure\ \@ref(fig:tax-chart).
 For all sequencing datasets and taxonomic assignment protocols, a higher proportion of reads was assigned than of ASVs, indicating that common ASVs were more likely to be identified than rare ASVs.
 A greater fraction of ITS reads and ASVs were assigned using the Unite database than the Warcup database across sequencing technologies, amplicons, algorithms, and taxonomic ranks.
 Across sequencing technologies, amplicons, and reference databases, the RDPC algorithm assigned the greatest fraction of reads and ASVs, followed by SINTAX, and then IDTAXA, with the exception of lower taxonomic ranks (order for the Long amplicon, family and genus for both amplicons) using the warcup reference database, where SINTAX assigned the greatest fraction of reads, but not ASVs.
@@ -569,7 +545,7 @@ Consensus and PHYLOTAX assignments are based on the consensus of RDPC, SINTAX, a
 They are plotted in each column to compare with results for the individual databases.
 
 ```{r tax-chart, fig.cap = "(ref:tax-chart)"}
-readd(tax_chart)
+readd(tax_chart_plot)
 ```
 
 (ref:taxa) Heat tree summarizing taxonomic composition of soil community.
@@ -615,37 +591,16 @@ ecm_counts <- readd(taxon_reads) %>%
 ecm_read <- select(ecm_counts, seq_run, reads) %>% deframe()
 ecm_asv <- select(ecm_counts, seq_run, ASVs) %>% deframe()
 
-set.seed(2)
+
 theme <- theme_update(panel.border = element_blank())
-readd(taxdata) %>%
-  metacoder::heat_tree(
-    layout = "davidson-harel",
-    # initial_layout = "reingold-tilford",
-    node_size = rowMeans(.$data$tax_read[,-1]),
-    node_color = rowMeans(.$data$tax_read[,-1]),
-    node_label = replace_na(taxon_names, "unknown"),
-    node_size_range = c(0.002, .035),
-    node_size_axis_label = "Read abundance",
-    node_color_axis_label = "Read abundance",
-    node_label_size_range = c(0.01, 0.03),
-    edge_size = rowMeans(.$data$tax_asv[,-1]),
-    edge_size_trans = "linear",
-    edge_size_axis_label = "ASV count",
-    edge_size_range = c(0.001, 0.03),
-    edge_color = rowMeans(.$data$tax_asv[,-1]),
-    edge_color_axis_label = "ASV count",
-    # aspect_ratio = 3/2,
-    make_node_legend = FALSE,
-    make_edge_legend = FALSE,
-    output_file = here("temp/heattree.pdf")
-  )
+readd(heattree)
 theme_set(theme)
 ```
 
-Taxonomic composition of the sequenced soil community is summarized in Figure \@ref(fig:taxa).
+Taxonomic composition of the sequenced soil community is summarized in Figure\ \@ref(fig:taxa).
 According to the PHYLOTAX assignments, Fungi represented `r percent(fungi_read["PacBio_Long"], format = "f", digits = 1)` of the reads and `r percent(fungi_asv["PacBio_Long"], format = "f", digits = 1)` of the ASVs in the long amplicon library, compared to `r paste(percent(range(fungi_read[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the reads and `r paste(percent(range(fungi_asv[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the ASVs in the short amplicon library.
 Fungi categorized as ECM made up `r percent(ecm_read["pb_500"], format = "f", digits = 1)` of reads and `r percent(ecm_asv["pb_500"], format = "f", digits = 1)` of ASVs in the long amplicon library, and `r paste(percent(range(ecm_read[c("pb_483", "SH-2257", "is_057")]), format = "f", digits = 1), collapse = "–")` of the reads and `r paste(percent(range(ecm_asv[c("pb_483", "SH-2257", "is_057")]), format = "f", digits = 1), collapse = "–")` of the ASVs in the short amplicon library.
-Assignment to kingdom Fungi and ECM status for different amplicons, sequencing technologies, reference databases, and algorithms are shown in Supplementary Figure \@ref(ref:ecm).
+Assignment to kingdom Fungi and ECM status for different amplicons, sequencing technologies, reference databases, and algorithms are shown in Supplementary Figure\ \@ref(fig:ecm).
 
 (ref:heattree-db-compare) Variation in read abundance and diversity for different amplicons across the taxonomic tree.
 Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
@@ -739,8 +694,6 @@ This ASV was also found in `r readd(pos_control_data) %>% filter(!is.na(pc_frac)
 
 ## Spatial analysis
 
-### Autocorrelation
-
 (ref:correlog-cap) Mantel correlograms showing the correlation between Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
 
 ```{r correlog, fig.cap="(ref:correlog-cap)"}
@@ -780,20 +733,20 @@ light_plan %>%
   theme(strip.background = element_blank())
 ```
 
-Mantel correlograms of the Bray-Curtis and weighted UNIFRAC community dissimilarities with respect to spatial distance and time lag are shown in Figure \@ref(fig:correlog).
-Results are qualitatively similar between the two amplicon libraries and between PacBio and Illumina sequencing, with significant autocorrelation ($p < 0.05$, filled red circles) in the Bray-Curtis metric at ranges of up to 3m for the total fungal community, and 1–2m for the ECM community.
+Mantel correlograms of the Bray-Curtis and weighted UNIFRAC community dissimilarities with respect to spatial distance and time lag are shown in Figure\ \@ref(fig:correlog).
+Results are qualitatively similar between the two amplicon libraries and between PacBio and Illumina sequencing, with significant autocorrelation ($p < 0.05$, filled red circles) in the Bray-Curtis metric at ranges of up to 3 m for the total fungal community, and 1–2 m for the ECM community.
 In both cases, the greatest correlation magnitudes and distances are associated with Illumina sequencing of the short amplicon library, followed by PacBio sequencing of the long amplicon library, with PacBio sequencing of the short amplicon library detecting the least spatial structure.
 
-In contrast, the weighted UNIFRAC distance, which was only calculated for the long amplicon library, shows very little spatial structure, with only the total fungal community in the 1m 
+In contrast, the weighted UNIFRAC distance, which was only calculated for the long amplicon library, shows very little spatial structure, with only the total fungal community in the 1 m 
 distance class showing a significant correlation at $p < 0.05$.
 
-The Bray-Curtis metric showed significant ($p < 0.05$) positive correlation at a time lag of 1 year and 0m separation (filled blue circles) for both the total fungal and ECM communities in the long amplicon library.
+The Bray-Curtis metric showed significant ($p < 0.05$) positive correlation at a time lag of 1 year and 0 m separation (filled blue circles) for both the total fungal and ECM communities in the long amplicon library.
 For the short amplicon library, although the general profile of the correlograms was similar, correlation at 0m and 1 year was not significant, but there was a negative correlation at time lag of 1 year and a distance of 1m for both sequencing technologies.
-This negative correlation was significant in each short amplicon correlogram except for the ECM community sequenced by Illumina.
+This negative correlation was significant in all short amplicon correlograms.
 
-Distance-decay curves relating community dissimilarities and spatial distances are shown in Figure \@ref(fig:spatio).
+Distance-decay curves relating community dissimilarities and spatial distances are shown in Figure\ \@ref(fig:spatio).
 For the cases where the Mantel correlogram detected a significant positive correlation, the best-fit exponential curve is also displayed; for the long amplicon library, where there was also a significant positive correlation after a time lag of one year, the best fit curve for time lag is also included.
-The best fit spatial and temporal ranges, along with a 95% confidence interval, are shown in \@ref(tab:variofit).
+The best fit spatial and temporal ranges, along with a 95% confidence interval, are shown in Table\ \@ref(tab:variofit).
 Although a model was fit for the weighted UNIFRAC distance applied to the total fungal community, the result was very poorly constrained, and a range of 0 m was included in the 95% confidence interval.
 Although the best fit spatial ranges vary between the different datasets by a factor of about 3, there is overlap of the 95% confidence intervals for all of the Bray-Curtis variograms across communities, amplicon libraries, and sequencing technologies.
 
@@ -827,7 +780,7 @@ readd(variog_empir) %>%
   theme(strip.background = element_blank())
 ```
 
-(ref:variofit) Parameters for variogram fits shown in Figure \@ref(fig:spatio-temporal). Range: range at which exponential function is at 95% of its maximum value.
+(ref:variofit) Parameters for variogram fits shown in Figure\ \@ref(fig:spatio). Range: range at which exponential function is at 95% of its maximum value.
 
 ```{r variofit, results="asis"}
 readd(variog_data) %>%
@@ -864,33 +817,76 @@ readd(variog_data) %>%
 
 # Discussion
 
-## Comparison of technologies
+## Comparison of sequencing strategies
 
-  - length bias not clearly observed between PacBio and Ion Torrent short reads
-  - long reads had more very short ITS2 sequences Supplementary Figure \@ref(fig:ITS2-length)) -- these are mostly Alveolata (Supplementary Figure \@ref(fig:short-its))
-  - lots of ASVs/OTUs detected in only one tech
+The three sequencing technologies gave similar results for the short amplicon library, the major difference being in sequencing depth.
+Although a greater fraction of PacBio raw reads were ultimately mapped to ASVs (`r percent(readd(bioinf_table)["ITS2","PacBio_Short_reads"]/readd(rawcounts)["pb_483"], format = "f", digits = 1)`) compared to Illumina (`r percent(readd(bioinf_table)["ITS2","Illumina_Short_reads"]/readd(rawcounts)["SH-2257"], format = "f", digits = 1)`) or Ion Torrent (`r percent(readd(bioinf_table)["ITS2","Ion Torrent_Short_reads"]/readd(rawcounts)["is_057"], format = "f", digits = 1)`),
+the latter two technologies provided much greater sequencing depth for a similar cost, allowing a greater diversity of rare ASVs to be recovered.
 
-  - very few PacBio OTUs undetected by Ion torrent/Illumina from same library; only rare OTUS undetected by PacBio -- sequencing depth seems to be the biggest effect.
+DADA2 denoising to form ASVs may perform differently on different technologies (or perhaps sequencing runs), indicated by the fact that clustering ASVs at 97% led to substantially higher correspondence between both the set of sequences recovered from the same library by different technologies (Figure\ \@ref(fig:venn)) and the read counts for each sequence (Figure\ \@ref(fig:pb-vs-it)).
+The large number of ASVs unique to Ion Torrent, while only the Illumina dataset recovered an apparent intragenomic variant in the positive control sample, suggests that DADA2 may not control sequencing error as effectively in Ion Torrent sequences as in Illumina, for which it was developed [@callahan2016].
+
+Although the longer read length capabilities of PacBio would allow recovery of longer ITS2 sequences than the other two technologies, no such amplicons were sequenced by any of the technologies, and Illumina showed a slightly higher fraction of longer sequences than Ion Torrent, which in turn showed slightly longer sequences than PacBio (Supplementary Figures\ \@ref(fig:full-length) and \@ref(fig:ITS2-length)).
+
+`r percent(readd(venn_ASV)["1000", "frac_pb_500"])` of long amplicon reads beloged to ASVs which were not found in any short amplicon dataset, and clustering at 97% similarity only reduced this fraction to `r percent(readd(venn_OTU)["1000", "frac_pb_500"])`.
+Additionally, ITS2 sequences extracted from the long amplicon dataset included some sequences which were much shorter than those recovered from the short amplicon datasets \@ref(fig:ITS2-length).
+Taxonomic assignments reveal that many of these non-shared sequences fall outside kingdom Fungi (Supplementary Figure\ \@ref(fig:heattree-length-compare)), and that in particular the short ITS2 sequences are mostly Alveolates (Supplementary Figure\ \@ref(fig:short-its)).
+Within Fungi, the short amplicon datasets recovered more Sordariomycetes, possibly because this group was represented by diverse but rare taxa which were not detected in the PacBio datasets due to the lower sequencing depth.
+Additionally, several groups showed anomalous detection in either the long or short datasets, such as *Tulasnella*, *Tremellodendron*, and *Marcelleina* in the long amplicon dataset, and *Xylaria* and *Myerozyma* in the short amplicon datasets.
+These differences may be due to primer mismatches in these groups.
+It is of note that the three aforementioned groups which were more common in the long amplicon dataset are ECM.
+However, neither amplicon recovered any sequences identifiable to *Cantharellus*, an ECM genus which is known from the area from fruitbodies.
+
+## Reconstruction of long amplicons from denoised subregions
+
+ASV recovery for long amplicons was dramatically improved (`r percent(readd(region_table)$reads[readd(region_table)$region == "long"]/as.integer(gsub(" ", "", readd(demuxcounts)["pb_500"])), format = "d")` to `r percent((readd(asvcounts) %>% filter(seq_run == "pb_500", step == "long") %>% pull(reads))/as.integer(gsub(" ", "", readd(demuxcounts)["pb_500"])), format = "d")`) by denoising homologous subregions independently.
+Although newer sequencing platforms from PacBio (Sequel and Sequel II) feature increased sequencing depth and lower error rate compared to the RS II, long sequences inherently require much more sampling depth to identify ASVs, so this approach should increase ASV recovery from these platforms as well.
+It may also be adaptable to Oxford Nanopore sequencing, which has hitherto not been successfully applied to complex community metabarcoding [@loit2019].
+
+## Taxonomic identification
+
+The RDP fungal training set and Unite performed comparably at placing long amplicon sequences.
+The Warcup database placed notably fewer sequences at all taxonomic levels for all datasets, probably in part due to the fact that only fungal sequences are included.
+However, even with this taken into account, IDTAXA performed very poorly with the Warcup database, placing less than 25% of ASVs to kingdom in all datasets.
+IDTAXA placed fewer sequences than RDPC or SINTAX even with the other databases, but this is expected given its more conservative assignment of confidence scores [@murali2018a].
   
-  - sequencing technologies yield comparable results (given read depth) with sufficient clustering
-  - not such good match with ASVs -- suggests DADA2 doesn't perform equally on different datasets
-  
-  - still lots of ASVs/OTUs detected by only one amplicon -- primer bias.
+@gdanetz2017 showed that a majority-rule consensus of three assignment algorithms can improve the fraction of sequences assigned as well as decrease the false assignment rate.
+Here we find that strict consensus, which should provide more conservative taxonomic assignments, also usually increases the number of assigned sequences relative to any single method, except at family and genus level identifications.
+This suggests that different assignment algorithms and databases bring mostly complementary, non-contradictory information at higher taxonomic levels.
+However, contradictory assignments between different methods is more common at lower taxonomic levels, which can be problematic because accurate assignment at the family or genus level is generally required for ecological guild assignment using FUNGuild.
 
-## Use of Phylogeny to improve taxonomic identification
+For ASVs where a long amplicon sequence is available, PHYLOTAX uses phylogenetic relationships to resolve these disagreements in a principled manner.
+For instance, `r filter(readd(tax_chart), tech == "Illumina", Algorithm == "Consensus", rank %in% c("genus", "family"), type == "Reads", reference == "Unite") %>% pull(frac) %>% percent(format = "d") %>% rev() %>% text_list()` of Illumina reads were assigned to genus and family, respectively, by the strict consensus of methods, but PHYLOTAX increased this fraction to `r filter(readd(tax_chart), tech == "Illumina", Algorithm == "PHYLOTAX", rank %in% c("genus", "family"), type == "Reads", reference == "Unite") %>% pull(frac) %>% percent(format = "d") %>% rev() %>% text_list()`.
+This led to a corresponding increase in the fraction of reads assigned to a functional guild (Supplementary Figure\ \@ref(fig:ecm)).
 
-  - Strict consensus usually increases the number of assigned sequences relative to any single method, except for family and genus level identifications.
-  - Different methods and databases bring mostly complementary, non-contradictory information.
-  - Unite (using full ITS) identifies a similar fraction of reads and ASVs as RDP using LSU.
-  
-## Differences in taxonomic bias of different amplicons
-  - Long amplicon library includes more non-fungi, particularly Alveolates and Metazoans.
-  - Also more of a few isolated fungal genera -- Tremellodendron, Marcelleina, Tulasnella.
-  - Short amplicon recovers more Sordariomycetes, Saccharomycetes, Glomeromycota -- the latter two maybe due to sequencing depth.
+## Turnover rate
 
-## Bias in ecological results using different amplicons and sequencing technologies
-  - UNIFRAC does not detect spatial structure within this relatively homogeneous community -- largest fraction of weighted branch length is between Ascomycota and Basidiomycota.
-  - choice of PCR primer (and possibly PCR replicate?) is more important for repeatability that choice of sequencing technology.
+Weighted UNIFRAC did not reliably detect spatial structure within this relatively homogeneous community.
+Although the Mantel test did show a small but significant positive autocorrelation in the fungal community at the smallest size category (1 m) (Figure\ \@ref(fig:correlog)), the distance-decay plot in Figure\ \@ref(fig:spatio) does not show any clear relationship, and the functional fit showed poor convergence, with a 95% confidence interval for spatial range of 0-5700 m.
+This is probably due to the majority of weighted branch length in the community being between the Pezizomycotina and Agaricomycetes (Figure\ \@ref(fig:taxa)), which are both well represented in the majority of samples.
+UNIFRAC would be more suited at larger spatial scales and/or larger ecological gradients.
+
+Mantel correlograms based on the Bray-Curtis dissimilarity (Figure\ \@ref(fig:correlog)) revealed spatial autocorrelation in the soil fungal community at distance classes $\le 3$ m for both Illumina and PacBio using long and short amplicons, and in the ECM fungal community at distance classes $\le 2$ m for Illumina and PacBio long amplicons, and $\le 1$ m for the PacBio short amplicons.
+These values are similar to the values reported for ECM root tips in temperate forests by @lilleskov2004 and @pickles2012a, but substantially smaller than those observed by @tedersoo2011.
+Distance-decay plots (Figure\ \@ref(fig:spatio), Table\ \@ref(tab:variofit)) gave substantially longer autocorrelation distances.
+There was little variation in the results between the Illumina and long-amplicon PacBio datasets for both the total fungal community and the ECM community, with best fit estimates ranging from 17--19 m.
+The 95% confidence interval was substantially wider than this variation, generally covering a range of 9--35 m.
+All of these values are smaller than the 65 m reported by @Bahram2013, also from an ECM woodland habitat in Benin.
+The PacBio short amplicon dataset shows a longer spatial range, of 30 m for the total fungal community and 42--45 m for the ECM community, in both cases with wide confidence intervals spanning approximately 15--60 m.
+It is possible that the weaker fit for this dataset, which also showed weaker autocorrelation in the Mantel correlogram, is due to low sequencing depth.
+
+The Bray-Curtis Mantel correlogram for both the total fungal and ECM communities from the long amplicon dataset show a significant positive correlation at 0 m and 1 year.
+The spatiotemporal distance-decay fit estimated the temporal turnover range as 3.1 years for the total fungal comunity and 5.5 years for the ECM community, but with overlapping confidence intervals.
+Both datasets from the short amplicon library showed a puzzling pattern with no autocorrelation at 0 m and 1 year, but a weak negative correlation at 1 m and 1 year.
+The general shape of the correlograms were similar for long and short amplicon datasets.
+We hypothesize that two different processes may be at work with differing spatiotemporal scales, whose superposition result in this pattern.
+
+# Conclusion
+
+The choice of amplicon and sequencing technology did not seem to affect the results of the spatial analysis, provided sufficient sequencing depth.
+However, the addition of long amplicon reads did allow the construction of a phylogenetic tree from the metabarcoding reads, which allowed refinement of taxonomic assignments.
+DADA2 ASV yield was initially poor for long reads, but this was improved through extraction of subregions, seperate denoising, and then reconstruction of full-length sequences.
+This suggests a hybrid approach using long-read sequencing to aquire long amplicon sequences for the local species pool, and cost-effective short-read sequencing to provide high sampling depth and sample number.
 
 # Acknowledgements
 
@@ -931,7 +927,7 @@ ggpubr::ggarrange(
 )
 ```
 
-```{r region-length}
+```{r region-limits}
 regions %>%
   select(Region = region, "Min. length" = min_length, "Max. length" = max_length) %>%
   right_join(
@@ -959,9 +955,9 @@ readd(region_table) %>%
   scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1))
 ```
 
-(ref:region-length) Length distribution for each region extracted from long amplicons.  Filtering limits are shown as dashed vertical lines.
+(ref:region-lengths) Length distribution for each region extracted from long amplicons.  Filtering limits are shown as dashed vertical lines.
 
-```{r region-lengths, fig.cap = "(ref:region-length)", fig.height = 6}
+```{r region-lengths, fig.cap = "(ref:region-lengths)", fig.height = 6}
 readd(region_length_fig)
 ```
 
@@ -975,6 +971,22 @@ ggpubr::ggarrange(
   labels = "auto",
   heights = c(4, 2)
 )
+```
+
+(ref:venn-table-asv) Correspondences between ASVs found by different sequencing strategies.
+Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datasets, including the fraction of total ASVs for each dataset (*ASV frac*), the number of reads represented by those ASVs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
+
+```{r venn-table-asv}
+readd(venn_ASV) %>%
+venn_table(ASVs, "(ref:venn-table-asv)")
+```
+
+(ref:venn-table-otu) Correspondences between 97% OTUs found by different sequencing strategies.
+Each row shows the number of OTUs (*OTUs*) shared uniquely by one or more datasets, including the fraction of total OTUs for each dataset (*OTU frac*), the number of reads represented by those OTUs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
+
+```{r venn-table-otu}
+readd(venn_OTU) %>%
+venn_table(OTUs, "(ref:venn-table-otu)")
 ```
 
 (ref:short-its) Kingdom-level taxonomic composition of ITS2 ASVs <= 140 bp.
@@ -997,76 +1009,11 @@ readd(big_seq_table_ITS2) %>%
 Red nodes/edges represent increased read/ASV count for the short amplicon library, while teal nodes/edges represent increased read/ASV count for the long amplicon library.
 Values are log_10_ of the ratio of mean values across all datasets (sequencing technology, assignment algorithm, reference database) for each amplicon.
 Only nodes with a log read abundance ratio greater than 0.5 (abundance ratio > 3.2) are labeled.
-Refer to Figure \@ref(fig:taxa) for complete taxon labeling.
+Refer to Figure\ \@ref(fig:taxa) for complete taxon labeling.
 
 ```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare)"}
-taxdata2 <- readd(taxdata)
-# taxdata2$data$asv_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = asv_cols)
-# taxdata2$data$read_table <- metacoder::calc_obs_props(taxdata2, "tax_data", cols = read_cols)
-# taxdata2$data$tax_asv <- metacoder::calc_taxon_abund(taxdata2, "asv_table", cols = asv_cols)
-# taxdata2$data$tax_read <- metacoder::calc_taxon_abund(taxdata2, "read_table", cols = read_cols)
-taxdata2$data$diff_read <- metacoder::compare_groups(
-  taxdata2,
-  data = "tax_read",
-  cols = names(taxdata2$data$tax_read) %>%
-    keep(str_detect, "reads_.+_.+_.+_.+"),
-  groups = names(taxdata2$data$tax_read) %>%
-    keep(str_detect, "reads_.+_.+_.+_.+") %>%
-    str_replace("reads_.+_(.+)_.+_.+", "\\1"),
-  func = function(abund1, abund2) {
-    list(read_ratio = log10(mean(abund1) / mean(abund2)))
-  }
-  )
-taxdata2$data$diff_asv <- metacoder::compare_groups(
-  taxdata2,
-  data = "tax_asv",
-  cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
-  groups = names(taxdata2$data$tax_asv) %>%
-    keep(startsWith, "ASVs_") %>%
-    str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
-  func = function(abund1, abund2) {
-    list(asv_ratio = log10(mean(abund1) / mean(abund2)))
-  }
-)
-
-set.seed(2)
 oldtheme <- theme_update(panel.border = element_blank())
-taxdata2 %>%
-  metacoder::heat_tree(
-    layout = "davidson-harel",
-    # initial_layout = "reingold-tilford",
-    
-    node_size = rowMeans(.$data$tax_read[,-1]),
-    node_size_range = c(0.002, .035),
-    node_size_axis_label = "Read abundance",
-    
-    node_color = read_ratio,
-    node_color_range = metacoder::diverging_palette(),
-    node_color_trans = "linear",
-    node_color_axis_label = "Read abundance ratio",
-    node_color_interval = c(-6, 6),
-
-    edge_size = rowMeans(.$data$tax_asv[,-1]),
-    edge_size_range = c(0.001, 0.03),
-    edge_size_trans = "linear",
-    edge_size_axis_label = "ASV count",
-
-    edge_color = asv_ratio,
-    edge_color_range = metacoder::diverging_palette(),
-    edge_color_trans = "linear",
-    edge_color_axis_label = "ASV count ratio",
-    edge_color_interval = c(-3, 3),
-    
-    node_label = ifelse(
-      pmax(abs(.$data$diff_read$read_ratio),
-           abs(.$data$diff_asv$asv_ratio)) > 0.5,
-      taxon_names,
-      ""
-    ),
-    # aspect_ratio = 3/2,
-    node_label_size_range = c(0.010, 0.03)
-    # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
-  )
+readd(heattree_length_compare)
 theme_set(oldtheme)
 ```
 
@@ -1077,7 +1024,7 @@ Height of each bar represents the fraction of reads represented by that bar.
 Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
 
 
-```{r ECM, fig.cap = "(ref:ecm)"}
+```{r ecm, fig.cap = "(ref:ecm)"}
   readd(taxon_reads) %>%
   mutate_at("reference", replace_na, "All") %>%
   taxon_plot(ECM, kingdom == "Fungi", datasets = datasets) +
@@ -1202,7 +1149,7 @@ ggpubr::ggarrange(conc_plot, reads_plot, ncol = 2, common.legend = TRUE) +
   theme(panel.spacing = unit(0, "mm"))
 ```
 
-```{r plate-loading}
+```{r plate-loading, include=FALSE}
 readd(proto_physeq) %>% {
   mutate(
     sample_data(.),
@@ -1216,144 +1163,18 @@ readd(proto_physeq) %>% {
   geom_point()
 ```
 
-
-```{r}
-physeq <- readd(proto_physeq) %>%
-  `sample_data<-`(inset2(
-    sample_data(.),
-    "qual",
-    value = fct_collapse(sample_data(.)$qual, "-" = c("", "*"))
-    )) %>%
-  subset_samples(!is.na(site)) %>%
-  merge_samples(group = glue::glue_data(
-    sample_data(.),
-    "{year}_{buffer}_{tech}_{amplicon}"
-  ))
-
-ranks <- c("root", "kingdom", "phylum", "class", "order", "family", "genus")
-physeq <- readd(taxon_reads) %>%
-  mutate(root = "Root") %>%
-  group_by(label) %>%
-  arrange(amplicon, reference, Algorithm, .by_group = TRUE) %>%
-  summarize_at(ranks, first) %>%
-  left_join(
-    tibble(label = taxa_names(physeq)),
-    .,
-    by = "label"
-  ) %>% {
-    split(select(., -label), .$label)
-  } %>%
-  lapply(unlist) %>%
-  build_tax_table() %>%
-  `tax_table<-`(physeq, .) %>%
-  tax_glom(taxrank = "family", NArm = FALSE)
-```
-
 (ref:buffer-compare-long) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for long amplicon libraries.
 
 ```{r buffer-compare-long, fig.cap = "(ref:buffer-compare-long)"}
-taxmap <- metacoder::parse_phyloseq(physeq)
-taxmap$data$otu_table <- metacoder::calc_obs_props(taxmap, "otu_table")
-taxmap$data$read_count <- metacoder::calc_taxon_abund(taxmap, "otu_table")
-taxmap$data$read_diff <- metacoder::compare_groups(
-  taxmap,
-  "read_count",
-  cols = names(taxmap$data$read_count) %>%
-    keep(endsWith, "Long"),
-  groups = names(taxmap$data$read_count) %>%
-    keep(endsWith, "Long") %>%
-    str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
-      paste(.[,3], .[,2])
-    },
-  func = function(abund1, abund2) {
-    list(read_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
-  },
-  combinations = list(
-    c("Xpedition 2016", "Xpedition 2015"),
-    c("Xpedition 2016", "LifeGuard 2016"),
-    c("Xpedition 2015", "LifeGuard 2016")
-  )
-)
 oldtheme <- theme_update(panel.border = element_blank())
-taxa::filter_taxa(
-  taxmap,
-  taxmap$data$read_count$`2015_Xpedition_PacBio_Long` > 0 |
-    taxmap$data$read_count$`2016_Xpedition_PacBio_Long` > 0 |
-    taxmap$data$read_count$`2016_LifeGuard_PacBio_Long` > 0,
-  drop_obs = TRUE,
-  reassign_obs = FALSE
-  ) %>%
-metacoder::heat_tree_matrix(
-  "read_diff",
-  node_label = taxon_names,
-  node_color = read_ratio,
-  node_size = rowMeans(.$data$read_count[-1]),
-  node_size_axis_label = "Read fraction",
-  node_color_range = metacoder::diverging_palette(),
-  node_color_axis_label = "Log10 Read Ratio",
-  node_color_interval = c(-3, 3),
-  node_color_trans = "linear",
-  edge_size = rowMeans(.$data$read_count[-1]),
-  edge_size_range = c(0, 0.03),
-  edge_size_trans = "linear",
-  edge_size_axis_label = "ASV fraction",
-  node_size_range = c(0, 0.03),
-  node_label_size_range = c(0.005, 0.03),
-  layout = "davidson-harel",
-  initial_layout = "reingold-tilford",
-  output_file = here("temp/compare_long.pdf")
-)
+readd(buffer_compare_long)
 theme_set(oldtheme)
-
 ```
 
-(ref:buffer-compare-short) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for long amplicon libraries.
+(ref:buffer-compare-short) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for short amplicon libraries.
 
 ```{r buffer-compare-short, fig.cap = "(ref:buffer-compare-short)"}
-taxmap$data$read_diff <- metacoder::compare_groups(
-  taxmap,
-  "read_count",
-  cols = names(taxmap$data$read_count) %>%
-    keep(endsWith, "Short"),
-  groups = names(taxmap$data$read_count) %>%
-    keep(endsWith, "Short") %>%
-    str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
-      paste(.[,3], .[,2])
-    },
-  func = function(abund1, abund2) {
-    list(read_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
-  },
-  combinations = list(
-    c("Xpedition 2016", "Xpedition 2015"),
-    c("Xpedition 2016", "LifeGuard 2016"),
-    c("Xpedition 2015", "LifeGuard 2016")
-  )
-)
-taxa::filter_taxa(
-  taxmap,
-  taxmap$data$read_count %>% select(ends_with("Short")) %>% rowSums() > 0,
-  drop_obs = TRUE,
-  reassign_obs = FALSE
-  ) %>%
-metacoder::heat_tree_matrix(
-  "read_diff",
-  node_label = taxon_names,
-  node_color = read_ratio,
-  node_size = rowMeans(.$data$read_count[-1]),
-  node_size_axis_label = "Read fraction",
-  node_color_range = metacoder::diverging_palette(),
-  node_color_axis_label = "Log10 Read Ratio",
-  node_color_interval = c(-3, 3),
-  node_color_trans = "linear",
-  edge_size = rowMeans(.$data$read_count[-1]),
-  edge_size_range = c(0, 0.03),
-  edge_size_trans = "linear",
-  edge_size_axis_label = "ASV fraction",
-  node_size_range = c(0, 0.03),
-  node_label_size_range = c(0.005, 0.03),
-  layout = "davidson-harel",
-  initial_layout = "reingold-tilford",
-  output_file = here("temp/compare_short.pdf")
-)
+readd(buffer_compare_short)
+theme_set(oldtheme)
 
 ```
