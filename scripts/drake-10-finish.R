@@ -74,12 +74,7 @@ exports <- intersect(
     dplyr::filter(plan, step == "err")$target,
     dplyr::filter(plan, step == "chimeras")$target,
     dplyr::filter(plan, step == "allchimeras")$target,
-    "qstats_n",
-    "qstats_length",
-    "qstats_minq",
-    "qstats_eexp",
-    "qstats_erate",
-    "qstats_pnoerr"
+    "qstats"
   ),
   cache1$list()
 )
