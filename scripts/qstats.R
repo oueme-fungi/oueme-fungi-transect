@@ -41,7 +41,7 @@ q_stats.ShortReadQ <- function(sreadq, ...){
   if (nrow(out) == 0) {
     out <- tibble::tibble(
       ...,
-      stat = c("length", "minq", "eexp", "erate", "p.noerr"),
+      stat = "n",
       value = NA_real_,
       nreads = 0
     )
@@ -69,7 +69,7 @@ q_stats.character <- function(sreadq, ..., qualityType = "FastqQuality") {
   if (nrow(out) == 0) {
     out <- tibble::tibble(
       ...,
-      stat = c("length", "minq", "eexp", "erate", "p.noerr"),
+      stat = "n",
       value = NA_real_,
       nreads = 0
     )
