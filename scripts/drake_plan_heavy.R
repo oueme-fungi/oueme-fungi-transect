@@ -942,7 +942,7 @@ plan <- drake_plan(
   # Don't include any positions which are in the variable regions or which
   # are insertions with respect to the CM.
   aln_infernal_32S = 
-    readd(allseqs, cache = drake_cache(".light")) %>%
+    allseqs %>%
     dplyr::select(hash, `32S`, long, ITS1, ITS2) %>%
     dplyr::filter(
       complete.cases(.),
