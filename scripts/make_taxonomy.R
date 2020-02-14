@@ -77,6 +77,9 @@ plan <- drake_plan(
   # the rdp training set does not have fully annotated taxonomy for nonfungi,
   # so these need to be looked up
   # find the accession numbers representing nonfungi in the RDP database
+  # We will also do the same for Protista in Unite, Sebacinales in RDP,
+  # and Lactarius in both RDP and Warcup, because these are cases where the
+  # taxonomy has recently been split.
   rdp_nf_accno =
     dplyr::filter(raw_header_rdp_train, !grepl("Fungi", classifications)) %$%
     accno %>%
@@ -84,6 +87,11 @@ plan <- drake_plan(
   
   unite_prot_accno = 
     dplyr::filter(raw_header_unite, startsWith(classifications, "Protista")) %$%
+    accno %>%
+    unique(),
+  
+  rdp_lac_accno =
+    dplyr::filter(raw_header_rdp_train, grepl("Lactarius", classifications)) %$%
     accno %>%
     unique(),
   
@@ -105,6 +113,12 @@ plan <- drake_plan(
       retries = 1
     ),
   
+  rdp_lac_taxdata = 
+    target(
+      taxa::lookup_tax_data(rdp_lac_accno, type = "seq_id"),
+      retries = 1
+    ),
+  
   unite_prot_taxdata = 
     target(
       taxa::lookup_tax_data(unite_prot_accno, type = "seq_id"),
@@ -120,6 +134,8 @@ plan <- drake_plan(
     ),
   
   rdp_seb_ncbiheader = accno_c12n_table(rdp_seb_taxdata),
+  
+  rdp_lac_ncbiheader = accno_c12n_table(rdp_lac_taxdata),
   
   unite_prot_ncbiheader =
     target(
@@ -137,6 +153,8 @@ plan <- drake_plan(
     ),
   
   rdp_seb_taxa = rdp_seb_taxdata$data$tax_data,
+  
+  rdp_lac_taxa = rdp_lac_taxdata$data$tax_data,
   
   unite_prot_taxa =
     target(
@@ -169,6 +187,15 @@ plan <- drake_plan(
       keytaxa = unique(tedersoo_class$taxon_names)
     ),
   
+  rdp_lac_reduced =
+    reduce_ncbi_taxonomy(
+      rdp_lac_ncbiheader,
+      rdp_lac_taxa,
+      ranks = c("kingdom", "phylum", "class", "order",
+                "family", "genus"),
+      keytaxa = unique(tedersoo_class$taxon_names)
+    ),
+  
   unite_prot_reduced =
     reduce_ncbi_taxonomy(
       unite_prot_ncbiheader,
@@ -195,12 +222,16 @@ plan <- drake_plan(
         dplyr::select(rdp_seb_reduced, accno, c_seb = classifications),
         by = "accno"
       ) %>%
+      dplyr::left_join(
+        dplyr::select(rdp_lac_reduced, accno, c_lac = classifications),
+        by = "accno"
+      ) %>%
       dplyr::mutate(
         classifications =
-          dplyr::coalesce(c_seb, c_nf, classifications) %>%
+          dplyr::coalesce(c_seb, c_lac, c_nf, classifications) %>%
           reduce_taxonomy()
       ) %>%
-      dplyr::select(-c_seb, -c_nf),
+      dplyr::select(-c_lac, -c_seb, -c_nf),
     transform = map(db = "rdp_train", .tag_out = reduced_header, .id = FALSE)
   ),
   
@@ -223,7 +254,9 @@ plan <- drake_plan(
   reduced_header_warcup = target(
     raw_header_warcup %>%
       dplyr::filter(!duplicated(accno)) %>%
-      dplyr::mutate_at("classifications", reduce_taxonomy),
+      dplyr::mutate(
+        classifications = reduce_taxonomy(classifications)
+      ),
     transform = map(db = "warcup", .tag_out = reduced_header, .id = FALSE)
   ),
   

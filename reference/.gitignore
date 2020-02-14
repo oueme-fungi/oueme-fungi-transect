@@ -11,3 +11,5 @@ rdp_train.taxa.txt
 rdp_train.fasta.gz
 rdp_train.raw.fasta.gz
 warcup.taxa.txt
+unite.fasta.gz
+warcup.fasta.gz
