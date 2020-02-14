@@ -1,4 +1,3 @@
-remove(list = ls())
 if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
@@ -1608,13 +1607,23 @@ plan2 <- drake_plan(
   
   heattree_length_compare = {
   taxdata2 <- taxdata
+  val_cols = names(taxdata2$data$tax_read) %>%
+    keep(str_detect, "reads_.+_.+_.+_PHYLOTAX")
+  
+  taxdata2$filter_obs(
+    "tax_read",
+    rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
+    drop_taxa = TRUE,
+    drop_obs = TRUE,
+    supertaxa = TRUE,
+    reassign_obs = FALSE) %>%
+    invisible()
+  
   taxdata2$data$diff_read <- metacoder::compare_groups(
     taxdata2,
     data = "tax_read",
-    cols = names(taxdata2$data$tax_read) %>%
-      keep(str_detect, "reads_.+_.+_.+_.+"),
-    groups = names(taxdata2$data$tax_read) %>%
-      keep(str_detect, "reads_.+_.+_.+_.+") %>%
+    cols = val_cols,
+    groups = val_cols %>%
       str_replace("reads_.+_(.+)_.+_.+", "\\1"),
     func = function(abund1, abund2) {
       list(read_ratio = log10(mean(abund1) / mean(abund2)))
@@ -1677,7 +1686,7 @@ plan2 <- drake_plan(
     taxdata2 <- taxdata_ECM
     
     val_cols <- names(taxdata2$data$tax_read) %>%
-      keep(str_detect, "reads_.+_.+_Unite_.+")
+      keep(str_detect, "reads_.+_.+_.+_PHYLOTAX")
     
     taxdata2$filter_obs(
       "tax_read",
@@ -1693,7 +1702,7 @@ plan2 <- drake_plan(
       data = "tax_read",
       cols = val_cols,
       groups = val_cols %>%
-        str_replace("reads_.+_(.+)_Unite_.+", "\\1"),
+        str_replace("reads_.+_(.+)_.+_PHYLOTAX", "\\1"),
       func = function(abund1, abund2) {
         list(read_ratio = log10(mean(abund1) / mean(abund2)))
       }
@@ -1899,5 +1908,5 @@ if (interactive()) {
   cache <- drake_cache(".light")
   # dconfig <- drake_config(plan2, cache = cache)
   # vis_drake_graph(dconfig)
-  make(plan2, cache = cache)#, parallelism = "clustermq", jobs = local_cpus() - 1)
+  make(plan2, cache = cache, targets = keep(plan2$target, str_detect, "heattree"))#, parallelism = "clustermq", jobs = local_cpus() - 1)
 }
