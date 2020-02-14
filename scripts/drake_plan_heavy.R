@@ -951,7 +951,7 @@ plan <- drake_plan(
       !hash %in% readd(allchimeras_ITS2, cache = drake_cache(".light"))
     ) %>%
     unique() %>%
-    dplyr::arrange(hash) %>%
+    dplyr::arrange(hash) %$%
     set_names(`32S`, hash) %>%
     chartr("T", "U", .) %>%
     Biostrings::RNAStringSet() %>%
