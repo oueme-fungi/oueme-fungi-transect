@@ -293,7 +293,7 @@ write_taxonomy_sintax <- function(taxonomy, fasta, outfile) {
     Biostrings::writeXStringSet(outfile, compress = endsWith(outfile, ".gz"))
 }
 
-read_classification_tedersoo <- function(file) {
+read_classification_tedersoo <- function(file, patch_file = NULL) {
     readxl::read_xlsx(file) %>%
     dplyr::select(-subdomain) %>%
     # Remove duplicate taxa within one kingdom
@@ -352,7 +352,8 @@ read_classification_tedersoo <- function(file) {
     taxa::parse_tax_data(class_cols = 1:8,
                          named_by_rank = TRUE) %>%
     taxa::get_data_frame(c("taxon_names", "classifications")) %>%
-    dplyr::filter(!stringr::str_detect(taxon_names, "[Ii]ncertae[_ ]sedis"))
+    dplyr::filter(!stringr::str_detect(taxon_names, "[Ii]ncertae[_ ]sedis")) %>%
+    dplyr::mutate_at("classifications", patch_taxonomy, patch_file = patch_file)
   
 }
 

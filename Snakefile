@@ -615,6 +615,7 @@ rule translate_references:
            reference = regions['reference'].dropna().str.split(',').explode().unique()),
     "{rdir}/taxonomy.R".format_map(config),
     tedersoo = rules.tedersoo_classification.output,
+    tedersoo_patch = config['tedersoo_patch'],
     regions = config['regions'],
     script = "{rdir}/make_taxonomy.R".format_map(config)
   resources:

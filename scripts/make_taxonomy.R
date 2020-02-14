@@ -11,6 +11,7 @@ if (interactive()) {
   config_dir <- "config"
   ref_dir <- "reference"
   tedersoo_file <- file.path(ref_dir, "Tedersoo_Eukarya_classification.xlsx")
+  tedersoo_patch_file <- file.path(ref_dir, "tedersoo.pre.sed")
   regions_file <- file.path(config_dir, "regions.csv")
 } else if (exists("snakemake")) {
   flog.info("Creating drake plan in snakemake session...")
@@ -18,6 +19,7 @@ if (interactive()) {
   r_dir <- snakemake@config$rdir
   ref_dir <- snakemake@config$ref_root
   tedersoo_file <- snakemake@input$tedersoo
+  tedersoo_patch_file <- snakemake@input$tedersoo_patch
   regions_file <- snakemake@input$regions
   outputs <- snakemake@output
   logfile <- file(snakemake@log[[1]], open = "at")
@@ -165,7 +167,7 @@ plan <- drake_plan(
     ),
   
   tedersoo_class =
-    read_classification_tedersoo(file_in(tedersoo_file)),
+    read_classification_tedersoo(file_in(tedersoo_file), file_in(tedersoo_patch_file)),
   
   rdp_nf_reduced =
     target(
