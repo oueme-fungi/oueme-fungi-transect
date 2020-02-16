@@ -378,7 +378,7 @@ plan <- drake_plan(
     ),
     transform = map(
       .data = !!select(predada_meta, positions, region_start, region_end,
-                       max_length, min_length, max_ee, seq_run, region),
+                       max_length, min_length, max_ee, seq_run, region, primer_ID),
       .tag_in = step,
       .id = c(seq_run, region)
     ),
@@ -701,28 +701,31 @@ plan <- drake_plan(
     dereplist <- do.call(c, c(dereplist, use.names = FALSE))
     dereplist[vapply(dereplist, length, 1L) == 0] <- list(NULL)
     names(dereplist) <- names(dadalist)
-    dada_map <- tzara::dadamap(dereplist, dadalist) %>%
+    dada_key <- tibble::tibble(dadalist, dereplist, name = names(dadalist)) %>%
       tidyr::extract(
         name,
         c("seq_run", "plate", "well", "region"),
-        "([pi][sb]_\\d{3})_(\\d{3})_([A-H]\\d{1,2})_(.+)"
+        "([pi][sb]_\\d{3})_(\\d{3})_([A-H]\\d{1,2})_(.+)",
+        remove = FALSE
       )
-    regions <- unique(dada_map[["region"]])
-    dada_map %>%
-      dplyr::select(seq.id, seq_run, plate, well, region, dada.seq) %>%
-      dplyr::mutate_at("dada.seq", chartr, old = "T", new = "U") %>%
-      tidyr::spread(key = "region", value = "dada.seq") %>%
-      dplyr::group_by(ITS2) %>%
-      dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
-      dplyr::group_by_at(regions) %>%
-      dplyr::summarize(nread = dplyr::n()) %>%
-      dplyr::ungroup() %>%
+    dada_regions <- unique(dada_key[["region"]])
+    dada_key %>%
+      dplyr::group_by(seq_run, plate, well) %>%
+      dplyr::group_map(
+        ~ do.call(multidada, .),
+        keep = TRUE
+      ) %>%
+      dplyr::bind_rows() %>%
+      dplyr::group_by_at(dada_regions) %>%
+      dplyr::summarize_at("nread", sum) %>%
+      dplyr::filter(nread >= 3, !is.na(ITS2)) %>%
       dplyr::mutate(primer_ID = symbols_to_values(primer_ID)) %>%
       region_concat("LSU", c("LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")) %>%
       region_concat("ITS", c("ITS1", "5_8S", "ITS2"), "ITS2") %>%
       region_concat("long", c("ITS", "LSU"), "ITS2") %>%
       region_concat("short", c("5_8S", "ITS2", "LSU1"), "ITS2") %>%
       region_concat("32S", c("5_8S", "ITS2", "LSU"), "ITS2") %>%
+      region_concat("conserv", c("5_8S", "LSU1", "LSU2", "LSU3", "LSU4"), "ITS2") %>%
       dplyr::group_by(ITS2)
     },
     transform = combine(
