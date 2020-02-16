@@ -588,14 +588,14 @@ plan2 <- drake_plan(
   
   demuxlength =  parsed_qstat %>%
     filter(is.na(read) | read != "_R2", stat == "length") %>%
-    filter(is.na(step), !is.na(well), ) %>%
+    filter(is.na(step) | step == "demux", !is.na(well), ) %>%
     group_by(seq_run) %>%
     summarize(value = reldist::wtd.quantile(value, weight = nreads)) %>%
     deframe(),
   
   demuxqual = parsed_qstat %>%
     filter(is.na(read) | read != "_R2", stat == "erate") %>%
-    filter(is.na(step), !is.na(well)) %>%
+    filter(is.na(step) | step == "demux", !is.na(well)) %>%
     group_by(seq_run) %>%
     summarize(value = round(weighted.mean(value, w = nreads, na.rm = TRUE), 4)) %>%
     deframe(),
@@ -603,7 +603,7 @@ plan2 <- drake_plan(
   readcounts = parsed_qstat %>% filter(is.na(read) | read != "_R2", stat == "n"),
   
   rawcounts = readcounts %>%
-    filter(is.na(step), is.na(well)) %>%
+    filter(is.na(step) | step == "raw", is.na(well)) %>%
     group_by(seq_run) %>%
     summarize(
       # nreads =  prettyNum(sum(nreads), big.mark = " ")
@@ -612,7 +612,7 @@ plan2 <- drake_plan(
     deframe(),
   
   demuxcounts = readcounts %>%
-    filter(is.na(step), !is.na(well)) %>%
+    filter(is.na(step) | step == "demux", !is.na(well)) %>%
     group_by(seq_run) %>%
     summarize(
       # nreads =  prettyNum(sum(nreads), big.mark = " ")
@@ -725,9 +725,6 @@ plan2 <- drake_plan(
     #   select(seq_run, reads, step = region, OTUs)
   ) %>%
     left_join(select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
-    mutate(
-      step = ifelse(tech == "Ion Torrent" & step == "Trim", "Raw", step),
-    ) %>%
     select(tech, amplicon, step, reads, ASVs) %>%
     pivot_longer(c("reads", "ASVs"), names_to = "type", values_to = "count") %>%
     filter(!is.na(count)) %>%
