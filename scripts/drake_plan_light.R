@@ -1082,7 +1082,7 @@ plan2 <- drake_plan(
     apply(MARGIN = 1, order, decreasing = TRUE) %>%
     apply(MARGIN = 2, match, x = 1),
   
-  variog_data = target(
+  variog_data = target({
     ignore(plan2) %>%
     filter(step == "correlog") %>%
     select("correlog", timelag, guild, metric, tech, amplicon, algorithm) %>%
@@ -1128,7 +1128,8 @@ plan2 <- drake_plan(
         levels = c("Consensus", "PHYLOTAX", "PHYLOTAX+Cons"),
         labels = c("Cons", "PHYLO", "PHYLO")
       )
-    ),
+    )
+    },
     transform = combine(correlog, variog, variogST, variofit2, variofitST2)
   ),
   
@@ -1757,14 +1758,14 @@ plan2 <- drake_plan(
   
   buffer_compare_physeq = {
     physeq <- proto_physeq %>%
-      `sample_data<-`(inset2(
-        sample_data(.),
+      phyloseq::`sample_data<-`(inset2(
+        phyloseq::sample_data(.),
         "qual",
-        value = fct_collapse(sample_data(.)$qual, "-" = c("", "*"))
+        value = fct_collapse(phyloseq::sample_data(.)$qual, "-" = c("", "*"))
       )) %>%
-      subset_samples(!is.na(site)) %>%
-      merge_samples(group = glue::glue_data(
-        sample_data(.),
+      phyloseq::subset_samples(!is.na(site)) %>%
+      phyloseq::merge_samples(group = glue::glue_data(
+        phyloseq::sample_data(.),
         "{year}_{buffer}_{tech}_{amplicon}"
       ))
     
@@ -1775,16 +1776,16 @@ plan2 <- drake_plan(
       arrange(amplicon, reference, Algorithm, .by_group = TRUE) %>%
       summarize_at(ranks, first) %>%
       left_join(
-        tibble(label = taxa_names(physeq)),
+        tibble(label = phyloseq::taxa_names(physeq)),
         .,
         by = "label"
       ) %>% {
         split(select(., -label), .$label)
       } %>%
       lapply(unlist) %>%
-      build_tax_table() %>%
-      `tax_table<-`(physeq, .) %>%
-      tax_glom(taxrank = "family", NArm = FALSE)
+      phyloseq::build_tax_table() %>%
+      phyloseq::`tax_table<-`(physeq, .) %>%
+      phyloseq::tax_glom(taxrank = "family", NArm = FALSE)
   },
   
   buffer_compare_taxmap = {
@@ -1905,5 +1906,5 @@ if (interactive()) {
   cache <- drake_cache(".light")
   # dconfig <- drake_config(plan2, cache = cache)
   # vis_drake_graph(dconfig)
-  make(plan2, cache = cache, targets = keep(plan2$target, str_detect, "heattree"))#, parallelism = "clustermq", jobs = local_cpus() - 1)
+  make(plan2, cache = cache, parallelism = "clustermq", jobs = local_cpus() %/% 2, lazy_load = TRUE, memory_strategy = "autoclean", garbage_collection = TRUE)
 }
