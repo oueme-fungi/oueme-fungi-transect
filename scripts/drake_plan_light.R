@@ -84,6 +84,7 @@ plan2 <- drake_plan(
   raxml_decipher_long = target(trigger = trigger(mode = "blacklist")),
   raxml_decipher_unconst_long = target(trigger = trigger(mode = "blacklist")),
   raxml_epa_full = target(trigger = trigger(mode = "blacklist")),
+  raxml_infernal_32S = target(trigger = trigger(mode = "blacklist")),
   big_seq_table = target(
     transform = map(region = !!(region_meta$region), .tag_in = step, .id = region),
     trigger = trigger(mode = "blacklist")
@@ -145,6 +146,14 @@ plan2 <- drake_plan(
     raxml_decipher_unconst_long$bipartitions,
     transform = map(
       treename = "decipher_unconst_long",
+      group = "euk",
+      .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
+  ),
+  
+  tree_infernal_32S = target(
+    raxml_infernal_32S$bipartitions,
+    transform = map(
+      treename = "infernal_32S",
       group = "euk",
       .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
   ),
