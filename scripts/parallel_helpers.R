@@ -54,7 +54,7 @@ get_logfile <- function(default) {
 #### Start logging ####
 setup_log <- function(default) {
   logfile <- get_logfile(default)
-  flog.appender(appender.tee(logfile))
+  invisible(flog.appender(appender.tee(logfile)))
 }
 
 #### Get the name of the current Conda environment ####
