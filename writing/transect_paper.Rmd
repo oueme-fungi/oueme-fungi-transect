@@ -25,14 +25,14 @@ bibliography:
 csl: molecular-ecology.csl
 always_allow_html: true
 output:
-  bookdown::word_document2: 
-    keep_md: yes
   bookdown::pdf_document2:
     fig_crop: yes
     keep_tex: yes
     latex_engine: lualatex
     includes:
       in_header: preamble.tex
+  bookdown::word_document2: 
+    keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -947,12 +947,12 @@ regions %>%
   )
 ```
 
-(ref:region-asv) Plot of total number of ASVs recovered vs. fraction of reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`. Some regions were formed by concatenation of extracted regions, as follows: LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4; ITS = ITS1--5.8S--ITS2; 32S = 5.8S--ITS2--LSU; long = ITS--LSU. For this figure, subregions were concatenated prior to generating ASVs with `DADA2`.
+(ref:region-asv) Plot of total number of ASVs recovered vs. fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`. Some regions were formed by concatenation of extracted regions, as follows: LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4; ITS = ITS1--5.8S--ITS2; 32S = 5.8S--ITS2--LSU; long = ITS--LSU. For this figure, subregions were concatenated prior to generating ASVs with `DADA2`.
 
 ```{r regions, fig.cap="(ref:region-asv)"}
 rdd(region_table) %>%
   dplyr::filter(seq_run == "pb_500") %>%
-  mutate(reads = reads / sum(filter(rdd(readcounts), seq_run == "pb_500", is.na(step), !is.na(well))$nreads)) %>%
+  mutate(reads = reads / sum(filter(rdd(readcounts), seq_run == "pb_500", step == "demux")$nreads)) %>%
   dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
   ggplot(aes(reads, ASVs, color = length_med, label = region)) +
   geom_point() +
@@ -981,6 +981,9 @@ ggpubr::ggarrange(
 
 (ref:venn-table-asv) Correspondences between ASVs found by different sequencing strategies.
 Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datasets, including the fraction of total ASVs for each dataset (*ASV frac*), the number of reads represented by those ASVs in each dataset (*reads*) and the fraction of total reads for the dataset (*frac*).
+
+
+\setlength{\tabcolsep}{1pt}
 
 ```{r venn-table-asv}
 rdd(venn_ASV) %>%
