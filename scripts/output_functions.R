@@ -117,7 +117,7 @@ vennplot_data <- function(venndata, var) {
     )
 }
 
-venn_table <- function(venndata, var, caption) {
+venn_table <- function(venndata, var, caption, caption.short) {
   var <- enquo(var)
   
   linesep <- venndata %>%
@@ -155,6 +155,7 @@ venn_table <- function(venndata, var, caption) {
     kable(
       booktabs = TRUE,
       caption = caption,
+      caption.short = caption.short,
       linesep = linesep,
       align = ("rcrrcrrcrrcrr"),
       row.names = FALSE,

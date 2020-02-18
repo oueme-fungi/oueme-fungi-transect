@@ -43,13 +43,13 @@ regions <- read_csv(config$regions, col_types = "cccciiiiic")
 #   group = c("fungi", "euk"),
 #   taxname = "short",
 #   reftree = c("fungi_tree_decipher_unconst_long", "tree_decipher_unconst_long"),
-#   conf_taxon = glue::glue("conf_taxon_short_{group}"),
+#   strict_taxon = glue::glue("strict_taxon_short_{group}"),
 #   phylotaxon = glue::glue("phylotaxon_unconst_long_{group}")
 # ) %>%
-#   mutate_at(c("reftree", "conf_taxon", "phylotaxon"), syms)
+#   mutate_at(c("reftree", "strict_taxon", "phylotaxon"), syms)
 
 guilds_meta <- tibble(
-  consensus_taxa = c("phylotaxon_decipher_unconst_long_fungi", "conf_taxon_short_fungi", "best_taxon_short_fungi"),
+  consensus_taxa = c("phylotaxon_decipher_unconst_long_fungi", "strict_taxon_short_fungi", "best_taxon_short_fungi"),
   amplicon = c("Long", "Short", "Short"),
   algorithm = c("PHYLOTAX", "Consensus", "PHYLOTAX+Cons")
 ) %>%
@@ -282,7 +282,7 @@ plan2 <- drake_plan(
     transform = map(phylotaxon, .tag_in = step, .id = c(treename, group))
   ),
   
-  conf_taxon_short_euk = target(
+  strict_taxon_short_euk = target(
     taxon_table %>%
       group_by(label, method, region, reference) %>%
       arrange(rank) %>%
@@ -302,25 +302,25 @@ plan2 <- drake_plan(
     transform = map(
       taxname = "short",
       group = "euk",
-      .tag_out = c(consensus_taxa, conf_taxon),
+      .tag_out = c(consensus_taxa, strict_taxon),
       .id = FALSE
     )
   ),
   
-  conf_taxon_short_fungi = target(
-    group_by(conf_taxon_short_euk$tip_taxa, label) %>%
+  strict_taxon_short_fungi = target(
+    group_by(strict_taxon_short_euk$tip_taxa, label) %>%
       filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
       list(tip_taxa = .),
     transform = map(
       taxname = "short",
       group = "fungi",
-      .tag_out = c(consensus_taxa, conf_taxon),
+      .tag_out = c(consensus_taxa, strict_taxon),
       .id = FALSE
     )
   ),
   
   best_taxon_short_euk = target(
-    conf_taxon_short_euk$tip_taxa %>%
+    strict_taxon_short_euk$tip_taxa %>%
       filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
       bind_rows(
         phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
@@ -334,7 +334,7 @@ plan2 <- drake_plan(
   ),
   
   best_taxon_short_fungi = target(
-    conf_taxon_short_fungi$tip_taxa %>%
+    strict_taxon_short_fungi$tip_taxa %>%
       filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
       bind_rows(
         phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
@@ -344,6 +344,73 @@ plan2 <- drake_plan(
       list(tip_taxa = .),
     transform = map(group = "fungi",
                     taxname = "short",
+                    .tag_out = consensus_taxa, .id = FALSE)
+  ),
+  strict_taxon_ITS_euk = target(
+    taxon_table %>%
+      filter(ref_region == "ITS") %>%
+      group_by(label, rank) %>%
+      mutate(n_diff = n_distinct(taxon)) %>%
+      group_by(label, method, region, reference) %>%
+      arrange(rank) %>%
+      filter(cumall(n_diff == 1)) %>%
+      ungroup() %>%
+      mutate(
+        name = "consensus",
+        region = "ITS",
+        reference = "All",
+        ref_region = "ITS",
+        method = "consensus",
+        confidence = NA
+      ) %>%
+      unique() %>%
+      list(tip_taxa = .),
+    
+    transform = map(
+      taxname = "ITS",
+      group = "euk",
+      .tag_out = c(consensus_taxa, strict_taxon),
+      .id = FALSE
+    )
+  ),
+  
+  strict_taxon_ITS_fungi = target(
+    group_by(strict_taxon_ITS_euk$tip_taxa, label) %>%
+      filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
+      list(tip_taxa = .),
+    transform = map(
+      taxname = "ITS",
+      group = "fungi",
+      .tag_out = c(consensus_taxa, strict_taxon),
+      .id = FALSE
+    )
+  ),
+  
+  best_taxon_ITS_euk = target(
+    strict_taxon_ITS_euk$tip_taxa %>%
+      filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
+      bind_rows(
+        phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
+          filter(method == "phylotax")
+      ) %>%
+      mutate(method = "phylotax+c") %>%
+      list(tip_taxa = .),
+    transform = map(group = "euk",
+                    taxname = "ITS",
+                    .tag_out = consensus_taxa, .id = FALSE)
+  ),
+  
+  best_taxon_ITS_fungi = target(
+    strict_taxon_ITS_fungi$tip_taxa %>%
+      filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
+      bind_rows(
+        phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
+          filter(method == "phylotax")
+      ) %>%
+      mutate(method = "phylotax+c") %>%
+      list(tip_taxa = .),
+    transform = map(group = "fungi",
+                    taxname = "ITS",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
   
@@ -566,7 +633,8 @@ plan2 <- drake_plan(
                    regex = "([a-zA-Z]+[-_]\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
     dplyr::group_by(seq.run, seq) %>%
     dplyr::summarize(reads = sum(reads)) %>%
-    tidyr::spread(key = seq.run, value = reads, fill = 0),
+    tidyr::spread(key = seq.run, value = reads, fill = 0) %>% 
+    dplyr::ungroup(),
   
   otu_table = {
     big_fasta_ITS2
@@ -828,17 +896,23 @@ plan2 <- drake_plan(
   
   taxon_reads = {
     out <- 
+      # Get the number of reads per sequencing run for each ASV
       proto_physeq %>%
       phyloseq::merge_samples(group = "seq_run") %>%
       phyloseq::otu_table() %>%
       t() %>%
       {.@.Data} %>%
       as_tibble(rownames = "label") %>%
+      # Normalize reads to a fraction of the sequencing run.
       mutate_if(is.numeric, ~./sum(.)) %>%
+      # Pivot so that each ASV/sequencing run combination is its own line, and remove 0's
       pivot_longer(-1, names_to = "seq_run", values_to = "reads") %>%
       filter(reads > 0) %>%
+      # Add the amplicon and technology used for each sequencing run
       left_join(select(datasets, seq_run, amplicon, tech), by = "seq_run") %>%
+      # put the amplicon in title case for display
       mutate_at("amplicon", stringr::str_to_title) %>%
+      # Make all valid combinations of reference, region, and method
       expand_grid(
         tibble(
           reference = c("unite", "warcup", "rdp_train"),
@@ -850,6 +924,9 @@ plan2 <- drake_plan(
         ifelse(amplicon == "Short", region == "ITS", TRUE),
         ifelse(amplicon == "Long", region %in% c("ITS", "LSU"), TRUE)
       ) %>%
+      # Add the identifications from the taxon table.
+      # This will leave NAs where a method did not make an identification at a rank,
+      # Including full NA rows where no identification was made at all.
       left_join(
         taxon_table %>%
           mutate(region = ifelse(region == "short", "ITS", region)) %>%
@@ -858,19 +935,15 @@ plan2 <- drake_plan(
           pivot_wider(
             names_from = "rank",
             values_from = "taxon"
-          ) %>%
-          mutate(
-            family = ifelse(is.na(genus), family, coalesce(family, "incertae_sedis")),
-            order = ifelse(is.na(family), order, coalesce(order, "incertae_sedis")),
-            class = ifelse(is.na(order), class, coalesce(class, "incertae_sedis")),
-            phylum = ifelse(class == "Leotiomycetes", "Ascomycota", phylum)
-          )
-        ,
+          ),
         by = c("label", "reference", "region", "method")
       ) %>%
+      # Warcup doesn't explicitly identify fungi.
       mutate(
         kingdom = ifelse(!is.na(phylum) & reference == "warcup", "Fungi", kingdom)
       )
+    
+    # Add strict consensus and PHYLOTAX identifications
     bind_rows(
       out,
       phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
@@ -891,12 +964,26 @@ plan2 <- drake_plan(
           reference = "All",
           kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
         ),
-      conf_taxon_short_euk$tip_taxa %>%
-        select(method, label, rank, taxon) %>%
+      strict_taxon_short_euk$tip_taxa %>%
+        select(method, label, rank, taxon, region) %>%
         pivot_wider(names_from = "rank", values_from = "taxon") %>%
         inner_join(
           out %>%
             filter(amplicon == "Short") %>%
+            select(seq_run, label, reads, amplicon, tech) %>%
+            unique(),
+          .,
+          by = "label"
+        ) %>%
+        mutate_at("kingdom", na_if, "NA") %>%
+        mutate(
+          kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
+        ),
+      strict_taxon_ITS_euk$tip_taxa %>%
+        select(method, label, rank, taxon, region) %>%
+        pivot_wider(names_from = "rank", values_from = "taxon") %>%
+        inner_join(
+          out %>%
             select(seq_run, label, reads, amplicon, tech) %>%
             unique(),
           .,
@@ -922,6 +1009,12 @@ plan2 <- drake_plan(
           kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
         )
     ) %>%
+      mutate(
+        family = ifelse(is.na(genus), family, coalesce(family, "incertae_sedis")),
+        order = ifelse(is.na(family), order, coalesce(order, "incertae_sedis")),
+        class = ifelse(is.na(order), class, coalesce(class, "incertae_sedis")),
+        phylum = ifelse(class == "Leotiomycetes", "Ascomycota", phylum) # Not sure what happened here...
+      ) %>%
       mutate_at(
         "method",
         factor,
@@ -977,6 +1070,7 @@ plan2 <- drake_plan(
       cols = c("kingdom", "phylum", "class", "order", "family", "genus"),
       values_to = "taxon"
     ) %>%
+    filter(ifelse(Algorithm == "Consensus", region == "All", TRUE)) %>%
     group_by(amplicon, tech, Algorithm, reference, rank, ID = !is.na(taxon)) %>%
     summarize(reads = sum(reads), ASVs = n()) %>%
     group_by(amplicon, tech, Algorithm, reference, rank) %>%
@@ -1176,6 +1270,7 @@ plan2 <- drake_plan(
   taxdata = {
     ranks <- c("domain", "kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
+      filter(region == "ITS", Algorithm == "Consensus") %>%
       mutate(domain = "Root", ASVs = 1) %>%
       select(-region, -seq_run, -label) %>%
       mutate_at(
@@ -1187,13 +1282,27 @@ plan2 <- drake_plan(
       mutate(ASVs = ASVs / sum(ASVs))
     for (i in seq_along(ranks)) {
       out <- out %>%
-        group_by_at(rev(ranks)[i]) %>%
+        group_by_at(rev(ranks)[i:length(ranks)]) %>%
         group_map(
           function(x, y, i) {
             d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
               summarize_at(c("reads", "ASVs"), sum)
+            d2 <- group_by_at(d, "amplicon") %>% summarize_at(c("reads", "ASVs"), mean)
+            reads <- select(d2, "amplicon", "reads") %>% deframe()
+            ASVs <- select(d2, "amplicon", "ASVs") %>% deframe()
             if (max(c((d$reads), (d$ASVs))) < 0.01) {
-              mutate_at(x, rev(ranks)[i], ~"*")
+              if (
+                (isTRUE(abs(log10(reads["Long"]) - log10(reads["Short"])) < 1) &
+                 isTRUE(abs(log10(ASVs["Long"]) - log10(ASVs["Short"])) < 1)) |
+                max(c((d$reads), (d$ASVs))) < 0.01
+              ) {
+                mutate_at(x, rev(ranks)[i], ~"*")
+              } else if (i > 1) {
+                mutate_at(x, rev(ranks)[i - 1], ~"*") %>%
+                mutate_at(rev(ranks)[i], ~paste0("(",., ")"))
+              } else {
+                mutate_at(x, rev(ranks)[i], ~paste0("(",., ")"))
+              }
             } else {
               x
             }
@@ -1236,7 +1345,7 @@ plan2 <- drake_plan(
         na = TRUE
       )
     ) %in% c("?", "*")
-    unknown_taxa <- out$taxon_names() %in% c("?", "*")
+    unknown_taxa <- out$taxon_names() %in% c("?", "*", "incertae_sedis")
     out <- out$filter_taxa(
       !(child_of_unknown & unknown_taxa) | taxon_names == "Root",
       reassign_obs = FALSE
@@ -1298,6 +1407,7 @@ plan2 <- drake_plan(
   taxdata_ECM = {
     ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
+      filter(region == "ITS", Algorithm == "Consensus") %>%
       filter(!is.na(as.character(ECM)), ECM != "non-ECM") %>%
       mutate(ASVs = 1) %>%
       select(-region, -seq_run, -label) %>%
@@ -1310,13 +1420,26 @@ plan2 <- drake_plan(
       mutate(ASVs = ASVs / sum(ASVs))
     for (i in seq_along(ranks)) {
       out <- out %>%
-        group_by_at(rev(ranks)[i]) %>%
+        group_by_at(rev(ranks)[i:length(ranks)]) %>%
         group_map(
           function(x, y, i) {
             d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
               summarize_at(c("reads", "ASVs"), sum)
+            d2 <- group_by_at(d, "amplicon") %>% summarize_at(c("reads", "ASVs"), mean)
+            reads <- select(d2, "amplicon", "reads") %>% deframe()
+            ASVs <- select(d2, "amplicon", "ASVs") %>% deframe()
             if (max(c((d$reads), (d$ASVs))) < 0.01) {
-              mutate_at(x, rev(ranks)[i], ~"*")
+              if (
+                isTRUE(abs(log10(reads["Long"]) - log10(reads["Short"])) < 1) &
+                isTRUE(abs(log10(ASVs["Long"]) - log10(ASVs["Short"])) < 1)
+              ) {
+                mutate_at(x, rev(ranks)[i], ~"*")
+              } else if (i > 1) {
+                mutate_at(x, rev(ranks)[i - 1], ~"*") %>%
+                mutate_at(rev(ranks)[i], ~paste0("(",., ")"))
+              } else {
+                mutate_at(x, rev(ranks)[i], ~paste0("(",., ")"))
+              }
             } else {
               x
             }
@@ -1592,19 +1715,19 @@ plan2 <- drake_plan(
       metacoder::heat_tree(
         layout = "davidson-harel",
         # initial_layout = "reingold-tilford",
-        node_size = rowMeans(.$data$tax_read[,-1]),
-        node_color = rowMeans(.$data$tax_read[,-1]),
+        node_size = rowMeans(.$data$tax_asv[,-1]),
+        node_color = rowMeans(.$data$tax_asv[,-1]),
         node_label = replace_na(taxon_names, "unknown"),
         node_size_range = c(0.002, .035),
-        node_size_axis_label = "Read abundance",
-        node_color_axis_label = "Read abundance",
+        node_size_axis_label = "ASV count",
+        node_color_axis_label = "ASV count",
         node_label_size_range = c(0.01, 0.03),
-        edge_size = rowMeans(.$data$tax_asv[,-1]),
+        edge_size = rowMeans(.$data$tax_read[,-1]),
         edge_size_trans = "linear",
-        edge_size_axis_label = "ASV count",
+        edge_size_axis_label = "Read abundance",
         edge_size_range = c(0.001, 0.03),
-        edge_color = rowMeans(.$data$tax_asv[,-1]),
-        edge_color_axis_label = "ASV count",
+        edge_color = rowMeans(.$data$tax_read[,-1]),
+        edge_color_axis_label = "Read abundance",
         # aspect_ratio = 3/2,
         make_node_legend = FALSE,
         make_edge_legend = FALSE,
@@ -1615,7 +1738,7 @@ plan2 <- drake_plan(
   heattree_length_compare = {
   taxdata2 <- taxdata
   val_cols = names(taxdata2$data$tax_read) %>%
-    keep(str_detect, "reads_.+_.+_.+_PHYLOTAX")
+    keep(str_detect, "reads_.+_.+_.+_Consensus")
   
   taxdata2$filter_obs(
     "tax_read",
@@ -1655,30 +1778,30 @@ plan2 <- drake_plan(
       layout = "davidson-harel",
       # initial_layout = "reingold-tilford",
       
-      node_size = rowMeans(.$data$tax_read[,-1]),
+      node_size = rowMeans(.$data$tax_asv[,-1]),
       node_size_range = c(0.002, .035),
-      node_size_axis_label = "Read abundance",
+      node_size_axis_label = "ASV richness",
       
-      node_color = read_ratio,
+      node_color = asv_ratio,
       node_color_range = metacoder::diverging_palette(),
       node_color_trans = "linear",
-      node_color_axis_label = "Read abundance ratio",
-      node_color_interval = c(-6, 6),
+      node_color_axis_label = "Log richness ratio",
+      node_color_interval = c(-1.5, 1.5),
       
-      edge_size = rowMeans(.$data$tax_asv[,-1]),
+      edge_size = rowMeans(.$data$tax_read[,-1]),
       edge_size_range = c(0.001, 0.03),
       edge_size_trans = "linear",
-      edge_size_axis_label = "ASV count",
+      edge_size_axis_label = "Read abundance",
       
-      edge_color = asv_ratio,
+      edge_color = read_ratio,
       edge_color_range = metacoder::diverging_palette(),
       edge_color_trans = "linear",
-      edge_color_axis_label = "ASV count ratio",
+      edge_color_axis_label = "Log abundance ratio",
       edge_color_interval = c(-3, 3),
       
       node_label = ifelse(
-        pmax(abs(.$data$diff_read$read_ratio),
-             abs(.$data$diff_asv$asv_ratio)) > 0.5,
+        pmax(abs(.$data$diff_read$read_ratio) > 0.5,
+             abs(.$data$diff_asv$asv_ratio) > 0.25),
         taxon_names,
         ""
       ),
@@ -1693,7 +1816,7 @@ plan2 <- drake_plan(
     taxdata2 <- taxdata_ECM
     
     val_cols <- names(taxdata2$data$tax_read) %>%
-      keep(str_detect, "reads_.+_.+_.+_PHYLOTAX")
+      keep(str_detect, "reads_.+_.+_.+_Consensus")
     
     taxdata2$filter_obs(
       "tax_read",
@@ -1709,7 +1832,7 @@ plan2 <- drake_plan(
       data = "tax_read",
       cols = val_cols,
       groups = val_cols %>%
-        str_replace("reads_.+_(.+)_.+_PHYLOTAX", "\\1"),
+        str_replace("reads_.+_(.+)_.+_Consensus", "\\1"),
       func = function(abund1, abund2) {
         list(read_ratio = log10(mean(abund1) / mean(abund2)))
       }
@@ -1735,26 +1858,26 @@ plan2 <- drake_plan(
         layout = "davidson-harel",
         initial_layout = "reingold-tilford",
         
-        node_size = rowMeans(.$data$tax_read[,-1]),
+        node_size = rowMeans(.$data$tax_asv[,-1]),
         node_size_range = c(0.002, .035),
-        node_size_axis_label = "Read abundance",
+        node_size_axis_label = "ASV richness",
         
-        node_color = read_ratio,
+        node_color = ASV_ratio,
         node_color_range = metacoder::diverging_palette(),
         node_color_trans = "linear",
-        node_color_axis_label = "Read abundance ratio",
-        node_color_interval = c(-3, 3),
+        node_color_axis_label = "Log richness ratio",
+        node_color_interval = c(-0.9, 0.9),
         
-        edge_size = rowMeans(.$data$tax_asv[,-1]),
+        edge_size = rowMeans(.$data$tax_read[,-1]),
         edge_size_range = c(0.001, 0.03),
         edge_size_trans = "linear",
-        edge_size_axis_label = "ASV count",
+        edge_size_axis_label = "Read abundance",
         
-        edge_color = ASV_ratio,
+        edge_color = read_ratio,
         edge_color_range = metacoder::diverging_palette(),
         edge_color_trans = "linear",
-        edge_color_axis_label = "ASV count ratio",
-        edge_color_interval = c(-0.75, 0.75),
+        edge_color_axis_label = "Log abundance ratio",
+        edge_color_interval = c(-1.8, 1.8),
         
         node_label = taxon_names,
         node_label_size_range = c(0.02, 0.03),
@@ -1806,13 +1929,12 @@ plan2 <- drake_plan(
   
   buffer_compare_long = {
     taxmap <- buffer_compare_taxmap
+    value_cols <- names(taxmap$data$read_count) %>% keep(endsWith, "Long")
     taxmap$data$read_diff <- metacoder::compare_groups(
       taxmap,
       "read_count",
-      cols = names(taxmap$data$read_count) %>%
-        keep(endsWith, "Long"),
-      groups = names(taxmap$data$read_count) %>%
-        keep(endsWith, "Long") %>%
+      cols = value_cols,
+      groups = value_cols %>%
         str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
           paste(.[,3], .[,2])
         },
@@ -1828,9 +1950,7 @@ plan2 <- drake_plan(
     theme_update(panel.border = element_blank())
     taxa::filter_taxa(
       taxmap,
-      taxmap$data$read_count$`2015_Xpedition_PacBio_Long` > 0 |
-        taxmap$data$read_count$`2016_Xpedition_PacBio_Long` > 0 |
-        taxmap$data$read_count$`2016_LifeGuard_PacBio_Long` > 0,
+      taxmap$data$read_count %>% select_at(value_cols) %>% apply(MARGIN = 1, FUN = max) > 0.001,
       drop_obs = TRUE,
       reassign_obs = FALSE
     ) %>%
@@ -1839,17 +1959,17 @@ plan2 <- drake_plan(
         node_label = taxon_names,
         node_color = read_ratio,
         node_size = rowMeans(.$data$read_count[-1]),
-        node_size_axis_label = "Read fraction",
+        node_size_range = c(0.0001, 0.03),
+        node_size_axis_label = "Read abundance",
+        node_label_size_range = c(0.005, 0.03),
         node_color_range = metacoder::diverging_palette(),
-        node_color_axis_label = "Log10 Read Ratio",
+        node_color_axis_label = "Log abundance ratio",
         node_color_interval = c(-3, 3),
         node_color_trans = "linear",
-        edge_size = rowMeans(.$data$read_count[-1]),
-        edge_size_range = c(0, 0.03),
-        edge_size_trans = "linear",
-        edge_size_axis_label = "ASV fraction",
-        node_size_range = c(0, 0.03),
-        node_label_size_range = c(0.005, 0.03),
+        # edge_size = rowMeans(.$data$read_count[-1]),
+        # edge_size_axis_label = "Read abundance",
+        # edge_size_range = c(0.001, 0.03),
+        # edge_size_trans = "linear",
         layout = "davidson-harel",
         initial_layout = "reingold-tilford",
         output_file = file_out("temp/compare_long.pdf")
@@ -1858,13 +1978,12 @@ plan2 <- drake_plan(
   
   buffer_compare_short = {
     taxmap <- buffer_compare_taxmap
+    value_cols <- names(taxmap$data$read_count) %>% keep(endsWith, "Short")
     taxmap$data$read_diff <- metacoder::compare_groups(
       taxmap,
       "read_count",
-      cols = names(taxmap$data$read_count) %>%
-        keep(endsWith, "Short"),
-      groups = names(taxmap$data$read_count) %>%
-        keep(endsWith, "Short") %>%
+      cols = value_cols,
+      groups = value_cols %>%
         str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
           paste(.[,3], .[,2])
         },
@@ -1880,7 +1999,7 @@ plan2 <- drake_plan(
     theme_update(panel.border = element_blank())
     taxa::filter_taxa(
       taxmap,
-      taxmap$data$read_count %>% select(ends_with("Short")) %>% rowSums() > 0,
+      taxmap$data$read_count %>% select_at(value_cols) %>% apply(MARGIN = 1, FUN = max) > 0.001,
       drop_obs = TRUE,
       reassign_obs = FALSE
     ) %>%
@@ -1889,17 +2008,17 @@ plan2 <- drake_plan(
         node_label = taxon_names,
         node_color = read_ratio,
         node_size = rowMeans(.$data$read_count[-1]),
-        node_size_axis_label = "Read fraction",
+        node_size_range = c(0.0001, 0.03),
+        node_size_axis_label = "Read abundance",
+        node_label_size_range = c(0.005, 0.03),
         node_color_range = metacoder::diverging_palette(),
-        node_color_axis_label = "Log10 Read Ratio",
+        node_color_axis_label = "Log abundance ratio",
         node_color_interval = c(-3, 3),
         node_color_trans = "linear",
-        edge_size = rowMeans(.$data$read_count[-1]),
-        edge_size_range = c(0, 0.03),
-        edge_size_trans = "linear",
-        edge_size_axis_label = "ASV fraction",
-        node_size_range = c(0, 0.03),
-        node_label_size_range = c(0.005, 0.03),
+        # edge_size = rowMeans(.$data$read_count[-1]),
+        # edge_size_axis_label = "Read abundance",
+        # edge_size_range = c(0.001, 0.03),
+        # edge_size_trans = "linear",
         layout = "davidson-harel",
         initial_layout = "reingold-tilford",
         output_file = file_out("temp/compare_short.pdf")
@@ -1911,9 +2030,17 @@ plan2 <- drake_plan(
 
 saveRDS(plan2, "data/plan/drake_light.rds")
 options(clustermq.scheduler = "multicore")
-if (interactive()) {
+#if (interactive()) {
   cache <- drake_cache(".light")
   # dconfig <- drake_config(plan2, cache = cache)
   # vis_drake_graph(dconfig)
-  make(plan2, cache = cache, parallelism = "clustermq", jobs = local_cpus() %/% 2, lazy_load = TRUE, memory_strategy = "autoclean", garbage_collection = TRUE)
-}
+  make(
+    plan2,
+    cache = cache,
+    # parallelism = "clustermq",
+    # jobs = local_cpus() %/% 2,
+    lazy_load = TRUE,
+    memory_strategy = "autoclean",
+    garbage_collection = TRUE
+  )
+#}
