@@ -683,7 +683,7 @@ plan2 <- drake_plan(
     filter(is.na(step) | step == "raw", is.na(well)) %>%
     group_by(seq_run) %>%
     summarize(
-      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      # nreads =  prettyNum(sum(nreads), big.mark = ",")
       nreads = sum(nreads)
     ) %>%
     deframe(),
@@ -692,7 +692,7 @@ plan2 <- drake_plan(
     filter(is.na(step) | step == "demux", !is.na(well)) %>%
     group_by(seq_run) %>%
     summarize(
-      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      # nreads =  prettyNum(sum(nreads), big.mark = ",")
       nreads = sum(nreads)
     ) %>%
     deframe(),
@@ -701,7 +701,7 @@ plan2 <- drake_plan(
     filter(step == "filter", is.na(region) | region %in% c("long", "short")) %>%
     group_by(seq_run, region) %>%
     summarize(
-      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      # nreads =  prettyNum(sum(nreads), big.mark = ",")
       nreads = sum(nreads)
     ) %>%
     select(seq_run, nreads) %>%
@@ -711,7 +711,7 @@ plan2 <- drake_plan(
     filter(step == "filter", region == "ITS2") %>%
     group_by(seq_run, region) %>%
     summarize(
-      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      # nreads =  prettyNum(sum(nreads), big.mark = ",")
       nreads = sum(nreads)
     ) %>%
     select(seq_run, nreads) %>%
@@ -721,7 +721,7 @@ plan2 <- drake_plan(
     filter(step == "lsux", region == "5_8S") %>%
     group_by(seq_run) %>%
     summarize(
-      # nreads =  prettyNum(sum(nreads), big.mark = " ")
+      # nreads =  prettyNum(sum(nreads), big.mark = ",")
       nreads = sum(nreads)
     ) %>%
     deframe(),
@@ -935,7 +935,14 @@ plan2 <- drake_plan(
           pivot_wider(
             names_from = "rank",
             values_from = "taxon"
-          ),
+          ) %>%
+          mutate(
+            family = ifelse(is.na(genus), family, coalesce(family, "incertae_sedis")),
+            order = ifelse(is.na(family), order, coalesce(order, "incertae_sedis")),
+            class = ifelse(is.na(order), class, coalesce(class, "incertae_sedis")),
+            phylum = ifelse(class == "Leotiomycetes", "Ascomycota", phylum)
+          )
+        ,
         by = c("label", "reference", "region", "method")
       ) %>%
       # Warcup doesn't explicitly identify fungi.
