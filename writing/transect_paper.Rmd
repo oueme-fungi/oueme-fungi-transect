@@ -1,23 +1,29 @@
 ---
-title: "Long- and Short-Read Metabarcoding Give Similar Results for Spatial Turnover Range in an Ectomycorrhizal Savanna Woodland"
+title: "Long- and short-read metabarcoding technologies reveal similar spatio-temporal structures in fungal communities"
 author: 
   - Brendan Furneaux^1^,
-    Mohammad Bahram^1^,
-    Anna Rosling^3^,
-    Nourou S. Yorou^2^,
+    Mohammad Bahram^2,3^,
+    Anna Rosling^4^,
+    Nourou S. Yorou^5^,
     Martin Ryberg^1^
   - ^1^Program in Systematic Biology,
     Department of Organismal Biology,
     Uppsala University,
     Uppsala, Sweden
-  - ^2^Research Unit in Tropical Mycology and Plant-Fungi Interactions,
-    LEB,
-    University of Parakou,
-    Parakou, Benin
-  - ^3^Program in Evolutionary Biology,
+  - ^2^Department of Ecology,
+    Swedish University of Agricultural Sciences,
+    Uppsala, Sweden
+  - ^3^Institute of Ecology and Earth Sciences,
+    University of Tartu,
+    Tartu, Estonia
+  - ^4^Program in Evolutionary Biology,
     Department of Ecology and Genetics,
     Uppsala University,
     Uppsala, Sweden
+  - ^5^Research Unit in Tropical Mycology and Plant-Fungi Interactions,
+    LEB,
+    University of Parakou,
+    Parakou, Benin
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 bibliography:
   - "all.bib"
@@ -106,10 +112,9 @@ source(here(file.path("scripts", "output_functions.R")))
 
 # Abstract
 
-Ectomycorrhizal (ECM) communities are characterized by mutualistic symbiosis between certain fungi and plant roots.
-Spatial turnover rate is one important characteristic of ecological communities, which is relevant for biodiversity assessment and sampling design.
-We investigated turnover rate in an ECM fungal community using soil metabarcoding with four different sequencing strategies: short amplicon sequencing of the ITS2 region (300--400\ bp) with Illumina MiSeq, Ion Torrent Ion S5, and PacBio RS II, as well as long amplicon sequencing of the full ITS and partial LSU regions (1200--1600\ bp) with PacBio RS II.
-Resulting turnover rates depended more on statistical method than sequencing technology.
+Fungi form diverse communities and play essential roles in many terrestrial ecosystems, yet there are methodological challenges in **xxx**.
+We investigated spatio-temporal structure of an ECM fungal community using soil metabarcoding with four different sequencing strategies: short amplicon sequencing of the ITS2 region (300--400\ bp) with Illumina MiSeq, Ion Torrent Ion S5, and PacBio RS II, as well as long amplicon sequencing of the full ITS and partial LSU regions (1200--1600\ bp) with PacBio RS II.
+Resulting community structure and diversity depended more on statistical method than sequencing technology.
 We found significant autocorrelation in distance classes <3\ m using a Mantel correlogram, and a best-fit distance-decay curve range of 17--19\ m, both shorter than previously reported for similar habitats.
 The use of long-amplicon sequencing enables construction of a phylogenetic tree from metabarcoding reads, which facilitates taxonomic identification of sequences.
 However, long reads present issues for denoising algorithms in diverse communities.
@@ -119,20 +124,20 @@ In the choice between short and long amplicons, we suggest a hybrid approach usi
 # Introduction
 
 Ectomycorrhizas (ECM) are a symbiosis between fungi and plant root tips.
-The fungi provide nutrients and protection from pathogens in exchange for sugars from the plant [@Smith2010].
+The fungi provide nutrients and protection from pathogens in exchange for carbon from the plant [@Smith2010].
 Approximately 8% of described fungal species are thought to take part in ECM symbiosis [@ainsworth2008ainsworth;@Rinaldi2008].
 Although only about 2% of land plant species form ECM, these include ecologically and economically important stand-forming trees belonging to both temperate and boreal groups such as Pinaceae and Fagaceae, and tropical groups such as Dipterocarpaceae, and Fabaceae tr. Amherstieae [@brundrett2017a].
 
-Although many well-known mushrooms are produced by ECM fungi (e.g., *Amanita*, *Cantharellus*, *Boletus*), many ECM fungi instead produce inconspicuous (e.g., *Tomentella*) or no (e.g., *Cenococcum*) fruit bodies.
+Although many ECM fungi form many well-known mushrooms (e.g., *Amanita*, *Cantharellus*, *Boletus*), some instead produce inconspicuous (e.g., *Tomentella*) or no (e.g., *Cenococcum*) fruit bodies.
 Even when fruitbodies are large, they are ephemeral, so study of ECM communities is facilitated by looking at vegetative structures [@horton2001].
 Unlike many saprotrophic fungi which grow easily in axenic culture, ECM fungi are usually difficult to culture, so DNA barcoding is increasingly used to investigate vegetative structures in the field.
 The advent of high-throughput sequencing (HTS) has facilitated such studies by providing enough sequencing depth for metabarcoding of bulk environmental samples such as soils [@Lindahl2013].
 
 As additional techniques and methods are developed for HTS, there is an increasing array of choices for researchers investigating fungal communities.
-Traditionally, fungal metabarcoding studies have targeted the ITS1 or ITS2 regions, which provide sufficient resolution to distinguish fungal species in many groups, and which are usually short enough for HTS [@schoch2012;@Lindahl2013].
+Fungal metabarcoding studies using short-read HTS technologies have targeted the ITS1 or ITS2 regions, which provide sufficient resolution to distinguish fungal species in many groups, and which are usually short enough for HTS [@schoch2012;@Lindahl2013].
 The resulting sequencing reads are clustered by sequence similarity to form operational taxonomic units (OTUs), which are then used as the units for further community analysis [@Lindahl2013].
 If taxonomic identification is desired in order to put OTUs in a wider context and associate functional information, it has usually been performed by database searches using BLAST [@altschul1990;@Lindahl2013].
-However, this traditional approach comes with some potential weaknesses.
+However, this approach comes with some potential weaknesses.
 
 While ITS1 and ITS2 often have suitable variation to distinguish species, they cannot be reliably aligned over the large taxonomic scales typically present in environmental samples [@Lindahl2013].
 Additionally the wide range of length variation of these regions may introduce bias in recovery of different taxa.
