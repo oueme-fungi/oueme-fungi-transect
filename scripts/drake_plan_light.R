@@ -66,11 +66,12 @@ physeq_meta <-
   dplyr::select(-dataset) %>%
   left_join(select(guilds_meta, amplicon, algorithm), by = "amplicon") %>%
   mutate(
+    fungi = glue::glue("fungi_{algorithm}"),
     ecm = glue::glue("ecm_{algorithm}"),
     ecm2 = glue::glue("ecm2_{algorithm}"),
     ecm3 = glue::glue("ecm3_{algorithm}")
   ) %>%
-  mutate_at(vars(starts_with("ecm")), compose(syms, make.names))
+  mutate_at(vars(starts_with("ecm"), starts_with("fungi")), compose(syms, make.names))
 
 plan2 <- drake_plan(
   # targets which are imported from first plan
@@ -451,6 +452,11 @@ plan2 <- drake_plan(
     transform = map(.data = !!guilds_meta, .tag_in = step, .id = algorithm)
   ),
   
+  fungi = target(
+    dplyr::filter(guilds, kingdom == "Fungi"),
+    transform = map(guilds, .tag_in = step, .id = algorithm)
+  ),
+  
   ecm = target(
     dplyr::filter(guilds, grepl("Ectomycorrhizal", guild)),
     transform = map(guilds, .tag_in = step, .id = algorithm)
@@ -484,7 +490,7 @@ plan2 <- drake_plan(
         phyloseq::subset_samples(sample_type == "Sample") %>%
         phyloseq::subset_samples(buffer == "Xpedition") %>%
         phyloseq::subset_samples(site == "Gan") %>%
-        phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100 ) %>%
+        phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
         phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["tech"]] == tech) %>%
         phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["amplicon"]] == amplicon)
       
@@ -500,6 +506,9 @@ plan2 <- drake_plan(
         physeq <- phyloseq::prune_taxa(ecm3$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
         
+      } else if (guild == "fungi") {
+        physeq <- phyloseq::prune_taxa(fungi$label, physeq) %>%
+          phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
       }
       physeq
     },
@@ -1193,6 +1202,7 @@ plan2 <- drake_plan(
     apply(MARGIN = 2, match, x = 1),
   
   variog_data = target({
+    if (FALSE) list(correlog, variog, variogST, variofit2, variofitST2)
     ignore(plan2) %>%
     filter(step == "correlog") %>%
     select("correlog", timelag, guild, metric, tech, amplicon, algorithm) %>%
@@ -1240,7 +1250,8 @@ plan2 <- drake_plan(
       )
     )
     },
-    transform = combine(correlog, variog, variogST, variofit2, variofitST2)
+    transform = combine(correlog, variog, variogST, variofit2, variofitST2),
+    memory_strategy = "unload"
   ),
   
   variog_points = unnest(variog_data, "variogST") %>%
