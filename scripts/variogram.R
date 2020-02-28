@@ -82,13 +82,16 @@ variogramST_dist <- function(eco_dist, sp_dist, timelag, breaks) {
 }
 
 variog <- function(physeq, metric, breaks) {
-  dist_eco <- phyloseq::distance(physeq, method = metric)
+  dist_eco <- phyloseq::distance(physeq, method = metric) %>%
+    c()
   dist_sp <- phyloseq::sample_data(physeq) %>%
     with(x + 30000 * as.integer(site)) %>%
-    dist()
+    dist() %>%
+    c()
   dist_t = phyloseq::sample_data(physeq) %>%
     with(as.integer(year)) %>%
-    dist()
+    dist() %>%
+    c()
   dist_spt = dist_sp + 100000 * dist_t
   variogram_table(
     eco_dist = dist_eco,
@@ -98,13 +101,16 @@ variog <- function(physeq, metric, breaks) {
 }
 
 variogST <- function(physeq, metric, breaks) {
-  dist_eco <- phyloseq::distance(physeq, method = metric)
+  dist_eco <- phyloseq::distance(physeq, method = metric) %>%
+    c()
   dist_sp <- phyloseq::sample_data(physeq) %>%
     with(x + 30000 * as.integer(site)) %>%
-    dist()
+    dist() %>%
+    c()
   dist_t = phyloseq::sample_data(physeq) %>%
     with(as.integer(year)) %>%
-    dist()
+    dist() %>%
+    c()
   variogramST_table(
     eco_dist = dist_eco,
     sp_dist = dist_sp,
