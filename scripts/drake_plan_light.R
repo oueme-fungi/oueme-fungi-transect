@@ -510,7 +510,7 @@ plan2 <- drake_plan(
         physeq <- phyloseq::prune_taxa(fungi$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
       }
-      physeq
+      phyloseq::transform_sample_counts(physeq, function(x) x / sum(x))
     },
     transform = map(.data = !!physeq_meta, .tag_in = step, .id = c(guild, tech, amplicon, algorithm))
   ),

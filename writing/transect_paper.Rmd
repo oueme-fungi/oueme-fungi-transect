@@ -28,7 +28,7 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 bibliography:
   - "all.bib"
   - "R.bib"
-csl: molecular-ecology.csl
+csl: new-phytologist.csl
 always_allow_html: true
 output:
   bookdown::pdf_document2:
@@ -123,10 +123,10 @@ In the choice between short and long amplicons, we suggest a hybrid approach usi
 
 # Introduction
 
-Ectomycorrhizas (ECM) are a symbiosis between fungi and plant root tips.
+Ectomycorrhizas (ECM) form a symbiosis between fungi and plants.
 The fungi provide nutrients and protection from pathogens in exchange for carbon from the plant [@Smith2010].
 Approximately 8% of described fungal species are thought to take part in ECM symbiosis [@ainsworth2008ainsworth;@Rinaldi2008].
-Although only about 2% of land plant species form ECM, these include ecologically and economically important stand-forming trees belonging to both temperate and boreal groups such as Pinaceae and Fagaceae, and tropical groups such as Dipterocarpaceae, and Fabaceae tr. Amherstieae [@brundrett2017a].
+Although only about 2% of land plant species form ECM, these include ecologically and economically important stand-forming trees belonging to both temperate and boreal groups such as Pinaceae and Fagaceae, and tropical groups such as Dipterocarpaceae, *Uapaca* (Phyllanthaceae) and Fabaceae tr. Amherstieae [@brundrett2017a].
 
 Although many ECM fungi form many well-known mushrooms (e.g., *Amanita*, *Cantharellus*, *Boletus*), some instead produce inconspicuous (e.g., *Tomentella*) or no (e.g., *Cenococcum*) fruit bodies.
 Even when fruitbodies are large, they are ephemeral, so study of ECM communities is facilitated by looking at vegetative structures [@horton2001].
@@ -139,13 +139,14 @@ The resulting sequencing reads are clustered by sequence similarity to form oper
 If taxonomic identification is desired in order to put OTUs in a wider context and associate functional information, it has usually been performed by database searches using BLAST [@altschul1990;@Lindahl2013].
 However, this approach comes with some potential weaknesses.
 
-While ITS1 and ITS2 often have suitable variation to distinguish species, they cannot be reliably aligned over the large taxonomic scales typically present in environmental samples [@Lindahl2013].
-Additionally the wide range of length variation of these regions may introduce bias in recovery of different taxa.
+While ITS1 and ITS2 often have suitable variation to distinguish species, they cannot be reliably aligned over the fungal kingdom [@Lindahl2013;@Tedersoo2018].
+Additionally, the wide range of length variation of these regions may introduce bias in recovery of different taxa (**ref**).
 Further bias is introduced by variation in the 5.8S region which separates the two ITS regions, as well as in the 5' end of LSU, which makes it difficult to design primers that are suitable for all fungi [@tedersoo2015].
-The recent advent of long-read HTS technologies such as Pacific Biosciences Single Molecule Real Time sequencing (PacBio) introduce the possibility of sequencing longer amplicons which include both the ITS regions and the flanking, more conserved SSU and/or LSU regions [@Tedersoo2018].
-This has the potential to improve taxonomic placement of sequences that lack close database matches, and to allow the alignment of metabarcoding reads for subsequent phylogenetic analysis.
+Recent long-read HTS technologies such as Pacific Biosciences Single Molecule Real Time sequencing (PacBio) enable sequencing longer amplicons which include both the ITS regions and the flanking, more conserved SSU and/or LSU regions [@Tedersoo2018].
+This can potentially improve taxonomic placement of sequences that lack close database matches and allow the alignment of metabarcoding reads for subsequent phylogenetic analysis.
 However, long-read technologies are currently more expensive per read compared to short-read sequencing, and so their use entails a trade-off with sequencing depth and/or sample number [@Kennedy2018].
 
+In addition **XXX**.
 Distance-based clustering conflates intra-species variation and sequencing error, and results are dataset-specific.
 In contrast, more recent denoising methods such as DADA2 [@callahan2017], Deblur [@amir2017], and UNOISE2 [@edgar2016] utilize read quality information to control for sequencing error while leaving intra-species variation.
 The resulting units are known as amplicon sequence variants (ASVs) or exact sequence variants (ESVs), as they should represent true amplicon sequences from the sample.
@@ -155,14 +156,14 @@ Assignment of taxonomic identities using BLAST requires *a priori* choice of thr
 Several algorithms specifically designed for taxonomic assignment have been published which use information about variability within different taxa in the reference database to assign unknown sequences, along with confidence estimates for these assignments [e.g.,@wang2007;@edgar2016a;@murali2018a].
 In addition, methods have been published which integrate predictions from multiple algorithms to increase the reliability of assignments [@somervuo2016;@gdanetz2017].
 
-Phylogenetic information has the potential to both improve taxonomic assignment and provide alternative measures of community alpha and beta diversity.
+Information from phylogenetic trees produced from long-amplicon metabarcoding has the potential to both improve taxonomic assignment and provide alternative measures of community alpha and beta diversity.
 Because OTU clustering may both "clump" different species into a single OTU, and "split" a single species into multiple OTUs [@ryberg2015], diversity measures based on counting species within a community or shared species between two communities may give different results depending on the clustering threshold.
-In contrast, phylogenetic community distance measures like UNIFRAC [@wong2016] are relatively insensitive to species/OTU delimitation, but require a phylogenetic tree.
+In contrast, phylogenetic community distance measures [@wong2016] are relatively insensitive to species/OTU delimitation, but require a phylogenetic tree.
 Phylogenetic placement algorithms have been developed to place short amplicon reads onto a reference tree [@matsen2010; @berger2011], but are not easy to apply to ITS sequences because they require that the query sequences be aligned to a reference alignment.
 Additionally, methods exist to place OTUs on a simplified tree based on taxonomic assignments [@tedersoo2018].
 However, long amplicon sequencing allows the inclusion of alignable regions for construction of more fully resolved phylogenetic trees directly from metabarcoding reads.
 
-We investigated the effects of different sequencing strategies and post-analysis on biological conclusions using measurement of the spatial community turnover rate along a transect in an ECM dominated Soudanian woodland in Benin.
+Here we investigated the effects of different sequencing strategies and post-analysis on biological conclusions using measurement of the spatial community turnover rate along a transect in an ECM-dominated Soudanian woodland in Benin.
 
 Turnover scale is the distance at which two communities can be considered to be independent samples of the local species pool.
 Knowledge of turnover scale is import when planning studies of local diversity and its environmental correlates.
@@ -173,7 +174,7 @@ Several studies have investigated the turnover scale in ECM forests, but so far 
 @lilleskov2004 found autocorrelation only at ranges <2.6\ m at most sites in temperate forests, using Sanger sequencing.
 Similarly, @pickles2012a found autocorrelation at distances <3.4\ m, also in temperate forests, based on T-RFLP analysis.
 Two studies have included data from tropical African woodlands and wooded savannahs.
-@tedersoo2011 found autocorrelation at ranges <10\ m in Miombo woodland based on Sanger sequencing.
+@tedersoo2011 found autocorrelation at ranges <10\ m in Miombo woodland using Sanger sequencing.
 However, this study was based on irregular sampling with a minimum spacing of 8\ m, so this as the smallest distance class.
 @Bahram2013 performed a meta-analysis of turnover scale in ECM communities, including data from Benin, where they found turnover range of 65\ m based on distance-decay curves.
 Based on these results they concluded that the range of distance decay is greater in tropical forests than temperate forests.
@@ -186,7 +187,7 @@ We also present new algorithms for dividing the rDNA into regions, combining den
 
 ## Sampling
 
-Sampling was conducted at two sites (Ang: N 9.75456° W 2.14064°; Gan: N 9.75678° W 2.31058 °) approximately 30\ km apart in the _Forêt Reservée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
+Sampling was conducted at two sites (Ang: N 9.75456° W 2.14064°; Gan: N 9.75678° W 2.31058 °) approximately 30\ km apart in the _Forêt Classée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
 Both sites were located in woodlands dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
 At each site, 25\ soil samples were collected along a linear transect at intervals of 1\ m in May 2015.
 One third of the sample locations (3\ m spacing) were resampled one year later in June 2016.
@@ -196,8 +197,170 @@ Approximately 50\ mg total of soil was collected from two locations in the homog
 <!--The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis. -->
 
 An additional sample was collected at every sampling location (1-m spacing) in 2016 using LifeGuard^TM^ Soil Preservation Solution (MO BIO, Carlsbad, CA; USA) for preservation, without field lysis.
-Sequencing results for these samples were found not to be comparable with results preserved using the Xpedition^TM^ lysis buffer (Supplementary Figures \@ref(fig:buffer-compare-long) and \@ref(fig:buffer-compare-short)), so these samples were not included in spatial analyses.
+Sequencing results for these samples differed significantly (p < 0.001 from permutational ANOVA) from samples preserved using the Xpedition^TM^ lysis buffer (Supplementary Figures \@ref(fig:buffer-compare-long) and \@ref(fig:buffer-compare-short)); as such these samples were excluded from our spatial analyses.
 However, reads from these sequences were included in the full bioinformatics workflow, including ASV calling, OTU clustering, and phylogenetic trees.
+
+```{r}
+buffer_asv_table <- rdd(proto_physeq) %>%
+  phyloseq::subset_samples(tech != "Ion Torrent") %>%
+  phyloseq::subset_samples(sample_type == "Sample") %>%
+  phyloseq::prune_taxa(taxa = rdd(fungi_PHYLOTAX.Cons)$label) %>%
+        phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100)
+
+samples <- phyloseq::sample_data(buffer_asv_table) %>%
+  as_tibble(rownames = "sample") %>%
+  group_by(site, x, tech, amplicon) %>%
+  filter(n() >= 3) %>%
+  pull(sample) %>%
+  unique()
+
+buffer_asv_table <- phyloseq::prune_samples(buffer_asv_table, samples = samples)
+
+buffer_asv_bc_dist <- buffer_asv_table %>%
+  phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
+  phyloseq::distance("bray")
+vegan::adonis2(
+  buffer_asv_bc_dist ~ paste(site, x) + paste(tech, amplicon) + buffer + year,
+  data = as_tibble(phyloseq::sample_data(buffer_asv_table)),
+  by = "margin",
+  permutations = 9999
+)
+```
+ 
+```{r}
+buffer_asv_dbrda <- vegan::dbrda(
+  buffer_asv_bc_dist ~ 1,
+  data = as_tibble(phyloseq::sample_data(buffer_asv_table))
+)
+plot(buffer_asv_dbrda, type = "none")
+points(buffer_asv_dbrda, select = with(as_tibble(phyloseq::sample_data(buffer_asv_table)),
+                                     buffer == "Xpedition" & year == "2015" ),
+       col = "green", pch = 1)
+points(buffer_asv_dbrda, select = with(as_tibble(phyloseq::sample_data(buffer_asv_table)),
+                                     buffer == "Xpedition" & year == "2016"),
+       col = "blue", pch = 2)
+points(buffer_asv_dbrda, select = with(as_tibble(phyloseq::sample_data(buffer_asv_table)),
+                                     buffer == "LifeGuard" & year == "2016"),
+       col = "red", pch = 3)
+legend("bottomright", legend = c("Xpedition 2015", "Xpedition 2016", "LifeGuard 2016"), col = c("green", "blue", "red"), pch = 1:3)
+legend("topright", legend = with(as_tibble(phyloseq::sample_data(buffer_asv_table)), paste(tech, amplicon)) %>% unique() %>% sort(), lty = 1:3)
+vegan::ordiellipse(buffer_asv_dbrda, groups = with(as_tibble(phyloseq::sample_data(buffer_asv_table)), paste(tech, amplicon)),
+                   lty = 1:3)
+```
+
+```{r}
+tech_asv_table <- rdd(proto_physeq) %>%
+  phyloseq::subset_samples(tech != "Ion Torrent") %>%
+  phyloseq::subset_samples(buffer == "Xpedition") %>%
+  phyloseq::subset_samples(sample_type == "Sample") %>%
+  phyloseq::prune_taxa(taxa = rdd(fungi_PHYLOTAX.Cons)$label) %>%
+  phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100)
+
+tech_class_table <- phyloseq::`tax_table<-`(
+  tech_asv_table,
+  phyloseq::tax_table(
+    rdd(fungi_PHYLOTAX.Cons) %>%
+      select(label, kingdom:genus) %>%
+      column_to_rownames("label") %>%
+      as.matrix()
+    )
+  ) %>%
+  phyloseq::tax_glom(taxrank = "class")
+
+phyloseq::taxa_names(tech_class_table) <- phyloseq::tax_table(tech_class_table)[,"class"]
+
+
+samples <- phyloseq::sample_data(tech_class_table) %>%
+  as_tibble(rownames = "sample") %>%
+  group_by(site, x, year) %>%
+  filter(n() >= 3) %>%
+  pull(sample) %>%
+  unique()
+
+tech_class_table <-
+  phyloseq::prune_samples(tech_class_table, samples = samples) %>%
+  phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
+  phyloseq::prune_taxa(taxa = (phyloseq::otu_table(tech_class_table) %>% t() %>% as.data.frame() %>% do.call(what = pmax)) > 0.01)
+
+tech_class_bc_dist <- tech_class_table %>%
+  phyloseq::distance("bray")
+vegan::adonis2(
+  tech_class_bc_dist ~ paste(site, x, year) + tech + amplicon,
+  data = as_tibble(phyloseq::sample_data(tech_class_table)),
+  by = "margin",
+  permutations = 9999
+)
+```
+ 
+```{r}
+tech_class_dbrda <- vegan::capscale(
+  phyloseq::otu_table(tech_class_table) ~ Condition(paste(site, x, year)),
+  data = as_tibble(phyloseq::sample_data(tech_class_table)),
+  distance = "bray"
+)
+tech_class_dbrda_scores <-
+  vegan::scores(tech_class_dbrda, display = "species") %>%
+  as_tibble(rownames = "class") %>%
+  mutate(L = sqrt(MDS1^2 + MDS2^2)) %>%
+  filter(L >= max(L) / 10) %>%
+  mutate(abbrev = substr(class, start = 1, stop = 2))
+```
+
+(ref:ppcoa-short) Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding approaches.
+
+(ref:ppcoa) Only within-sample variation is displayed; variation between samples (site, position, year) have been partialed out.
+
+
+```{r ppcoa}
+plot(tech_class_dbrda, type = "none")
+text(
+  x = tech_class_dbrda_scores$MDS1,
+  y = tech_class_dbrda_scores$MDS2,
+  labels = tech_class_dbrda_scores$abbrev
+  )
+points(tech_class_dbrda, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
+                                     tech == "PacBio" & amplicon == "Short" ),
+       col = "green", pch = 1)
+
+points(tech_class_dbrda, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
+                                     tech == "PacBio" & amplicon == "Long"),
+       col = "blue", pch = 2)
+points(tech_class_dbrda, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
+                                     tech == "Illumina" & amplicon == "Short"),
+       col = "red", pch = 3)
+legend("bottomleft", legend = c("Illumina Short", "PacBio Short", "PacBio Long"), col = c("red", "green", "blue"), pch = c(3, 1, 2))
+```
+ 
+```{r}
+tech_class_nmds <- vegan::metaMDS(
+  phyloseq::otu_table(tech_class_table)
+)
+
+plot(tech_class_nmds, type = "n")
+vegan::ordispider(
+  tech_class_nmds,
+  groups = with(
+    as_tibble(phyloseq::sample_data(tech_class_table)),
+    paste(buffer, year, site, x)
+    ),
+  col = "gray80"
+  )
+text(
+  x = class_scores$MDS1,
+  y = class_scores$MDS2,
+  labels = class_scores$abbrev
+  )
+points(tech_class_nmds, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
+                                     tech == "PacBio" & amplicon == "Short" ),
+       col = "green", pch = 1)
+points(tech_class_nmds, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
+                                     tech == "PacBio" & amplicon == "Long"),
+       col = "blue", pch = 2)
+points(tech_class_nmds, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
+                                     tech == "Illumina" & amplicon == "Short"),
+       col = "red", pch = 3)
+legend("topright", legend = c("Illumina Short", "PacBio Short", "PacBio Long"), col = c("red", "green", "blue"), pch = c(3, 1, 2))
+```
 
 <!-- ## Soil Chemistry
 
@@ -212,8 +375,8 @@ Samples preserved using LifeGuard were first centrifuged at 10000×g for 1\ minu
 DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
 
 Two different fragments of the nuclear rDNA were amplified (Figure\ \@ref(fig:rDNA)).
-The short amplicon (approximately 300\ bp) targetted the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] as the reverse primer (hereafter, ITS4m).
-The long amplicon (approximately 1500\ bp) targetted the full ITS region including the 5.8S rDNA and approximately 950\ bp at the 5' end of the LSU, including the first three variable regions (Figure\ \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
+The short amplicon (approximately 300\ bp) targeted the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] as the reverse primer (hereafter, ITS4m).
+The long amplicon (approximately 1500\ bp) targeted the full ITS region including the 5.8S rDNA and approximately 950\ bp at the 5' end of the LSU, including the first three variable regions (Figure\ \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
 Each PCR run also included a blank sample and a positive control consisting of freshly extracted DNA from a commercially purchased fruitbody of *Agaricus bisporus*.
 
 The gITS7 primers for the short amplicon were indexed for multiplexing (**Supplementary File**).
@@ -357,7 +520,7 @@ ASVs from the short amplicon datasets were refined using only the final strict c
 This refinement method is referred to as "Consensus".
 Additionally, a hybrid method, was applied to the short amplicon datasets, in which assignments from PHYLOTAX were used for ASVs which could be linked by an identical ITS2 region to a long amplicon, and assignments from Consensus were used for the remaining ASVs.
 
-## Spatial analysis
+## Spatiotemporal analysis
 
 Ecological community dissimilarity matrices were calculated using the ASV/OTU based Bray-Curtis metric (both long and short amplicons) and the phylogenetically based weighted UNIFRAC method (only long amplicons) in `phyloseq` version `r packageVersion("phyloseq")`.
 Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12\ m.
@@ -681,14 +844,14 @@ light_plan %>%
 ```
 
 Mantel correlograms of the Bray-Curtis and weighted UNIFRAC community dissimilarities with respect to spatial distance and time lag are shown in Figure\ \@ref(fig:correlog).
-Results are qualitatively similar between the two amplicon libraries and between PacBio and Illumina sequencing, with significant autocorrelation ($p < 0.05$, filled red circles) in the Bray-Curtis metric at ranges of up to 3\ m for the total fungal community, and 1–2\ m for the ECM community.
+Results are qualitatively similar between the two amplicon libraries and between PacBio and Illumina sequencing, with significant autocorrelation ($p < 0.05$, filled red circles) in the Bray-Curtis metric at ranges of up to 2--3\ m for the total fungal community, and 1--2\ m for the ECM community.
 In both cases, the greatest correlation magnitudes and distances are associated with Illumina sequencing of the short amplicon library, followed by PacBio sequencing of the long amplicon library, with PacBio sequencing of the short amplicon library detecting the least spatial structure.
 
 In contrast, the weighted UNIFRAC distance, which was only calculated for the long amplicon library, shows very little spatial structure, with only the total fungal community in the 1\ m 
 distance class showing a significant correlation at $p < 0.05$.
 
 The Bray-Curtis metric showed significant ($p < 0.05$) positive correlation at a time lag of 1\ year and 0\ m separation (filled blue circles) for both the total fungal and ECM communities in the long amplicon library.
-For the short amplicon library, although the general profile of the correlograms was similar, correlation at 0m and 1\ year was not significant, but there was a negative correlation at time lag of 1\ year and a distance of 1m for both sequencing technologies.
+For the short amplicon library, although the general profile of the correlograms was similar, correlation at 0\ m and 1\ year was not significant, but there was a negative correlation at time lag of 1\ year and a distance of 1\ m for both sequencing technologies.
 This negative correlation was significant in all short amplicon correlograms.
 
 Distance-decay curves relating community dissimilarities and spatial distances are shown in Figure\ \@ref(fig:spatio).
@@ -809,21 +972,21 @@ This led to a corresponding increase in the fraction of reads assigned to a func
 ## Turnover rate
 
 Weighted UNIFRAC did not reliably detect spatial structure within this relatively homogeneous community.
-Although the Mantel test did show a small but significant positive autocorrelation in the fungal community at the smallest size category (1\ m) (Figure\ \@ref(fig:correlog)), the distance-decay plot in Figure\ \@ref(fig:spatio) does not show any clear relationship, and the functional fit showed poor convergence, with a 95% confidence interval for spatial range of 0-5700\ m.
+Although the Mantel test did show a small but significant positive autocorrelation in the fungal community at the smallest size category (1\ m) (Figure\ \@ref(fig:correlog)), the distance-decay plot in Figure\ \@ref(fig:spatio) does not show any clear relationship, and the functional fit showed poor convergence, with a 95% confidence interval for spatial range of 0--5700\ m.
 This is probably due to the majority of weighted branch length in the community being between the Pezizomycotina and Agaricomycetes (Figure\ \@ref(fig:taxa)), which are both well represented in the majority of samples.
 UNIFRAC would be more suited at larger spatial scales and/or larger ecological gradients.
 
 Mantel correlograms based on the Bray-Curtis dissimilarity (Figure\ \@ref(fig:correlog)) revealed spatial autocorrelation in the soil fungal community at distance classes $\le 3$ m for both Illumina and PacBio using long and short amplicons, and in the ECM fungal community at distance classes $\le 2$ m for Illumina and PacBio long amplicons, and $\le 1$ m for the PacBio short amplicons.
 These values are similar to the values reported for ECM root tips in temperate forests by @lilleskov2004 and @pickles2012a, but substantially smaller than those observed by @tedersoo2011.
 Distance-decay plots (Figure\ \@ref(fig:spatio), Table\ \@ref(tab:variofit)) gave substantially longer autocorrelation distances.
-There was little variation in the results between the Illumina and long-amplicon PacBio datasets for both the total fungal community and the ECM community, with best fit estimates ranging from 17--19\ m.
-The 95% confidence interval was substantially wider than this variation, generally covering a range of 9--35\ m.
+There was little variation in the results between the Illumina and long-amplicon PacBio datasets for both the total fungal community and the ECM community, with best fit estimates ranging from 13--19\ m.
+The 95% confidence interval was substantially wider than this variation, generally covering a range of 6--35\ m.
 All of these values are smaller than the 65\ m reported by @Bahram2013, also from an ECM woodland habitat in Benin.
-The PacBio short amplicon dataset shows a longer spatial range, of 30\ m for the total fungal community and 42--45\ m for the ECM community, in both cases with wide confidence intervals spanning approximately 15--60\ m.
+The PacBio short amplicon dataset shows a longer spatial range, of 30\ m for the total fungal community and 42--43\ m for the ECM community, in both cases with wide confidence intervals spanning approximately 15--60\ m.
 It is possible that the weaker fit for this dataset, which also showed weaker autocorrelation in the Mantel correlogram, is due to low sequencing depth.
 
 The Bray-Curtis Mantel correlogram for both the total fungal and ECM communities from the long amplicon dataset show a significant positive correlation at 0\ m and 1\ year.
-The spatiotemporal distance-decay fit estimated the temporal turnover range as 3.1\ years for the total fungal comunity and 5.5\ years for the ECM community, but with overlapping confidence intervals.
+The spatiotemporal distance-decay fit estimated the temporal turnover range as 3.1\ years for the total fungal comunity and 4\ years for the ECM community, but with overlapping confidence intervals.
 Both datasets from the short amplicon library showed a puzzling pattern with no autocorrelation at 0\ m and 1\ year, but a weak negative correlation at 1\ m and 1\ year.
 The general shape of the correlograms were similar for long and short amplicon datasets.
 We hypothesize that two different processes may be at work with differing spatiotemporal scales, whose superposition result in this pattern.
