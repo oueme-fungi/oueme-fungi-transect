@@ -2103,9 +2103,7 @@ plan2 <- drake_plan(
     # Don't use QC sample
     phyloseq::subset_samples(sample_type == "Sample") %>%
     # Only fungi
-    phyloseq::prune_taxa(taxa = fungi_PHYLOTAX.Cons$label) %>%
-    # Only samples with at least 100 reads
-    phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100),
+    phyloseq::prune_taxa(taxa = fungi_PHYLOTAX.Cons$label),
   
   # Add taxonomy to the ASV table and cluster at the class level
   tech_class_table =
@@ -2120,7 +2118,9 @@ plan2 <- drake_plan(
     ) %>%
     phyloseq::tax_glom(taxrank = "class") %>%
     phyloseq::`taxa_names<-`(phyloseq::tax_table(.)[,"class"]) %>%
-    # Include only soil samples with results from all three tech/amplicon combinations
+    # Only samples with at least 100 reads
+    phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
+    # Only soil samples with results from all three tech/amplicon combinations
     phyloseq::prune_samples(
       samples = phyloseq::sample_data(.) %>%
         as("data.frame") %>%
