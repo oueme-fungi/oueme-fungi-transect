@@ -2319,6 +2319,18 @@ plan2 <- drake_plan(
     scale_discrete_manual(aesthetics = "pch", name = NULL, values = 1:3) +
     coord_equal(),
   
+  length_kw =
+    reads_table %>%
+    filter(region == "short") %>%
+    group_by(length, seq_run) %>%
+    summarize(reads = sum(reads)) %>%
+    ungroup() %>%
+    slice(rep(1:n(), reads)) %>%
+    mutate_at("seq_run", factor) %$%
+    kruskal.test(length, g = seq_run),
+  
+  
+  
   trace = TRUE
 ) %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)

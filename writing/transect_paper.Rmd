@@ -391,11 +391,13 @@ Sequencing with PacBio RS II yielded more than twice as many raw reads for long 
 Ion Torrent Ion S5 and Illumina MiSeq yielded substantially more reads, with 20.7 million and 10.8 million, respectively.
 Demultiplexing, primer trimming, and quality filtering reduced these totals by `r (1-rdd(filtercounts_full)/rdd(rawcounts))["pb_500"] %>% percent(format = "d")` for PacBio long reads, but only by `r (1-rdd(filtercounts_full)/rdd(rawcounts))["pb_483"] %>% percent(format = "d")` for PacBio short reads, resuling in a similar numbe rof filtered reads for the two strategies.
 Losses in demultiplexing, trimming, and quality filtering were intermediate for Ion Torrent and Illumina, with `r (1-rdd(filtercounts_full)/rdd(rawcounts))[c("is_057", "SH-2257")] %>% percent(format = "d") %>% text_list()` loss, respectively.
-In contrast, extraction of only the ITS2 region before quality filtering resulted in the loss of `r percent(1-rdd(filtercounts_ITS2)['pb_500']/rdd(rawcounts)['pb_500'], digits = 1, format = "f")` of trimmed long amplicon PacBio reads, `r percent(1-rdd(filtercounts_ITS2)['pb_483']/rdd(rawcounts)['pb_483'], digits = 1, format = "f")` of trimmed short amplicon PacBio reads, and `r percent(1-rdd(filtercounts_ITS2)['is_057']/rdd(rawcounts)['is_057'], digits = 1, format = "f")` of trimmed Ion Torrent reads.
-This represented greater loss of PacBio short reads, but less loss of  PacBio long reads and Ion Torrent reads.
+In contrast, extraction of only the ITS2 region before quality filtering resulted in the loss of `r percent(1-rdd(filtercounts_ITS2)['pb_500']/rdd(rawcounts)['pb_500'], format = "d")` of trimmed long amplicon PacBio reads, `r percent(1-rdd(filtercounts_ITS2)['pb_483']/rdd(rawcounts)['pb_483'], format = "d")` of trimmed short amplicon PacBio reads, and `r percent(1-rdd(filtercounts_ITS2)['is_057']/rdd(rawcounts)['is_057'], format = "d")` of trimmed Ion Torrent reads.
+This represented greater loss of PacBio short reads, but less loss of PacBio long reads and Ion Torrent reads.
 
 The length distribution of the different regions extracted from the long amplicon are shown in Supplementary Figure\ \@ref(fig:region-lengths).
-
+ITS1 showed the greatest length variability (mean $\pm$ standard deviation: `r rdd(reads_table) %>% filter(region == "ITS1", seq_run == "pb_500") %$% reldist::wtd.mean(length, weight = reads) %>% round()` $\pm$ `r rdd(reads_table) %>% filter(region == "ITS1", seq_run == "pb_500") %$% reldist::wtd.var(length, weight = reads) %>% sqrt() %>% round()`\ bp), followed by ITS2 (`r rdd(reads_table) %>% filter(region == "ITS2", seq_run == "pb_500") %$% reldist::wtd.mean(length, weight = reads) %>% round()` $\pm$ `r rdd(reads_table) %>% filter(region == "ITS2", seq_run == "pb_500") %$% reldist::wtd.var(length, weight = reads) %>% sqrt() %>% round()`\ bp) and the variable regions in LSU (D2: `r rdd(reads_table) %>% filter(region == "D2", seq_run == "pb_500") %$% reldist::wtd.mean(length, weight = reads) %>% round()` $\pm$ `r rdd(reads_table) %>% filter(region == "D2", seq_run == "pb_500") %$% reldist::wtd.var(length, weight = reads) %>% sqrt() %>% round()`\ bp; D3: `r rdd(reads_table) %>% filter(region == "D3", seq_run == "pb_500") %$% reldist::wtd.mean(length, weight = reads) %>% round()` $\pm$ `r rdd(reads_table) %>% filter(region == "D3", seq_run == "pb_500") %$% reldist::wtd.var(length, weight = reads) %>% sqrt() %>% round()`\ bp; D1: `r rdd(reads_table) %>% filter(region == "D1", seq_run == "pb_500") %$% reldist::wtd.mean(length, weight = reads) %>% round()` $\pm$ `r rdd(reads_table) %>% filter(region == "D1", seq_run == "pb_500") %$% reldist::wtd.var(length, weight = reads) %>% sqrt() %>% round()`\ bp).
+Approximately `(rdd(reads_table) %>% filter(region == "LSU4", seq_run == "pb_500", length > 200) %$% sum(reads)/rdd(reads_table) %>% filter(region == "LSU4", seq_run == "pb_500") %$% sum(reads)) %>% signif(1) %>% percent()` of reads included an intron of 40--60 bp in the LSU4 region, not visible in Supplementary Figure\ \@ref(fig:region-lengths) due to rarity.
+Except for these sequences, all conserved regions of LSU, as well as 5.8S, displayed very little size variation, as expected, with standard deviations < 2 bp.
 
 (ref:readcounts-s) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages
 
@@ -441,7 +443,7 @@ rdd(bioinf_table) %>%
   )
 ```
 
-## Reproducibility of read counts from different technologies
+## Reproducibility of sequence capture using different technologies
 
 (ref:venn-s) Venn diagrams of shared ASVs and OTUs between different sequencing technologies
 
@@ -528,7 +530,7 @@ grid::grid.legend(
 
 (ref:read-compare-s) Comparison between read numbers for different sequencing strategies
 
-(ref:read-compare) by ASV (top) and 97% OTU (bottom). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
+(ref:read-compare) by ASV (**a**) and 97% OTU (**b**). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
 
 ```{r read-compare, fig.cap="(ref:read-compare-s), (ref:read-compare)", fig.scap="(ref:read-compare-s)", fig.height=8}
 ggpubr::ggarrange(
@@ -548,26 +550,27 @@ ggpubr::ggarrange(
 )
 ```
 
-The number of ASVs and OTUs shared between the different sequencing strategies are shown in Supplementary Tables \@ref(tab:venn-table-asv) and \@ref(tab:venn-table-otu), respectively, and graphically in Figure\ \@ref(fig:venn).
-ASVs shared between all datasets represented `r text_list(percent(rdd(venn_ASV)["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))` of the reads for the long and short PacBio datasets, Illumina dataset, and Ion Torrent dataset, respectively.
-These fractions increased to `r text_list(percent(rdd(venn_OTU)["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))` when differences at the intra-species scale were removed by clustering the ASVs into 97% OTUs.
+The majority of abundant ASVs and OTUs were captured by all sequencing strategies used (Figure\ \@ref(fig:venn)).
+ASVs shared between all datasets represented `r paste(range(as.numeric(unlist(rdd(venn_ASV)["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))*100), collapse = "--")`% of the reads for the long and short PacBio datasets, Illumina dataset, and Ion Torrent dataset, respectively.
+These fractions increased to `r paste(range(as.numeric(unlist(rdd(venn_OTU)["1111", c("frac_pb_500", "frac_pb_483", "frac_SH-2257", "frac_is_057")]))*100), collapse = "--")`% when differences at the intra-species scale were removed by clustering the ASVs into 97% OTUs.
 In particular, `r text_list(percent(colSums(mutate_all(rdd(venn_OTU)[c("0111", "1111"), c("frac_pb_483", "frac_SH-2257", "frac_is_057")], as.numeric), na.rm = TRUE)))` of reads in the PacBio, Illumina, and Ion Torrent short-amplicon datasets belonged to OTUs shared between all three datasets.
 In contrast, `r percent(rdd(venn_ASV)["1000", "frac_pb_500"])` of reads in the long PacBio dataset belonged to ASVs which were unique to that dataset, and the fraction only reduced to `r percent(rdd(venn_OTU)["1000", "frac_pb_500"])` after OTU clustering.
+Complete tabulations of the number of ASVs and OTUs shared between the different sequencing strategies are shown in Supplementary Tables \@ref(tab:venn-table-asv) and \@ref(tab:venn-table-otu), respectively.
 
-Figure\ \@ref(fig:read-compare) shows the correspondence between the read count for different ASVs/OTUs in the different technologies, where shared ASVs/OTUs are plotted as circles, and unshared OTUs are plotted on the margins.
-In all cases, the read counts for shared ASVs/OTUs were correlated , with a minimum $R^2$ value of `r compR2("pb_500", "is_057", "ASV")`.
+Figure\ \@ref(fig:read-compare) shows the correspondence between the read count for different ASVs (\@ref(fig:read-compare)a) and OTUs(\@ref(fig:read-compare)b) in the different technologies, where shared ASVs/OTUs are plotted as circles, and unshared OTUs are plotted as lines along the axes.
+In all cases, the read counts for shared ASVs and OTUs were correlated, with a minimum $R^2$ value of `r compR2("pb_500", "is_057", "ASV")`.
 Correlations between read counts for the three technologies using the short amplicon library were increased by OTU clustering
 (`r compR2("pb_483", "SH-2257", "ASV")` to `r compR2("pb_483", "SH-2257", "OTU")`,
 `r compR2("pb_483", "is_057", "ASV")` to `r compR2("pb_483", "is_057", "OTU")`, and
 `r compR2("SH-2257", "is_057", "ASV")` to `r compR2("SH-2257", "is_057", "OTU")`,
-for PacBio vs. Illumina, PacBio vs. Ion Torrent, and Illumina vs. Ion Torrent, respectively),
-but this was not, or only weakly, the case for correlations between the long amplicon library and short amplicon library
+for PacBio vs. Illumina, PacBio vs. Ion Torrent, and Illumina vs. Ion Torrent, respectively), but not between the long amplicon library and short amplicon library
 (`r compR2("pb_500", "pb_483", "ASV")` to `r compR2("pb_500", "pb_483", "OTU")`,
 `r compR2("pb_500", "SH-2257", "ASV")` to `r compR2("pb_500", "SH-2257", "OTU")`, and
-`r compR2("pb_500", "is_057", "ASV")` to `r compR2("pb_500", "is_057", "OTU")`, for PacBio long amplicon reads vs PacBio, Illumina, and Ion Torrent short reads, respectively).
+`r compR2("pb_500", "is_057", "ASV")` to `r compR2("pb_500", "is_057", "OTU")`, for PacBio long amplicon reads vs. PacBio, Illumina, and Ion Torrent short reads, respectively).
 
 Almost all of the short amplicons from all three technologies were between 240 and 375\ bp long (Supplementary Figure\ \@ref(fig:full-length)a).
-Although the length profile of the three requencing runs were very similar, Illumina MiSeq had the largest fraction of reads near the top of the range, followed by Ion Torrent Ion S5 and PacBio RS II (Supplementary Figure\ \@ref(fig:full-length)b).
+Although the length profile of the three sequencing runs were very similar, Illumina MiSeq had the largest fraction of reads near the top of the range, followed by Ion Torrent Ion S5 and PacBio RS II (Supplementary Figure\ \@ref(fig:full-length)b).
+Although the difference in length distributions was statistically significant (Kruskal-Wallis H = )
 In contrast, the length of the long amplicon reads varied widely, from `r filter(rdd(reads_table), region == "long") %$% range(length) %>% paste(collapse = " to ")` bp, with a median of `r filter(rdd(reads_table), region == "long") %$% reldist::wtd.quantile(length, weight = reads)` bp.
 
 ## Taxonomic assignment
