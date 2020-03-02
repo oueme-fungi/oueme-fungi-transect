@@ -2106,44 +2106,74 @@ plan2 <- drake_plan(
     # Only samples with at least 100 reads
     phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100),
   
-  tech_class_table <- phyloseq::`tax_table<-`(
-    tech_asv_table,
-    phyloseq::tax_table(
-      rdd(fungi_PHYLOTAX.Cons) %>%
-        select(label, kingdom:genus) %>%
-        column_to_rownames("label") %>%
-        as.matrix()
-    )
-  ) %>%
-    phyloseq::tax_glom(taxrank = "class")
-  
-  phyloseq::taxa_names(tech_class_table) <- phyloseq::tax_table(tech_class_table)[,"class"]
-  
-  
-  tech_samples <- phyloseq::sample_data(tech_class_table) %>%
-    as_tibble(rownames = "sample") %>%
-    group_by(site, x, year) %>%
-    filter(n() >= 3) %>%
-    pull(sample) %>%
-    unique()
-  
-  tech_class_table <-
-    phyloseq::prune_samples(tech_class_table, samples = tech_samples) %>%
+  # Add taxonomy to the ASV table and cluster at the class level
+  tech_class_table =
+    phyloseq::`tax_table<-`(
+      tech_asv_table,
+      phyloseq::tax_table(
+        fungi_PHYLOTAX.Cons %>%
+          select(label, kingdom:genus) %>%
+          column_to_rownames("label") %>%
+          as.matrix()
+      )
+    ) %>%
+    phyloseq::tax_glom(taxrank = "class") %>%
+    phyloseq::`taxa_names<-`(phyloseq::tax_table(.)[,"class"]) %>%
+    # Include only soil samples with results from all three tech/amplicon combinations
+    phyloseq::prune_samples(
+      samples = phyloseq::sample_data(.) %>%
+        as_tibble(rownames = "sample") %>%
+        group_by(site, x, year) %>%
+        filter(n() >= 3) %>%
+        pull(sample) %>%
+        unique()
+    ) %>%
+    # Normalize reads
     phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
-    phyloseq::prune_taxa(taxa = (
-      phyloseq::otu_table(tech_class_table) %>%
-        t() %>%
-        as.data.frame() %>%
-        do.call(what = pmax)) > 0.01)
+    # Take only classes which represent at least 1% of reads in at least one sample.
+    phyloseq::prune_taxa(
+      taxa = (
+        phyloseq::otu_table(.) %>%
+          t() %>%
+          as.data.frame() %>%
+          do.call(what = pmax)
+      ) > 0.01
+    ),
   
-  tech_class_bc_dist <- tech_class_table %>%
-    phyloseq::distance("bray")
-  vegan::adonis2(
-    tech_class_bc_dist ~ paste(site, x, year) + tech + amplicon,
-    data = as_tibble(phyloseq::sample_data(tech_class_table)),
-    by = "margin",
-    permutations = 9999
-  )
+  # Calculate Bray-Curtis distance for comparing technologies
+  tech_class_bc_dist = phyloseq::distance(tech_class_table, "bray"),
+  
+  # PERMANOVA test for technologies
+  tech_class_adonis = target(
+    vegan::adonis2(
+      tech_class_bc_dist ~ paste(site, x, year) + tech + amplicon,
+      data = as_tibble(phyloseq::sample_data(tech_class_table)),
+      by = "margin",
+      permutations = 9999
+    ) %>%
+      broom::tidy() %>%
+      column_to_rownames("term"),
+    seed = 12345
+  ),
+  
+  # PCoA for technologies
+  tech_class_pcoa =
+    vegan::capscale(
+      phyloseq::otu_table(tech_class_table) ~ Condition(paste(site, x, year)),
+      data = as_tibble(phyloseq::sample_data(tech_class_table)),
+      distance = "bray"
+    ),
+  
+  # Species (actually class) scores for PCoA
+  tech_class_pcoa_scores =
+    vegan::scores(tech_class_pcoa, display = "species") %>%
+    as_tibble(rownames = "class") %>%
+    # Take only scores which are at least 10% of the maximum
+    mutate(L = sqrt(MDS1^2 + MDS2^2)) %>%
+    filter(L >= max(L) / 10) %>%
+    # Abbreviate using the first two letters
+    mutate(abbrev = substr(class, start = 1, stop = 2)),
+  
   trace = TRUE
 ) %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
