@@ -910,7 +910,7 @@ plan2 <- drake_plan(
       phyloseq::merge_samples(group = "seq_run") %>%
       phyloseq::otu_table() %>%
       t() %>%
-      {.@.Data} %>%
+      as("matrix") %>%
       as_tibble(rownames = "label") %>%
       # Normalize reads to a fraction of the sequencing run.
       mutate_if(is.numeric, ~./sum(.)) %>%
@@ -2057,6 +2057,7 @@ plan2 <- drake_plan(
     # Only use samples where there reads from all three tech×amplicon combinations
     phyloseq::prune_samples(
       samples = phyloseq::sample_data(.) %>%
+        as("data.frame") %>%
         as_tibble(rownames = "sample") %>%
         group_by(site, x, tech, amplicon) %>%
         filter(n() >= 3) %>%
@@ -2076,7 +2077,7 @@ plan2 <- drake_plan(
   buffer_adonis = target(
     vegan::adonis2(
       buffer_asv_bc_dist ~ paste(site, x) + paste(tech, amplicon) + buffer + year,
-      data = as_tibble(phyloseq::sample_data(buffer_asv_table)),
+      data = as(phyloseq::sample_data(buffer_asv_table), "data.frame"),
       by = "margin",
       permutations = 9999
     ) %>%
@@ -2089,7 +2090,7 @@ plan2 <- drake_plan(
   buffer_asv_pcoa =
     vegan::capscale(
       buffer_asv_bc_dist ~ 1,
-      data = as_tibble(phyloseq::sample_data(buffer_asv_table))
+      data = as(phyloseq::sample_data(buffer_asv_table), "data.frame")
     ),
   
   # Generate ASV table for comparisons between sequencing methods
@@ -2122,6 +2123,7 @@ plan2 <- drake_plan(
     # Include only soil samples with results from all three tech/amplicon combinations
     phyloseq::prune_samples(
       samples = phyloseq::sample_data(.) %>%
+        as("data.frame") %>%
         as_tibble(rownames = "sample") %>%
         group_by(site, x, year) %>%
         filter(n() >= 3) %>%
@@ -2147,7 +2149,7 @@ plan2 <- drake_plan(
   tech_class_adonis = target(
     vegan::adonis2(
       tech_class_bc_dist ~ paste(site, x, year) + tech + amplicon,
-      data = as_tibble(phyloseq::sample_data(tech_class_table)),
+      data = as(phyloseq::sample_data(tech_class_table), "data.frame"),
       by = "margin",
       permutations = 9999
     ) %>%
@@ -2160,7 +2162,7 @@ plan2 <- drake_plan(
   tech_class_pcoa =
     vegan::capscale(
       phyloseq::otu_table(tech_class_table) ~ Condition(paste(site, x, year)),
-      data = as_tibble(phyloseq::sample_data(tech_class_table)),
+      data = as(phyloseq::sample_data(tech_class_table), "data.frame"),
       distance = "bray"
     ),
   
