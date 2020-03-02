@@ -57,6 +57,8 @@ dependencies:
   - r-metacoder
   - r-ggnomics
   - bioconductor-ggtree
+  - r-mcmcglmm
+  - r-lme4
   - r-pdftools
   - r-lintr
   - r-roxygen2

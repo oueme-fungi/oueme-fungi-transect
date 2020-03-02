@@ -569,9 +569,9 @@ for PacBio vs. Illumina, PacBio vs. Ion Torrent, and Illumina vs. Ion Torrent, r
 `r compR2("pb_500", "is_057", "ASV")` to `r compR2("pb_500", "is_057", "OTU")`, for PacBio long amplicon reads vs. PacBio, Illumina, and Ion Torrent short reads, respectively).
 
 Almost all of the short amplicons from all three technologies were between 240 and 375\ bp long (Supplementary Figure\ \@ref(fig:full-length)a).
-Although the length profile of the three sequencing runs were very similar, Illumina MiSeq had the largest fraction of reads near the top of the range, followed by Ion Torrent Ion S5 and PacBio RS II (Supplementary Figure\ \@ref(fig:full-length)b).
-Although the difference in length distributions was statistically significant (Kruskal-Wallis H = )
-In contrast, the length of the long amplicon reads varied widely, from `r filter(rdd(reads_table), region == "long") %$% range(length) %>% paste(collapse = " to ")` bp, with a median of `r filter(rdd(reads_table), region == "long") %$% reldist::wtd.quantile(length, weight = reads)` bp.
+Although the length profile of the three sequencing runs were similar, Illumina MiSeq had the largest fraction of reads near the top of the range, followed by Ion Torrent Ion S5 and PacBio RS II (Supplementary Figure\ \@ref(fig:full-length)b).
+The difference in length distributions was statistically significant due to the large sample size (Kruskal-Wallis statistic = `r rdd(length_kw)$statistic`, $p < 2.2\times10^{-16}$), but the difference between means was fairly small, with mean amplicon lengths of `r filter(rdd(reads_table), region == "short") %>% group_by(seq_run) %>% summarize(length = weighted.mean(length, reads)) %>% deframe() %>% magrittr::extract(c("pb_483", "is_057", "SH-2257")) %>% text_list(digits = 0)` bp for PacBio, Ion Torrent, and Illumina, respectively.
+In contrast, the length of the long amplicon reads varied widely, from `r filter(rdd(reads_table), region == "long") %$% range(length) %>% paste(collapse = " to ")` bp, with a mean of `r filter(rdd(reads_table), region == "long") %$% weighted.mean(length, reads) %>% round()` bp.
 
 ## Taxonomic assignment
 

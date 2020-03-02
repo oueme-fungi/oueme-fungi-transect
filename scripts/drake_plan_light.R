@@ -14,6 +14,7 @@ library(assertr)
 library(disk.frame)
 library(ape)
 library(ggplot2)
+library(lme4)
 
 source(file.path(config$rdir, "dada.R"))
 source(file.path(config$rdir, "mantel.R"))
@@ -2329,7 +2330,102 @@ plan2 <- drake_plan(
     mutate_at("seq_run", factor) %$%
     kruskal.test(length, g = seq_run),
   
+  short_otu_table = {
+    big_fasta_short
+    read_tsv(
+      file_in("data/clusters/short.table"),
+      col_types = cols(
+        .default = col_integer(),
+        `#OTU ID` = col_character()
+      )
+    ) %>%
+      column_to_rownames("#OTU ID") %>%
+      as.matrix() %>%
+      t() %>%
+      as_tibble(rownames = "sample") %>%
+      tidyr::extract(
+        col = "sample",
+        into = c("seq_run", "plate", "well"),
+        regex = "([a-zA-Z]{2}[-_]\\d{3,4})_(\\d{3})([A-H]1?\\d)"
+      ) %>%
+      tidyr::gather(key = "seq", value = "reads", -(1:3)) %>%
+      dplyr::group_by(seq_run, seq) %>%
+      dplyr::summarize(reads = sum(reads)) %>%
+      dplyr::left_join(
+        tibble(
+          seq = colnames(big_seq_table_short),
+          length = nchar(seq)
+        ) %>%
+          mutate_at("seq", chartr, old = "T", new = "U") %>%
+          mutate_at("seq", tzara::seqhash),
+        by = "seq"
+      )
+  },
   
+  short_length_table =
+    reads_table %>%
+    filter(region == "short") %>%
+    group_by(seq_run, length) %>%
+    summarize(reads = sum(reads)) %>%
+    tidyr::complete(seq_run, length, fill = list(reads = 0)),
+  
+  short_length_glm = 
+    short_length_table %>%
+    glm(reads ~ seq_run + seq_run:length - 1, family = "poisson", data = .),
+  
+  length_model_data =
+    reads_table %>%
+    filter(region == "short") %>%
+    mutate_at("seq", tzara::seqhash) %>%
+    mutate_at("seq", factor) %>%
+    tidyr::complete(seq_run, nesting(seq, length), fill = list(reads = 0)),
+  
+  # length_glmm =
+  #   MASS::glmmPQL(
+  #     fixed = reads ~ seq_run * length,
+  #     random = ~ 1 | seq,
+  #     data = length_model_data,
+  #     family = "poisson"
+  #   ),
+  
+  # length_glmer =
+  #   lme4::glmer(
+  #     formula = reads ~ seq_run * length + (1 | seq),
+  #     data = length_model_data,
+  #     family = "poisson"
+  #   ),
+  
+  # confint_glmer = 
+  #   lme4::confint.merMod(length_glmer),
+  
+  # length_glmernb =
+  #   length_model_data %>%
+  #   lme4::glmer.nb(
+  #     formula = reads ~ seq_run * length + (1 | seq),
+  #     data = .
+  #   ),
+  
+  # confint_glmernb = 
+  #   lme4::confint.merMod(length_glmernb),
+  
+  length_mcmcglmm =
+    MCMCglmm::MCMCglmm(
+      fixed = reads ~ trait:seq_run + trait:seq_run:length - 1,
+      random = ~ idh(trait):seq,
+      data = length_model_data,
+      family = "zipoisson",
+      rcov = ~us(trait):units
+    ),
+  
+  length_mcmcglmm2 =
+    MCMCglmm::MCMCglmm(
+      fixed = reads ~ seq + seq_run + seq_run:length - 1,
+      data = short_otu_table,
+      family = "poisson",
+      nitt = 103000,
+      thin = 100,
+      burnin = 3000
+    ),
   
   trace = TRUE
 ) %>%
@@ -2346,7 +2442,7 @@ options(clustermq.scheduler = "multicore")
     cache = cache,
     # parallelism = "clustermq",
     # jobs = local_cpus() %/% 2,
-    lazy_load = TRUE,
+    lazy_load = FALSE,
     memory_strategy = "autoclean",
     garbage_collection = TRUE
   )
