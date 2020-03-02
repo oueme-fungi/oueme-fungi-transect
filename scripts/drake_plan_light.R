@@ -764,15 +764,15 @@ plan2 <- drake_plan(
         # reads = as.integer(gsub(" ", "", reads)),
         step = "Trim"
       ),
-    enframe(regioncounts, name = "seq_run", value = "reads") %>%
-      mutate(
-        # reads = as.integer(gsub(" ", "", reads)),
-        step = "LSUx"
-      ),
     enframe(filtercounts_full, name = "seq_run", value = "reads") %>%
       mutate(
         # reads = as.integer(gsub(" ", "", reads)),
         step = "Filter (full)"
+      ),
+    enframe(regioncounts, name = "seq_run", value = "reads") %>%
+      mutate(
+        # reads = as.integer(gsub(" ", "", reads)),
+        step = "LSUx"
       ),
     enframe(filtercounts_ITS2, name = "seq_run", value = "reads") %>%
       mutate(
@@ -815,7 +815,7 @@ plan2 <- drake_plan(
     pivot_longer(c("reads", "ASVs"), names_to = "type", values_to = "count") %>%
     filter(!is.na(count)) %>%
     mutate(
-      step = factor(step, levels = c("Raw", "Trim", "LSUx", "Filter (full)", "Filter (ITS2)", "ITS2",
+      step = factor(step, levels = c("Raw", "Trim", "Filter (full)", "LSUx", "Filter (ITS2)", "ITS2",
                                      "short", "ITS", "LSU", "long")),
       tech = factor(tech, levels = c("PacBio", "Ion Torrent", "Illumina")),
       amplicon = factor(stringr::str_to_title(amplicon), levels = c("Long", "Short")),
@@ -2180,6 +2180,35 @@ plan2 <- drake_plan(
     # Abbreviate using the first two letters
     mutate(abbrev = substr(class, start = 1, stop = 2)),
   
+  # PCoA plot
+  tech_class_pcoa_plot = 
+    left_join(
+      vegan::scores(tech_class_pcoa, display = "sites") %>%
+        as_tibble(rownames = "sample"),
+      tech_class_sample_data %>%
+        as_tibble(rownames = "sample"),
+      by = "sample"
+    ) %>%
+    mutate(
+      group = paste(tech, "–", amplicon) %>%
+        factor(
+          levels = c("Illumina – Short", "PacBio – Short", "PacBio – Long"),
+          ordered = TRUE
+        )
+    ) %>%
+    ggplot(aes(x = MDS1, y = MDS2, color = group, pch = group)) +
+    geom_vline(xintercept = 0, color = "gray80") +
+    geom_hline(yintercept = 0, color = "gray80") +
+    geom_point() +
+    geom_text(
+      aes(x = MDS1, y = MDS2, label = abbrev),
+      data = tech_class_pcoa_scores,
+      inherit.aes = FALSE
+    ) +
+    scale_color_discrete(name = NULL) +
+    scale_discrete_manual(aesthetics = "pch", name = NULL, values = 1:3) +
+    coord_equal(),
+  
   # Generate ASV table for comparisons between sequencing methods for ECM
   tech_ecm_asv_table =
     tech_asv_table %>%
@@ -2260,6 +2289,35 @@ plan2 <- drake_plan(
     filter(L >= max(L) / 10) %>%
     # Abbreviate using the first two letters
     mutate(abbrev = substr(family, start = 1, stop = 2)),
+  
+  # PCoA plot
+  tech_ecm_fam_pcoa_plot =
+    left_join(
+      vegan::scores(tech_ecm_fam_pcoa, display = "sites") %>%
+        as_tibble(rownames = "sample"),
+      tech_ecm_fam_sample_data %>%
+        as_tibble(rownames = "sample"),
+      by = "sample"
+    ) %>%
+    mutate(
+      group = paste(tech, "–", amplicon) %>%
+        factor(
+          levels = c("Illumina – Short", "PacBio – Short", "PacBio – Long"),
+          ordered = TRUE
+        )
+    ) %>%
+    ggplot(aes(x = MDS2, y = MDS1, color = group, pch = group)) +
+    geom_vline(xintercept = 0, color = "gray80") +
+    geom_hline(yintercept = 0, color = "gray80") +
+    geom_point() +
+    geom_text(
+      aes(x = MDS2 * 3, y = MDS1 * 3, label = abbrev),
+      data = tech_ecm_fam_pcoa_scores,
+      inherit.aes = FALSE
+    ) +
+    scale_color_discrete(name = NULL) +
+    scale_discrete_manual(aesthetics = "pch", name = NULL, values = 1:3) +
+    coord_equal(),
   
   trace = TRUE
 ) %>%

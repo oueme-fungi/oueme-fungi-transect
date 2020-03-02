@@ -88,7 +88,7 @@ if (opts_chunk$get("dev") == "tikz") {
   # styles$Short.Name <- styles$LaTeX.Short.Name
   # styles$Unit <- paste0("\\si{", styles$LaTeX.Unit, "}")
 }
-write_bib(c("base", "phyloseq", "gstat"), file = "R.bib", tweak = TRUE)
+write_bib(c("base", "phyloseq", "vegan"), file = "R.bib", tweak = TRUE)
 
 # use the "light" plan cache instead of the default cache at .drake
 cache <- drake_cache(here(".light"))
@@ -197,93 +197,8 @@ Approximately 50\ mg total of soil was collected from two locations in the homog
 <!--The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis. -->
 
 An additional sample was collected at every sampling location (1-m spacing) in 2016 using LifeGuard^TM^ Soil Preservation Solution (MO BIO, Carlsbad, CA; USA) for preservation, without field lysis.
-Sequencing results for these samples differed significantly (p < `r rdd(buffer_adonis)["buffer","p.value"] %>% formatC(format = "f")` from permutational MANOVA, $R^2 = `r rdd(buffer_adonis)["buffer","R2"] %>% formatC(format = "f", digits = 2)`$ ) from samples preserved using the Xpedition^TM^ lysis buffer (Supplementary Figures \@ref(fig:buffer-pcoa), \@ref(fig:buffer-compare-long), and \@ref(fig:buffer-compare-short)); as such these samples were excluded from our spatial analyses.
+Sequencing results for these samples differed significantly (p < `r rdd(buffer_adonis)["buffer","p.value"] %>% formatC(format = "f")` from permutational MANOVA using 9999 permutations, $R^2 = `r rdd(buffer_adonis)["buffer","R2"] %>% formatC(format = "f", digits = 2)`$) from samples preserved using the Xpedition^TM^ lysis buffer (Supplementary Figures \@ref(fig:buffer-pcoa), \@ref(fig:buffer-compare-long), and \@ref(fig:buffer-compare-short)); as such these samples were excluded from our spatial analyses.
 However, reads from these samples were included in the full bioinformatics workflow, including ASV calling, OTU clustering, and phylogenetic trees.
-
-```{r}
-
-```
- 
-```{r}
-tech_class_dbrda <- vegan::capscale(
-  phyloseq::otu_table(tech_class_table) ~ Condition(paste(site, x, year)),
-  data = as_tibble(phyloseq::sample_data(tech_class_table)),
-  distance = "bray"
-)
-tech_class_dbrda_scores <-
-  vegan::scores(tech_class_dbrda, display = "species") %>%
-  as_tibble(rownames = "class") %>%
-  mutate(L = sqrt(MDS1^2 + MDS2^2)) %>%
-  filter(L >= max(L) / 10) %>%
-  mutate(abbrev = substr(class, start = 1, stop = 2))
-```
-
-(ref:ppcoa-short) Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding approaches
-
-(ref:ppcoa) Spatio-temporal variation (i.e., variation between different soil samples) has been partialled out.
-Only samples with at least 100 reads for all three approaches are included.
-ASVs are clustered by taxonomic class.
-Abbreviations represent the approximate direction of increase for the classes with the highest scores: `r glue::glue_data(tech_class_dbrda_scores, "**{abbrev}**: {class}") %>% glue::glue_collapse(sep = "; ", last = "; and ")`.
-
-
-```{r ppcoa, fig.cap = "(ref:ppcoa-short). (ref:ppcoa)", fig.scap = "(ref:ppcoa-short)"}
-plot(tech_class_dbrda, type = "none")
-points(tech_class_dbrda, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
-                                     tech == "PacBio" & amplicon == "Short" ),
-       col = "green", pch = 1)
-
-points(tech_class_dbrda, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
-                                     tech == "PacBio" & amplicon == "Long"),
-       col = "blue", pch = 2)
-points(tech_class_dbrda, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
-                                     tech == "Illumina" & amplicon == "Short"),
-       col = "red", pch = 3)
-text(
-  x = tech_class_dbrda_scores$MDS1,
-  y = tech_class_dbrda_scores$MDS2,
-  labels = tech_class_dbrda_scores$abbrev
-  )
-legend("bottomleft", legend = c("Illumina Short", "PacBio Short", "PacBio Long"), col = c("red", "green", "blue"), pch = c(3, 1, 2))
-```
- 
-```{r}
-tech_class_nmds <- vegan::metaMDS(
-  phyloseq::otu_table(tech_class_table)
-)
-
-tech_class_nmds_scores <-
-  vegan::scores(tech_class_nmds, display = "species") %>%
-  as_tibble(rownames = "class") %>%
-  mutate(L = sqrt(NMDS1^2 + NMDS2^2)) %>%
-  filter(!is.nan(L)) %>%
-  filter(L >= max(L) / 2) %>%
-  mutate(abbrev = substr(class, start = 1, stop = 2))
-
-plot(tech_class_nmds, type = "n")
-vegan::ordispider(
-  tech_class_nmds,
-  groups = with(
-    as_tibble(phyloseq::sample_data(tech_class_table)),
-    paste(buffer, year, site, x)
-    ),
-  col = "gray80"
-  )
-text(
-  x = tech_class_nmds_scores$NMDS1,
-  y = tech_class_nmds_scores$NMDS2,
-  labels = tech_class_nmds_scores$abbrev
-  )
-points(tech_class_nmds, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
-                                     tech == "PacBio" & amplicon == "Short" ),
-       col = "green", pch = 1)
-points(tech_class_nmds, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
-                                     tech == "PacBio" & amplicon == "Long"),
-       col = "blue", pch = 2)
-points(tech_class_nmds, select = with(as_tibble(phyloseq::sample_data(tech_class_table)),
-                                     tech == "Illumina" & amplicon == "Short"),
-       col = "red", pch = 3)
-legend("topright", legend = c("Illumina Short", "PacBio Short", "PacBio Long"), col = c("red", "green", "blue"), pch = c(3, 1, 2))
-```
 
 <!-- ## Soil Chemistry
 
@@ -302,7 +217,7 @@ The short amplicon (approximately 300\ bp) targeted the full ITS2 region as well
 The long amplicon (approximately 1500\ bp) targeted the full ITS region including the 5.8S rDNA and approximately 950\ bp at the 5' end of the LSU, including the first three variable regions (Figure\ \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
 Each PCR run also included a blank sample and a positive control consisting of freshly extracted DNA from a commercially purchased fruitbody of *Agaricus bisporus*.
 
-The gITS7 primers for the short amplicon were indexed for multiplexing (**Supplementary File**).
+The gITS7 primers for the short amplicon were indexed for multiplexing (**Supplementary File 1**).
 Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200\ µM dNTP mix, 250\ µM indexed gITS7 primer, 150µM ITS4m, 2mM MgCl~2~, 0.1\ U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7\ ng purified DNA in Dream *Taq* buffer.
 The reaction conditions were 10\ min at 95°, followed by 35\ cycles of 60\ s at 95°, 45\ s at 56°, and 50\ s at 72°, and finally 3\ min at 72°.
 Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity, which were pooled after amplification.
@@ -316,7 +231,7 @@ Each reaction was conducted in three technical replicates to reduce the effect o
 
 ```
 
-Both primers for the long amplicon were indexed for multiplexing (**Supplementary File**).
+Both primers for the long amplicon were indexed for multiplexing (**Supplementary File 2**).
 PCR was performed as for the short amplicons, but with 500\ µM of each of the two primers.
 Reaction conditions were 10\ min at 95°, 30\ cycles of 45\ s at 95°, 45\ s at 59°, and 90\ s at 72°, and finally 10\ min at 72°.
 Each reaction was performed in three technical replicates as for short amplicons.
@@ -328,7 +243,7 @@ Each library was sequenced using Single Molecule Real Time (SMRT) sequencing on 
 for Life Laboratory, Dept. of Immunology, Genetics and Pathology, Uppsala University, BMC, Box 815, SE-752\ 37 UPPSALA, Sweden).
 Short amplicon libraries were sequenced on two SMRT cells each, while long amplicon libraries were sequenced on four SMRT cells each.
 
-Additionally the short amplicon libraries were combined and sequenced using an Ion S5 (Ion Torrent) sequencer using one 520 chip at UGC, and a MiSeq (Illumina Inc.) sequencer using v3 chemistry with a paired-end read length of 300\ bp at the SNP&SEQ Technology Platform (Dept. of Medical Sciences, Uppsala University, BMC, Box 1432, SE-751\ 44 UPPSALA, Sweden).
+Additionally, the short amplicon libraries were combined and sequenced using an Ion S5 (Ion Torrent) sequencer using one 520 chip at UGC, and a MiSeq (Illumina Inc.) sequencer using v3 chemistry with a paired-end read length of 300\ bp at the SNP&SEQ Technology Platform (Dept. of Medical Sciences, Uppsala University, BMC, Box 1432, SE-751\ 44 UPPSALA, Sweden).
 The Illumina library was pooled with samples for another project, with half of the reads from one lane devoted to the current study.
   
 ## Bioinformatics
@@ -397,15 +312,16 @@ The ITS2 region was extracted from the ASVs using `LSUx` for comparison to the o
 Taxonomic annotations of the Ribosomal Data Project's LSU fungal training set (RDP) version 11.5 [@cole2014] and Warcup ITS training set [@wang2007] were mapped to the taxonomic classification system used in the Unite database version 8 [@nilsson2019a].
 In particular, the classification for fungi was according to @tedersoo2018, and for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c.
 Although the latter system is not formally published, it is consistent with the annotations for non-fungal eukaryotes in the Unite database.
-Additionally, it is a system with both purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as that of the International Society of Protistologists [ @adl2019], which utilizes hierarchical nameless ranks.
+Additionally, it is a system with both purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as that of the International Society of Protistologists [@adl2019], which utilizes hierarchical nameless ranks.
 FASTA format files of the re-annotated RDP and Warcup training sets are available at (*somewhere*).
 
-Taxonomic assignment was performed to genus level separately on the ITS and LSU regions using Unite/Warcup and RDP, respectively, as taxonomic references.
+Taxonomic assignment was performed to genus level separately on the ITS region using Unite and Warcup and on the LSU region using RDP, respectively, as taxonomic references.
 For each region/reference combination, taxonomy was assigned using three algorithms:
 the RDP Naïve Bayesian Classifier (RDPC) as implemented in DADA2;
 SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016];
 and IDTAXA [@murali2018].
-Each ASV was thus given up to nine preliminary taxonomic assignments (three references $\times$ three algorithms).
+Each full-length ASV was thus given up to nine preliminary taxonomic assignments (three references $\times$ three algorithms).
+ASVs from the short-amplicon datasets for which no matching long-amplicon ASV could be reconstructed were taxonomically assigned using Unite and Warcup on the full length of the short amplicon.
 
 Sequences were assigned as ECM based on taxonomic assignments using the FUNGuild database [@nguyen2016funguild] via the R package `FUNGuildR` (https://github.com/brendanf/FUNGuildR).
 All taxa which included "Ectomycorrhiza" in the guild assignment at any level of confidence were included.
@@ -417,9 +333,7 @@ For comparison with clustering-based methods, ASVs were clustered into operation
 ### Alignment and phylogenetic inference
 
 Full length long amplicon ASVs were aligned using DECIPHER [@wright2015] with up to 10\ iterations of progressive alignment and conserved RNA secondary structure calculation and 10\ refinement iterations.
-This alignment was truncated at a position after the D3 region corresponding to base 907 of the *Saccharomyces cerevisiae* S288C reference sequence for LSU, because several sequences had introns
-<!-- Just curious, what are Type 1 introns -AR--> <!-- It has to do with the enzyme that cuts them out, I think, but I don't actually know my introns are Type 1, just that this is a location where Type 1 introns are known to occur. -BF-->
-after this position, as also observed in several fungal species by @holst-jensen1999.
+This alignment was truncated at a position after the D3 region corresponding to base 907 of the *Saccharomyces cerevisiae* S288C reference sequence for LSU, because several sequences had introns after this position, as also observed in several fungal species by @holst-jensen1999.
 
 ML trees were produced using RAxML version 8.2.12 [@stamatakis2014] using the GTR+GAMMA model and rapid bootstrapping with the MRE_IGN stopping criterion.
 The LSU tree was not constrained topologically, but the long amplicon tree was constrained by the result for the LSU tree.
@@ -433,15 +347,25 @@ ASVs falling outside this clade were not included in downstream fungal community
 Taxonomic assignments of ASVs from the long amplicon dataset were refined using the phylogenetic tree (Supplementary Figure\ \@ref(fig:phylotax)).
 A taxon at a particular rank was assigned to a node and all its descendants if that taxon was consistent with the reference-based taxonomic assignments for each of the descendants.
 A taxon assignment was considered to be consistent if at least one algorithm assigned that taxon at greater than 50% confidence, or if no algorithm successfully classified the sequence at greater than 50% confidence.
-The result of this process was twofold.
-First, it gives a taxonomic assignment to ASVs which were previously unassigned if they were nested within a clade which was consistently given an assignment.
-Second, it clarified the assignment of ASVs where different algorithms had resulted in different assignments, but only one of these was consistent with the assignments of other ASVs in the same clade.
-<!--I think this sentence is too long and it would be easier to read if it was like three sentences.-->
+The result of this process is twofold.
+First, it gives a taxonomic assignment to ASVs which were previously unassigned if they are nested within a clade which is consistently given an assignment.
+Second, it clarifies the assignment of ASVs where different algorithms had resulted in different assignments, but only one of these is consistent with the assignments of other ASVs in the same clade.
 This refinement algorithm is referred to as "PHYLOTAX".
 
 ASVs from the short amplicon datasets were refined using only the final strict consensus step, i.e., an assignment at a given rank was accepted if there was no conflict between the different assignment algorithms at greater than 50% confidence.
 This refinement method is referred to as "Consensus".
 Additionally, a hybrid method, was applied to the short amplicon datasets, in which assignments from PHYLOTAX were used for ASVs which could be linked by an identical ITS2 region to a long amplicon, and assignments from Consensus were used for the remaining ASVs.
+
+## Community comparison
+
+The fungal communities recovered by the three sequencing strategies that were successfully demultiplexed (Illumina, PacBio Short, PacBio Long) were compared by permutational MANOVA.
+In order to detect bias at larger taxonomic scales, ASVs were clustered according to the assigned taxonomic class.
+Only samples where all three strategies yielded at least 100\ fungal reads (`r phyloseq::nsamples(rdd(tech_class_table))/3` samples), and classes which represented at least 1% of reads in at least one sample (`r phyloseq::ntaxa(rdd(tech_class_table))` classes), were included.
+Permutational MANOVA included three terms: an indicator for soil sample, comprising all spatiotemporal effects; amplicon length (long vs. short); and sequencing technology (Illumina MiSeq vs. PacBio RS II).
+The marginal significance of each term for explaining variation in the Bray-Curtis community dissimilarity matrix was performed using the `adonis2` function in the R package `vegan` [@R-vegan], with 9999 permutations.
+
+Partial Principal Coordinates Analysis (PPCoA) was applied to the same dissimilarity matrix using the `capscale` function in `vegan` [@R-vegan].
+Spatiotemporal effects were partialled out in order to visualize effects due to sequencing technology and amplicon length.
 
 ## Spatiotemporal analysis
 
@@ -460,26 +384,30 @@ The 95% confidence intervals were calculated for the spatial and temporal range 
 
 DNA concentrations after extraction and PCR, as well as sequencing reads for PacBio and Illumina, are shown per sample in Supplementary Figure \@ref(fig:sample-depth).
 Samples from Ang in 2015 yielded low quantities of DNA, poor PCR performance, and ultimately very few sequencing reads, especially in the long amplicon library, where only one sample produced more than 100\ reads.
-Consequently Ang samples were excluded from spatial analysis, although they were retained for denoising, phylogenetic reconstruction, and taxonomic assignment.
+Consequently, Ang samples were excluded from spatial analysis, although they were retained for denoising, phylogenetic reconstruction, and taxonomic assignment.
 
 The number of sequencing reads and ASVs at each stage in the bioinformatics pipeline are shown in Table\ \@ref(tab:bioinfo).
-Long (short) amplicon sequencing with PacBio yielded `r rdd(rawcounts)["pb_500"]` (`r rdd(rawcounts)["pb_483"]`) circular consensus reads, of which `r rdd(demuxcounts)["pb_500"]` (`r rdd(demuxcounts)["pb_483"]`) were successfully trimmed and demultiplexed.
-Illumina sequencing yielded `r rdd(rawcounts)["SH-2257"]` read pairs, of which `r rdd(demuxcounts)["SH-2257"]` were successfully trimmed and demultiplexed, and `r rdd(filtercounts_full)["SH-2257"]` passed quality filtering.
-Ion Torrent sequencing yielded `r rdd(demuxcounts)["is_057"]` demultiplexed reads.
-`r rdd(filtercounts_full)['pb_500']` (`r percent(rdd(filtercounts_full)['pb_500']/rdd(demuxcounts)['pb_500'], digits = 1, format = "f")`) of long amplicon PacBio reads passed length and quality filtering stages, compared with `r rdd(filtercounts_full)['pb_483']` (`r percent(rdd(filtercounts_full)['pb_483']/rdd(demuxcounts)['pb_483'], digits = 1, format = "f")`) of short amplicon PacBio reads, `r rdd(filtercounts_full)['SH-2257']` (`r percent(rdd(filtercounts_full)['SH-2257']/rdd(demuxcounts)['SH-2257'], digits = 1, format = "f")`) of Illumina read pairs, and `r rdd(filtercounts_full)['is_057']` (`r percent(rdd(filtercounts_full)['is_057']/rdd(demuxcounts)['is_057'], digits = 1, format = "f")`) of Ion Torrent reads.
+Sequencing with PacBio RS II yielded more than twice as many raw reads for long amplicons as for short amplicons, with approximately 125 thousand and 50 thousand reads, respectively.
+Ion Torrent Ion S5 and Illumina MiSeq yielded substantially more reads, with 20.7 million and 10.8 million, respectively.
+Demultiplexing, primer trimming, and quality filtering reduced these totals by `r (1-rdd(filtercounts_full)/rdd(rawcounts))["pb_500"] %>% percent(format = "d")` for PacBio long reads, but only by `r (1-rdd(filtercounts_full)/rdd(rawcounts))["pb_483"] %>% percent(format = "d")` for PacBio short reads, resuling in a similar numbe rof filtered reads for the two strategies.
+Losses in demultiplexing, trimming, and quality filtering were intermediate for Ion Torrent and Illumina, with `r (1-rdd(filtercounts_full)/rdd(rawcounts))[c("is_057", "SH-2257")] %>% percent(format = "d") %>% text_list()` loss, respectively.
+In contrast, extraction of only the ITS2 region before quality filtering resulted in the loss of `r percent(1-rdd(filtercounts_ITS2)['pb_500']/rdd(rawcounts)['pb_500'], digits = 1, format = "f")` of trimmed long amplicon PacBio reads, `r percent(1-rdd(filtercounts_ITS2)['pb_483']/rdd(rawcounts)['pb_483'], digits = 1, format = "f")` of trimmed short amplicon PacBio reads, and `r percent(1-rdd(filtercounts_ITS2)['is_057']/rdd(rawcounts)['is_057'], digits = 1, format = "f")` of trimmed Ion Torrent reads.
+This represented greater loss of PacBio short reads, but less loss of  PacBio long reads and Ion Torrent reads.
+
+The length distribution of the different regions extracted from the long amplicon are shown in Supplementary Figure\ \@ref(fig:region-lengths).
+
 
 (ref:readcounts-s) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages
 
-(ref:readcounts) *Raw*: raw reads as delivered by sequencing center;
-*Trim*: reads with primers and demultiplexing barcodes removed;
-*LSUx*: reads with a positive CM hit for 5.8S, allowing regions to be extracted;
-*ITS2*: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
-*short*, *ITS*, *LSU*, *long*: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"long\" denote the full-length short and long amplicons, respectively.
-Short amplicons were mapped to full ITS, LSU, and long amplicon ASVs when they had a perfect match in the ITS2 region.
+(ref:readcounts) **Raw**: raw reads as delivered by sequencing center (CCS reads for PacBio);
+**Trim**: reads with primers and demultiplexing barcodes removed;
+**Filter (full)**: full length amplicons with a maximum of three expected errors;
+**LSUx**: reads with a positive CM hit for 5.8S, allowing regions to be extracted;
+**Filter (ITS2)**: extracted ITS2 regions with a maximum of three expected errors;
+**ITS2**: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
+**short**, **ITS**, **LSU**, **long**: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"long\" denote the full-length short and long amplicons, respectively.
 
 ```{r bioinfo}
-#TODO add filtered reads (currently inflated numbers for non-Illumina)
-#TODO asterisks for mapped ASVs
 options(knitr.kable.NA = '–')
 
 rdd(bioinf_table) %>%
@@ -490,7 +418,13 @@ rdd(bioinf_table) %>%
     caption.short = "(ref:readcounts-s)",
     align = "rrrrrr",
     format.args = list(big.mark = ","),
-    linesep = c(rep("", 3), rep("\\addlinespace", 2), rep("", 4)),
+    linesep = c(
+      rep("", 2),
+      "\\addlinespace",
+      rep("", 2),
+      "\\addlinespace",
+      rep("", 4)
+    ),
     escape = FALSE
     ) %>%
   kableExtra::add_header_above(
@@ -506,11 +440,6 @@ rdd(bioinf_table) %>%
     )
   )
 ```
-
-The 5.8S rDNA was located in `r rdd(regioncounts)['pb_500']` long amplicon PacBio reads (`r percent(rdd(regioncounts)['pb_500']/rdd(demuxcounts)['pb_500'], digits = 1, format = "f")` of demultiplexed total), `r rdd(regioncounts)['pb_483']` short amplicon PacBio reads (`r percent(rdd(regioncounts)['pb_483']/rdd(demuxcounts)['pb_483'], digits = 1, format = "f")`), and `r rdd(regioncounts)['is_057']` Ion Torrent reads (`r percent(rdd(regioncounts)['is_057']/rdd(demuxcounts)['is_057'], digits = 1, format = "f")`).
-<!--Not sure about , as thousand delimitator but not having delimitators makes it hard to read. You could also skip having the numbers in the text and just let them be in the table. Instead you could write that long read sequencing yield more than twice as many reads as short read etc… I think that would make the section more attractive to read. -AR-->
-Length and quality filtering resulted in `r rdd(filtercounts_ITS2)['pb_500']` (`r percent(rdd(filtercounts_ITS2)['pb_500']/rdd(demuxcounts)['pb_500'], digits = 1, format = "f")` of demultiplexed total) ITS2 sequences from the long amplicon PacBio reads, `r rdd(filtercounts_ITS2)['pb_483']` (`r percent(rdd(filtercounts_ITS2)['pb_483']/rdd(demuxcounts)['pb_483'], digits = 1, format = "f")`) ITS2 sequences from the short amplicon PacBio reads, and `r rdd(filtercounts_ITS2)['is_057']` (`r percent(rdd(filtercounts_ITS2)['is_057']/rdd(demuxcounts)['is_057'], digits = 1, format = "f")`) ITS2 sequences from the Ion torrent reads.
-The length distribution of different regions extracted from the long amplicon are shown in Supplementary Figure\ \@ref(fig:region-lengths).
 
 ## Reproducibility of read counts from different technologies
 
@@ -711,6 +640,144 @@ Taxonomic composition of the sequenced soil community is summarized in Figure\ \
 According to the PHYLOTAX assignments, Fungi represented `r percent(fungi_read["PacBio_Long"], format = "f", digits = 1)` of the reads and `r percent(fungi_asv["PacBio_Long"], format = "f", digits = 1)` of the ASVs in the long amplicon library, compared to `r paste(percent(range(fungi_read[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the reads and `r paste(percent(range(fungi_asv[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the ASVs in the short amplicon library.
 Fungi categorized as ECM made up `r percent(ecm_read["pb_500"], format = "f", digits = 1)` of reads and `r percent(ecm_asv["pb_500"], format = "f", digits = 1)` of ASVs in the long amplicon library, and `r paste(percent(range(ecm_read[c("pb_483", "SH-2257", "is_057")]), format = "f", digits = 1), collapse = "–")` of the reads and `r paste(percent(range(ecm_asv[c("pb_483", "SH-2257", "is_057")]), format = "f", digits = 1), collapse = "–")` of the ASVs in the short amplicon library.
 Assignment to kingdom Fungi and ECM status for different amplicons, sequencing technologies, reference databases, and algorithms are shown in Supplementary Figure\ \@ref(fig:ecm).
+
+Figure\ \@ref(fig:ppcoa)
+
+(ref:ppcoa-short) Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding approaches
+
+(ref:ppcoa) for all fungi (**a**) and ECM fungi (**b**).
+Spatio-temporal variation (i.e., variation between different soil samples) has been partialled out.
+Only samples with at least 100 reads for all three approaches are included.
+ASVs are clustered by taxonomic class for all fungi, and by family for ECM fungi.
+Abbreviations represent the approximate direction of increase for the classes and families with the highest scores: `r glue::glue_data(rdd(tech_class_pcoa_scores), "**{abbrev}**: {class}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`; `r glue::glue_data(rdd(tech_ecm_fam_pcoa_scores), "**{abbrev}**: {family}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`.
+
+```{r ppcoa, fig.cap = "(ref:ppcoa-short), (ref:ppcoa)", fig.scap = "(ref:ppcoa-short)"}
+ggpubr::ggarrange(
+  rdd(tech_class_pcoa_plot),
+  rdd(tech_ecm_fam_pcoa_plot),
+  common.legend = TRUE,
+  legend = "bottom",
+  labels = "auto"
+)
+
+# plot(rdd(tech_class_pcoa), type = "none")
+# points(
+#   rdd(tech_class_pcoa),
+#   select = with(
+#     rdd(tech_class_sample_data),
+#     tech == "PacBio" & amplicon == "Short"
+#   ),
+#   col = "green",
+#   pch = 1
+# )
+# points(
+#   rdd(tech_class_pcoa),
+#   select = with(
+#     rdd(tech_class_sample_data),
+#     tech == "PacBio" & amplicon == "Long"
+#   ),
+#   col = "blue",
+#   pch = 2
+# )
+# points(
+#   rdd(tech_class_pcoa),
+#   select = with(
+#     rdd(tech_class_sample_data),
+#     tech == "Illumina" & amplicon == "Short"
+#   ),
+#   col = "red",
+#   pch = 3
+# )
+# with(
+#   rdd(tech_class_pcoa_scores),
+#   text(x = MDS1*2, y = MDS2*2, labels = abbrev)
+# )
+# legend(
+#   "bottomleft",
+#   legend = c("Illumina Short", "PacBio Short", "PacBio Long"),
+#   col = c("red", "green", "blue"),
+#   pch = c(3, 1, 2)
+# ) 
+# 
+# plot(rdd(tech_ecm_fam_pcoa), type = "none")
+# points(
+#   rdd(tech_ecm_fam_pcoa),
+#   select = with(
+#     rdd(tech_ecm_fam_sample_data),
+#     tech == "PacBio" & amplicon == "Short"
+#   ),
+#   col = "green",
+#   pch = 1
+# )
+# points(
+#   rdd(tech_ecm_fam_pcoa),
+#   select = with(
+#     rdd(tech_ecm_fam_sample_data),
+#     tech == "PacBio" & amplicon == "Long"
+#   ),
+#   col = "blue",
+#   pch = 2
+# )
+# points(
+#   rdd(tech_ecm_fam_pcoa),
+#   select = with(
+#     rdd(tech_ecm_fam_sample_data),
+#     tech == "Illumina" & amplicon == "Short"
+#   ),
+#   col = "red",
+#   pch = 3
+# )
+# with(
+#   rdd(tech_ecm_fam_pcoa_scores),
+#   text(x = MDS1*3, y = MDS2*3, labels = abbrev)
+# )
+# legend(
+#   "bottomleft",
+#   legend = c("Illumina Short", "PacBio Short", "PacBio Long"),
+#   col = c("red", "green", "blue"),
+#   pch = c(3, 1, 2)
+# )
+```
+
+ 
+```{r}
+tech_class_nmds <- vegan::metaMDS(
+  phyloseq::otu_table(rdd(tech_class_table))
+)
+
+tech_class_nmds_scores <-
+  vegan::scores(tech_class_nmds, display = "species") %>%
+  as_tibble(rownames = "class") %>%
+  mutate(L = sqrt(NMDS1^2 + NMDS2^2)) %>%
+  filter(!is.nan(L)) %>%
+  filter(L >= max(L) / 2) %>%
+  mutate(abbrev = substr(class, start = 1, stop = 2))
+
+plot(tech_class_nmds, type = "n")
+vegan::ordispider(
+  tech_class_nmds,
+  groups = with(
+    rdd(tech_class_sample_data),
+    paste(buffer, year, site, x)
+    ),
+  col = "gray80"
+  )
+text(
+  x = tech_class_nmds_scores$NMDS1,
+  y = tech_class_nmds_scores$NMDS2,
+  labels = tech_class_nmds_scores$abbrev
+  )
+points(tech_class_nmds, select = with(rdd(tech_class_sample_data),
+                                     tech == "PacBio" & amplicon == "Short" ),
+       col = "green", pch = 1)
+points(tech_class_nmds, select = with(rdd(tech_class_sample_data),
+                                     tech == "PacBio" & amplicon == "Long"),
+       col = "blue", pch = 2)
+points(tech_class_nmds, select = with(rdd(tech_class_sample_data),
+                                     tech == "Illumina" & amplicon == "Short"),
+       col = "red", pch = 3)
+legend("topright", legend = c("Illumina Short", "PacBio Short", "PacBio Long"), col = c("red", "green", "blue"), pch = c(3, 1, 2))
+```
 
 ### Positive control
 
@@ -1230,7 +1297,7 @@ rdd(proto_physeq) %>% {
   geom_point()
 ```
 
-(ref:buffer-pcoa-short) Unconstrained Principal Coordinate Analysis ordination of samples preserved with different buffers
+(ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis ordination of samples preserved with different buffers
 
 (ref:buffer-pcoa) For each sequencing strategy, only those sampling locations with more than 100 reads each for all three year/preservation buffer combinations were included.
 
