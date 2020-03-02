@@ -2042,6 +2042,108 @@ plan2 <- drake_plan(
         output_file = file_out("temp/compare_short.pdf")
       )
   },
+  
+  # Generate ASV table for comparisons between buffer solutions
+  buffer_asv_table = 
+    proto_physeq %>%
+    # No Ion Torrent samples, because they are not completely demultiplexed
+    phyloseq::subset_samples(tech != "Ion Torrent") %>%
+    # Don't use QC samples
+    phyloseq::subset_samples(sample_type == "Sample") %>%
+    # Only include fungi
+    phyloseq::prune_taxa(taxa = fungi_PHYLOTAX.Cons$label) %>%
+    # Only use samples with more than 100 reads
+    phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
+    # Only use samples where there reads from all three tech×amplicon combinations
+    phyloseq::prune_samples(
+      samples = phyloseq::sample_data(.) %>%
+        as_tibble(rownames = "sample") %>%
+        group_by(site, x, tech, amplicon) %>%
+        filter(n() >= 3) %>%
+        pull(sample) %>%
+        unique()
+    ),
+  
+  # Create distance matrix for the buffer solution comparison
+  buffer_asv_bc_dist =
+    buffer_asv_table %>%
+    # Normalize reads to 1
+    phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
+    # Bray-Curtis distance
+    phyloseq::distance("bray"),
+  
+  # Calculate PERMANOVA
+  buffer_adonis = target(
+    vegan::adonis2(
+      buffer_asv_bc_dist ~ paste(site, x) + paste(tech, amplicon) + buffer + year,
+      data = as_tibble(phyloseq::sample_data(buffer_asv_table)),
+      by = "margin",
+      permutations = 9999
+    ) %>%
+      broom::tidy() %>%
+      column_to_rownames("term"),
+    seed = 12345
+  ),
+  
+  # Calculate PCoA for different buffer samples
+  buffer_asv_pcoa =
+    vegan::capscale(
+      buffer_asv_bc_dist ~ 1,
+      data = as_tibble(phyloseq::sample_data(buffer_asv_table))
+    ),
+  
+  # Generate ASV table for comparisons between sequencing methods
+  tech_asv_table =
+    proto_physeq %>%
+    # Don't use Ion Torrent because it didn't multiplex properly
+    phyloseq::subset_samples(tech != "Ion Torrent") %>%
+    # Only use the Xpedition buffer
+    phyloseq::subset_samples(buffer == "Xpedition") %>%
+    # Don't use QC sample
+    phyloseq::subset_samples(sample_type == "Sample") %>%
+    # Only fungi
+    phyloseq::prune_taxa(taxa = fungi_PHYLOTAX.Cons$label) %>%
+    # Only samples with at least 100 reads
+    phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100),
+  
+  tech_class_table <- phyloseq::`tax_table<-`(
+    tech_asv_table,
+    phyloseq::tax_table(
+      rdd(fungi_PHYLOTAX.Cons) %>%
+        select(label, kingdom:genus) %>%
+        column_to_rownames("label") %>%
+        as.matrix()
+    )
+  ) %>%
+    phyloseq::tax_glom(taxrank = "class")
+  
+  phyloseq::taxa_names(tech_class_table) <- phyloseq::tax_table(tech_class_table)[,"class"]
+  
+  
+  tech_samples <- phyloseq::sample_data(tech_class_table) %>%
+    as_tibble(rownames = "sample") %>%
+    group_by(site, x, year) %>%
+    filter(n() >= 3) %>%
+    pull(sample) %>%
+    unique()
+  
+  tech_class_table <-
+    phyloseq::prune_samples(tech_class_table, samples = tech_samples) %>%
+    phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
+    phyloseq::prune_taxa(taxa = (
+      phyloseq::otu_table(tech_class_table) %>%
+        t() %>%
+        as.data.frame() %>%
+        do.call(what = pmax)) > 0.01)
+  
+  tech_class_bc_dist <- tech_class_table %>%
+    phyloseq::distance("bray")
+  vegan::adonis2(
+    tech_class_bc_dist ~ paste(site, x, year) + tech + amplicon,
+    data = as_tibble(phyloseq::sample_data(tech_class_table)),
+    by = "margin",
+    permutations = 9999
+  )
   trace = TRUE
 ) %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
