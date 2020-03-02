@@ -2176,6 +2176,83 @@ plan2 <- drake_plan(
     # Abbreviate using the first two letters
     mutate(abbrev = substr(class, start = 1, stop = 2)),
   
+  # Generate ASV table for comparisons between sequencing methods for ECM
+  tech_ecm_asv_table =
+    tech_asv_table %>%
+    # Only ECM
+    phyloseq::prune_taxa(taxa = ecm_PHYLOTAX.Cons$label),
+  
+  # Add taxonomy to the ECM ASV table and cluster at the family level
+  tech_ecm_fam_table =
+    phyloseq::`tax_table<-`(
+      tech_asv_table,
+      phyloseq::tax_table(
+        ecm_PHYLOTAX.Cons %>%
+          select(label, kingdom:genus) %>%
+          column_to_rownames("label") %>%
+          as.matrix()
+      )
+    ) %>%
+    phyloseq::tax_glom(taxrank = "family") %>%
+    phyloseq::`taxa_names<-`(phyloseq::tax_table(.)[,"family"]) %>%
+    # Only samples with at least 100 reads
+    phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
+    # Only soil samples with results from all three tech/amplicon combinations
+    phyloseq::prune_samples(
+      samples = phyloseq::sample_data(.) %>%
+        as("data.frame") %>%
+        as_tibble(rownames = "sample") %>%
+        group_by(site, x, year) %>%
+        filter(n() >= 3) %>%
+        pull(sample) %>%
+        unique()
+    ) %>%
+    # Normalize reads
+    phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
+    # Take only classes which represent at least 1% of reads in at least one sample.
+    phyloseq::prune_taxa(
+      taxa = (
+        phyloseq::otu_table(.) %>%
+          t() %>%
+          as.data.frame() %>%
+          do.call(what = pmax)
+      ) > 0.01
+    ),
+  
+  # Calculate Bray-Curtis distance for comparing technologies
+  tech_ecm_fam_bc_dist = phyloseq::distance(tech_ecm_fam_table, "bray"),
+  
+  # PERMANOVA test for technologies
+  tech_ecm_fam_adonis = target(
+    vegan::adonis2(
+      tech_ecm_fam_bc_dist ~ paste(site, x, year) + tech + amplicon,
+      data = as(phyloseq::sample_data(tech_ecm_fam_table), "data.frame"),
+      by = "margin",
+      permutations = 9999
+    ) %>%
+      broom::tidy() %>%
+      column_to_rownames("term"),
+    seed = 12345
+  ),
+  
+  # PCoA for technologies
+  tech_ecm_fam_pcoa =
+    vegan::capscale(
+      phyloseq::otu_table(tech_ecm_fam_table) ~ Condition(paste(site, x, year)),
+      data = as(phyloseq::sample_data(tech_ecm_fam_table), "data.frame"),
+      distance = "bray"
+    ),
+  
+  # Species (actually class) scores for PCoA
+  tech_ecm_fam_pcoa_scores =
+    vegan::scores(tech_ecm_fam_pcoa, display = "species") %>%
+    as_tibble(rownames = "family") %>%
+    # Take only scores which are at least 10% of the maximum
+    mutate(L = sqrt(MDS1^2 + MDS2^2)) %>%
+    filter(L >= max(L) / 10) %>%
+    # Abbreviate using the first two letters
+    mutate(abbrev = substr(family, start = 1, stop = 2)),
+  
   trace = TRUE
 ) %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
