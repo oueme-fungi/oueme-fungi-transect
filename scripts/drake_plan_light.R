@@ -2142,6 +2142,10 @@ plan2 <- drake_plan(
       ) > 0.01
     ),
   
+  # Sample data for easy reference
+  tech_class_sample_data =
+    as(phyloseq::sample_data(tech_class_table), "data.frame"),
+  
   # Calculate Bray-Curtis distance for comparing technologies
   tech_class_bc_dist = phyloseq::distance(tech_class_table, "bray"),
   
@@ -2149,7 +2153,7 @@ plan2 <- drake_plan(
   tech_class_adonis = target(
     vegan::adonis2(
       tech_class_bc_dist ~ paste(site, x, year) + tech + amplicon,
-      data = as(phyloseq::sample_data(tech_class_table), "data.frame"),
+      data = tech_class_sample_data,
       by = "margin",
       permutations = 9999
     ) %>%
@@ -2162,7 +2166,7 @@ plan2 <- drake_plan(
   tech_class_pcoa =
     vegan::capscale(
       phyloseq::otu_table(tech_class_table) ~ Condition(paste(site, x, year)),
-      data = as(phyloseq::sample_data(tech_class_table), "data.frame"),
+      data = tech_class_sample_data,
       distance = "bray"
     ),
   
@@ -2219,6 +2223,10 @@ plan2 <- drake_plan(
       ) > 0.01
     ),
   
+  # Sample data for easy reference
+  tech_ecm_fam_sample_data =
+    as(phyloseq::sample_data(tech_ecm_fam_table), "data.frame"),
+  
   # Calculate Bray-Curtis distance for comparing technologies
   tech_ecm_fam_bc_dist = phyloseq::distance(tech_ecm_fam_table, "bray"),
   
@@ -2226,7 +2234,7 @@ plan2 <- drake_plan(
   tech_ecm_fam_adonis = target(
     vegan::adonis2(
       tech_ecm_fam_bc_dist ~ paste(site, x, year) + tech + amplicon,
-      data = as(phyloseq::sample_data(tech_ecm_fam_table), "data.frame"),
+      data = tech_ecm_fam_sample_data,
       by = "margin",
       permutations = 9999
     ) %>%
@@ -2239,7 +2247,7 @@ plan2 <- drake_plan(
   tech_ecm_fam_pcoa =
     vegan::capscale(
       phyloseq::otu_table(tech_ecm_fam_table) ~ Condition(paste(site, x, year)),
-      data = as(phyloseq::sample_data(tech_ecm_fam_table), "data.frame"),
+      data = tech_ecm_fam_sample_data,
       distance = "bray"
     ),
   
