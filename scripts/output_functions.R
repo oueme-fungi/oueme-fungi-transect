@@ -271,12 +271,16 @@ read_comparison <- function(multi_table, comparisons, type) {
   g
 }
 
-taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL, datasets) {
+taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm, facets = vars(tech, amplicon, reference), cutoff = NULL, datasets) {
   rank <- enquo(rank)
   y <- enquo(y)
+  x <- enquo(x)
+  facets <- enquo(facets)
+  facets <- enquo(facets)
   ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
   .data <- .data %>%
-    group_by(reference, Algorithm, tech, amplicon) %>%
+    group_by(!!x) %>%
+    group_by_at(rlang::eval_tidy(facets), .add = TRUE) %>%
     mutate(ASVs = n()) %>%
     ungroup() %>%
     filter(...) %>%
@@ -289,25 +293,29 @@ taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL, datasets) {
         exclude = NULL
       )
     ) %>%
-    group_by(reference, Algorithm, tech, amplicon, !!rank) %>%
+    group_by(!!x, !!rank) %>%
+    group_by_at(rlang::eval_tidy(facets), .add = TRUE) %>%
     summarize(reads = sum(reads), ASVs = n()/max(ASVs)) %>%
     ungroup()
   
   if (!is.null(cutoff)) {
+    prelevels <- levels(pull(.data, !!rank))
     .data <- group_by(.data, !!rank) %>%
       group_map(
         
         ~ if (all(pull(.x, !!y) < cutoff)) {
-          mutate(.x, !!rank := factor("other", levels = levels(!!rank)))
+          mutate(.x, !!rank := factor("other", levels = levels(!!rank)), exclude = NULL)
         } else {
           .x
         },
         keep = TRUE
       ) %>%
       bind_rows() %>%
-      group_by(reference, Algorithm, !!rank, tech, amplicon) %>%
+      group_by(!!x, !!rank) %>%
+      group_by_at(rlang::eval_tidy(facets), .add = TRUE) %>%
       summarize(reads = sum(reads), ASVs = sum(ASVs)) %>%
-      ungroup()
+      ungroup() %>%
+      mutate(!!rank := factor(!!rank, levels = prelevels, exclude = NULL))
   }
   
   rank_label <- as_label(rank)
@@ -324,10 +332,10 @@ taxon_plot <- function(.data, rank, ..., y = reads, cutoff = NULL, datasets) {
   .data <- .data %>%
     mutate(tech = fct_relabel(tech, ~ paste(., plyr::mapvalues(., datasets$tech, datasets$machine, FALSE))
     ))
-  ggplot(.data, aes(x = Algorithm, y = !!y, fill = !!rank)) +
+  ggplot(.data, aes(x = !!x, y = !!y, fill = !!rank)) +
     geom_bar(position = "stack", stat = "identity", color = "white", size = 0.2) +
     ggnomics::facet_nested(
-      cols = vars(tech, amplicon, reference),
+      cols = rlang::eval_tidy(facets),
       scales = "free_x",
       space = "free_x",
       nest_line = TRUE,

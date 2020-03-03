@@ -2,14 +2,14 @@
 title: "Long- and short-read metabarcoding technologies reveal similar spatio-temporal structures in fungal communities"
 author: 
   - Brendan Furneaux^1^,
-    Mohammad Bahram^2,3^,
-    Anna Rosling^4^,
-    Nourou S. Yorou^5^,
-    Martin Ryberg^1^
+  -  Mohammad Bahram^2,3^,
+  - Anna Rosling^4^,
+  - Nourou S. Yorou^5^,
+  - Martin Ryberg^1^
   - ^1^Program in Systematic Biology,
     Department of Organismal Biology,
     Uppsala University,
-    Uppsala, Sweden
+  - Uppsala, Sweden
   - ^2^Department of Ecology,
     Swedish University of Agricultural Sciences,
     Uppsala, Sweden
@@ -19,16 +19,16 @@ author:
   - ^4^Program in Evolutionary Biology,
     Department of Ecology and Genetics,
     Uppsala University,
-    Uppsala, Sweden
+  - Uppsala, Sweden
   - ^5^Research Unit in Tropical Mycology and Plant-Fungi Interactions,
     LEB,
-    University of Parakou,
+  - University of Parakou,
     Parakou, Benin
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 bibliography:
   - "all.bib"
   - "R.bib"
-csl: new-phytologist.csl
+csl: molecular-ecology.csl
 always_allow_html: true
 output:
   bookdown::pdf_document2:
@@ -183,7 +183,7 @@ We investigated turnover range in both the total fungal community and ECM commun
 We compare three different sequencing platforms (PacBio RS II, Illumina MiSeq, Ion Torrent Ion S5), long and short amplicons, three different taxonomic assignment algorithms (RDP classifier, SINTAX, IDTAXA) and reference databases (Unite, Warcup, RDP), and two different community distance measures (Bray-Curtis vs. weighted UNIFRAC).
 We also present new algorithms for dividing the rDNA into regions, combining denoising results from multiple regions, and incorporating phylogenetic information into taxonomic assignments.
 
-# Methods
+# Materials and Methods
 
 ## Sampling
 
@@ -599,8 +599,8 @@ rdd(tax_chart_plot)
 ```
 (ref:taxa-s) Heat tree summarizing taxonomic composition of soil community
 
-(ref:taxa) Color and size of nodes represent the fractional read abundance of all ASVs belonging to that taxonomic group.
-Color and thickness of branches represent the fractional ASV richness of that taxonomic group.
+(ref:taxa) Color and size of nodes represent the fractional ASV richness of that taxonomic group.
+Color and thickness of branches represent the fractional read abundance of all ASVs belonging to that taxonomic group.
 Diverse but relatively rare groups are thus shown as large, dark-colored nodes on relatively thin, light-colored branches (e.g., Dothideomycetes), while common but relatively non-diverse groups are shown as small, light-colored nodes on relatively thick, dark-colored branches (e.g., Russulales).
 Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
 ASVs which could not be further assigned are labelled "?".
@@ -641,11 +641,45 @@ ecm_counts <- rdd(taxon_reads) %>%
 ecm_read <- select(ecm_counts, seq_run, reads) %>% deframe()
 ecm_asv <- select(ecm_counts, seq_run, ASVs) %>% deframe()
 
-
 theme <- theme_update(panel.border = element_blank())
 rdd(heattree)
 theme_set(theme)
 ```
+
+(ref:fungi-comm-s) Taxonomic composition of fungal community at the class level
+
+(ref:fungi-comm) Values represent the fraction of all ASVs, OTUs, or reads which were assigned to kingdom Fungi.
+Assignments based on PHYLOTAX.
+Classes which represented less than 2% of reads, OTUs, and ASVs in all datasets are grouped together as "other".
+
+```{r fungi-comm, fig.cap = "(ref:fungi-comm-s). (ref:fungi-comm)", fig.scap = "(ref:fungi-comm-s)"}
+rdd(taxon_reads) %>%
+  filter(
+    kingdom == "Fungi",
+    !(Algorithm == "Consensus" & region == "ITS"),
+    Algorithm == "PHYLOTAX"
+    ) %>%
+  group_by(tech, amplicon) %>%
+  mutate(reads = reads/sum(reads), ASVs = 1/n()) %>%
+  pivot_longer(cols = c("reads", "ASVs"), names_to = "type", values_to = "reads") %>%
+  bind_rows(
+    filter(., type == "ASVs", label == OTU) %>%
+      mutate(label = OTU) %>%
+      group_by(tech, amplicon) %>%
+      mutate(reads = 1/n(), type = "OTUs")
+  ) %>%
+  taxon_plot(
+    rank = class,
+    datasets = datasets,
+    cutoff = 0.02,
+    y = reads,
+    x = type,
+    facets = vars(tech, amplicon)
+  ) +
+  ylab("Fraction of Community") +
+  xlab(NULL)
+```
+
 
 Taxonomic composition of the sequenced soil community is summarized in Figure\ \@ref(fig:taxa).
 According to the PHYLOTAX assignments, Fungi represented `r percent(fungi_asv["PacBio_Long"], format = "f", digits = 0)` of the ASVs and `r percent(fungi_read["PacBio_Long"], format = "f", digits = 0)` of the reads in the long amplicon library, compared to `r paste(percent(range(fungi_asv[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the ASVs and `r paste(percent(range(fungi_read[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the reads in the short amplicon library.
@@ -846,30 +880,14 @@ Both datasets from the short amplicon library showed a puzzling pattern with no 
 The general shape of the correlograms were similar for long and short amplicon datasets.
 We hypothesize that two different processes may be at work with differing spatiotemporal scales, whose superposition result in this pattern.
 
-# Conclusion
+## Conclusion
 
 The choice of amplicon and sequencing technology did not seem to affect the results of the spatial analysis, provided sufficient sequencing depth.
 However, the addition of long amplicon reads did allow the construction of a phylogenetic tree from the metabarcoding reads, which allowed refinement of taxonomic assignments.
 DADA2 ASV yield was initially poor for long reads, but this was improved by developing a workflow for extraction of subregions, separate denoising, and then reconstruction of full-length unique sequences.
 Together these approaches provide a hybrid approach using long-read sequencing to acquire long amplicon sequences for the local species pool, and cost-effective short-read sequencing to provide high sampling depth and sample number.
 
-# Data Availability Statement
-
-- Raw data?
-- ASV sequences to Unite
-- alignment and trees to TreeBase
-- R packages on CRAN or Dryad (plus Github)
-- Analysis scripts on Github
-
-# Author contributions
-
-Sampling was planned and carried out by BF, NSY, and MR.
-Bioinformatics and data analysis were performed by BF with input from MB, AR, and MR.
-Scripts and R packages were written by BF.
-The manuscript was drafted by BF and MR.
-All authors contributed to and approved the final version of the manuscript.
-
-# Acknowledgements
+# Acknowledgements {-}
 
 The authors would like to acknowledge support of the National Genomics Infrastructure (NGI) / Uppsala Genome Center and UPPMAX for providing assistance in massive parallel sequencing and computational infrastructure.
 Work performed at NGI / Uppsala Genome Center has been funded by RFI / VR and and Science for Life Laboratory, Sweden.
@@ -878,9 +896,25 @@ This project was funded by Formas grant XXX
 
 Ylva for PCR and sequence prep.
 
-# Bibliography {-}
+# References {-}
 
 <div id="refs"></div>
+
+# Data Availability Statement {-}
+
+- Raw data?
+- ASV sequences to Unite
+- alignment and trees to TreeBase
+- R packages on CRAN or Dryad (plus Github)
+- Analysis scripts on Github
+
+# Author contributions {-}
+
+Sampling was planned and carried out by BF, NSY, and MR.
+Bioinformatics and data analysis were performed by BF with input from MB, AR, and MR.
+Scripts and R packages were written by BF.
+The manuscript was drafted by BF and MR.
+All authors contributed to and approved the final version of the manuscript.
 
 \processdelayedfloats
 
@@ -1011,7 +1045,8 @@ rdd(big_seq_table_ITS2) %>%
 
 (ref:heattree-length-compare-s) Variation in read abundance and diversity for different amplicons across the taxonomic tree
 
-(ref:heattree-length-compare) Red nodes (edges) represent increased read (ASV) count for the short amplicon library, while blue-green nodes (edges) represent increased read (ASV) count for the long amplicon library.
+(ref:heattree-length-compare) Color of nodes indicates variation in read abundance, while color of edges represents variation in ASV richness.
+In both cases red represents increased prevalence in the short amplicon library, while blue-green represents increased prevalence in the long amplicon library.
 Values are log~10~ of the ratio of mean values across sequencing runs for each amplicon.
 Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
 ASVs which could not be further assigned are labelled "?".
@@ -1042,7 +1077,7 @@ Results are shown for different sequencing technologies, amplicons (Long, Short)
 
 (ref:ecm-heattree-s) Heat tree showing variation in read abundance and diversity for different amplicons, for ECM taxa only
 
-(ref:ecm-heattree) Red edges/nodes represent increased read/ASV count for the short amplicon library, while teal edges/nodes represent increased read/ASV count for the long amplicon library.
+(ref:ecm-heattree) Red edges (nodes) represent increased read (ASV) count for the short amplicon library, while blue-green edges (nodes) represent increased read (ASV) count for the long amplicon library.
 Values are log~10~ of the ratio of mean values across all sequencing technologies for each amplicon.
 Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
 ASVs which could not be further assigned are labelled "?".
