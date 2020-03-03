@@ -483,7 +483,8 @@ plan2 <- drake_plan(
   
   physeq = target(
     {
-      physeq <- proto_physeq
+      physeq <- proto_physeq %>%
+        phyloseq::prune_taxa(taxa = !phyloseq::taxa_names(.) %in% pos_control)
       if (amplicon == "Long") {
         phyloseq::phy_tree(physeq) <- fungi_tree_decipher_unconst_long
       }
@@ -1151,6 +1152,11 @@ plan2 <- drake_plan(
         (seq_run == "is_057" & well == "E7")
     ),
   
+  neg_control_physeq = phyloseq::subset_samples(
+    proto_physeq,
+    sample_type == "Blank"
+  ),
+  
   nonpos_control_physeq = 
     phyloseq::subset_samples(
       proto_physeq,
@@ -1160,15 +1166,23 @@ plan2 <- drake_plan(
   
   pos_control =
     agaricus_reads %>%
-    as.matrix() %>%
-    colSums() %>%
-    which.max() %>%
-    names(),
+    as("matrix") %>%
+    as_tibble(rownames = "sample") %>%
+    pivot_longer(-1, names_to = "seq", values_to = "reads") %>%
+    filter(reads > 0) %>%
+    extract(
+      sample,
+      into = c("seq_run", "plate", "well"),
+      regex = "([a-zA-Z]{2}[-_]\\d{3,4})(00\\d)([A-H]1?\\d)"
+    ) %>%
+    filter(seq_run != "is_057") %$%
+    unique(seq),
   
   pos_control_reads =
     nonpos_control_physeq %>%
     phyloseq::prune_taxa(taxa = pos_control) %>%
     phyloseq::otu_table() %>%
+    as.matrix() %>%
     rowSums(),
   
   all_reads =
@@ -1180,13 +1194,44 @@ plan2 <- drake_plan(
   pos_control_data =
     nonpos_control_physeq %>%
     phyloseq::sample_data() %>%
-    as.data.frame() %>%
+    as("data.frame") %>%
     mutate(
       pc_reads = pos_control_reads,
       all_reads = all_reads,
       pc_frac = pc_reads/all_reads
     ) %>%
     select(seq_run, well, plate, pc_frac, pc_reads, all_reads),
+  
+  pc_pc_reads = 
+    pos_control_physeq %>%
+    phyloseq::prune_taxa(taxa = pos_control) %>%
+    phyloseq::otu_table() %>%
+    as.matrix() %>%
+    rowSums(),
+  
+  pc_all_reads = 
+    pos_control_physeq %>%
+    phyloseq::otu_table() %>%
+    as.matrix() %>%
+    rowSums(),
+  
+  pc_pos_control_data =
+    pos_control_physeq %>%
+    phyloseq::sample_data() %>%
+    as("data.frame") %>%
+    mutate(
+      pc_reads = pc_pc_reads,
+      all_reads = pc_all_reads,
+      nonpc_reads = all_reads - pc_reads,
+      nonpc_frac = nonpc_reads/all_reads
+    ) %>%
+    select(seq_run, well, plate, nonpc_frac, nonpc_reads, all_reads),
+  
+  neg_control_reads = 
+    neg_control_physeq %>%
+    phyloseq::otu_table() %>%
+    as.matrix() %>%
+    rowSums(),
   
   agaricus_fasta =
     allseqs %>%
