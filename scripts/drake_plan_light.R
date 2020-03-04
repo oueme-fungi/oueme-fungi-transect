@@ -14,7 +14,6 @@ library(assertr)
 library(disk.frame)
 library(ape)
 library(ggplot2)
-library(lme4)
 
 source(file.path(config$rdir, "dada.R"))
 source(file.path(config$rdir, "mantel.R"))
@@ -672,6 +671,17 @@ plan2 <- drake_plan(
       tidyr::spread(key = seq_run, value = reads, fill = 0)
   },
   
+  otu_map =
+    read_tsv(
+      file_in(here::here("data/clusters/ITS2.uc")),
+      col_names = paste0("V", 1:10),
+      col_types = "ciidfccccc"
+      ) %>%
+    filter(V1 == "H") %>%
+    select(identity = V4, ASVseq = V9, OTUseq = V10) %>%
+    mutate_all(str_replace, ";.*", "") %>%
+    unique(),
+  
   parsed_qstat = parse_qstat(qstats),
   
   demuxlength =  parsed_qstat %>%
@@ -1078,7 +1088,8 @@ plan2 <- drake_plan(
           ) %>%
           select(ECM)
       ) %>%
-      select(-Taxonomy)
+      select(-Taxonomy) %>%
+      left_join(select(otu_map, label = ASVseq, OTU = OTUseq), by = "label")
   },
   
   tax_chart =
@@ -1233,6 +1244,15 @@ plan2 <- drake_plan(
     as.matrix() %>%
     rowSums(),
   
+  neg_control_data =
+    neg_control_physeq %>%
+    phyloseq::sample_data() %>%
+    as("data.frame") %>%
+    mutate(
+      all_reads = neg_control_reads
+    ) %>%
+    select(seq_run, well, plate, all_reads),
+  
   agaricus_fasta =
     allseqs %>%
     filter(hash %in% phyloseq::taxa_names(agaricus_reads)) %$%
@@ -1331,12 +1351,43 @@ plan2 <- drake_plan(
     filter(mantel_1 | timelag == "0", mantel_0) %>%
     mutate_at("timelag", factor),
   
+  variofit_table =
+    variog_data %>%
+    select(mantel_0, mantel_1, variofit_0 = variofit2, variofit_1 = variofitST2,
+           metric, amplicon, tech, guild, algorithm) %>%
+    pivot_longer(1:4, names_to = c(".value", "timelag"), names_sep = "_") %>%
+    mutate(params = map(variofit, broom::tidy)) %>%
+    unnest(params) %>%
+    bind_cols(
+      pmap_dfr(
+        .,
+        function(mantel, variofit, term, ...) {
+          if (mantel) {
+            tryCatch(
+              broom::confint_tidy(object = variofit, parm = term) %>%
+                as.list %>%
+                inset2("term", term) %>%
+                as.data.frame,
+              error = function(e) tibble(
+                term = term,
+                conf.low = NA_real_,
+                conf.high = NA_real_
+              )
+            )
+          } else {
+            tibble(term = term, conf.low = NA_real_, conf.high = NA_real_)
+          }
+        }) %>%
+        select(-term)
+    ) %>%
+    filter(term %in% c("range", "timerange")),
+  
   taxdata = {
     ranks <- c("domain", "kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
       filter(region == "ITS", Algorithm == "Consensus") %>%
       mutate(domain = "Root", ASVs = 1) %>%
-      select(-region, -seq_run, -label) %>%
+      select(-region, -seq_run, -label, -OTU) %>%
       mutate_at(
         ranks,
         replace_na,
@@ -1474,7 +1525,7 @@ plan2 <- drake_plan(
       filter(region == "ITS", Algorithm == "Consensus") %>%
       filter(!is.na(as.character(ECM)), ECM != "non-ECM") %>%
       mutate(ASVs = 1) %>%
-      select(-region, -seq_run, -label) %>%
+      select(-region, -seq_run, -label, -OTU) %>%
       mutate_at(
         ranks,
         replace_na,
@@ -1800,80 +1851,80 @@ plan2 <- drake_plan(
   },
   
   heattree_length_compare = {
-  taxdata2 <- taxdata
-  val_cols = names(taxdata2$data$tax_read) %>%
-    keep(str_detect, "reads_.+_.+_.+_Consensus")
-  
-  taxdata2$filter_obs(
-    "tax_read",
-    rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
-    drop_taxa = TRUE,
-    drop_obs = TRUE,
-    supertaxa = TRUE,
-    reassign_obs = FALSE) %>%
-    invisible()
-  
-  taxdata2$data$diff_read <- metacoder::compare_groups(
-    taxdata2,
-    data = "tax_read",
-    cols = val_cols,
-    groups = val_cols %>%
-      str_replace("reads_.+_(.+)_.+_.+", "\\1"),
-    func = function(abund1, abund2) {
-      list(read_ratio = log10(mean(abund1) / mean(abund2)))
-    }
-  )
-  taxdata2$data$diff_asv <- metacoder::compare_groups(
-    taxdata2,
-    data = "tax_asv",
-    cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
-    groups = names(taxdata2$data$tax_asv) %>%
-      keep(startsWith, "ASVs_") %>%
-      str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
-    func = function(abund1, abund2) {
-      list(asv_ratio = log10(mean(abund1) / mean(abund2)))
-    }
-  )
-  
-  set.seed(3)
-  theme_update(panel.border = element_blank())
-  taxdata2 %>%
-    metacoder::heat_tree(
-      layout = "davidson-harel",
-      # initial_layout = "reingold-tilford",
-      
-      node_size = rowMeans(.$data$tax_asv[,-1]),
-      node_size_range = c(0.002, .035),
-      node_size_axis_label = "ASV richness",
-      
-      node_color = asv_ratio,
-      node_color_range = metacoder::diverging_palette(),
-      node_color_trans = "linear",
-      node_color_axis_label = "Log richness ratio",
-      node_color_interval = c(-1.5, 1.5),
-      
-      edge_size = rowMeans(.$data$tax_read[,-1]),
-      edge_size_range = c(0.001, 0.03),
-      edge_size_trans = "linear",
-      edge_size_axis_label = "Read abundance",
-      
-      edge_color = read_ratio,
-      edge_color_range = metacoder::diverging_palette(),
-      edge_color_trans = "linear",
-      edge_color_axis_label = "Log abundance ratio",
-      edge_color_interval = c(-3, 3),
-      
-      node_label = ifelse(
-        pmax(abs(.$data$diff_read$read_ratio) > 0.5,
-             abs(.$data$diff_asv$asv_ratio) > 0.25),
-        taxon_names,
-        ""
-      ),
-      # aspect_ratio = 3/2,
-      node_label_size_range = c(0.010, 0.03),
-      output_file = file_out("temp/heattree_amplicons.pdf")
-      # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
+    taxdata2 <- taxdata
+    val_cols = names(taxdata2$data$tax_read) %>%
+      keep(str_detect, "reads_.+_.+_.+_Consensus")
+    
+    taxdata2$filter_obs(
+      "tax_read",
+      rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
+      drop_taxa = TRUE,
+      drop_obs = TRUE,
+      supertaxa = TRUE,
+      reassign_obs = FALSE) %>%
+      invisible()
+    
+    taxdata2$data$diff_read <- metacoder::compare_groups(
+      taxdata2,
+      data = "tax_read",
+      cols = val_cols,
+      groups = val_cols %>%
+        str_replace("reads_.+_(.+)_.+_.+", "\\1"),
+      func = function(abund1, abund2) {
+        list(read_ratio = log10(mean(abund1) / mean(abund2)))
+      }
     )
+    taxdata2$data$diff_asv <- metacoder::compare_groups(
+      taxdata2,
+      data = "tax_asv",
+      cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
+      groups = names(taxdata2$data$tax_asv) %>%
+        keep(startsWith, "ASVs_") %>%
+        str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
+      func = function(abund1, abund2) {
+        list(asv_ratio = log10(mean(abund1) / mean(abund2)))
+      }
+    )
+    
+    set.seed(3)
+    theme_update(panel.border = element_blank())
+    taxdata2 %>%
+      metacoder::heat_tree(
+        layout = "davidson-harel",
+        # initial_layout = "reingold-tilford",
+        
+        node_size = rowMeans(.$data$tax_asv[,-1]),
+        node_size_range = c(0.002, .035),
+        node_size_axis_label = "ASV richness",
+        
+        node_color = asv_ratio,
+        node_color_range = metacoder::diverging_palette(),
+        node_color_trans = "linear",
+        node_color_axis_label = "Log richness ratio",
+        node_color_interval = c(-1.5, 1.5),
+        
+        edge_size = rowMeans(.$data$tax_read[,-1]),
+        edge_size_range = c(0.001, 0.03),
+        edge_size_trans = "linear",
+        edge_size_axis_label = "Read abundance",
+        
+        edge_color = read_ratio,
+        edge_color_range = metacoder::diverging_palette(),
+        edge_color_trans = "linear",
+        edge_color_axis_label = "Log abundance ratio",
+        edge_color_interval = c(-3, 3),
+        
+        node_label = ifelse(
+          pmax(abs(.$data$diff_read$read_ratio) > 0.5,
+               abs(.$data$diff_asv$asv_ratio) > 0.25),
+          taxon_names,
+          ""
+        ),
+        # aspect_ratio = 3/2,
+        node_label_size_range = c(0.010, 0.03),
+        output_file = file_out("temp/heattree_amplicons.pdf")
+        # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
+      )
   },
   
   ecm_heattree = {
@@ -2236,9 +2287,9 @@ plan2 <- drake_plan(
       by = "sample"
     ) %>%
     mutate(
-      group = paste(tech, "–", amplicon) %>%
+      group = paste(tech, "--", amplicon) %>%
         factor(
-          levels = c("Illumina – Short", "PacBio – Short", "PacBio – Long"),
+          levels = c("Illumina -- Short", "PacBio -- Short", "PacBio -- Long"),
           ordered = TRUE
         )
     ) %>%
@@ -2414,9 +2465,9 @@ plan2 <- drake_plan(
     summarize(reads = sum(reads)) %>%
     tidyr::complete(seq_run, length, fill = list(reads = 0)),
   
-  short_length_glm = 
-    short_length_table %>%
-    glm(reads ~ seq_run + seq_run:length - 1, family = "poisson", data = .),
+  # short_length_glm = 
+  #   short_length_table %>%
+  #   glm(reads ~ seq_run + seq_run:length - 1, family = "poisson", data = .),
   
   length_model_data =
     reads_table %>%
@@ -2453,24 +2504,24 @@ plan2 <- drake_plan(
   # confint_glmernb = 
   #   lme4::confint.merMod(length_glmernb),
   
-  length_mcmcglmm =
-    MCMCglmm::MCMCglmm(
-      fixed = reads ~ trait:seq_run + trait:seq_run:length - 1,
-      random = ~ idh(trait):seq,
-      data = length_model_data,
-      family = "zipoisson",
-      rcov = ~us(trait):units
-    ),
-  
-  length_mcmcglmm2 =
-    MCMCglmm::MCMCglmm(
-      fixed = reads ~ seq + seq_run + seq_run:length - 1,
-      data = short_otu_table,
-      family = "poisson",
-      nitt = 103000,
-      thin = 100,
-      burnin = 3000
-    ),
+  # length_mcmcglmm =
+  #   MCMCglmm::MCMCglmm(
+  #     fixed = reads ~ trait:seq_run + trait:seq_run:length - 1,
+  #     random = ~ idh(trait):seq,
+  #     data = length_model_data,
+  #     family = "zipoisson",
+  #     rcov = ~us(trait):units
+  #   ),
+  # 
+  # length_mcmcglmm2 =
+  #   MCMCglmm::MCMCglmm(
+  #     fixed = reads ~ seq + seq_run + seq_run:length - 1,
+  #     data = short_otu_table,
+  #     family = "poisson",
+  #     nitt = 103000,
+  #     thin = 100,
+  #     burnin = 3000
+  #   ),
   
   trace = TRUE
 ) %>%
