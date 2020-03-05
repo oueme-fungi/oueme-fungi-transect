@@ -113,7 +113,7 @@ source(here(file.path("scripts", "output_functions.R")))
 # Abstract
 
 Fungi form diverse communities and play essential roles in many terrestrial ecosystems, yet there are methodological challenges in **xxx**.
-We investigated spatio-temporal structure of an ECM fungal community using soil metabarcoding with four different sequencing strategies: short amplicon sequencing of the ITS2 region (300--400\ bp) with Illumina MiSeq, Ion Torrent Ion S5, and PacBio RS II, as well as long amplicon sequencing of the full ITS and partial LSU regions (1200--1600\ bp) with PacBio RS II.
+We investigated spatio-temporal structure of a fungal community using soil metabarcoding with four different sequencing strategies: short amplicon sequencing of the ITS2 region (300--400\ bp) with Illumina MiSeq, Ion Torrent Ion S5, and PacBio RS II, as well as long amplicon sequencing of the full ITS and partial LSU regions (1200--1600\ bp) with PacBio RS II.
 Resulting community structure and diversity depended more on statistical method than sequencing technology.
 We found significant autocorrelation in distance classes <3\ m using a Mantel correlogram, and a best-fit distance-decay curve range of 17--19\ m, both shorter than previously reported for similar habitats.
 The use of long-amplicon sequencing enables construction of a phylogenetic tree from metabarcoding reads, which facilitates taxonomic identification of sequences.
@@ -900,11 +900,9 @@ The SNP&SEQ Platform is also supported by the Swedish Research Council and the K
 # Data Availability Statement {-}
 
 Sequence data, including raw reads and ASV sequences, are deposited at NCBI under BioProject XXXXXXX.
-Sequence alignment and phylogenetic tree are available at TreeBase under project S25885
-- ASV sequences to Unite
-- alignment and trees to TreeBase
-- R packages on CRAN or Dryad (plus Github)
-- Analysis scripts on Github
+Sequence alignment and phylogenetic tree are available at TreeBase under project S25885.
+R packages `lsux`, `tzara`, `phylotax`, and `FUNGuildR` are available on Github at https://github.com/brendanf/lsux, https://github.com/brendanf/tzara, https://github.com/brendanf/phylotax, and https://github.com/brendanf/FUNGuildR.
+Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect.
 
 # Author contributions {-}
 
