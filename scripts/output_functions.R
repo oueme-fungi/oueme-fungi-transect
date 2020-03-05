@@ -1,4 +1,8 @@
+#### Output helper functions ####
+# These functions format in-line results or help to generate figures and tables
+# directly in the Rmarkdown for the paper, or in drake_plan_light.R 
 
+# Format a number with "k" or "M" suffic for thousands or millions, as appropriate
 k_or_M <- function(x, ..., .sep = " ", .function = format) {
   case_when(
     abs(x) > 1e6 ~ paste(.function(x / 1e6, ...), "M", sep = .sep),
@@ -8,16 +12,18 @@ k_or_M <- function(x, ..., .sep = " ", .function = format) {
   )
 }
 
+# Format a number as a percent
 percent <- function(x, ...) {
   paste0(formatC(as.numeric(x) * 100, ...), "%")
 }
 
+# Format a vector of values to be used as in-line text
 text_list <- function(x, ...) {
   x = format(x, ...)
   glue::glue_collapse(x, sep = ", ", last = if (length(x) > 2) ", and " else " and ")
 }
 
-# compile data to make a table 
+# compile data to make a table with the information for a Venn diagram
 venndata <- function(data, vennvar, cols = names(data)[-1]) {
   vennvar <- enquo(vennvar)
   vennvarfrac <- paste0(as_label(vennvar), "_frac") %>% rlang::parse_quo(env = globalenv())
@@ -95,6 +101,7 @@ venndata <- function(data, vennvar, cols = names(data)[-1]) {
     inset("Total", 1, nrow(data))
 }
 
+# Put the results of venndata() in the format to actually make the diagram
 vennplot_data <- function(venndata, var) {
   var <- enquo(var)
   venndata %>%
@@ -117,6 +124,7 @@ vennplot_data <- function(venndata, var) {
     )
 }
 
+# Present the results of venndata() as a table
 venn_table <- function(venndata, var, caption, caption.short) {
   var <- enquo(var)
   
@@ -182,6 +190,7 @@ venn_table <- function(venndata, var, caption, caption.short) {
     )
 }
 
+# Get R^2 values for ASV or OTU read counts between two different sequencing runs
 compR2 <- function(x, y, type) {
   xamp <- plyr::mapvalues(
     x,
@@ -224,6 +233,8 @@ compR2 <- function(x, y, type) {
     format = "f")
 }
 
+# Make plots showing relationship between ASV or OTU read counts in different
+# sequencing runs
 read_comparison <- function(multi_table, comparisons, type) {
   multi_table <- filter(multi_table, type == !!type)
   comparisons <- filter(comparisons, type == !!type)
@@ -271,7 +282,11 @@ read_comparison <- function(multi_table, comparisons, type) {
   g
 }
 
-taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm, facets = vars(tech, amplicon, reference), cutoff = NULL, datasets) {
+
+# Plot distribution between different taxa
+taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm,
+                       facets = vars(tech, amplicon, reference), cutoff = NULL,
+                       datasets) {
   rank <- enquo(rank)
   y <- enquo(y)
   x <- enquo(x)
@@ -352,4 +367,24 @@ taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm, facets = vars
     ) +
     ylab(paste("Fraction of", y_label))
   
+}
+
+# function to call inside group_map while making OTU/ASV read count comparison
+# plots.
+# Because of several levels of NSE, this didn't work well as an anonymous function.
+choosevars <- function(d, g, .data) {
+  .data %>%
+    filter(type == g$type) %>%
+    select(
+      type,
+      x = !!paste(g$x_var, "-", g$x_amplicon),
+      y = !!paste(g$y_var, "-", g$y_amplicon)
+    ) %>%
+    filter(x > 0 | y > 0) %>%
+    mutate(
+      x_var = g$x_var, 
+      x_amplicon = g$x_amplicon,
+      y_var = g$y_var,
+      y_amplicon = g$y_amplicon
+    )
 }

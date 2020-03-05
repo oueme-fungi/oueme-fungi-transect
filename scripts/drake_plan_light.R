@@ -23,38 +23,22 @@ source(file.path(config$rdir, "taxonomy.R"))
 source(file.path(config$rdir, "plate_check.R"))
 source(file.path(config$rdir, "output_functions.R"))
 
-choosevars <- function(d, g, .data) {
-  .data %>%
-    filter(type == g$type) %>%
-    select(type, x = !!paste(g$x_var, "-", g$x_amplicon), y = !!paste(g$y_var, "-", g$y_amplicon)) %>%
-    filter(x > 0 | y > 0) %>%
-    mutate(
-      x_var = g$x_var, 
-      x_amplicon = g$x_amplicon,
-      y_var = g$y_var,
-      y_amplicon = g$y_amplicon
-    )
-}
-
 datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc")
 regions <- read_csv(config$regions, col_types = "cccciiiiic")
 
-# combo_meta <- tibble(
-#   group = c("fungi", "euk"),
-#   taxname = "short",
-#   reftree = c("fungi_tree_decipher_unconst_long", "tree_decipher_unconst_long"),
-#   strict_taxon = glue::glue("strict_taxon_short_{group}"),
-#   phylotaxon = glue::glue("phylotaxon_unconst_long_{group}")
-# ) %>%
-#   mutate_at(c("reftree", "strict_taxon", "phylotaxon"), syms)
-
+# Data frame for mapping between targets for guild assignment
 guilds_meta <- tibble(
-  consensus_taxa = c("phylotaxon_decipher_unconst_long_fungi", "strict_taxon_short_fungi", "best_taxon_short_fungi"),
+  consensus_taxa = c(
+    "phylotaxon_decipher_unconst_long_fungi",
+    "strict_taxon_short_fungi",
+    "best_taxon_short_fungi"
+  ),
   amplicon = c("Long", "Short", "Short"),
   algorithm = c("PHYLOTAX", "Consensus", "PHYLOTAX+Cons")
 ) %>%
   mutate_at("consensus_taxa", syms)
 
+# Data frame for mapping between targets for building phyloseq experiment objects
 physeq_meta <-
   tidyr::crossing(
     dplyr::select(datasets, "seq_run", "tech", "dataset", "amplicon"),
@@ -73,6 +57,7 @@ physeq_meta <-
   ) %>%
   mutate_at(vars(starts_with("ecm"), starts_with("fungi")), compose(syms, make.names))
 
+# Drake plan
 plan2 <- drake_plan(
   # targets which are imported from first plan
   allseqs = target(trigger = trigger(mode = "blacklist")),
@@ -109,6 +94,7 @@ plan2 <- drake_plan(
     transform = map(.data = !!region_meta, .tag_in = step, .id = region)
   ),
   
+  # Create labels for the tree(s) which show the assigned taxonomy.
   taxon_labels = make_taxon_labels(taxon_table),
   
   # funguild_db ----
@@ -248,30 +234,6 @@ plan2 <- drake_plan(
     transform = map(rooted_tree, group = "fungi", .tag_in = step, .tag_out = tree, .id = treename)
   ),
   
-  # labeled_fungi_tree = target(
-  #   relabel_tree(
-  #     tree = fungi_tree,
-  #     old = taxon_labels$label,
-  #     new = taxon_labels$tip_label
-  #   ) %T>%
-  #     castor::write_tree(
-  #       file_out(!!paste0("data/trees/fungi_", treename, ".tree"))
-  #     ),
-  #   transform = map(fungi_tree, treename, .id = treename)
-  # ),
-  # 
-  # phylolabeled_fungi_tree = target(
-  #   relabel_tree(
-  #     tree = fungi_tree,
-  #     old = phylotaxon_labels$label,
-  #     new = phylotaxon_labels$tip_label
-  #   ) %T>%
-  #     castor::write_tree(
-  #       file_out(!!paste0("data/trees/fungi_", treename, "_phylo.tree"))
-  #     ),
-  #   transform = map(fungi_tree, phylotaxon_labels, treename, .id = treename)
-  # ),
-  # 
   phylotaxon = target(
     phylotax(tree = tree, taxa = taxon_table),
     transform = map(tree, .tag_in = step, 
@@ -529,15 +491,6 @@ plan2 <- drake_plan(
                       .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
-  # variofit = target(
-  #   gstat::fit.variogram(
-  #     as_variogram(variog),
-  #     gstat::vgm(variog$gamma[22], "Exp", 3, variog$gamma[22]/2),
-  #     fit.method = 1
-  #   ),
-  #   transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
-  # ),
-  
   variofit2 = target(
     variog %>%
       # filter(!is.na(bin)) %>%
@@ -566,20 +519,6 @@ plan2 <- drake_plan(
                       .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
-  # variofitST = target(
-  #   gstat::fit.StVariogram(
-  #     as_variogramST(variogST) %>%
-  #       inset(,"np", ifelse(.$dist > 30, 1, .$np)),
-  #     gstat::vgmST(
-  #       "metric",
-  #       joint = gstat::vgm(max(variogST$gamma), "Exp", 5, quantile(variogST$gamma, 0.25)),
-  #       stAni = 1
-  #     ),
-  #     fit.method = 1
-  #   ),
-  #   transform = map(variogST, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
-  # ),
-  
   variofitST2 = target(
     variogST %>%
       # filter(!is.na(bin)) %>%
@@ -604,6 +543,13 @@ plan2 <- drake_plan(
     transform = map(variogST, variofit2, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
+  ##### Tables and Figures #####################################################
+  # Targets below this point are intended to compile data in useful formats    #
+  # for making the tables, figures, and in-line results in the paper.          #
+  ##############################################################################
+  
+  # list of all sequences by region and sequencing run, along with number of
+  # reads and sequence length
   reads_table = target(
     list(big_seq_table) %>%
       purrr::map(tibble::as_tibble, rownames = "sample") %>%
@@ -621,6 +567,7 @@ plan2 <- drake_plan(
     transform = combine(big_seq_table)
   ),
   
+  # Summary information for each region
   region_table = reads_table %>%
     dplyr::group_by(seq_run, region) %>%
     dplyr::summarize(
@@ -634,6 +581,7 @@ plan2 <- drake_plan(
       reads = sum(reads)
     ),
   
+  # Table of reads per ASV for each sequencing run
   asv_table = big_seq_table_ITS2 %>%
     tibble::as_tibble(rownames = "filename") %>%
     tidyr::gather(key = "seq", value = "reads", -1) %>%
@@ -646,7 +594,9 @@ plan2 <- drake_plan(
     tidyr::spread(key = seq.run, value = reads, fill = 0) %>% 
     dplyr::ungroup(),
   
+  # Table of reads per OTU for each sequencing run
   otu_table = {
+    
     big_fasta_ITS2
     read_tsv(
       file_in("data/clusters/ITS2.table"),
@@ -671,11 +621,13 @@ plan2 <- drake_plan(
       tidyr::spread(key = seq_run, value = reads, fill = 0)
   },
   
+  # Find the central sequence for each 97% OTU
   otu_map =
     read_tsv(
       file_in(here::here("data/clusters/ITS2.uc")),
       col_names = paste0("V", 1:10),
-      col_types = "ciidfccccc"
+      col_types = "ciidfccccc",
+      na = c("", "NA", "*")
       ) %>%
     filter(V1 == "H") %>%
     select(identity = V4, ASVseq = V9, OTUseq = V10) %>%
