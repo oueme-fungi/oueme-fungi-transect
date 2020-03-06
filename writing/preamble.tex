@@ -13,9 +13,23 @@
 \usepackage{tikz}
 \usepackage{pgfplots}
 
+\usepackage{colortbl}
+\usepackage{makecell}
+
+\usepackage{xr}
+\externaldocument{transect_supplement}
+\externaldocument{transect_paper}
+
 \newcommand{\beginsupplement}{
   \setcounter{table}{0}  
   \renewcommand{\thetable}{S\arabic{table}} 
   \setcounter{figure}{0} 
   \renewcommand{\thefigure}{S\arabic{figure}}
+}
+
+\let\OLDthebibliography\thebibliography
+\renewcommand\thebibliography[1]{
+  \OLDthebibliography{#1}
+  \setlength{\parskip}{0pt}
+  \setlength{\itemsep}{0pt plus 0.3ex}
 }

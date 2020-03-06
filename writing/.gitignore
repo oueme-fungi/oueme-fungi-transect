@@ -10,6 +10,7 @@
 *.aux
 *.toc
 !demultiplex_issues.tex
+!preamble*.tex
 *.aux
 *.log
 *-blx.bib
@@ -24,3 +25,8 @@
 *.fff
 *_files
 cache
+*.lot
+*.lof
+*.md
+*.bcf
+*.blg

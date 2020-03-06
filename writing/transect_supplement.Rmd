@@ -1,0 +1,452 @@
+---
+title: Supplementary Information
+always_allow_html: true
+output:
+  bookdown::pdf_document2:
+    fig_crop: yes
+    keep_tex: yes
+    toc: false
+    latex_engine: lualatex
+    includes:
+      in_header: preamble_supplement.tex
+    citation_package: biblatex
+    suppress-bibliography: true
+    fontsize: 12pt
+    geometry: left=2.5cm, right=2.5cm, top=3cm, bottom=3cm
+---
+
+```{r setup, include=FALSE}
+library("knitr")
+library("ggplot2")
+library("magrittr")
+library("tidyverse")
+library("drake")
+library("here")
+library("phyloseq")
+library("kableExtra")
+tryCatch(
+  tinytex::tinytex_root(),
+  error = function(e) tinytex::install_tinytex()
+  )
+
+tinytex::tlmgr_install("pdfcrop")
+
+knitr::opts_chunk$set(
+  dev = "pdf",
+  # dev.args = list(pointsize=32),
+  echo = FALSE,
+  # results = 'asis',
+  # fig.show = 'asis',
+  fig.width = 6,
+  fig.height = 4.5,
+  message = FALSE,
+  warning = FALSE,
+  external = TRUE,
+  out.width = "70%",
+  fig.align = "center"
+)
+
+options(knitr.table.format = "latex")
+
+light_plan <- readRDS(here("data/plan/drake_light.rds"))
+theme_set(theme_bw())
+
+datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccicc")
+regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
+```
+
+\listoffigures
+\listoftables
+
+(ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis ordination of samples preserved with different buffers
+
+(ref:buffer-pcoa) For each sequencing strategy, only those sampling locations with more than 100 reads each for all three year/preservation buffer combinations were included.
+
+```{r buffer-pcoa, fig.cap="(ref:buffer-pcoa-s). (ref:buffer-pcoa)"}
+plot(readd(buffer_asv_pcoa), type = "none")
+points(
+  readd(buffer_asv_pcoa),
+  select = with(
+    as_tibble(phyloseq::sample_data(readd(buffer_asv_table))),
+    buffer == "Xpedition" & year == "2015" 
+  ),
+  col = "green",
+  pch = 1
+)
+points(
+  readd(buffer_asv_pcoa),
+  select = with(as_tibble(phyloseq::sample_data(readd(buffer_asv_table))),
+                buffer == "Xpedition" & year == "2016"
+  ),
+  col = "blue",
+  pch = 2
+)
+points(
+  readd(buffer_asv_pcoa),
+  select = with(as_tibble(phyloseq::sample_data(readd(buffer_asv_table))),
+                buffer == "LifeGuard" & year == "2016"
+  ),
+  col = "red",
+  pch = 3
+)
+legend(
+  "bottomright",
+  legend = c("Xpedition 2015", "Xpedition 2016", "LifeGuard 2016"),
+  col = c("green", "blue", "red"),
+  pch = 1:3
+)
+# legend(
+#   "topright",
+#   legend = with(as_tibble(phyloseq::sample_data(readd(buffer_asv_table))), paste(tech, amplicon)) %>%
+#     unique() %>%
+#     sort(),
+#   lty = 1:3
+# )
+# vegan::ordiellipse(
+#   readd(buffer_asv_pcoa),
+#   groups = with(as_tibble(phyloseq::sample_data(readd(buffer_asv_table))), paste(tech, amplicon)),
+#   lty = 1:3
+# )
+```
+
+(ref:buffer-compare-long) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for long amplicon libraries.
+
+```{r buffer-compare-long, fig.cap = "(ref:buffer-compare-long)"}
+oldtheme <- theme_update(panel.border = element_blank())
+readd(buffer_compare_long)
+theme_set(oldtheme)
+```
+
+(ref:buffer-compare-short) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for short amplicon libraries.
+
+```{r buffer-compare-short, fig.cap = "(ref:buffer-compare-short)"}
+readd(buffer_compare_short)
+theme_set(oldtheme)
+
+```
+
+(ref:rDNA-s) Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA, and internally transcribed spacer (ITS) regions
+
+(ref:rDNA) Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines).  D1-3 (grey) represent the first three variable regions in LSU, while LSU1-4 (black) represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces.
+
+```{tikz rDNA, fig.cap = "(ref:rDNA)", fig.scap = "(ref:rDNA-s)", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
+
+```
+
+(ref:region-asv-s) Plot of total number of ASVs recovered vs. fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`
+
+(ref:region-asv) Some regions were formed by concatenation of extracted regions, as follows:
+LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4;
+ITS = ITS1--5.8S--ITS2;
+32S = 5.8S--ITS2--LSU;
+long = ITS--LSU.
+For this figure, subregions were concatenated prior to quality filtering and generating ASVs with DADA2.
+
+```{r regions, fig.cap="(ref:region-asv-s). (ref:region-asv)", fig.scap="(ref:region-asv-s)"}
+readd(region_table) %>%
+  dplyr::filter(seq_run == "pb_500") %>%
+  mutate(reads = reads / sum(filter(readd(readcounts), seq_run == "pb_500", step == "demux")$nreads)) %>%
+  dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
+  ggplot(aes(reads, ASVs, color = length_med, label = region)) +
+  geom_point() +
+  ggrepel::geom_text_repel() +
+  scale_color_gradientn(colors = c("blue", "red", "green1"), limits = c(30, 2000), breaks = c(50, 150, 400, 1000), trans = "log10", name = "median length") +
+  scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1))
+```
+
+(ref:phylotax-s) Phylogenetic refinement of taxonomic assignments (PHYLOTAX)
+
+(ref:phylotax) In the example, a clade includes  seven OTUs (A-F), which have been identified by two methods as belonging to taxa "Tax1" or "Tax2", or are unidentified ("unk"), as shown in the tip labels.
+No taxon is assigned at node\ 1, because one of the child branches (A) is completely unassigned.
+No taxon is assigned at node\ 2, because the assignments at C and F are inconsistent.
+Node\ 3 is assigned to Tax1 because this is consistent with at least one of the assignments for both B and C.
+Node\ 4 (and thus also node\ 5) is assigned to Tax2 because this is consistent with at least one of the assignments for D and F, and because E is completely unassigned.
+
+```{r phylotax, fig.height = 2, fig.width = 3, fig.cap = "(ref:phylotax-s). (ref:phylotax)", fig.scap="(ref:phylotax-s)"}
+readd(phylotax_fig)
+```
+
+(ref:sample-depth-s) DNA concentrations after extraction and PCR, and sequencing depth along transects at the two sites Ang and Gan for the years 2015 and 2016
+
+(ref:sample-depth) DNA concentrations after extraction (leftmost column) and PCR (second and third columns), and sequencing depth (right three columns) along transects at the two sites Ang and Gan for the years 2015 and 2016.
+Sequencing reads which were filtered out during quality control are colored dark grey.
+Dotted horizontal line at 100\ reads indicates cutoff for inclusion in community analysis.
+2016 samples were preserved using two different methods (LifeGuard, Xpedition), while 2015 samples were preserved only using Xpedition.
+
+```{r sample-depth, fig.cap = "(ref:sample-depth)", fig.scap = "(ref:sample-depth-s)"}
+ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend = TRUE) +
+  theme(panel.spacing = unit(0, "mm"))
+```
+
+(ref:full-length-s) Comparison of the length of denoised sequences from different length amplicons and sequencing technologies
+
+(ref:full-length) Length distribution (*a*, *c*) and empirical cumulative distribution function (ECDF; *b*, *d*) for short (*a*, *b*) and long (*c*, *d*) amplicons, respectively.
+
+```{r full-length, fig.cap = "(ref:full-length-s). (ref:full-length)", fig.scap = "(ref:full-length-s)", fig.height = 6}
+ggpubr::ggarrange(
+  readd(full_dens_short),
+  readd(full_ecdf_short),
+  readd(full_dens_long),
+  readd(full_ecdf_long),
+  ncol = 1, heights = c(3, 1.7, 1.2, 2), labels = "auto", vjust = 1
+)
+```
+
+(ref:region-lengths-s) Length distribution for each region extracted from long amplicons
+
+(ref:region-lengths) Filtering limits are shown as dashed vertical lines.
+
+```{r region-lengths, fig.cap = "(ref:region-lengths-s). (ref:region-lengths)", fig.scap = "(ref:region-lengths-s)", fig.height = 6}
+readd(region_length_fig)
+```
+
+(ref:taxa-s) Heat tree summarizing taxonomic composition of soil community
+
+(ref:taxa) Color and size of nodes represent the fractional ASV richness of that taxonomic group.
+Color and thickness of branches represent the fractional read abundance of all ASVs belonging to that taxonomic group.
+Diverse but relatively rare groups are thus shown as large, dark-colored nodes on relatively thin, light-colored branches (e.g., Dothideomycetes), while common but relatively non-diverse groups are shown as small, light-colored nodes on relatively thick, dark-colored branches (e.g., Russulales).
+Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
+ASVs which could not be further assigned are labelled "?".
+ASV richness and read abundance are displayed as the mean across sequencing runs.
+Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
+The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
+
+```{r taxa, fig.cap = "(ref:taxa-s). (ref:taxa)", fig.scap="(ref:taxa-s)", out.width="100%", fig.width = 8}
+theme <- theme_update(panel.border = element_blank())
+readd(heattree)
+theme_set(theme)
+```
+
+(ref:ecm-s) Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic assignments
+
+(ref:ecm) Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
+"unidentified" denotes ASVs which were assigned to kingdom Fungi, but could not be identified to family level or could not be assigned ECM status based on the available identification.
+Height of each bar represents the fraction of reads represented by that bar.
+Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
+
+```{r ecm, fig.cap = "(ref:ecm-s). (ref:ecm)", fig.scap = "(ref:ecm-s)", fig.width = 7}
+  readd(taxon_reads) %>%
+  filter(ifelse(Algorithm == "Consensus", region == "All", TRUE)) %>%
+  mutate_at("reference", replace_na, "All") %>%
+  taxon_plot(ECM, kingdom == "Fungi", datasets = datasets) +
+  theme(legend.position = "bottom", legend.title = element_blank())
+```
+
+(ref:ppcoa-short) Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding approaches
+
+(ref:ppcoa) for all fungi (**a**) and ECM fungi (**b**).
+Spatio-temporal variation (i.e., variation between different soil samples) has been partialled out.
+Only samples with at least 100 reads for all three approaches are included.
+ASVs are clustered by taxonomic class for all fungi, and by family for ECM fungi.
+Abbreviations represent the approximate direction of increase for the classes and families with the highest scores: `r glue::glue_data(readd(tech_class_pcoa_scores), "**{abbrev}**: {class}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`; `r glue::glue_data(readd(tech_ecm_fam_pcoa_scores), "**{abbrev}**: {family}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`.
+
+```{r ppcoa, fig.cap = "(ref:ppcoa-short), (ref:ppcoa)", fig.scap = "(ref:ppcoa-short)"}
+ggpubr::ggarrange(
+  readd(tech_class_pcoa_plot),
+  readd(tech_ecm_fam_pcoa_plot),
+  common.legend = TRUE,
+  legend = "bottom",
+  labels = "auto"
+)
+```
+
+(ref:correlog-cap-s) Mantel correlograms for community dissimilarities and spatio-temporal distance
+
+(ref:correlog-cap) Community dissimilarities are Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
+
+```{r correlog, fig.cap="(ref:correlog-cap-s). (ref:correlog-cap)", fig.scap = "(ref:correlog-cap-s)"}
+light_plan %>%
+  filter(startsWith(target, "correlog")) %>%
+  select(target) %>%
+  separate(
+    target,
+    into = c("step", "guild", "metric", "tech", "amplicon", "method", "tdist"),
+    sep = "_",
+    remove = FALSE
+  ) %>%
+  filter(startsWith(method, "PHYLOTAX")) %>%
+  mutate(
+    tdist = paste(tdist, "year"),
+    guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("all Fungi", "ECM")),
+    metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
+    amplicon = factor(amplicon, levels = c("Short", "Long"))
+  ) %>%
+  mutate_at("target", purrr::map, readd, character_only = TRUE) %>%
+  mutate_at("target", purrr::map, "mantel.res") %>%
+  mutate_at("target", purrr::map, as.data.frame) %>%
+  unnest(target) %>%
+  filter(complete.cases(.)) %>%
+  mutate(Significant = `Pr(corrected)` < 0.05) %>%
+  ggplot(aes(class.index, Mantel.cor, group = tdist, color = tdist, shape = Significant)) +
+  geom_point(size = 3) +
+  geom_line(alpha = 0.3, size = 1.5) +
+  geom_hline(yintercept = 0, linetype = 2, alpha = 0.5) +
+  # geom_line(aes(y = exp(predict(bc_fit)))) +
+  scale_y_continuous(name = "Mantel correlation") +
+  scale_x_continuous(breaks = c(0, 3, 6, 9, 12)) +
+  scale_color_discrete(name = "Time lag") +
+  xlab("Distance (m)") +
+  ggnomics::facet_nested(amplicon + tech + metric ~ guild, scales = "fixed", nest_line = TRUE) +
+  scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1)) +
+  theme(strip.background = element_blank())
+```
+
+(ref:ITS2-length-s) Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies
+
+(ref:ITS2-length) *a*) Length distribution.  *b*) Empirical cumulative distribution function.
+
+```{r ITS2-length, fig.cap = "(ref:ITS2-length-s). (ref:ITS2-length)", fig.scap = "(ref:ITS2-length-s)", fig.height = 6}
+ggpubr::ggarrange(
+  readd(its2_dens),
+  readd(its2_ecdf),
+  ncol = 1,
+  labels = "auto",
+  heights = c(4, 2)
+)
+```
+
+(ref:heattree-length-compare-s) Variation in read abundance and diversity for different amplicons across the taxonomic tree
+
+(ref:heattree-length-compare) Color of nodes indicates variation in read abundance, while color of edges represents variation in ASV richness.
+In both cases red represents increased prevalence in the short amplicon library, while blue-green represents increased prevalence in the long amplicon library.
+Values are log~10~ of the ratio of mean values across sequencing runs for each amplicon.
+Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
+ASVs which could not be further assigned are labelled "?".
+Only nodes with a log read abundance ratio greater than 0.5 (abundance ratio > 3.2) are labeled.
+Refer to Figure\ \@ref(fig:taxa) for complete taxon labeling.
+
+```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare-s). (ref:heattree-length-compare)", fig.scap = "(ref:heattree-length-compare-s)", out.width = "100%"}
+oldtheme <- theme_update(panel.border = element_blank())
+readd(heattree_length_compare)
+theme_set(oldtheme)
+```
+
+(ref:short-its-s) Kingdom-level taxonomic composition of ITS2 ASVs $\le 140$ bp
+
+(ref:short-its) Vertical axis shows fraction of total reads $\le 140$ bp in each dataset.
+
+```{r short-its, fig.cap = "(ref:short-its-s). (ref:short-its)", fig.scap = "(ref:short-its-s)", fig.width=7}
+readd(big_seq_table_ITS2) %>%
+  colSums() %>%
+  enframe(name = "ITS2", value = "nreads") %>%
+  mutate(length = nchar(ITS2)) %>%
+  filter(length <= 140) %>%
+  mutate_at("ITS2", ~tzara::seqhash(chartr("T", "U", .))) %>%
+  semi_join(readd(taxon_reads), ., by = c("label" = "ITS2")) %>%
+  group_by(tech, amplicon, Algorithm, reference) %>%
+  mutate(reads = reads/sum(reads)) %>%
+  ungroup() %>%
+  # group_by(ITS2) %>%
+  # filter(!"Short" %in% amplicon) %>%
+  taxon_plot(kingdom, y = reads, datasets = datasets)
+```
+
+(ref:ecm-heattree-s) Heat tree showing variation in read abundance and diversity for different amplicons, for ECM taxa only
+
+(ref:ecm-heattree) Red edges (nodes) represent increased read (ASV) count for the short amplicon library, while blue-green edges (nodes) represent increased read (ASV) count for the long amplicon library.
+Values are log~10~ of the ratio of mean values across all sequencing technologies for each amplicon.
+Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
+ASVs which could not be further assigned are labelled "?".
+Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
+The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
+
+```{r ecm-heattree, fig.cap = "(ref:ecm-heattree-s). (ref:ecm-heattree)", fig.scap = "(ref:ecm-heattree-s)", out.width = "100%"}
+oldtheme <- theme_update(panel.border = element_blank())
+readd(ecm_heattree)
+theme_set(oldtheme)
+```
+
+```{r region-limits}
+regions %>%
+  select(Region = region, "Min. length" = min_length, "Max. length" = max_length) %>%
+  right_join(
+    tibble(Region = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")),
+    by = "Region"
+    ) %>%
+  mutate_at("Region", str_replace_all, "_", ".") %>%
+  knitr::kable(
+    booktabs = TRUE,
+    caption = "Minimum and maximum allowed lengths for each extracted region."
+  )
+```
+
+(ref:readcounts-s) Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages
+
+(ref:readcounts) **Raw**: raw reads as delivered by sequencing center (CCS reads for PacBio);
+**Trim**: reads with primers and demultiplexing barcodes removed;
+**Filter (full)**: full length amplicons with a maximum of three expected errors;
+**LSUx**: reads with a positive CM hit for 5.8S, allowing regions to be extracted;
+**Filter (ITS2)**: extracted ITS2 regions with a maximum of three expected errors;
+**ITS2**: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
+**short**, **ITS**, **LSU**, **long**: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"long\" denote the full-length short and long amplicons, respectively.
+
+```{r bioinfo}
+options(knitr.kable.NA = '–')
+
+readd(bioinf_table) %>%
+  set_names(gsub(".*_", "", names(.))) %>%
+  kable(
+    booktabs = TRUE,
+    caption = "(ref:readcounts-s). (ref:readcounts)",
+    caption.short = "(ref:readcounts-s)",
+    align = "rrrrrr",
+    format.args = list(big.mark = ","),
+    linesep = c(
+      rep("", 2),
+      "\\addlinespace",
+      rep("", 2),
+      "\\addlinespace",
+      rep("", 4)
+    ),
+    escape = FALSE
+    ) %>%
+  kableExtra::add_header_above(
+    header = c(
+      " " = 1,
+      readd(bioinf_header)$amplicon[c(TRUE, FALSE)] %>% set_names(rep(2, length(.)), .)
+    )
+  ) %>%
+  kableExtra::add_header_above(
+    header = c(
+      " " = 1,
+      rle(readd(bioinf_header)$tech) %$% set_names(lengths, values)
+    )
+  )
+```
+
+\setlength{\tabcolsep}{1ex}
+
+(ref:venn-table-asv-s) Correspondences between ASVs found by different sequencing strategies
+
+(ref:venn-table-asv) Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datasets, including the fraction of total ASVs for each dataset (*ASVs frac*), the number of reads represented by those ASVs in each dataset (*reads*) and the fraction of total reads for the dataset (*reads frac*).
+
+```{r venn-table-asv}
+readd(venn_ASV) %>%
+venn_table(ASVs, caption = "(ref:venn-table-asv-s). (ref:venn-table-asv)", caption.short = "(ref:venn-table-asv-s)")
+```
+
+(ref:venn-table-otu-s)  Correspondences between 97% OTUs found by different sequencing strategies
+
+(ref:venn-table-otu) Each row shows the number of OTUs (*OTUs*) shared uniquely by one or more datasets, including the fraction of total OTUs for each dataset (*OTUs frac*), the number of reads represented by those OTUs in each dataset (*reads*) and the fraction of total reads for the dataset (*reads frac*).
+
+```{r venn-table-otu}
+readd(venn_OTU) %>%
+venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", caption.short = "(ref:venn-table-otu-s)")
+```
+
+(ref:variofit) Parameters for exponential distance-decay fits. Range: range at which exponential function is at 95% of its maximum value.
+
+```{r variofit, results="asis"}
+ readd(variofit_table) %>%
+  mutate_at("conf.low", replace_na, 0) %>%
+  mutate(value = ifelse(
+    is.na(estimate) | is.na(conf.high),
+    "-",
+    sprintf("%.2g (%.2g–%.2g)", estimate, conf.low, conf.high)
+  )) %>%
+  filter(timelag == "0" | term == "timerange") %>%
+  pivot_wider(names_from = "term", values_from = "value", id_cols = c("guild", "amplicon", "tech", "metric", "algorithm")) %>%
+  select(Guild = guild, Amplicon = amplicon, Tech = tech, Algorithm = algorithm, Metric = metric, "Space Range (m)" = range, "Time Range (a)" = timerange) %>%
+  arrange(Guild, Amplicon, Tech, Algorithm, Metric) %>%
+  kable(booktabs = TRUE, caption = "(ref:variofit)", linesep = c(rep("", 5), "\\addlinespace"))
+```

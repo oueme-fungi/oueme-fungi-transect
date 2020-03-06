@@ -2378,6 +2378,41 @@ plan2 <- drake_plan(
     mutate_at("seq_run", factor) %$%
     kruskal.test(length, g = seq_run),
   
+  fungi_read =
+    taxdata %>%
+    taxa::filter_taxa(
+      taxon_names == "Fungi",
+      reassign_obs = FALSE,
+      reassign_taxa = FALSE
+    ) %>%
+    extract2("data") %>%
+    extract2("tax_read") %>%
+    set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
+    unlist(),
+  
+  fungi_asv =
+    taxdata %>%
+    taxa::filter_taxa(
+      taxon_names == "Fungi",
+      reassign_obs = FALSE,
+      reassign_taxa = FALSE
+    ) %>%
+    extract2("data") %>%
+    extract2("tax_asv") %>%
+    set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
+    unlist(),
+  
+  ecm_counts =
+    taxon_reads %>%
+    filter(Algorithm == "PHYLOTAX") %>%
+    group_by(seq_run) %>%
+    mutate(ASVs = 1/n()) %>%
+    filter(ECM %in% c("Possible ECM", "Probable ECM", "Highly Probable ECM")) %>%
+    summarize_at(c("ASVs", "reads"), sum),
+  
+  ecm_read = select(ecm_counts, seq_run, reads) %>% deframe(),
+  ecm_asv = select(ecm_counts, seq_run, ASVs) %>% deframe(),
+  
   short_otu_table = {
     big_fasta_short
     read_tsv(
@@ -2409,6 +2444,108 @@ plan2 <- drake_plan(
         by = "seq"
       )
   },
+  
+  # Plot of reads along transect
+  reads_plot = parsed_qstat %>%
+    filter(stat == "n") %>%
+    tidyr::extract(col = "well", into = c("row", "col"),
+                   regex = "([A-H])(\\d+)") %>%
+    filter(is.na(step), !is.na(seq_run), read != "_R2" | is.na(read)) %>%
+    group_by(seq_run, plate, row, col) %>%
+    summarize(raw_reads = sum(nreads)) %>%
+    ungroup() %>%
+    mutate_at("col", as.integer) %>%
+    left_join(
+      proto_physeq %>% {
+        mutate(
+          sample_data(.),
+          reads = otu_table(.) %>% rowSums()
+        )
+      } %>%
+        select(seq_run, plate, row, column, site, year, qual, sample_type, x, buffer, tech, amplicon, reads) %>%
+        mutate(row = LETTERS[row]) %>%
+        unique(),
+      by = c("seq_run", "plate", "row", "col" = "column")
+    ) %>%
+    filter(tech != "Ion Torrent", !is.na(year), !is.na(seq_run), !is.na(x), !is.na(buffer)) %>%
+    complete(nesting(seq_run, tech, amplicon), site, x, nesting(year, buffer)) %>%
+    pivot_longer(cols = c("reads", "raw_reads"), names_to = "type", values_to = "reads") %>%
+    mutate(
+      type = factor(type, levels = c("raw_reads", "reads")),
+      buffer = factor(buffer, levels = c("Xpedition", "LifeGuard")),
+      tech = factor(tech, levels = c("PacBio", "Illumina")),
+      "Sample group" = paste(year, buffer) %>%
+        ifelse(type == "raw_reads", "Raw", .) %>%
+        fct_relevel("Raw")
+    ) %>%
+    arrange(`Sample group`) %>%
+    ggplot(aes(x = x, y = reads, group = `Sample group`, fill = `Sample group`)) +
+    geom_col(position = "identity") +
+    ggnomics::facet_nested(
+      cols = vars(tech, amplicon),
+      rows = vars(year, buffer, site),
+      nest_line = TRUE,
+      resect = unit(1, "mm")
+    ) +
+    scale_fill_manual(
+      values = c(RColorBrewer::brewer.pal(3, "Set2") %>% set_names(c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition")), Raw = "gray20"),
+      breaks = c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition", "Raw"),
+      labels = c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition", "Filtered")) +
+    scale_y_log10(breaks = c(10, 1e3, 1e5),
+                  labels = c("10", "1k", "100k"), position = "right") +
+    xlab("x (m)") +
+    theme(
+      legend.position = "bottom",
+      strip.background = element_blank(),
+      panel.spacing = unit(1, "mm"),
+      plot.margin = margin(l = 0.5, unit = "mm"),
+      axis.text.x = element_text(angle = 90, vjust = 0.5)
+    ) +
+    geom_hline(yintercept = 100, linetype = 2, alpha = 0.5),
+  
+  conc_plot =
+    proto_physeq %>% 
+    sample_data(.) %>%
+    select(plate, row, column, site, year, sample_type, x, buffer, amplicon, dna_conc, pcr_conc) %>%
+    arrange(plate, row, column, amplicon) %>% 
+    unique() %>% 
+    mutate_at("dna_conc", as.double) %>%
+    pivot_longer(cols = c("dna_conc", "pcr_conc"), names_to = "step", values_to = "conc", names_pattern = "([[:alpha:]]+)_conc") %>%
+    filter(!is.na(year)) %>%
+    mutate(
+      amplicon = ifelse(step == "dna", "", amplicon),
+      buffer = factor(buffer, levels = c("Xpedition", "LifeGuard")),
+      step = factor(step, levels = c("dna", "pcr"), labels = c("DNA", "PCR product")),
+      conc = 1000 * conc,
+      "Sample group" = paste(year, buffer)
+    ) %>%
+    unique() %>%
+    complete(nesting(amplicon, step), site, x, nesting(year, buffer, `Sample group`)) %>%
+    arrange(`Sample group`) %>%
+    ggplot(aes(x = x, y = conc, group = `Sample group`, fill = `Sample group`)) +
+    geom_col() +
+    ggnomics::facet_nested(
+      cols = vars(step, amplicon),
+      rows = vars(year, buffer, site),
+      nest_line = TRUE,
+      resect = unit(1, "mm"),
+      switch = "y"
+    ) +
+    scale_fill_manual(values = RColorBrewer::brewer.pal(3, "Set2") %>% set_names(c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition")), guide = "none") +
+    scale_y_log10(
+      breaks = c(10, 1e3, 1e5),
+      labels = c("0.1", "1", "100"),
+      name = "DNA concentration (ng/µL)"
+    ) +
+    xlab("x (m)") +
+    theme(
+      legend.position = "bottom",
+      strip.background = element_blank(),
+      strip.placement = "outside",
+      panel.spacing = unit(1, "mm"),
+      plot.margin = margin(r = 0.5, unit = "mm"),
+      axis.text.x = element_text(angle = 90, vjust = 0.5)
+    ),
   
   short_length_table =
     reads_table %>%
@@ -2474,6 +2611,73 @@ plan2 <- drake_plan(
   #     thin = 100,
   #     burnin = 3000
   #   ),
+  
+  # write *.aux and *.tex files.  Remove extra bibliographies from *.tex files
+  supplement_tex =
+    withr::with_dir(
+      "writing",
+      {
+        knitr_in(!!file.path("writing", "transect_supplement.Rmd"))
+        file_in(!!file.path("writing", "preamble_supplement.tex"))
+        file_in(!!file.path("scripts", "output_functions.R"))
+        rmarkdown::render(
+          "transect_supplement.Rmd",
+          clean = FALSE
+        )
+        file_out(!!file.path("writing", "transect_supplement.aux"))
+        file_out(!!file.path("writing", "transect_supplement.tex"))
+        readLines("transect_supplement.tex") %>%
+          magrittr::extract(!grepl("\\\\printbibliography", .)) %>%
+          writeLines("transect_supplement.tex")
+      }
+    ),
+  
+  article_tex = withr::with_dir(
+    "writing",
+    {
+      knitr_in(!!file.path("writing", "transect_paper.Rmd"))
+      file_in(!!file.path("writing", "preamble.tex"))
+      file_in(!!file.path("scripts", "output_functions.R"))
+      rmarkdown::render(
+        "transect_paper.Rmd",
+        clean = FALSE
+      )
+      file_out(!!file.path("writing", "transect_paper.aux"))
+      file_out(!!file.path("writing", "transect_paper.tex"))
+      
+      readLines("transect_paper.tex") %>%
+        magrittr::extract(!grepl("\\\\printbibliography", .) | !duplicated(.)) %>%
+        writeLines("transect_paper.tex")
+    }
+  ),
+  
+  supplement_pdf = withr::with_dir(
+    "writing",
+    {
+      file_in(!!file.path("writing", "transect_supplement.tex"))
+      file_in(!!file.path("writing", "transect_supplement.aux"))
+      file_in(!!file.path("writing", "transect_paper.aux"))
+      system2(
+        command = "lualatex",
+        args = c("--halt-on-error", "transect_supplement.tex")
+      )
+      file_out(!!file.path("writing", "transect_supplement.pdf"))
+    }
+  ),
+  
+  article_pdf = withr::with_dir(
+    "writing", 
+    {
+      file_in(!!file.path("writing", "transect_paper.tex"))
+      file_in(!!file.path("writing", "transect_paper.aux"))
+      file_in(!!file.path("writing", "transect_supplement.aux"))
+      system2(
+        command = "lualatex",
+        args = c("--halt-on-error", "transect_paper.tex")
+      )
+      file_out(!!file.path("writing", "transect_paper.pdf"))
+    }
+  ),
   
   trace = TRUE
 ) %>%
