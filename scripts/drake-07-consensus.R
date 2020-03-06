@@ -44,14 +44,21 @@ if (length(targets) > 0) {
     cache_log_file = TRUE,
     targets = targets,
     memory_strategy = "preclean",
-    console_log_file = get_logfile("consensus")
+    console_log_file = get_logfile("consensus"),
+    cache = cache
   )
   tictoc::toc()
   if (any(targets %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
   flog.info("Recalculating outdated targets...")
-  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+  od <- drake::outdated(
+    drake::drake_config(
+      plan,
+      jobs_preprocess = local_cpus(),
+      cache = cache
+    )
+  )
   flog.info("Finished.")
 } else flog.info("Consensus targets are up-to-date.")
 

@@ -38,7 +38,8 @@ if (length(predada_targets)) {
        targets = predada_targets,
        caching = "worker",
        memory_strategy = "preclean",
-       console_log_file = get_logfile("predada")
+       console_log_file = get_logfile("predada"),
+       cache = cache
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
@@ -47,7 +48,13 @@ if (length(predada_targets)) {
     if (interactive()) stop() else quit(status = 1)
   }
   flog.info("Recalculating outdated targets...")
-  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+  od <- drake::outdated(
+    drake::drake_config(
+      plan,
+      jobs_preprocess = local_cpus(),
+      cache = cache
+    )
+  )
   flog.info("Finished.")
 } else flog.info("Pre-DADA2 targets are up-to-date.")
 

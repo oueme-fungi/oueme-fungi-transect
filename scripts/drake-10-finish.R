@@ -44,7 +44,8 @@ if (length(targets)) {
        caching = "worker",
        cache_log_file = TRUE,
        console_log_file = get_logfile("finish"),
-       targets = targets
+       targets = targets,
+       cache = cache
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
@@ -55,10 +56,9 @@ if (length(targets)) {
 }
 flog.info("All targets are up-to-date.")
 
-cache1 <- drake::drake_cache()
 
-cache2 <- drake::drake_cache(".light")
-if (is.null(cache2)) cache2 <- drake::new_cache(".light")
+cache2 <- drake::drake_cache(".drake")
+if (is.null(cache2)) cache2 <- drake::new_cache(".drake")
 exports <- intersect(
   c(
     "allseqs",
@@ -76,9 +76,9 @@ exports <- intersect(
     dplyr::filter(plan, step == "allchimeras")$target,
     "qstats"
   ),
-  cache1$list()
+  cache$list()
 )
 cache2$import(
-  from = cache1,
+  from = cache,
   list = exports
 )

@@ -287,7 +287,7 @@ plan <- drake_plan(
   
   join_derep = target(
     tzara::combine_derep(
-      readd(derep1),
+      readd(derep1, cache = ignore(cache)),
       .data = dplyr::bind_rows(trace1)[ , c("seq_run", "plate", "well",
                                             "direction", "trim_file")]
     ),
@@ -428,7 +428,7 @@ plan <- drake_plan(
   err = target({
     err.fun <- if (tech == "PacBio" ) dada2::PacBioErrfun else
       dada2::loessErrfun
-    dereps <- readd(derep2) %>%
+    dereps <- readd(derep2, cache = ignore(cache)) %>%
       purrr::compact()
     dada2::learnErrors(
       fls = dereps,
@@ -451,7 +451,7 @@ plan <- drake_plan(
   ),
   
   err_illumina = target({
-    dereps <- readd(derep_illumina) %>%
+    dereps <- readd(derep_illumina, cache = ignore(cache)) %>%
       purrr::map(read) %>%
       purrr::compact()
     dada2::learnErrors(
@@ -476,9 +476,9 @@ plan <- drake_plan(
   
   # Run dada denoising algorithm (on different regions)
   dada = target(
-    readd(derep2) %>%
+    readd(derep2, cache = ignore(cache)) %>%
       set_names(
-        readd(position_map) %>%
+        readd(position_map, cache = ignore(cache)) %>%
           dplyr::bind_rows() %>%
           dplyr::mutate(region = region) %>%
           glue::glue_data("{seq_run}_{plate}_{well}_{region}")
@@ -500,10 +500,10 @@ plan <- drake_plan(
   ),
   
   dada_illumina = target(
-    readd(derep_illumina) %>%
+    readd(derep_illumina, cache = ignore(cache)) %>%
       purrr::map(read) %>%
       set_names(
-        dplyr::bind_rows(readd(illumina_id)) %>%
+        dplyr::bind_rows(readd(illumina_id, cache = ignore(cache))) %>%
           dplyr::mutate(read = read) %>%
           glue::glue_data("{seq_run}_{plate}_{well}_{read}_{direction}") %>%
           unique()
@@ -531,9 +531,9 @@ plan <- drake_plan(
   merge = target(
     dada2::mergePairs(
       dadaF = purrr::compact(dada_R1),
-      derepF = set_names(purrr::map(readd(derep), "R1"), names(dada_R1)) %>% purrr::compact(),
+      derepF = set_names(purrr::map(readd(derep, cache = ignore(cache)), "R1"), names(dada_R1)) %>% purrr::compact(),
       dadaR = purrr::compact(dada_R2),
-      derepR = set_names(purrr::map(readd(derep), "R2"), names(dada_R2)) %>% purrr::compact()
+      derepR = set_names(purrr::map(readd(derep, cache = ignore(cache)), "R2"), names(dada_R2)) %>% purrr::compact()
     ),
     transform = map(.data = !!merge_meta, .id = seq_run)
   ),
@@ -692,7 +692,7 @@ plan <- drake_plan(
   preconseq = target({
     dadalist <- drake_combine(dada)
     names(dadalist) <- gsub("dada_", "", names(dadalist))
-    dereplist <- readd_list(derep2)
+    dereplist <- readd_list(derep2, cache = ignore(cache))
     names(dereplist) <- gsub("derep2_", "", names(dereplist))
     dereplist <- dereplist[names(dadalist)]
     dadalist <- do.call(c, c(dadalist, use.names = FALSE))
@@ -948,7 +948,7 @@ plan <- drake_plan(
       complete.cases(.),
       startsWith(long, ITS1),
       stringi::stri_detect_fixed(`32S`, ITS2),
-      !hash %in% readd(allchimeras_ITS2, cache = drake_cache(".light"))
+      !hash %in% allchimeras_ITS2
     ) %>%
     unique() %>%
     dplyr::arrange(hash) %$%
@@ -1312,9 +1312,13 @@ plan <- drake_plan(
 )
 tictoc::toc()
 
+cache = drake::drake_cache(".drake_heavy")
+if (is.null(cache)) cache <- drake::new_cache(".drake_heavy")
+
 flog.info("\nCalculating outdated targets...")
 tictoc::tic()
-dconfig <- drake_config(plan, jobs_preprocess = local_cpus())
+dconfig <- drake_config(plan, jobs_preprocess = local_cpus(),
+                        cache = cache)
 od <- outdated(dconfig)
 tictoc::toc()
 
@@ -1324,7 +1328,8 @@ if (interactive()) {
                   # group = "step", clusters = plansteps,
                   targets_only = TRUE)
   ncpus <- local_cpus()
-  make(plan, target = "raxml_epa_full", max_expand = config$smallsplit)
+  make(plan, target = "raxml_epa_full", max_expand = config$smallsplit,
+       cache = cache)
 }
 
 remove(snakemake)

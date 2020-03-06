@@ -2482,7 +2482,7 @@ plan2 <- drake_plan(
 saveRDS(plan2, "data/plan/drake_light.rds")
 options(clustermq.scheduler = "multicore")
 #if (interactive()) {
-  cache <- drake_cache(".light")
+  cache <- drake_cache(".drake")
   # dconfig <- drake_config(plan2, cache = cache)
   # vis_drake_graph(dconfig)
   make(

@@ -31,7 +31,8 @@ if (length(targets) > 0) {
        keep_going = FALSE,
        cache_log_file = TRUE,
        targets = targets,
-       console_log_file = get_logfile("pretaxonomy")
+       console_log_file = get_logfile("pretaxonomy"),
+       cache = cache
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
@@ -40,7 +41,13 @@ if (length(targets) > 0) {
     if (interactive()) stop() else quit(status = 1)
   }
   flog.info("Recalculating outdated targets...")
-  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+  od <- drake::outdated(
+    drake::drake_config(
+      plan,
+      jobs_preprocess = local_cpus(),
+      cache = cache
+    )
+  )
   flog.info("Finished.")
 } else flog.info("Pre-consensus targets are up-to-date.")
 

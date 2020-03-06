@@ -38,7 +38,8 @@ if (length(targets) > 0) {
     caching = "worker",
     cache_log_file = TRUE,
     targets = targets,
-    console_log_file = get_logfile("errmodel")
+    console_log_file = get_logfile("errmodel"),
+    cache = cache
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
@@ -47,7 +48,13 @@ if (length(targets) > 0) {
     if (interactive()) stop() else quit(status = 1)
   }
   flog.info("Recalculating outdated targets...")
-  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+  od <- drake::outdated(
+    drake::drake_config(
+      plan,
+      jobs_preprocess = local_cpus(),
+      cache = cache
+    )
+  )
   flog.info("Finished.")
 } else flog.info("Error models are up-to-date.")
 

@@ -70,7 +70,8 @@ if (length(itsx_targets)) {
        caching = "worker",
        cache_log_file = TRUE,
        targets = itsx_targets,
-       console_log_file = get_logfile("ITSx")
+       console_log_file = get_logfile("ITSx"),
+       cache = cache
   )
   
   dod <- drake::outdated(dconfig)
@@ -80,7 +81,12 @@ if (length(itsx_targets)) {
     if (interactive()) stop() else quit(status = 1)
   }
   flog.info("Recalculating outdated targets...")
-  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+  od <- drake::outdated(
+    drake::drake_config(
+      plan,
+      jobs_preprocess = local_cpus(),
+      cache = cache
+  )
   flog.info("Finished.")
 } else flog.info("ITSx targets are up-to-date.")
 

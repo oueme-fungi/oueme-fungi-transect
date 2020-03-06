@@ -30,8 +30,8 @@ if (any(target %in% od) #|| !all(file.exists(outputs))
        elapsed = 3600, #1 hour
        keep_going = FALSE,
        cache_log_file = TRUE,
-       targets = target
-
+       targets = target,
+       cache = cache
   )
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)

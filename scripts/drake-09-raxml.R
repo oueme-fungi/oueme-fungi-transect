@@ -44,14 +44,21 @@ if (length(targets)) {
     cache_log_file = TRUE,
     targets = targets,
     console_log_file = get_logfile("raxml"),
-    prework = "options(expressions = 10000)"
+    prework = "options(expressions = 10000)",
+    cache = cache
   )
   tictoc::toc()
   if (any(targets %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)
   }
   flog.info("Recalculating outdated targets...")
-  od <- drake::outdated(drake::drake_config(plan, jobs_preprocess = local_cpus()))
+  od <- drake::outdated(
+    drake::drake_config(
+      plan,
+      jobs_preprocess = local_cpus(),
+      cache = cache
+    )
+  )
   flog.info("Finished.")
 } else flog.info("RAxML targets are up-to-date.")
 
