@@ -28,15 +28,20 @@ date: "`r format(Sys.time(), '%B %d, %Y')`"
 bibliography:
   - "all.bib"
   - "R.bib"
-csl: molecular-ecology.csl
+biblio-style: apa
 always_allow_html: true
 output:
   bookdown::pdf_document2:
     fig_crop: yes
     keep_tex: yes
+    toc: false
     latex_engine: lualatex
     includes:
       in_header: preamble.tex
+    citation_package: biblatex
+    suppress-bibliography: true
+    fontsize: 12pt
+    geometry: left=2.5cm, right=2.5cm, top=3cm, bottom=3cm
   bookdown::word_document2: 
     keep_md: yes
 ---
@@ -88,16 +93,13 @@ if (opts_chunk$get("dev") == "tikz") {
   # styles$Short.Name <- styles$LaTeX.Short.Name
   # styles$Unit <- paste0("\\si{", styles$LaTeX.Unit, "}")
 }
-write_bib(c("base", "phyloseq", "vegan"), file = "R.bib", tweak = TRUE)
-
+write_bib(c("base", "phyloseq", "vegan", "metacoder"), file = "R.bib", tweak = TRUE)
 
 light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
 
 datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
-
-source(here(file.path("scripts", "output_functions.R")))
 ```
 
 # Abstract
@@ -706,9 +708,11 @@ Sequencing was performed by the SNP&SEQ Technology Platform in Uppsala.
 The facility is part of the National Genomics Infrastructure (NGI) Sweden and Science for Life Laboratory.
 The SNP&SEQ Platform is also supported by the Swedish Research Council and the Knut and Alice Wallenberg Foundation.
 
-# References {-}
+\singlespacing
 
-<div id="refs"></div>
+\printbibliography
+
+\doublespacing
 
 # Data Availability Statement {-}
 
