@@ -59,6 +59,11 @@ venndata <- function(data, vennvar, cols = names(data)[-1]) {
     ) %>%
     mutate_at(
       vars(ends_with("_frac")),
+      na_if,
+      0
+    ) %>%
+    mutate_at(
+      vars(ends_with("_frac")),
       formatC,
       digits = 2,
       format = "f",
@@ -73,7 +78,7 @@ venndata <- function(data, vennvar, cols = names(data)[-1]) {
       digits = 2
     ) %>%
     mutate(
-      !!vennvarfrac := if_else(grepl("^ *[0.]+ *$", !!vennvarfrac), "", !!vennvarfrac),
+      !!vennvarfrac := if_else(grepl("^ *NA *$", !!vennvarfrac), "", !!vennvarfrac),
       !!vennvar := na_if(!!vennvar, 0),
       reads_frac = if_else(grepl("^ *[0.]+ *$", reads), "", reads_frac),
       reads = if_else(grepl("^ *[0.]+ *$", reads), "", reads)
@@ -82,10 +87,10 @@ venndata <- function(data, vennvar, cols = names(data)[-1]) {
       left_join(
         group_by(., set) %>%
           summarize(!!vennvar := max(!!vennvar, na.rm = TRUE) %>% ifelse(is.finite(.), ., NA)),
-        select(., set, seq_run, !!vennvarfrac, reads, frac = reads_frac) %>%
+        select(., set, seq_run, !!vennvarfrac, reads, reads_frac) %>%
           pivot_wider(
             names_from = "seq_run",
-            values_from = c(as_label(vennvarfrac), "reads", "frac")
+            values_from = c(as_label(vennvarfrac), "reads", "reads_frac")
           ),
         by = "set"
       )
@@ -115,7 +120,7 @@ vennplot_data <- function(venndata, var) {
         magrittr::extract(LETTERS[seq_along(.)], .) %>%
         paste(collapse = "&"))) %>%
     mutate(
-      reads_frac = select(., starts_with("frac")) %>%
+      reads_frac = select(., starts_with("reads_frac")) %>%
         pmap_chr(paste, sep = "/") %>%
         gsub("/+", "/", .) %>%
         gsub("(^/|/$)", "", .),
@@ -159,7 +164,7 @@ venn_table <- function(venndata, var, caption, caption.short) {
     ) %>%
     mutate_at(" ", str_replace, "[01]+", "") %>%
     set_names(gsub("_[[:alpha:]]+[-._]\\d+$", "", names(.))) %>%
-    set_names(gsub("_", " ", names(.))) %>%
+    set_names(kableExtra::linebreak(gsub("[_ ]", "\n", names(.)), align = "c")) %>%
     kable(
       booktabs = TRUE,
       caption = caption,
