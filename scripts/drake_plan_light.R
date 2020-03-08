@@ -113,6 +113,27 @@ plan2 <- drake_plan(
     read_platemap(file_in(!!config$platemap), !!config$platemap_sheet),
     format = "fst"),
   
+  # write out tables
+  tagmap_long = platemap %>%
+    filter(primer_pair == "ITS1_LR5") %>%
+    select(year, site, buffer, x, sample_type, primer_pair, plate, well) %>% 
+    left_join(
+      read_rds(file_in(!!file.path("config", "tags", "long.rds"))),
+      by = "well"
+    ) %>%
+    select(year, site, buffer, x, sample_type, amplicon, everything()) %>%
+    write_tsv(file_out(!!file.path("output", "supp_file_2.tsv"))),
+  
+  tagmap_short = platemap %>%
+    filter(primer_pair == "gITS7_ITS4") %>%
+    select(year, site, buffer, x, sample_type, primer_pair, plate, well) %>% 
+    left_join(
+      read_rds(file_in(!!file.path("config", "tags", "short.rds"))),
+      by = "well"
+    ) %>%
+    select(year, site, buffer, x, sample_type, amplicon, everything()) %>%
+    write_tsv(file_out(!!file.path("output", "supp_file_1.tsv"))),
+  
   tree_decipher_LSU = target(
     raxml_decipher_LSU$bipartitions,
     transform = map(

@@ -139,3 +139,22 @@ pwalk(
     }
   }
 )
+
+dataset %>%
+  filter(tech == "PacBio", amplicon == "Short") %>%
+  unnest(reverse) %>%
+  pivot_wider(names_from = "name", values_from = "object") %>%
+  unnest(forward) %>%
+  left_join(.$plate_key[[1]], by = c(name = "tag_fwd")) %>%
+  select(amplicon, fwd_primer = name, fwd_seq = object, ITS4, ITS4A, well) %>%
+  write_rds(file.path(tags.dir, "short.rds"))
+
+dataset %>% filter(tech == "PacBio", amplicon == "Long") %>% {
+  r <- .$reverse[[1]]
+  left_join(.$plate_key[[1]], .$forward[[1]], by = c(tag_fwd = "name")) %>%
+    mutate(amplicon = "Long") %>%
+    select(amplicon, well, fwd_primer = tag_fwd, fwd_seq = object, tag_rev) %>%
+    left_join(r, by = c(tag_rev = "name")) %>%
+    rename(rev_seq = object, rev_primer = tag_rev) %>%
+    write_rds(file.path(tags.dir, "long.rds"))
+}
