@@ -81,9 +81,16 @@ datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccicc"
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 ```
 
+**Supplementary file 1**: Mapping between samples and indexed primers for short amplicons.
 
+**Supplementary file 2**: Mapping between samples and indexed primers for long amplicons.
 
-**Supplementary file 1**: 
+**Supplementary file 3**: ML tree of all long metabarcoding ASVs (5.8S--ITS2--LSU) assigned to kingdom Fungi.
+Thick branches represent rapid bootstrap values >90%.
+Taxonomic assignment by PHYLOTAX, based on assignments using RDPC, SINTAX, and IDTAXA, and Unite, Warcup, and RDP reference databases. 
+Taxon names in blue were not fully resolved with PHYLOTAX, and are given as a list of alternative assignments, along with the number of methods which gave each assignment (max 9).
+Taxon names in red were reconstructed as polyphyletic.
+In some cases, this may be due to a poorly identified sequence "splitting" the group (e.g., the single *Aspergillus* sequence nested in *Monascus*, Aspergillaceae and Trichocomaceae sequences nested in Onygenales), but in other cases, the tree has clearly failed to reconstruct groups which are generally considered to be monophyletic based on multi-gene trees (e.g., Dothidiomycetes, Cantharellales).
 
 (ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis ordination of samples preserved with different buffers
 

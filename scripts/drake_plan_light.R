@@ -2479,8 +2479,8 @@ plan2 <- drake_plan(
     left_join(
       proto_physeq %>% {
         mutate(
-          sample_data(.),
-          reads = otu_table(.) %>% rowSums()
+          phyloseq::sample_data(.),
+          reads = phyloseq::otu_table(.) %>% rowSums()
         )
       } %>%
         select(seq_run, plate, row, column, site, year, qual, sample_type, x, buffer, tech, amplicon, reads) %>%
@@ -2526,7 +2526,8 @@ plan2 <- drake_plan(
   
   conc_plot =
     proto_physeq %>% 
-    sample_data(.) %>%
+    phyloseq::sample_data(.) %>%
+    as("data.frame") %>%
     select(plate, row, column, site, year, sample_type, x, buffer, amplicon, dna_conc, pcr_conc) %>%
     arrange(plate, row, column, amplicon) %>% 
     unique() %>% 
@@ -2645,7 +2646,6 @@ plan2 <- drake_plan(
           "transect_supplement.Rmd",
           clean = FALSE
         )
-        file_out(!!file.path("writing", "transect_supplement.aux"))
         file_out(!!file.path("writing", "transect_supplement.tex"))
         readLines("transect_supplement.tex") %>%
           magrittr::extract(!grepl("\\\\printbibliography", .)) %>%
@@ -2663,7 +2663,6 @@ plan2 <- drake_plan(
         "transect_paper.Rmd",
         clean = FALSE
       )
-      file_out(!!file.path("writing", "transect_paper.aux"))
       file_out(!!file.path("writing", "transect_paper.tex"))
       
       readLines("transect_paper.tex") %>%
@@ -2676,8 +2675,7 @@ plan2 <- drake_plan(
     "writing",
     {
       file_in(!!file.path("writing", "transect_supplement.tex"))
-      file_in(!!file.path("writing", "transect_supplement.aux"))
-      file_in(!!file.path("writing", "transect_paper.aux"))
+      file_in(!!file.path("writing", "transect_paper.tex"))
       system2(
         command = "lualatex",
         args = c("--halt-on-error", "transect_supplement.tex")
@@ -2690,8 +2688,7 @@ plan2 <- drake_plan(
     "writing", 
     {
       file_in(!!file.path("writing", "transect_paper.tex"))
-      file_in(!!file.path("writing", "transect_paper.aux"))
-      file_in(!!file.path("writing", "transect_supplement.aux"))
+      file_in(!!file.path("writing", "transect_supplement.tex"))
       system2(
         command = "lualatex",
         args = c("--halt-on-error", "transect_paper.tex")
@@ -2700,6 +2697,92 @@ plan2 <- drake_plan(
     }
   ),
   
+  tree_fig = {
+    
+    charscale <- 0.015
+    rankgap <- 0.015
+    tip_taxa <- 
+      phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
+      filter(rank != "kingdom") %>%
+      group_by(label, rank) %>%
+      filter(if (any("phylotax" == method)) method == "phylotax" else TRUE) %>%
+      group_by(label, rank) %>%
+      summarize(
+        taxon =  table(taxon) %>%
+          paste0(names(.), collapse = "/") %>%
+          gsub(pattern = "(.+/.+)", replacement = "<\\1>") %>%
+          gsub(pattern = "^\\d+", replacement = "")
+      ) %>% inner_join(
+        phylo_labeled_tree_decipher_unconst_long_fungi$tip.label %>%
+          gsub(pattern = "\"([a-f0-9]{8}).*", replacement = "\\1") %>%
+          enframe(name = "tip", value = "label"),
+        by = "label"
+      ) %>%
+      mutate(
+        depth = ape::node.depth.edgelength(
+          phylo_labeled_tree_decipher_unconst_long_fungi
+        )[tip]
+      ) %>%
+      group_by(label) %>%
+      arrange(desc(rank), .by_group = TRUE) %>%
+      mutate(width = nchar(taxon) * charscale + rankgap,
+             offset = cumsum(lag(width, default = 0)))
+    clade_annot <- list()
+    ranks <- c("genus", "family", "order", "class", "phylum")
+    for (i in seq_along(ranks)) {
+      rank_nodes <- phylotaxon_decipher_unconst_long_fungi$node_taxa %>%
+        filter(rank == ranks[i]) %>%
+        group_by(taxon) %>%
+        mutate(color = ifelse(n() > 1, "tomato", "black")) %>%
+        ungroup() %>%
+        mutate(tip = phangorn::Descendants(
+          phylo_labeled_tree_decipher_unconst_long_fungi,
+          node = node,
+          type = "tips"
+        )) %>%
+        unnest(tip) %>%
+        left_join(tip_taxa, by = c("rank", "tip", "taxon")) %>%
+        group_by(node, taxon, color) %>%
+        summarize(offset = max(depth + offset) - max(depth)) %>%
+        rename(label = taxon) %>%
+        bind_rows(
+          tip_taxa %>%
+            ungroup() %>%
+            filter(rank == ranks[i], startsWith(taxon, "<")) %>%
+            select(label = taxon, node = tip, offset) %>%
+            mutate(color = "steelblue")
+        )
+      clade_annot <- c(
+        clade_annot,
+        pmap(rank_nodes,
+             ggtree::geom_cladelabel,
+             align = FALSE,
+             fontsize = 1.5,
+             extend = 0.3)
+        )
+    }
+    (phylo_labeled_tree_decipher_unconst_long_fungi %>%
+        ggtree::ggtree(
+          aes(size = if_else(
+            !is.na(as.integer(label)) & as.integer(label) > 90,
+            0.5,
+            0.2
+          )),
+          lineend = "butt",
+          linejoin = "mitre"
+        ) %>%
+        reduce(clade_annot, `+`, .init = .) + 
+        scale_size_identity() +
+        xlim(0, max(tip_taxa$offset + tip_taxa$width + tip_taxa$depth))) %T>%
+      ggsave(
+        filename = file_out(!!file.path("output", "supp_file_3.pdf")),
+        plot = .,
+        device = "pdf",
+        width = 8,
+        height = 20,
+        units = "in"
+      )
+  },
   trace = TRUE
 ) %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
@@ -2715,6 +2798,7 @@ options(clustermq.scheduler = "multicore")
     cache = cache,
     # parallelism = "clustermq",
     # jobs = local_cpus() %/% 2,
+    # targets = "tree_fig",
     lazy_load = FALSE,
     memory_strategy = "autoclean",
     garbage_collection = TRUE
