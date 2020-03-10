@@ -1,12 +1,18 @@
+# Snakemake workflow file
+# This workflow identifies raw sequencing reads and performs command-line based
+# operations like circular consensus calling and demultiplexing.
+# Then it calls R scripts to build a plan in Drake, an R workflow manager.
+
+# Drake developed a lot while I was working on this project, some of the
+# more convoluted parts of the combined workflow were intended to use Snakemake
+# to compensate for features that weren't yet implemented in Drake.
+
 import pandas as pd
 import os.path
 from glob import glob
 import re
 import subprocess
 from snakemake.utils import listfiles
-from snakemake.remote.HTTP import RemoteProvider as HTTPRemoteProvider
-
-HTTP = HTTPRemoteProvider()
 
 # For testing, parse the yaml file (this is automatically done by Snakemake)
 #import yaml
@@ -449,180 +455,15 @@ def illumina_find(seq_run, plate):
     return subfind
 
 #### Reference databases ####
-
-# Download the Unite database
-localrules: unite_download
-rule unite_download:
-    output: "{ref_root}/unite.fasta.gz".format_map(config)
-    input:
-      zip = HTTP.remote(config['unite_url'], allow_redirects = True, keep_local = True)
-    shadow: "shallow"
-    shell:
-        """
-        echo {config[unite_md5]} {input} |
-        md5sum -c - &&
-        mkdir -p $(dirname {output}) &&
-        unzip {input} &&
-        gzip -c {config[unite_filename]} > {output}
-        """
-
-# Download the RDP fungal LSU training set
-localrules: rdp_download
-rule rdp_download:
-    output:
-        fasta = "{ref_root}/rdp_train.fasta.gz".format_map(config),
-        taxa  = "{ref_root}/rdp_train.taxa.txt".format_map(config)
-    input:
-      zip = HTTP.remote(config['rdp_url'], allow_redirects = True, keep_local = True)
-    shadow: "shallow"
-    shell:
-        """
-        echo {config[rdp_md5]} {input.zip} |
-        md5sum -c - &&
-        mkdir -p $(dirname {output.fasta}) &&
-        unzip {input.zip} &&
-        gzip -c {config[rdp_filename]} > {output.fasta} &&
-        mv {config[rdp_taxa]} {output.taxa}
-        """
-
-# Download the Warcup fungal ITS training set
-localrules: warcup_download
-rule warcup_download:
-    output:
-        fasta = "{ref_root}/warcup.fasta.gz".format_map(config),
-        taxa  = "{ref_root}/warcup.taxa.txt".format_map(config)
-    input:
-      zip = HTTP.remote(config['warcup_url'], allow_redirects = True, keep_local = True)
-    shadow: "shallow"
-    shell:
-        """
-        echo {config[warcup_md5]} {input} |
-        md5sum -c - &&
-        mkdir -p $(dirname {output.fasta}) &&
-        unzip {input} &&
-        gzip -c {config[warcup_filename]} > {output.fasta} &&
-        mv {config[warcup_taxa]} {output.taxa}
-        """
-
-# Process an ITS database (e.g., UNITE)
-# Split into ITS1, ITS2 using ITSx.
-
-rule itsx_reference:
-    output:
-        ITS2 = "{ref_root}/{{dbname}}.ITS2.fasta.gz".format_map(config),
-        ITS1 = "{ref_root}/{{dbname}}.ITS1.fasta.gz".format_map(config)
-    input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
-    threads: maxthreads
-    shadow: "shallow"
-    resources:
-        walltime = 120
-    params:
-        shards = lambda wildcards, threads: max([threads // 4, 1]),
-        cpu_per_shard = lambda wildcards, threads: max([threads // max([threads // 4, 1]), 1])
-    conda: "config/conda/itsx.yaml"
-    log: "{logdir}/{{dbname}}_ITSx.log".format_map(config)
-    shell:
-        """
-        (   zcat {input} >temp.fasta &&
-            fasta-splitter --n-parts {params.shards}\
-                           temp.fasta &&
-            for n in {{1..{params.shards}}}; do
-             echo -o temp.part-$n -i temp.part-$n.fasta
-            done |
-                xargs -n 4 -P {params.shards} \
-                    ITSx --complement F\
-                 --cpu {params.cpu_per_shard}\
-                 --summary F\
-                 --graphical F\
-                 --preserve T\
-                 --positions F\
-                 --not-found F\
-                 --fasta F
-            echo "xargs exited with value $?"
-            echo "combining ITS1 files:" &&
-            ls -l *.ITS1.fasta &&
-            cat temp.part-{{1..{params.shards}}}.ITS1.fasta | gzip - > {output.ITS1} &&
-            echo "combining ITS2 files:" &&
-            ls -l *.ITS2.fasta &&
-            cat temp.part-{{1..{params.shards}}}.ITS2.fasta | gzip - > {output.ITS2} ) &> {log}
-        """
-
-# Assume the entire database is ITS.
-# UNITE also includes part of LSU in some sequences; this will be helpful when IDing long amplicons
-localrules: its_reference
-rule its_reference:
-    output: "{ref_root}/{{dbname}}.ITS.fasta.gz".format_map(config)
-    input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
-    params:
-      fullinput = lambda wildcards, input: os.path.abspath(input[0]),
-      fulloutput = lambda wildcards, output: os.path.abspath(output[0])
-    threads: 1
-    log: "{logdir}/{{dbname}}_ITS.log".format_map(config)
-    shell: "rm -f {output} && cd $(dirname {input}) && ln -s $(basename {input}) $(basename {output})"
-
-# Process an LSU reference database (e.g., RDP or Silva)
-# At the moment this doesn't do anything
-# Ambiguities in the sequences are from the RNA data project and Tedersoo et al 2015
-localrules: lsu_reference
-rule lsu_reference:
-    output: "{ref_root}/{{dbname}}.LSU.fasta.gz".format_map(config)
-    input: "{ref_root}/{{dbname}}.fasta.gz".format_map(config)
-    threads: 2
-    conda: "config/conda/demultiplex.yaml"
-    log: "{logdir}/{{dbname}}_LSU.log".format_map(config)
-    shell:
-        """
-        ln -sr {input} {output}
-        """
-
-# Eukarya classification system proposed by Tedersoo
-localrules: tedersoo_classification
-rule tedersoo_classification:
-    output: "{ref_root}/Tedersoo_Eukarya_classification.xlsx".format_map(config)
-    input: HTTP.remote(config['tedersoo_url'], allow_redirects = True)
-    shadow: "shallow"
-    shell:
-        """
-        echo {config[tedersoo_md5]} {input} |
-        md5sum -c - &&
-        mv {input} {output}
-        """
-
-# generate taxonomy translation files
-# These are files of sed commands that will translate the headers of the fasta
-# files to the formats required by each database, as well as translating all
-# the taxonomy to the Tedersoo system
-localrules: translate_references
-rule translate_references:
-  output:
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['warcup', 'unite'],
-               region = ['ITS'],
-               method = ['sintax', 'dada2']),
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['rdp_train'],
-               region = ['LSU'],
-               method = ['sintax', 'dada2'])
-  input:
-    expand("{ref_root}/{dbname}.{type}",
-           ref_root = config['ref_root'],
-           dbname = ['rdp_train', 'warcup', 'unite'],
-           type = ['fasta.gz', 'pre.sed']),
-    expand("{ref_root}/{reference}.fasta.gz",
-           ref_root = config['ref_root'],
-           reference = regions['reference'].dropna().str.split(',').explode().unique()),
-    "{rdir}/taxonomy.R".format_map(config),
-    tedersoo = rules.tedersoo_classification.output,
-    tedersoo_patch = config['tedersoo_patch'],
-    regions = config['regions'],
-    script = "{rdir}/make_taxonomy.R".format_map(config)
-  resources:
-    walltime = 60
-  conda: "config/conda/drake.yaml"
-  log: "{logdir}/translate_references.log".format_map(config)
-  script: "{rdir}/make_taxonomy.R".format_map(config)
+  
+# download taxonomy translation files
+localrules: taxon_references
+rule taxon_references:
+  output: "{ref_root}/{{reference}}.fasta.gz".format_map(config)
+  params:
+    url = "{reannotate_url}/{{reference}}.fasta.gz".format_map(config)
+#  log: "{logdir}/references_{{reference}}.log".format_map(config)
+  shell: "cd {config[ref_root]} && wget {params.url}"
 
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
@@ -656,8 +497,8 @@ ENDENDEND
     """
 
 # Configure the drake plan
-# This does not build any targets, but it does most of the preliminary work, including calculating which targets
-# are outdated.
+# This does not build any targets, but it does most of the preliminary work,
+# including calculating which targets are outdated.
 localrules: drake_plan
 checkpoint drake_plan:
     output:
@@ -846,7 +687,16 @@ rule consensus:
     output:
         flag    = ".consensus"
     input:
-        rules.translate_references.output,
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['warcup', 'unite'],
+               region = ['ITS'],
+               method = ['sintax', 'dada2']),
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['rdp_train'],
+               region = ['LSU'],
+               method = ['sintax', 'dada2']),
         flag = rules.preconsensus.output.flag,
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-07-consensus.R".format_map(config)
@@ -873,9 +723,9 @@ rule raxml:
 
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
-localrules: finish
+localrules: heavy
 rule finish:
-    output: touch(".drake_finish")
+    output: touch(".drake_heavy")
     input:
         drakedata = rules.drake_plan.output.drakedata,
         flag      = rules.raxml.output.flag,
@@ -886,3 +736,36 @@ rule finish:
         walltime = 60
     log: "{logdir}/drake_finish.log".format_map(config)
     script: "{rdir}/drake-10-finish.R".format_map(config)
+
+localrules: lightplan
+rule lightplan:
+    output:
+        "{rmddir}/transect_paper.pdf".format_map(config),
+        "{rmddir}/transect_supplement.pdf".format_map(config),
+        "{outdir}/supp_file_1.tsv".format_map(config),
+        "{outdir}/supp_file_2.tsv".format_map(config),
+        "{outdir}/supp_file_3.pdf".format_map(config)
+    input:
+        "{rdir}/dada.R".format_map(config),
+        "{rdir}/mantel.R".format_map(config),
+        "{rdir}/variogram.R".format_map(config),
+        "{rdir}/qstats.R".format_map(config),
+        "{rdir}/taxonomy.R".format_map(config),
+        "{rdir}/plate_check.R".format_map(config),
+        "{rdir}/output_functions.R".format_map(config),
+        "{clusterdir}/ITS2.table".format_map(config),
+        "{clusterdir}/short.table".format_map(config),
+        "{rmddir}/preamble.tex".format_map(config),
+        "{rmddir}/preamble_supplement.tex".format_map(config),
+        "{rmddir}/transect_paper.Rmd".format_map(config),
+        "{rmddir}/transect_supplement.Rmd".format_map(config),
+        "{rmddir}/all.bib".format_map(config),
+        drakedata = rules.drake_plan.output.drakedata,
+        flag      = rules.finish.output.flag,
+        script    = "{rdir}/drake_plan_light.R"
+    conda: "config/conda/drake.yaml"
+    threads: 4
+    resources:
+        walltime = 60
+    log: "{logdir}/drake_light.log".format_map(config)
+    script: "{rdir}/drake_plan_light.R".format_map(config)

@@ -1,5 +1,4 @@
 if (exists("snakemake")) {
-  snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
 } else {
   load("data/plan/drake.Rdata")
@@ -2639,6 +2638,7 @@ plan2 <- drake_plan(
     withr::with_dir(
       "writing",
       {
+        file_in(!!file.path("writing", "all.bib"))
         knitr_in(!!file.path("writing", "transect_supplement.Rmd"))
         file_in(!!file.path("writing", "preamble_supplement.tex"))
         file_in(!!file.path("scripts", "output_functions.R"))
