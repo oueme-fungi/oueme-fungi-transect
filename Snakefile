@@ -724,8 +724,8 @@ rule raxml:
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
 localrules: heavy
-rule finish:
-    output: touch(".drake_heavy")
+rule heavy:
+    output: flag = touch(".drake_heavy")
     input:
         drakedata = rules.drake_plan.output.drakedata,
         flag      = rules.raxml.output.flag,
@@ -761,7 +761,7 @@ rule lightplan:
         "{rmddir}/transect_supplement.Rmd".format_map(config),
         "{rmddir}/all.bib".format_map(config),
         drakedata = rules.drake_plan.output.drakedata,
-        flag      = rules.finish.output.flag,
+        flag      = rules.heavy.output.flag,
         script    = "{rdir}/drake_plan_light.R"
     conda: "config/conda/drake.yaml"
     threads: 4
