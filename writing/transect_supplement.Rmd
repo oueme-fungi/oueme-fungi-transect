@@ -1,5 +1,31 @@
 ---
-title: Supplementary Information
+title: 
+  - "Supplementary Information for:"
+  - "Long- and short-read metabarcoding technologies reveal similar spatio-temporal structures in fungal communities"
+author: 
+  - Brendan Furneaux^1^,
+  - Mohammad Bahram^2,3^,
+  - Anna Rosling^4^,
+  - Nourou S. Yorou^5^,
+  - Martin Ryberg^1^
+  - ^1^Program in Systematic Biology,
+    Department of Organismal Biology,
+    Uppsala University,
+  - Uppsala, Sweden
+  - ^2^Department of Ecology,
+    Swedish University of Agricultural Sciences,
+    Uppsala, Sweden
+  - ^3^Institute of Ecology and Earth Sciences,
+    University of Tartu,
+    Tartu, Estonia
+  - ^4^Program in Evolutionary Biology,
+    Department of Ecology and Genetics,
+    Uppsala University,
+  - Uppsala, Sweden
+  - ^5^Research Unit in Tropical Mycology and Plant-Fungi Interactions,
+    LEB,
+  - University of Parakou,
+    Parakou, Benin
 always_allow_html: true
 output:
   bookdown::pdf_document2:
@@ -55,14 +81,15 @@ datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccicc"
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 ```
 
-\listoffigures
-\listoftables
+
+
+**Supplementary file 1**: 
 
 (ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis ordination of samples preserved with different buffers
 
 (ref:buffer-pcoa) For each sequencing strategy, only those sampling locations with more than 100 reads each for all three year/preservation buffer combinations were included.
 
-```{r buffer-pcoa, fig.cap="(ref:buffer-pcoa-s). (ref:buffer-pcoa)"}
+```{r buffer-pcoa, fig.cap="(ref:buffer-pcoa-s). (ref:buffer-pcoa)", fig.scap = "(ref:buffer-pcoa-s)"}
 plot(readd(buffer_asv_pcoa), type = "none")
 points(
   readd(buffer_asv_pcoa),
