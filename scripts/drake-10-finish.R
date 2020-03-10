@@ -64,7 +64,7 @@ exports <- intersect(
     "allseqs",
     "taxon_table",
     dplyr::filter(plan, step == "taxon")$target,
-    "raxml_decipher_32S",
+    "raxml_infernal_32S",
     "raxml_decipher_LSU",
     "raxml_decipher_long",
     "raxml_epa_full",

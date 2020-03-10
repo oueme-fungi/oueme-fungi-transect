@@ -17,6 +17,8 @@ library(disk.frame)
 # single-threaded targets after itsx
 # for local runs, ITSx targets will also run here.
 ncpus <- 1
+njobs <- max(local_cpus() %/% 2, 1)
+ncpus <- max(local_cpus() %/% njobs, 1)
 predada_targets <- c(
   purrr::keep(od, startsWith, "derep2_"),
   purrr::keep(od, startsWith, "derep_illumina_"),
@@ -25,12 +27,12 @@ predada_targets <- c(
   purrr::keep(od, startsWith, "position_map_")
 )
 if (length(predada_targets)) {
-  flog.info("Making pre-dada targets (%s with %d jobs)", options("clustermq.scheduler"), ncpus)
+  flog.info("Making pre-dada targets (%s with %d jobs)", options("clustermq.scheduler"), njobs)
   tictoc::tic()
   dconfig <- drake::drake_config(plan,
        parallelism = "clustermq",
        jobs_preprocess = local_cpus(),
-       jobs = local_cpus(),
+       jobs = njobs,
        retries = 2,
        elapsed = 3600, #1 hour
        keep_going = FALSE,
