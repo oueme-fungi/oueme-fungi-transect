@@ -71,6 +71,7 @@ if (length(itsx_targets)) {
        cache_log_file = TRUE,
        targets = itsx_targets,
        console_log_file = get_logfile("ITSx"),
+       memory_strategy = "preclean",
        cache = cache
   )
   

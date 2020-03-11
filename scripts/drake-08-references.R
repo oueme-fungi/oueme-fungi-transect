@@ -31,6 +31,7 @@ if (any(target %in% od) #|| !all(file.exists(outputs))
        keep_going = FALSE,
        cache_log_file = TRUE,
        targets = target,
+       memory_strategy = "preclean",
        cache = cache
   )
   dod <- drake::outdated(dconfig)

@@ -36,6 +36,7 @@ if (length(targets) > 0) {
        cache_log_file = TRUE,
        targets = targets,
        console_log_file = get_logfile("dada"),
+       memory_strategy = "preclean",
        cache = cache
   )
   dod <- drake::outdated(dconfig)

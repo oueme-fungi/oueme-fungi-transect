@@ -44,6 +44,7 @@ if (length(targets)) {
        caching = "worker",
        cache_log_file = TRUE,
        console_log_file = get_logfile("finish"),
+       memory_strategy = "preclean",
        targets = targets,
        cache = cache
   )
