@@ -86,6 +86,7 @@ if (length(itsx_targets)) {
       plan,
       jobs_preprocess = local_cpus(),
       cache = cache
+    )
   )
   flog.info("Finished.")
 } else flog.info("ITSx targets are up-to-date.")
