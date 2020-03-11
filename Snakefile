@@ -56,7 +56,11 @@ datasets2 = (datasets.join(pd.DataFrame({"plate" : datasets2}))
 localrules: all
 rule all:
     input:
-        ".drake_finish"
+        "{rmddir}/transect_paper.pdf".format_map(config),
+        "{rmddir}/transect_supplement.pdf".format_map(config),
+        "{outdir}/supp_file_1.tsv".format_map(config),
+        "{outdir}/supp_file_2.tsv".format_map(config),
+        "{outdir}/supp_file_3.pdf".format_map(config)
         #{outdir}/tech_compare.pdf".format_map(config)
 
 localrules: repair
@@ -762,7 +766,7 @@ rule lightplan:
         "{rmddir}/all.bib".format_map(config),
         drakedata = rules.drake_plan.output.drakedata,
         flag      = rules.heavy.output.flag,
-        script    = "{rdir}/drake_plan_light.R"
+        script    = "{rdir}/drake_plan_light.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 4
     resources:
