@@ -1,35 +1,17 @@
-\usepackage{subfig}
-
+% line numbers -- only needed for MS
 \usepackage{lineno}
 \linenumbers
+
+% put all tables and figures at the end -- only needed for MS
 \usepackage[nomarkers]{endfloat}
 
+% double spacing -- only needed for MS
 \usepackage{setspace}
 \doublespacing
 
+% table and figure caption width
 \usepackage[width=0.9\textwidth]{caption}
 
-\usepackage[version=4]{mhchem}
-\usepackage{tikz}
-\usepackage{pgfplots}
-
-\usepackage{colortbl}
-\usepackage{makecell}
-
+% crossreferences to supporting information -- transect_supplement.aux is required
 \usepackage{xr}
 \externaldocument{transect_supplement}
-\externaldocument{transect_paper}
-
-\newcommand{\beginsupplement}{
-  \setcounter{table}{0}  
-  \renewcommand{\thetable}{S\arabic{table}} 
-  \setcounter{figure}{0} 
-  \renewcommand{\thefigure}{S\arabic{figure}}
-}
-
-\let\OLDthebibliography\thebibliography
-\renewcommand\thebibliography[1]{
-  \OLDthebibliography{#1}
-  \setlength{\parskip}{0pt}
-  \setlength{\itemsep}{0pt plus 0.3ex}
-}

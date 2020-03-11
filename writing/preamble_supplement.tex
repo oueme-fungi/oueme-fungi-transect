@@ -1,14 +1,19 @@
+% table and figure caption width
 \usepackage[width=0.9\textwidth]{caption}
 
-\usepackage[version=4]{mhchem}
-
+% table formatting
 \usepackage{colortbl}
 \usepackage{makecell}
 
 \usepackage[nomarkers]{endfloat}
 
+% lookup cross-references from the paper
 \usepackage{xr}
 \externaldocument{transect_paper}
 
+% Figures and tables are prefixed with S for supplement
 \renewcommand{\thetable}{S\arabic{table}} 
 \renewcommand{\thefigure}{S\arabic{figure}}
+
+% put all tables and figures on their own pages
+\usepackage[nomarkers,nolists]{endfloat}
