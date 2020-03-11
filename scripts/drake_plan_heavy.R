@@ -321,7 +321,7 @@ plan <- drake_plan(
   ),
   
   lsux_pos = target(
-    combine_dynamic_diskframe(lsux),
+    combine_dynamic_diskframe(lsux, cache = ignore(cache)),
     transform = map(lsux, .id = primer_ID),
     format = "diskframe"
   ),
