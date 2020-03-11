@@ -77,7 +77,7 @@ exp_try <- function(x, t, max) {
 
 #### combine FST targets into a disk.frame using symlinks ####
 combine_diskframe <- function(..., dir = drake_tempfile(), cache = drake_cache()) {
-  dir.create(dir)
+  dir.create(dir, recursive = TRUE)
   shards <- rlang::ensyms(...)
   for (i in seq_along(shards)) {
     shardfile <- cache$file_return_key(rlang::expr_text(shards[[i]]))
@@ -87,7 +87,7 @@ combine_diskframe <- function(..., dir = drake_tempfile(), cache = drake_cache()
 }
 
 combine_dynamic_diskframe <- function(dd, dir = drake_tempfile(), cache = drake_cache()) {
-  dir.create(dir)
+  dir.create(dir, recursive = TRUE)
   for (i in seq_along(dd)) {
     shardfile <- file.path(cache$path_return, dd[i])
     stopifnot(file.exists(shardfile))
