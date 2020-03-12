@@ -32,6 +32,7 @@ if (length(targets)) {
     ncpus
   )
   tictoc::tic()
+  cache <- drake::drake_cache(cache_dir)
   drake::make(
     plan,
     parallelism = "loop",

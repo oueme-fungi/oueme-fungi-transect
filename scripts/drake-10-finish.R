@@ -25,6 +25,7 @@ options(clustermq.scheduler = "multicore")
 
 if (jobs > 1 && length(targets) > 1) parallelism <- "clustermq" else parallelism <- "loop"
 
+cache <- drake::drake_cache(cache_dir)
 if (length(targets)) {
   flog.info(
     "Making all remaining targets: [%s] (%s with %d job(s) of %d core(s))...",
@@ -44,7 +45,6 @@ if (length(targets)) {
        caching = "worker",
        cache_log_file = TRUE,
        console_log_file = get_logfile("finish"),
-       memory_strategy = "preclean",
        targets = targets,
        cache = cache
   )
@@ -65,7 +65,7 @@ exports <- intersect(
     "allseqs",
     "taxon_table",
     dplyr::filter(plan, step == "taxon")$target,
-    "raxml_infernal_32S",
+    "raxml_decipher_32S",
     "raxml_decipher_LSU",
     "raxml_decipher_long",
     "raxml_epa_full",

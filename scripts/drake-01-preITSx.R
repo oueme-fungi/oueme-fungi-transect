@@ -24,6 +24,7 @@ preitsx_targets <- c(stringr::str_subset(od, "^split_derep_"),
 if (length(preitsx_targets)) {
   flog.info("Making targets to prepare for ITSx...")
   tictoc::tic()
+  cache <- drake::drake_cache(cache_dir)
   dconfig <- drake::drake_config(
     plan,
     parallelism = "clustermq",

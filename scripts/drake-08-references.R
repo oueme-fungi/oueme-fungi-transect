@@ -23,6 +23,7 @@ if (any(target %in% od) #|| !all(file.exists(outputs))
     ) {
   flog.info("Making taxonomy reference targets (loop)...")
   tictoc::tic()
+  cache <- drake::drake_cache(cache_dir)
   dconfig <- drake::drake_config(plan,
        parallelism = "loop",
        jobs_preprocess = local_cpus(),

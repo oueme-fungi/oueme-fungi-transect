@@ -31,6 +31,7 @@ if (length(targets) > 0) {
   flog.info("Building %d consensus and taxonomy targets with %d jobs of %d cores...",
             length(targets), jobs, ncpus)
   flog.info("Making targets %s...", paste(targets, collapse = "; "))
+  cache <- drake::drake_cache(cache_dir)
   tictoc::tic()
   drake::make(
     plan,

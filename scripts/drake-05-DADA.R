@@ -25,6 +25,7 @@ ncpus <- local_cpus()
 if (length(targets) > 0) {
   flog.info("Making %d dada targets with %d jobs of %d cores...", length(targets), jobs, ncpus)
   tictoc::tic()
+  cache <- drake::drake_cache(cache_dir)
   dconfig <- drake::drake_config(plan,
        parallelism = if (jobs > 1) "clustermq" else "loop",
        jobs_preprocess = local_cpus(),

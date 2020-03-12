@@ -61,6 +61,7 @@ if (length(itsx_targets)) {
     flog.info("Making ITSx and LSUx shards (local with %d worker(s) of %d cpus each)...", njobs, ncpus)
   }
   tictoc::tic()
+  cache <- drake::drake_cache(cache_dir)
   dconfig <- drake::drake_config(plan,
        parallelism = itsx_parallelism,
        template = itsx_template,

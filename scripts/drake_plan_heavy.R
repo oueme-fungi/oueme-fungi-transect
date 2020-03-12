@@ -499,22 +499,24 @@ plan <- drake_plan(
     )
   ),
   
-  dada_illumina = target(
-    readd(derep_illumina, cache = ignore(cache)) %>%
+  dada_illumina = target({
+    derep <- readd(derep_illumina, cache = ignore(cache)) %>%
       purrr::map(read) %>%
       set_names(
         dplyr::bind_rows(readd(illumina_id, cache = ignore(cache))) %>%
           dplyr::mutate(read = read) %>%
           glue::glue_data("{seq_run}_{plate}_{well}_{read}_{direction}") %>%
           unique()
-      ) %>%
+      )
+      gc()
       robust_dada(
-        derep = .,
+        derep = derep,
         err = err_illumina,
         multithread = ignore(ncpus),
         HOMOPOLYMER_GAP_PENALTY = eval(rlang::parse_expr(hgp)),
         BAND_SIZE = band_size,
-        pool = eval(rlang::parse_expr(pool))),
+        pool = eval(rlang::parse_expr(pool)))
+    },
     transform = map(
       derep_illumina,
       err_illumina,
@@ -1312,7 +1314,8 @@ plan <- drake_plan(
 )
 tictoc::toc()
 
-cache = drake::drake_cache(".drake_heavy")
+cache_dir <- ".drake_heavy"
+cache <- drake::drake_cache(cache_dir)
 if (is.null(cache)) cache <- drake::new_cache(".drake_heavy")
 
 flog.info("\nCalculating outdated targets...")
@@ -1334,6 +1337,7 @@ if (interactive()) {
 
 remove(snakemake)
 remove(dconfig)
+remove(cache)
 
 save(list = ls(),
      file = config$drakedata)

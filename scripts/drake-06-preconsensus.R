@@ -22,6 +22,7 @@ ncpus <- 1
 if (length(targets) > 0) {
   flog.info("Making pre-consensus targets with %d jobs of one core each...", local_cpus())
   tictoc::tic()
+  cache <- drake::drake_cache(cache_dir)
   dconfig <- drake::drake_config(plan,
        parallelism = "clustermq",
        jobs_preprocess = local_cpus(),

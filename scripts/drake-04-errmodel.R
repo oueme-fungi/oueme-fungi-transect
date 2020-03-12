@@ -27,6 +27,7 @@ if (length(targets) > 0) {
     ncpus
   )
   tictoc::tic()
+  cache <- drake::drake_cache(cache_dir)
   dconfig <- drake::drake_config(
     plan,
     parallelism = if (jobs > 1) "clustermq" else "loop",

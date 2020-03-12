@@ -29,6 +29,7 @@ predada_targets <- c(
 if (length(predada_targets)) {
   flog.info("Making pre-dada targets (%s with %d jobs)", options("clustermq.scheduler"), njobs)
   tictoc::tic()
+  cache <- drake::drake_cache(cache_dir)
   dconfig <- drake::drake_config(plan,
        parallelism = "clustermq",
        jobs_preprocess = local_cpus(),
