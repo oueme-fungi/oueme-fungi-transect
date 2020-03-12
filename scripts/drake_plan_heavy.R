@@ -384,6 +384,12 @@ plan <- drake_plan(
     ),
     dynamic = map(positions)
   ),
+
+  derep2_length = target(
+    length(derep2),
+    transform = map(derep2, primer_ID, .tag_in = step, .id = c(seq_run, region)),
+    dynamic = map(derep2)
+  ),
   
   illumina_group = target(
     dplyr::filter(
@@ -417,6 +423,7 @@ plan <- drake_plan(
     transform = map(
       illumina_group,
       .tag_in = step,
+      .tag_out = derep_all,
       .id = seq_run
     ),
     dynamic = map(illumina_group)
@@ -692,14 +699,21 @@ plan <- drake_plan(
   #### Plan section 3: Generate consensus sequences ####
   # Join the raw read info
   preconseq = target({
+    # dada is not dynamic, so this loads the actual data
     dadalist <- drake_combine(dada)
     names(dadalist) <- gsub("dada_", "", names(dadalist))
-    dereplist <- readd_list(derep2, cache = ignore(cache))
+    # derep2 is dynamic, so this will only load a list of hash vectors
+    dereplist <- drake_combine(derep2)
     names(dereplist) <- gsub("derep2_", "", names(dereplist))
     dereplist <- dereplist[names(dadalist)]
+    # lengthlist is also dynamic, but this will load the actual data
+    lengthlist <- readd_list(derep2_length, cache = ignore(cache))
+    names(lengthlist) <- gsub("derep2_length_", "", names(dereplist))
+    lengthlist <- lengthlist[names(dadalist)]
     dadalist <- do.call(c, c(dadalist, use.names = FALSE))
     dereplist <- do.call(c, c(dereplist, use.names = FALSE))
-    dereplist[vapply(dereplist, length, 1L) == 0] <- list(NULL)
+    lengthlist <- c(lengthlist, use.names = FALSE)
+    dereplist[lengthlist == 0] <- list(NULL)
     names(dereplist) <- names(dadalist)
     dada_key <- tibble::tibble(dadalist, dereplist, name = names(dadalist)) %>%
       tidyr::extract(
@@ -712,7 +726,7 @@ plan <- drake_plan(
     dada_key %>%
       dplyr::group_by(seq_run, plate, well) %>%
       dplyr::group_map(
-        ~ do.call(multidada, .),
+        ~ dplyr::mutate_at(., "dereplist", purrr::map, ignore(cache)$getvalue) %>% do.call(multidada, .),
         keep = TRUE
       ) %>%
       dplyr::bind_rows() %>%
@@ -729,7 +743,7 @@ plan <- drake_plan(
       dplyr::group_by(ITS2)
     },
     transform = combine(
-      dada, derep2,
+      dada, derep2, derep2_length,
        primer_ID,
       .tag_in = step,
       .by = primer_ID
