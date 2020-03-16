@@ -15,3 +15,18 @@
 % crossreferences to supporting information -- transect_supplement.aux is required
 \usepackage{xr}
 \externaldocument{transect_supplement}
+
+% Produce [dataset] references
+\NewBibliographyString{dataset}
+
+\DefineBibliographyStrings{english}{
+  dataset = {dataset},
+}
+
+\renewbibmacro{begentry}{%
+  \ifkeyword{meta}{\textsuperscript{*}}{}%
+  \ifentrytype{dataset}
+    {\bibstring[\mkbibbrackets]{dataset}%
+     \setunit{\addspace}}
+    {}%
+}
