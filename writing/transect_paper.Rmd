@@ -6,26 +6,26 @@ author:
   - Anna Rosling^4^,
   - Nourou S. Yorou^5^,
   - Martin Ryberg^1^
-  - ^1^Program in Systematic Biology,
-    Department of Organismal Biology,
-    Uppsala University,
-  - Uppsala, Sweden
-  - ^2^Department of Ecology,
-    Swedish University of Agricultural Sciences,
-    Uppsala, Sweden
-  - ^3^Institute of Ecology and Earth Sciences,
-    University of Tartu,
-    Tartu, Estonia
-  - ^4^Program in Evolutionary Biology,
-    Department of Ecology and Genetics,
-    Uppsala University,
-  - Uppsala, Sweden
-  - ^5^Research Unit in Tropical Mycology and Plant-Fungi Interactions,
-    LEB,
-  - University of Parakou,
-    Parakou, Benin
-  - ^\*^Corresponding author, `brendan.furneaux@ebc.uu.se`
-date: "`r format(Sys.time(), '%B %d, %Y')`"
+date: |
+      | ^1^Program in Systematic Biology,
+        Department of Organismal Biology,
+        Uppsala University,
+        Uppsala, Sweden
+      | ^2^Department of Ecology,
+        Swedish University of Agricultural Sciences,
+        Uppsala, Sweden
+      | ^3^Institute of Ecology and Earth Sciences,
+        University of Tartu,
+        Tartu, Estonia
+      | ^4^Program in Evolutionary Biology,
+        Department of Ecology and Genetics,
+        Uppsala University,
+        Uppsala, Sweden
+      | ^5^Research Unit in Tropical Mycology and Plant-Fungi Interactions,
+        LEB,
+        University of Parakou,
+        Parakou, Benin
+      | ^\*^Corresponding author, `brendan.furneaux@ebc.uu.se`
 bibliography:
   - "all.bib"
   - "R.bib"
@@ -33,18 +33,20 @@ biblio-style: apa
 always_allow_html: true
 output:
   bookdown::pdf_document2:
-    fig_crop: yes
-    keep_tex: yes
+    template: bare_template.tex
+    fig_crop: true
+    keep_tex: true
     toc: false
     latex_engine: lualatex
     includes:
       in_header: preamble.tex
     citation_package: biblatex
     suppress-bibliography: true
-    fontsize: 12pt
-    geometry: left=2.5cm, right=2.5cm, top=3cm, bottom=3cm
   bookdown::word_document2: 
     keep_md: yes
+fontsize: 12pt
+geometry: ["left=2.5cm", "right=2.5cm", "top=3cm", "bottom=3cm"]
+graphics: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -702,7 +704,7 @@ The SNP&SEQ Platform is also supported by the Swedish Research Council and the K
 
 \doublespacing
 
-# Data Availability Statement {-}
+# Data Accessibility {-}
 
  - Sequence data, including raw reads and ASV sequences, will be deposited at the European Nucleotide Archive (ENA) prior to final publication.
  - Nucleotide alignment and ML tree will be deposited at Dryad prior to final publication [@furneauxdata2020].
@@ -712,7 +714,7 @@ If they are not accepted at Bioconductor prior to final publication, they will b
  - FASTA-format files for the RDP, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper will be archived at Dryad prior to publication.
  - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect.
 
-# Author contributions {-}
+# Author Contributions {-}
 
 Sampling was planned and carried out by BF, NSY, and MR.
 Bioinformatics and data analysis were performed by BF with input from MB, AR, and MR.
