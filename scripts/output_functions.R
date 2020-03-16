@@ -227,7 +227,7 @@ compR2 <- function(x, y, type) {
   )
   formatC(
     filter(
-      readd(comparisons, cache = cache),
+      readd(comparisons),
       x == x_var,
       xamp == x_amplicon,
       y == y_var,

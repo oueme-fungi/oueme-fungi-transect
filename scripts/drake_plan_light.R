@@ -56,6 +56,9 @@ physeq_meta <-
   ) %>%
   mutate_at(vars(starts_with("ecm"), starts_with("fungi")), compose(syms, make.names))
 
+latexfiles <- c("transect_paper.tex", "transect_supplement.tex")
+latexdirs <- file.path(c("transect_paper_files", "transect_supplement_files"), "figure-latex")
+
 # Drake plan
 plan2 <- drake_plan(
   # targets which are imported from first plan
@@ -2684,10 +2687,22 @@ plan2 <- drake_plan(
     }
   ),
   
+  article_bbl = withr::with_dir(
+    "writing", {
+      file_in(!!file.path("writing", "transect_paper.tex"))
+      system2(
+        command = "biber",
+        args = c("transect_paper")
+      )
+      file_out(!!file.path("writing", "transect_paper.bbl"))
+    }
+  ),
+  
   article_pdf = withr::with_dir(
     "writing", 
     {
       file_in(!!file.path("writing", "transect_paper.tex"))
+      file_in(!!file.path("writing", "transect_paper.bbl"))
       file_in(!!file.path("writing", "transect_supplement.tex"))
       system2(
         command = "lualatex",
@@ -2783,6 +2798,25 @@ plan2 <- drake_plan(
         units = "in"
       )
   },
+  
+  latex_dir = 
+    withr::with_dir(
+      "writing",
+      {
+        file_in(!!file.path("writing", c(latexfiles, latexdirs)))
+        file_out(!!file.path("output", "latex.tar.gz"))
+        tar(
+          tarfile = "latex.tar.gz",
+          files = c(
+            latexfiles,
+            list.files(path = latexdirs, full.names = TRUE)
+          ),
+          compression = "gzip",
+          tar = "tar"
+        )
+        file.rename("latex.tar.gz", file.path("..", "output", "latex.tar.gz"))
+      }
+    ),
   trace = TRUE
 ) %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)

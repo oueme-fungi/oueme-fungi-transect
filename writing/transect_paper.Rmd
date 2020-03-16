@@ -1,7 +1,7 @@
 ---
 title: "Long- and short-read metabarcoding technologies reveal similar spatio-temporal structures in fungal communities"
 author: 
-  - Brendan Furneaux^1^,
+  - Brendan Furneaux^1,\*^,
   - Mohammad Bahram^2,3^,
   - Anna Rosling^4^,
   - Nourou S. Yorou^5^,
@@ -24,6 +24,7 @@ author:
     LEB,
   - University of Parakou,
     Parakou, Benin
+  - ^\*^Corresponding author, `brendan.furneaux@ebc.uu.se`
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 bibliography:
   - "all.bib"
@@ -79,6 +80,8 @@ knitr::opts_chunk$set(
 
 base.dir <- regmatches(getwd(), regexpr(".*oueme-fungi-transect", getwd()))
 write_bib(c("base", "phyloseq", "vegan", "metacoder"), file = "R.bib", tweak = TRUE)
+
+if (!exists("percent", mode = "function")) source(here::here("scripts", "output_functions.R"))
 
 light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
@@ -177,12 +180,12 @@ The short amplicon (approximately 300\ bp) targeted the full ITS2 region as well
 The long amplicon (approximately 1500\ bp) targeted the full ITS region including the 5.8S rDNA and approximately 950\ bp at the 5' end of the LSU, including the first three variable regions (Figure\ \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
 Each PCR run also included a blank sample and a positive control consisting of freshly extracted DNA from a commercially purchased fruitbody of *Agaricus bisporus*.
 
-The gITS7 primers for the short amplicon were indexed for multiplexing (**Supplementary File 1**).
+The gITS7 primers for the short amplicon were indexed for multiplexing (Supplementary File 1).
 Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200\ µM dNTP mix, 250\ µM indexed gITS7 primer, 150µM ITS4m, 2mM MgCl~2~, 0.1\ U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7\ ng purified DNA in Dream *Taq* buffer.
 The reaction conditions were 10\ min at 95°, followed by 35\ cycles of 60\ s at 95°, 45\ s at 56°, and 50\ s at 72°, and finally 3\ min at 72°.
 Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity, which were pooled after amplification.
 
-Both primers for the long amplicon were indexed for multiplexing (**Supplementary File 2**).
+Both primers for the long amplicon were indexed for multiplexing (Supplementary File 2).
 PCR was performed as for the short amplicons, but with 500\ µM of each of the two primers.
 Reaction conditions were 10\ min at 95°, 30\ cycles of 45\ s at 95°, 45\ s at 59°, and 90\ s at 72°, and finally 10\ min at 72°.
 Each reaction was performed in three technical replicates as for short amplicons.
@@ -261,7 +264,7 @@ The ITS2 region was extracted from the ASVs using `LSUx` for comparison to the o
 ### Taxonomy assignment
 
 Taxonomic annotations of the Ribosomal Data Project's LSU fungal training set (RDP) version 11.5 [@cole2014] and Warcup ITS training set [@deshpande2016] were mapped to the taxonomic classification system used in the Unite database version 8 [@nilsson2019a].
-In particular, the classification for fungi was according to @tedersoo2018, and for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c.
+In particular, the classification for fungi was according to @tedersoo2018, and for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c as described in [@tedersoodata2017].
 Although the latter system is not formally published, it is consistent with the annotations for non-fungal eukaryotes in the Unite database.
 Additionally, it is a system with both purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as that of the International Society of Protistologists [@adl2019], which utilizes hierarchical nameless ranks.
 
@@ -285,7 +288,7 @@ For comparison with clustering-based methods, ASVs were clustered into operation
 Full length long amplicon ASVs were aligned using DECIPHER [@wright2015] with up to 10\ iterations of progressive alignment and conserved RNA secondary structure calculation and 10\ refinement iterations.
 This alignment was truncated at a position after the D3 region corresponding to base 907 of the *Saccharomyces cerevisiae* S288C reference sequence for LSU, because several sequences had introns after this position, as also observed in several fungal species by @holst-jensen1999.
 
-An ML treewas produced using RAxML version 8.2.12 [@stamatakis2014] using the GTR+GAMMA model and rapid bootstrapping with the MRE_IGN stopping criterion.
+An ML tree was produced using RAxML version 8.2.12 [@stamatakis2014] using the GTR+GAMMA model and rapid bootstrapping with the MRE_IGN stopping criterion.
 The tree was rooted outside the kingdom Fungi by using the most abundant ASV which was confidently assigned to a non-fungal kingdom by all 6 applicable taxonomic assignment methods.
 Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset.
 The kingdom Fungi was identified as the minimal clade containing all ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
@@ -543,6 +546,7 @@ readd(taxon_reads) %>%
 
 
 Taxonomic composition of the sequenced soil fungal community at the class level is is summarized in Figure\ \@ref(fig:fungi-comm) and as a heat tree [@foster2017] in Figure\ \@ref(fig:taxa).
+The ML tree for fungal ASVs, along with taxonomic assignments, is shown in Supplementary File 3.
 According to the PHYLOTAX assignments, Fungi represented `r percent(readd(fungi_asv)["PacBio_Long"], format = "f", digits = 0)` of the ASVs and `r percent(readd(fungi_read)["PacBio_Long"], format = "f", digits = 0)` of the reads in the long amplicon library, compared to `r paste(percent(range(readd(fungi_asv)[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the ASVs and `r paste(percent(range(readd(fungi_read)[c("PacBio_Short", "Illumina_Short", "Ion.Torrent_Short")]), format = "f", digits = 1), collapse = "–")` of the reads in the short amplicon library.
 Measured fungal community composition at the class level varied significantly between amplicons (PERMANOVA with 9999 permutations, $p<`r formatC(readd(tech_class_adonis)["amplicon", "p.value"], format = "f")`$, $R^2=`r formatC(readd(tech_class_adonis)["amplicon", "R2"], format = "f", digits = 3)`$), but only marginally between sequencing technologies ($p=`r formatC(readd(tech_class_adonis)["tech", "p.value"], format = "f")`$, $R^2=`r formatC(readd(tech_class_adonis)["tech", "R2"], format = "f", digits = 3)`$).
 The majority of variation was spatiotemporal (i.e., between samples; $p<`r formatC(readd(tech_class_adonis)["paste(site, x, year)", "p.value"], format = "f")`$, $R^2=`r formatC(readd(tech_class_adonis)["paste(site, x, year)", "R2"], format = "f", digits = 2)`$), but once this variation was removed, the remaining effect consisted of a clear bias against Sordariomycetes in the long amplicon dataset (Figures\ \@ref(fig:fungi-comm) and \@ref(fig:ppcoa)).
@@ -700,11 +704,13 @@ The SNP&SEQ Platform is also supported by the Swedish Research Council and the K
 
 # Data Availability Statement {-}
 
-Sequence data, including raw reads and ASV sequences, are deposited at NCBI under BioProject XXXXXXX.
-Sequence alignment and phylogenetic tree are available at TreeBase under project S25885.
-R packages `LSUx`, `tzara`, `phylotax`, and `FUNGuildR` are available on Github at https://github.com/brendanf/LSUx, https://github.com/brendanf/tzara, https://github.com/brendanf/phylotax, and https://github.com/brendanf/FUNGuildR.
-FASTA-format files for the RDP, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate.
-Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect.
+ - Sequence data, including raw reads and ASV sequences, will be deposited at the European Nucleotide Archive (ENA) prior to final publication.
+ - Nucleotide alignment and ML tree will be deposited at Dryad prior to final publication [@furneauxdata2020].
+ - R packages `LSUx`, `tzara`, `phylotax`, and `FUNGuildR` are available on Github at https://github.com/brendanf/LSUx, https://github.com/brendanf/tzara, https://github.com/brendanf/phylotax, and https://github.com/brendanf/FUNGuildR.
+These packages are currently being prepared for submission to Bioconductor.
+If they are not accepted at Bioconductor prior to final publication, they will be archived at Dryad.
+ - FASTA-format files for the RDP, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper will be archived at Dryad prior to publication.
+ - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect.
 
 # Author contributions {-}
 
