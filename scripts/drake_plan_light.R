@@ -123,7 +123,7 @@ plan2 <- drake_plan(
       read_rds(file_in(!!file.path("config", "tags", "long.rds"))),
       by = "well"
     ) %>%
-    select(year, site, buffer, x, sample_type, amplicon, everything()) %>%
+    select(year, site, buffer, x, sample_type, amplicon, everything()) %T>%
     write_tsv(file_out(!!file.path("output", "supp_file_2.tsv"))),
   
   tagmap_short = platemap %>%
@@ -133,7 +133,7 @@ plan2 <- drake_plan(
       read_rds(file_in(!!file.path("config", "tags", "short.rds"))),
       by = "well"
     ) %>%
-    select(year, site, buffer, x, sample_type, amplicon, everything()) %>%
+    select(year, site, buffer, x, sample_type, amplicon, everything()) %T>%
     write_tsv(file_out(!!file.path("output", "supp_file_1.tsv"))),
   
   tree_decipher_LSU = target(

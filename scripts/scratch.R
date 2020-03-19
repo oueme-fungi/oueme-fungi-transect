@@ -1738,3 +1738,20 @@ DECIPHER::AlignSeqs(
   iterations = 0,
   refinements = 0
 )
+
+readd(proto_physeq) %>%
+  phyloseq::sample_data() %>%
+  as("data.frame") %>%
+  filter(sample_type == "Sample") %>%
+  transmute(
+    tax_id = "410658",
+    scientific_name = "soil metagenome",
+    sample_title = glue::glue("OT-{year}-{site}-{x}-{buffer}-{amplicon}"),
+    sample_description = sample_title,
+    "project name" = "ena-STUDY-UPPSALA UNIVERISTY-19-03-2020-10:28:50:771-6",
+    "experimental factor" = paste(x, "m from transect origin"),
+    "sample volume or weight for dna extraction" = 0.05,
+    "nucleic acid extraction" = "Zymo Research Xpedition Soil Microbe DNA MiniPrep D6202",
+    "nucleic acid amplification" = "PCR",
+    "target gene" = ifelse(amplicon == "Long", "ITS1, 5.8S, ITS2, LSU", "ITS2")
+  )
