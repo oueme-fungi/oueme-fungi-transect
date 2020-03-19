@@ -729,7 +729,7 @@ rule raxml:
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
 localrules: heavy
 rule heavy:
-    output: flag = touch(".drake_heavy")
+    output: flag = touch(".heavy")
     input:
         drakedata = rules.drake_plan.output.drakedata,
         flag      = rules.raxml.output.flag,

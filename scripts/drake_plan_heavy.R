@@ -1342,13 +1342,16 @@ plan <- drake_plan(
   ),
   
   qstats = target(
-    combine_dynamic_diskframe(c(
-      qstats_raw,
-      qstats_demux,
-      qstats_derep2,
-      qstats_illumina,
-      qstats_demux_illumina
-    )) %>%
+    combine_dynamic_diskframe(
+      c(
+        qstats_raw,
+        qstats_demux,
+        qstats_derep2,
+        qstats_illumina,
+        qstats_demux_illumina
+      ),
+      cache = ignore(cache_dir)
+    ) %>%
       as.data.frame() %>%
       tibble::as_tibble() %>%
       dplyr::group_by_at(dplyr::vars(-nreads)) %>%
