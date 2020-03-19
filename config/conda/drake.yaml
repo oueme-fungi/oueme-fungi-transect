@@ -38,6 +38,7 @@ dependencies:
   - r-ips=0.0.11
   - r-reldist=1.6
   - r-bookdown=0.17
+  - r-ggplot2=3.2.1
   - r-ggpubr=0.2.4
   - r-kableextra=1.1.0
   - r-eulerr=6.0.0
