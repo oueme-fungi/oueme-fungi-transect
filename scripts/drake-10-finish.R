@@ -3,7 +3,7 @@ if (exists("snakemake")) {
   load(snakemake@input[["drakedata"]])
   od <- readLines(snakemake@input$flag)
 } else {
-  load("drake.Rdata")
+  load("data/plan/drake.Rdata")
 }
 
 library(magrittr)
@@ -75,6 +75,8 @@ exports <- intersect(
     dplyr::filter(plan, step == "err")$target,
     dplyr::filter(plan, step == "chimeras")$target,
     dplyr::filter(plan, step == "allchimeras")$target,
+    purrr::keep(plan$target, startsWith, "file_meta_"),
+    purrr::keep(plan$target, startsWith, "illumina_group_"),
     "qstats"
   ),
   cache$list()
