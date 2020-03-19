@@ -35,9 +35,15 @@ dependencies:
   - r-disk.frame
   - r-assertr=2.6
   - r-tikzdevice=0.12
-  - r-inext=2.0.19
   - r-ips=0.0.11
   - r-reldist=1.6
+  - r-bookdown=0.17
+  - r-ggpubr=0.2.4
+  - r-kableextra=1.1.0
+  - r-eulerr=6.0.0
+  - r-metacoder=0.3.3
+  - r-ggnomics=0.1.1
+  - bioconductor-ggtree=1.16.0
   - infernal=1.1.2
   - vsearch=2.9.1
   - locarna=2.0.0
