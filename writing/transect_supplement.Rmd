@@ -77,7 +77,7 @@ options(knitr.table.format = "latex")
 light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
 
-datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccicc")
+datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccccccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 ```
 

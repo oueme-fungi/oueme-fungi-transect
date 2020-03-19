@@ -88,7 +88,7 @@ if (!exists("percent", mode = "function")) source(here::here("scripts", "output_
 light_plan <- readRDS(here("data/plan/drake_light.rds"))
 theme_set(theme_bw())
 
-datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccicc")
+datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccccccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 ```
 
@@ -158,7 +158,7 @@ At each site, 25\ soil samples were collected along a linear transect at interva
 One third of the sample locations (3\ m spacing) were resampled one year later in June 2016.
 For each sample, any coarse organic debris <!--Do you have any definition? Wider than 5 mm? MR-->was removed from the soil surface and a sample of approximately 5cm×5cm×5cm was extracted with a sterilized knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
-Approximately 50\ mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0\ mL microtube containing 750\ mL of lysis buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA) and lysed in the field using a handheld bead-beater (TerraLyser^TM^; Zymo Research Corporation).
+Approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0\ mL microtube containing 750\ mL of lysis buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA) and lysed in the field using a handheld bead-beater (TerraLyser^TM^; Zymo Research Corporation).
 <!--The remainder of each sample was dried at 40°C with an electric dehydrator within 24-48 hours of collection for bulk chemical analysis. -->
 
 An additional sample was collected at every sampling location (1-m spacing) in 2016 using LifeGuard^TM^ Soil Preservation Solution (MO BIO, Carlsbad, CA; USA) for preservation, without field lysis.
