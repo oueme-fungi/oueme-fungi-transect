@@ -287,7 +287,7 @@ plan <- drake_plan(
   
   join_derep = target(
     tzara::combine_derep(
-      readd(derep1, cache = ignore(cache)),
+      readd(derep1, cache = ignore(drake::drake_cache(cache_dir))),
       .data = dplyr::bind_rows(trace1)[ , c("seq_run", "plate", "well",
                                             "direction", "trim_file")]
     ),
@@ -321,7 +321,7 @@ plan <- drake_plan(
   ),
   
   lsux_pos = target(
-    combine_dynamic_diskframe(lsux, cache = ignore(cache)),
+    combine_dynamic_diskframe(lsux, cache = ignore(cache_dir)),
     transform = map(lsux, .id = primer_ID),
     format = "diskframe"
   ),
@@ -435,7 +435,7 @@ plan <- drake_plan(
   err = target({
     err.fun <- if (tech == "PacBio" ) dada2::PacBioErrfun else
       dada2::loessErrfun
-    dereps <- readd(derep2, cache = ignore(cache)) %>%
+    dereps <- readd(derep2, cache = ignore(drake::drake_cache(cache_dir))) %>%
       purrr::compact()
     dada2::learnErrors(
       fls = dereps,
@@ -458,7 +458,7 @@ plan <- drake_plan(
   ),
   
   err_illumina = target({
-    dereps <- readd(derep_illumina, cache = ignore(cache)) %>%
+    dereps <- readd(derep_illumina, cache = ignore(drake::drake_cache(cache_dir))) %>%
       purrr::map(read) %>%
       purrr::compact()
     dada2::learnErrors(
@@ -483,9 +483,9 @@ plan <- drake_plan(
   
   # Run dada denoising algorithm (on different regions)
   dada = target(
-    readd(derep2, cache = ignore(cache)) %>%
+    readd(derep2, cache = ignore(drake::drake_cache(cache_dir))) %>%
       set_names(
-        readd(position_map, cache = ignore(cache)) %>%
+        readd(position_map, cache = ignore(drake::drake_cache(cache_dir))) %>%
           dplyr::bind_rows() %>%
           dplyr::mutate(region = region) %>%
           glue::glue_data("{seq_run}_{plate}_{well}_{region}")
@@ -507,10 +507,10 @@ plan <- drake_plan(
   ),
   
   dada_illumina = target({
-    derep <- readd(derep_illumina, cache = ignore(cache)) %>%
+    derep <- readd(derep_illumina, cache = ignore(drake::drake_cache(cache_dir))) %>%
       purrr::map(read) %>%
       set_names(
-        dplyr::bind_rows(readd(illumina_id, cache = ignore(cache))) %>%
+        dplyr::bind_rows(readd(illumina_id, cache = ignore(drake::drake_cache(cache_dir)))) %>%
           dplyr::mutate(read = read) %>%
           glue::glue_data("{seq_run}_{plate}_{well}_{read}_{direction}") %>%
           unique()
@@ -540,9 +540,9 @@ plan <- drake_plan(
   merge = target(
     dada2::mergePairs(
       dadaF = purrr::compact(dada_R1),
-      derepF = set_names(purrr::map(readd(derep, cache = ignore(cache)), "R1"), names(dada_R1)) %>% purrr::compact(),
+      derepF = set_names(purrr::map(readd(derep, cache = ignore(drake::drake_cache(cache_dir))), "R1"), names(dada_R1)) %>% purrr::compact(),
       dadaR = purrr::compact(dada_R2),
-      derepR = set_names(purrr::map(readd(derep, cache = ignore(cache)), "R2"), names(dada_R2)) %>% purrr::compact()
+      derepR = set_names(purrr::map(readd(derep, cache = ignore(drake::drake_cache(cache_dir))), "R2"), names(dada_R2)) %>% purrr::compact()
     ),
     transform = map(.data = !!merge_meta, .id = seq_run)
   ),
@@ -707,7 +707,7 @@ plan <- drake_plan(
     names(dereplist) <- gsub("derep2_", "", names(dereplist))
     dereplist <- dereplist[names(dadalist)]
     # lengthlist is also dynamic, but this will load the actual data
-    lengthlist <- readd_list(derep2_length, cache = ignore(cache))
+    lengthlist <- readd_list(derep2_length, cache = ignore(cache_dir))
     names(lengthlist) <- gsub("derep2_length_", "", names(dereplist))
     lengthlist <- lengthlist[names(dadalist)]
     dadalist <- do.call(c, c(dadalist, use.names = FALSE))
@@ -726,7 +726,7 @@ plan <- drake_plan(
     dada_key %>%
       dplyr::group_by(seq_run, plate, well) %>%
       dplyr::group_map(
-        ~ dplyr::mutate_at(., "dereplist", purrr::map, ignore(cache)$getvalue) %>% do.call(multidada, .),
+        ~ dplyr::mutate_at(., "dereplist", purrr::map, ignore(drake::drake_cache(cache_dir))$getvalue) %>% do.call(multidada, .),
         keep = TRUE
       ) %>%
       dplyr::bind_rows() %>%
