@@ -59,7 +59,7 @@ library("drake")
 library("here")
 library("phyloseq")
 tryCatch(
-  tinytex::tinytex_root(),
+  stopifnot(dir.exists(tinytex::tinytex_root())),
   error = function(e) tinytex::install_tinytex()
   )
 

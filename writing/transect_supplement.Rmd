@@ -51,7 +51,7 @@ library("here")
 library("phyloseq")
 library("kableExtra")
 tryCatch(
-  tinytex::tinytex_root(),
+  stopifnot(dir.exists(tinytex::tinytex_root())),
   error = function(e) tinytex::install_tinytex()
   )
 
