@@ -342,10 +342,10 @@ multidada <- function(dereplist, dadalist, region, ..., keyvars = NULL) {
   if (nrow(dadamap) == 0) return(dadamap)
   regions <- unique(dadamap$region)
   dadamap %>%
-    dplyr::select(-name, -derep.idx, -derep.seq) %>%
+    dplyr::select(-name, -derep.idx, -derep.seq, -dada.idx) %>%
     dplyr::mutate_at("dada.seq", chartr, old = "T", new = "U") %>%
     tidyr::spread(key = "region", value = "dada.seq") %>%
-    dplyr::group_by_at(dplyr::vars(dplyr::one_of(regions))) %>%
+    dplyr::group_by_at(regions) %>%
     dplyr::summarize(nread = dplyr::n()) %>%
     dplyr::ungroup()
 }

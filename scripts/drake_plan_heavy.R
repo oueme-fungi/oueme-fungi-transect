@@ -699,55 +699,88 @@ plan <- drake_plan(
   #### Plan section 3: Generate consensus sequences ####
   # Join the raw read info
   preconseq = target({
-    # dada is not dynamic, so this loads the actual data
-    dadalist <- drake_combine(dada)
+    # dada is not dynamic, so load the actual data
+    dadalist <- readd_list(dada, cache = ignore(cache_dir))
     names(dadalist) <- gsub("dada_", "", names(dadalist))
     # derep2 is dynamic, so this will only load a list of hash vectors
-    dereplist <- drake_combine(derep2)
+    # This helps to keep RAM requirements down.
+    dereplist <- gett_list(derep2, cache = ignore(cache_dir))
     names(dereplist) <- gsub("derep2_", "", names(dereplist))
-    dereplist <- dereplist[names(dadalist)]
-    # lengthlist is also dynamic, but this will load the actual data
+    # lengthlist is also dynamic, but it is small so load the actual data
     lengthlist <- readd_list(derep2_length, cache = ignore(cache_dir))
-    names(lengthlist) <- gsub("derep2_length_", "", names(dereplist))
+    names(lengthlist) <- gsub("derep2_length_", "", names(lengthlist))
+    # Make sure they are in the same order (not guaranteed by the combine transform)
+    dereplist <- dereplist[names(dadalist)]
     lengthlist <- lengthlist[names(dadalist)]
+    # Join all the elements together to make one list
     dadalist <- do.call(c, c(dadalist, use.names = FALSE))
     dereplist <- do.call(c, c(dereplist, use.names = FALSE))
-    lengthlist <- c(lengthlist, use.names = FALSE)
+    lengthlist <- do.call(c, c(lengthlist, use.names = FALSE))
+    
     dereplist[lengthlist == 0] <- list(NULL)
     names(dereplist) <- names(dadalist)
-    dada_key <- tibble::tibble(dadalist, dereplist, name = names(dadalist)) %>%
+    
+    # Combine into a master list
+    dada_key <- tibble::tibble(dadalist, dereplist, lengthlist, name = names(dadalist)) %>%
       tidyr::extract(
         name,
         c("seq_run", "plate", "well", "region"),
         "([pi][sb]_\\d{3})_(\\d{3})_([A-H]\\d{1,2})_(.+)",
         remove = FALSE
-      )
-    dada_regions <- unique(dada_key[["region"]])
-    dada_key %>%
-      dplyr::group_by(seq_run, plate, well) %>%
-      dplyr::group_map(
-        ~ dplyr::mutate_at(., "dereplist", purrr::map, ignore(drake::drake_cache(cache_dir))$getvalue) %>% do.call(multidada, .),
-        keep = TRUE
       ) %>%
-      dplyr::bind_rows() %>%
+      dplyr::filter(lengthlist > 0) %>%
+      dplyr::select(-lengthlist)
+    dada_regions <- unique(dada_key[["region"]])
+    
+    # Remove references to the original lists so the memory can be freed.
+    remove(dadalist)
+    remove(dereplist)
+    remove(lengthlist)
+    
+    # process each sample seperately, removing data as it gets processed
+    dadakey <- dada_key %>%
+      dplyr::group_by(seq_run, plate, well) %>%
+      dplyr::group_split()
+    out <- tibble::tibble()
+    for (i in rev(seq_along(dadakey))) {
+      out <- dplyr::bind_rows(
+        out,
+        dplyr::mutate_at(
+          dadakey[[i]],
+          "dereplist",
+          purrr::map,
+          ignore(drake::drake_cache(cache_dir))$get_value
+        ) %>%
+          do.call(what = multidada)
+      )# %>%
+        # dplyr::group_by_at(dada_regions) %>%
+        # dplyr::summarize_at("nread", sum)
+      dadakey[[i]] <- NULL
+      # gc()
+      futile.logger::flog.info("dadakey: %d elements, size = %f", length(dadakey), object.size(dadakey))
+      futile.logger::flog.info("multidada: %d rows, size = %f", nrow(out), object.size(out))
+    }
+    out %>%
       dplyr::group_by_at(dada_regions) %>%
       dplyr::summarize_at("nread", sum) %>%
-      dplyr::filter(nread >= 3, !is.na(ITS2)) %>%
+      dplyr::filter(!is.na(ITS2)) %>%
       dplyr::mutate(primer_ID = symbols_to_values(primer_ID)) %>%
       region_concat("LSU", c("LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")) %>%
       region_concat("ITS", c("ITS1", "5_8S", "ITS2"), "ITS2") %>%
       region_concat("long", c("ITS", "LSU"), "ITS2") %>%
       region_concat("short", c("5_8S", "ITS2", "LSU1"), "ITS2") %>%
       region_concat("32S", c("5_8S", "ITS2", "LSU"), "ITS2") %>%
-      region_concat("conserv", c("5_8S", "LSU1", "LSU2", "LSU3", "LSU4"), "ITS2") %>%
-      dplyr::group_by(ITS2)
-    },
-    transform = combine(
-      dada, derep2, derep2_length,
-       primer_ID,
-      .tag_in = step,
-      .by = primer_ID
-    )
+      region_concat("conserv", c("5_8S", "LSU1", "LSU2", "LSU3", "LSU4")) %>%
+      dplyr::group_by(ITS2) %>%
+      dplyr::filter(sum(nread) >= 3)
+  },
+  transform = combine(
+    dada, derep2, derep2_length,
+    primer_ID,
+    .tag_in = step,
+    .by = primer_ID
+  ),
+  memory_strategy = "unload"
   ),
 
   conseq = target(

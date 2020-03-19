@@ -122,6 +122,17 @@ subset_outdated <- function(tasks, dconfig) {
 }
 
 #### Works like readd, but takes multiple arguments and makes a list
+
+gett_list <- function(..., cache = drake::drake_cache()) {
+  if (is.character(cache)) cache <- drake::drake_cache(cache)
+  out <- lapply(
+    as.character(match.call(expand.dots = FALSE)$...),
+    cache$get
+  )
+  names(out) <- as.character(match.call(expand.dots = FALSE)$...)
+  out
+}
+
 readd_list <- function(..., cache = drake::drake_cache()) {
   if (is.character(cache)) cache <- drake::drake_cache(cache)
   out <- lapply(
