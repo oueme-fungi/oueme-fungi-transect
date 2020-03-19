@@ -1,11 +1,13 @@
-library(futile.logger)
-library(magrittr)
-library(tidyverse)
-library(rlang)
-library(glue)
-library(drake)
-library(assertr)
-library(disk.frame)
+suppressPackageStartupMessages({
+  library(futile.logger)
+  library(magrittr)
+  library(tidyverse)
+  library(rlang)
+  library(glue)
+  library(drake)
+  library(assertr)
+  library(disk.frame)
+})
 
 if (interactive()) {
   flog.info("Creating drake plan in interactive session...")
@@ -1368,10 +1370,14 @@ cache_dir <- ".drake_heavy"
 cache <- drake::drake_cache(cache_dir)
 if (is.null(cache)) cache <- drake::new_cache(".drake_heavy")
 
-flog.info("\nCalculating outdated targets...")
+
 tictoc::tic()
+flog.info("Configuring plan...")
 dconfig <- drake_config(plan, jobs_preprocess = local_cpus(),
                         cache = cache)
+tictoc::toc()
+flog.info("Calculating outdated targets...")
+tictoc::tic()
 od <- outdated(dconfig)
 tictoc::toc()
 
