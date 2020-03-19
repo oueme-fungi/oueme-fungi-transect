@@ -240,5 +240,6 @@ dataset %>%
   unnest("primer", names_sep = "_") %>%
   unnest("adapter", names_sep = "_") %>%
   unnest("barcode", names_sep = "_") %>%
-  select(-adapter_well, -barcode_well) %>%
+  select(-adapter_well, -primer_well) %>%
+  rename(well = barcode_well) %>%
   write_rds(file.path(tags.dir, "all.rds"))
