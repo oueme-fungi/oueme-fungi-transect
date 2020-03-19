@@ -2830,8 +2830,8 @@ options(clustermq.scheduler = "multicore")
   make(
     plan2,
     cache = cache,
-    # parallelism = "clustermq",
-    # jobs = local_cpus() %/% 2,
+    parallelism = "clustermq",
+    jobs = local_cpus() %/% 2,
     # targets = "tree_fig",
     lazy_load = FALSE,
     memory_strategy = "autoclean",
