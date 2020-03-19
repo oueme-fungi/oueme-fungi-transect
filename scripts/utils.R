@@ -76,7 +76,8 @@ exp_try <- function(x, t, max) {
 }
 
 #### combine FST targets into a disk.frame using symlinks ####
-combine_diskframe <- function(..., dir = drake_tempfile(), cache = drake_cache()) {
+combine_diskframe <- function(..., dir = drake::drake_tempfile(), cache = drake::drake_cache()) {
+  if (is.character(cache)) cache <- drake::drake_cache(cache)
   dir.create(dir, recursive = TRUE)
   shards <- rlang::ensyms(...)
   for (i in seq_along(shards)) {
@@ -86,7 +87,8 @@ combine_diskframe <- function(..., dir = drake_tempfile(), cache = drake_cache()
   disk.frame::disk.frame(dir)
 }
 
-combine_dynamic_diskframe <- function(dd, dir = drake_tempfile(), cache = drake_cache()) {
+combine_dynamic_diskframe <- function(dd, dir = drake::drake_tempfile(), cache = drake::drake_cache()) {
+  if (is.character(cache)) cache <- drake::drake_cache(cache)
   dir.create(dir, recursive = TRUE)
   for (i in seq_along(dd)) {
     shardfile <- file.path(cache$path_return, dd[i])
@@ -120,7 +122,19 @@ subset_outdated <- function(tasks, dconfig) {
 }
 
 #### Works like readd, but takes multiple arguments and makes a list
-readd_list <- function(..., cache = drake_cache()) {
+
+gett_list <- function(..., cache = drake::drake_cache()) {
+  if (is.character(cache)) cache <- drake::drake_cache(cache)
+  out <- lapply(
+    as.character(match.call(expand.dots = FALSE)$...),
+    cache$get
+  )
+  names(out) <- as.character(match.call(expand.dots = FALSE)$...)
+  out
+}
+
+readd_list <- function(..., cache = drake::drake_cache()) {
+  if (is.character(cache)) cache <- drake::drake_cache(cache)
   out <- lapply(
     as.character(match.call(expand.dots = FALSE)$...),
     readd,

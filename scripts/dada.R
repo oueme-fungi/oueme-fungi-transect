@@ -336,3 +336,16 @@ robust_dada.character <- function(derep, ...) {
   out[existing] <- dada
   out
 }
+
+multidada <- function(dereplist, dadalist, region, ..., keyvars = NULL) {
+  dadamap <- tzara::dadamap(dereplist, dadalist, region = region, ...)
+  if (nrow(dadamap) == 0) return(dadamap)
+  regions <- unique(dadamap$region)
+  dadamap %>%
+    dplyr::select(-name, -derep.idx, -derep.seq, -dada.idx) %>%
+    dplyr::mutate_at("dada.seq", chartr, old = "T", new = "U") %>%
+    tidyr::spread(key = "region", value = "dada.seq") %>%
+    dplyr::group_by_at(regions) %>%
+    dplyr::summarize(nread = dplyr::n()) %>%
+    dplyr::ungroup()
+}

@@ -1,11 +1,13 @@
-library(futile.logger)
-library(magrittr)
-library(tidyverse)
-library(rlang)
-library(glue)
-library(drake)
-library(assertr)
-library(disk.frame)
+suppressPackageStartupMessages({
+  library(futile.logger)
+  library(magrittr)
+  library(tidyverse)
+  library(rlang)
+  library(glue)
+  library(drake)
+  library(assertr)
+  library(disk.frame)
+})
 
 if (interactive()) {
   flog.info("Creating drake plan in interactive session...")
@@ -287,7 +289,7 @@ plan <- drake_plan(
   
   join_derep = target(
     tzara::combine_derep(
-      readd(derep1, cache = ignore(cache)),
+      readd(derep1, cache = ignore(drake::drake_cache(cache_dir))),
       .data = dplyr::bind_rows(trace1)[ , c("seq_run", "plate", "well",
                                             "direction", "trim_file")]
     ),
@@ -321,7 +323,7 @@ plan <- drake_plan(
   ),
   
   lsux_pos = target(
-    combine_dynamic_diskframe(lsux, cache = ignore(cache)),
+    combine_dynamic_diskframe(lsux, cache = ignore(cache_dir)),
     transform = map(lsux, .id = primer_ID),
     format = "diskframe"
   ),
@@ -378,11 +380,17 @@ plan <- drake_plan(
     ),
     transform = map(
       .data = !!select(predada_meta, positions, region_start, region_end,
-                       max_length, min_length, max_ee, seq_run, region),
+                       max_length, min_length, max_ee, seq_run, region, primer_ID),
       .tag_in = step,
       .id = c(seq_run, region)
     ),
     dynamic = map(positions)
+  ),
+
+  derep2_length = target(
+    length(derep2),
+    transform = map(derep2, primer_ID, .tag_in = step, .id = c(seq_run, region)),
+    dynamic = map(derep2)
   ),
   
   illumina_group = target(
@@ -417,6 +425,7 @@ plan <- drake_plan(
     transform = map(
       illumina_group,
       .tag_in = step,
+      .tag_out = derep_all,
       .id = seq_run
     ),
     dynamic = map(illumina_group)
@@ -428,7 +437,7 @@ plan <- drake_plan(
   err = target({
     err.fun <- if (tech == "PacBio" ) dada2::PacBioErrfun else
       dada2::loessErrfun
-    dereps <- readd(derep2, cache = ignore(cache)) %>%
+    dereps <- readd(derep2, cache = ignore(drake::drake_cache(cache_dir))) %>%
       purrr::compact()
     dada2::learnErrors(
       fls = dereps,
@@ -451,7 +460,7 @@ plan <- drake_plan(
   ),
   
   err_illumina = target({
-    dereps <- readd(derep_illumina, cache = ignore(cache)) %>%
+    dereps <- readd(derep_illumina, cache = ignore(drake::drake_cache(cache_dir))) %>%
       purrr::map(read) %>%
       purrr::compact()
     dada2::learnErrors(
@@ -476,9 +485,9 @@ plan <- drake_plan(
   
   # Run dada denoising algorithm (on different regions)
   dada = target(
-    readd(derep2, cache = ignore(cache)) %>%
+    readd(derep2, cache = ignore(drake::drake_cache(cache_dir))) %>%
       set_names(
-        readd(position_map, cache = ignore(cache)) %>%
+        readd(position_map, cache = ignore(drake::drake_cache(cache_dir))) %>%
           dplyr::bind_rows() %>%
           dplyr::mutate(region = region) %>%
           glue::glue_data("{seq_run}_{plate}_{well}_{region}")
@@ -500,10 +509,10 @@ plan <- drake_plan(
   ),
   
   dada_illumina = target({
-    derep <- readd(derep_illumina, cache = ignore(cache)) %>%
+    derep <- readd(derep_illumina, cache = ignore(drake::drake_cache(cache_dir))) %>%
       purrr::map(read) %>%
       set_names(
-        dplyr::bind_rows(readd(illumina_id, cache = ignore(cache))) %>%
+        dplyr::bind_rows(readd(illumina_id, cache = ignore(drake::drake_cache(cache_dir)))) %>%
           dplyr::mutate(read = read) %>%
           glue::glue_data("{seq_run}_{plate}_{well}_{read}_{direction}") %>%
           unique()
@@ -533,9 +542,9 @@ plan <- drake_plan(
   merge = target(
     dada2::mergePairs(
       dadaF = purrr::compact(dada_R1),
-      derepF = set_names(purrr::map(readd(derep, cache = ignore(cache)), "R1"), names(dada_R1)) %>% purrr::compact(),
+      derepF = set_names(purrr::map(readd(derep, cache = ignore(drake::drake_cache(cache_dir))), "R1"), names(dada_R1)) %>% purrr::compact(),
       dadaR = purrr::compact(dada_R2),
-      derepR = set_names(purrr::map(readd(derep, cache = ignore(cache)), "R2"), names(dada_R2)) %>% purrr::compact()
+      derepR = set_names(purrr::map(readd(derep, cache = ignore(drake::drake_cache(cache_dir))), "R2"), names(dada_R2)) %>% purrr::compact()
     ),
     transform = map(.data = !!merge_meta, .id = seq_run)
   ),
@@ -692,45 +701,88 @@ plan <- drake_plan(
   #### Plan section 3: Generate consensus sequences ####
   # Join the raw read info
   preconseq = target({
-    dadalist <- drake_combine(dada)
+    # dada is not dynamic, so load the actual data
+    dadalist <- readd_list(dada, cache = ignore(cache_dir))
     names(dadalist) <- gsub("dada_", "", names(dadalist))
-    dereplist <- readd_list(derep2, cache = ignore(cache))
+    # derep2 is dynamic, so this will only load a list of hash vectors
+    # This helps to keep RAM requirements down.
+    dereplist <- gett_list(derep2, cache = ignore(cache_dir))
     names(dereplist) <- gsub("derep2_", "", names(dereplist))
+    # lengthlist is also dynamic, but it is small so load the actual data
+    lengthlist <- readd_list(derep2_length, cache = ignore(cache_dir))
+    names(lengthlist) <- gsub("derep2_length_", "", names(lengthlist))
+    # Make sure they are in the same order (not guaranteed by the combine transform)
     dereplist <- dereplist[names(dadalist)]
+    lengthlist <- lengthlist[names(dadalist)]
+    # Join all the elements together to make one list
     dadalist <- do.call(c, c(dadalist, use.names = FALSE))
     dereplist <- do.call(c, c(dereplist, use.names = FALSE))
-    dereplist[vapply(dereplist, length, 1L) == 0] <- list(NULL)
+    lengthlist <- do.call(c, c(lengthlist, use.names = FALSE))
+    
+    dereplist[lengthlist == 0] <- list(NULL)
     names(dereplist) <- names(dadalist)
-    dada_map <- tzara::dadamap(dereplist, dadalist) %>%
+    
+    # Combine into a master list
+    dada_key <- tibble::tibble(dadalist, dereplist, lengthlist, name = names(dadalist)) %>%
       tidyr::extract(
         name,
         c("seq_run", "plate", "well", "region"),
-        "([pi][sb]_\\d{3})_(\\d{3})_([A-H]\\d{1,2})_(.+)"
-      )
-    regions <- unique(dada_map[["region"]])
-    dada_map %>%
-      dplyr::select(seq.id, seq_run, plate, well, region, dada.seq) %>%
-      dplyr::mutate_at("dada.seq", chartr, old = "T", new = "U") %>%
-      tidyr::spread(key = "region", value = "dada.seq") %>%
-      dplyr::group_by(ITS2) %>%
-      dplyr::filter(!is.na(ITS2), dplyr::n() >= 3) %>%
-      dplyr::group_by_at(regions) %>%
-      dplyr::summarize(nread = dplyr::n()) %>%
-      dplyr::ungroup() %>%
+        "([pi][sb]_\\d{3})_(\\d{3})_([A-H]\\d{1,2})_(.+)",
+        remove = FALSE
+      ) %>%
+      dplyr::filter(lengthlist > 0) %>%
+      dplyr::select(-lengthlist)
+    dada_regions <- unique(dada_key[["region"]])
+    
+    # Remove references to the original lists so the memory can be freed.
+    remove(dadalist)
+    remove(dereplist)
+    remove(lengthlist)
+    
+    # process each sample seperately, removing data as it gets processed
+    dadakey <- dada_key %>%
+      dplyr::group_by(seq_run, plate, well) %>%
+      dplyr::group_split()
+    out <- tibble::tibble()
+    for (i in rev(seq_along(dadakey))) {
+      out <- dplyr::bind_rows(
+        out,
+        dplyr::mutate_at(
+          dadakey[[i]],
+          "dereplist",
+          purrr::map,
+          ignore(drake::drake_cache(cache_dir))$get_value
+        ) %>%
+          do.call(what = multidada)
+      )# %>%
+        # dplyr::group_by_at(dada_regions) %>%
+        # dplyr::summarize_at("nread", sum)
+      dadakey[[i]] <- NULL
+      # gc()
+      futile.logger::flog.info("dadakey: %d elements, size = %f", length(dadakey), object.size(dadakey))
+      futile.logger::flog.info("multidada: %d rows, size = %f", nrow(out), object.size(out))
+    }
+    out %>%
+      dplyr::group_by_at(dada_regions) %>%
+      dplyr::summarize_at("nread", sum) %>%
+      dplyr::filter(!is.na(ITS2)) %>%
       dplyr::mutate(primer_ID = symbols_to_values(primer_ID)) %>%
       region_concat("LSU", c("LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")) %>%
       region_concat("ITS", c("ITS1", "5_8S", "ITS2"), "ITS2") %>%
       region_concat("long", c("ITS", "LSU"), "ITS2") %>%
       region_concat("short", c("5_8S", "ITS2", "LSU1"), "ITS2") %>%
       region_concat("32S", c("5_8S", "ITS2", "LSU"), "ITS2") %>%
-      dplyr::group_by(ITS2)
-    },
-    transform = combine(
-      dada, derep2,
-       primer_ID,
-      .tag_in = step,
-      .by = primer_ID
-    )
+      region_concat("conserv", c("5_8S", "LSU1", "LSU2", "LSU3", "LSU4")) %>%
+      dplyr::group_by(ITS2) %>%
+      dplyr::filter(sum(nread) >= 3)
+  },
+  transform = combine(
+    dada, derep2, derep2_length,
+    primer_ID,
+    .tag_in = step,
+    .by = primer_ID
+  ),
+  memory_strategy = "unload"
   ),
 
   conseq = target(
@@ -1318,10 +1370,14 @@ cache_dir <- ".drake_heavy"
 cache <- drake::drake_cache(cache_dir)
 if (is.null(cache)) cache <- drake::new_cache(".drake_heavy")
 
-flog.info("\nCalculating outdated targets...")
+
 tictoc::tic()
+flog.info("Configuring plan...")
 dconfig <- drake_config(plan, jobs_preprocess = local_cpus(),
                         cache = cache)
+tictoc::toc()
+flog.info("Calculating outdated targets...")
+tictoc::tic()
 od <- outdated(dconfig)
 tictoc::toc()
 
