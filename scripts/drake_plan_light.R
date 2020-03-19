@@ -22,7 +22,7 @@ source(file.path(config$rdir, "taxonomy.R"))
 source(file.path(config$rdir, "plate_check.R"))
 source(file.path(config$rdir, "output_functions.R"))
 
-datasets <- read_csv(config$dataset, col_types = "cccccccicccccicc")
+datasets <- read_csv(config$dataset, col_types = "cccccccicccccccccccicc")
 regions <- read_csv(config$regions, col_types = "cccciiiiic")
 
 # Data frame for mapping between targets for guild assignment
