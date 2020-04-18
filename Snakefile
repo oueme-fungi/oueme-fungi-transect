@@ -508,6 +508,16 @@ checkpoint drake_plan:
     output:
         drakedata         = config['drakedata']
     input:
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['warcup', 'unite'],
+               region = ['ITS'],
+               method = ['sintax', 'dada2']),
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['rdp_train'],
+               region = ['LSU'],
+               method = ['sintax', 'dada2']),
         "{rdir}/dada.R".format_map(config),
         "{rdir}/qstats.R".format_map(config),
         "{rdir}/inferrnal.R".format_map(config),
@@ -691,16 +701,6 @@ rule consensus:
     output:
         flag    = ".consensus"
     input:
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['warcup', 'unite'],
-               region = ['ITS'],
-               method = ['sintax', 'dada2']),
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['rdp_train'],
-               region = ['LSU'],
-               method = ['sintax', 'dada2']),
         flag = rules.preconsensus.output.flag,
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-07-consensus.R".format_map(config)
