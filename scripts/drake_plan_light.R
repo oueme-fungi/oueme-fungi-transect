@@ -3,16 +3,18 @@ if (exists("snakemake")) {
 } else {
   load("data/plan/drake.Rdata")
 }
-library(drake)
-library(magrittr)
-library(tidyverse)
-library(rlang)
-library(glue)
-library(drake)
-library(assertr)
-library(disk.frame)
-library(ape)
-library(ggplot2)
+suppressPackageStartupMessages({
+  library(drake)
+  library(magrittr)
+  library(tidyverse)
+  library(rlang)
+  library(glue)
+  library(drake)
+  library(assertr)
+  library(disk.frame)
+  library(ape)
+  library(ggplot2)
+})
 
 source(file.path(config$rdir, "dada.R"))
 source(file.path(config$rdir, "mantel.R"))
