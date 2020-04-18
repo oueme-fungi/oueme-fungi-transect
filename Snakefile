@@ -466,6 +466,8 @@ rule taxon_references:
   output: "{ref_root}/{{reference}}.fasta.gz".format_map(config)
   params:
     url = "{reannotate_url}/{{reference}}.fasta.gz".format_map(config)
+  resources:
+    connection=1
 #  log: "{logdir}/references_{{reference}}.log".format_map(config)
   shell: "cd {config[ref_root]} && wget {params.url}"
 
