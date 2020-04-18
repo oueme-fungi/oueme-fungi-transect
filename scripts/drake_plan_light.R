@@ -530,9 +530,8 @@ plan2 <- drake_plan(
   
   variofit2 = target(
     variog %>%
-      # filter(!is.na(bin)) %>%
       as_variogram() %>%
-      nls(
+      stats::nls(
         gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp(dist/range*log(0.05)),
         data = .,
         start = list(
@@ -545,7 +544,16 @@ plan2 <- drake_plan(
         algorithm = "port",
         weights = pmin(.$np/.$dist, 1),
         control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
-      ),
+      ) %>% {
+        list(
+          pars = as.list(.$m$getPars()),
+          summary = variog_summary(.),
+          predict = variog_predict(
+            .,
+            newdata = expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
+          )
+        )
+      },
     transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
   ),
   
@@ -557,24 +565,30 @@ plan2 <- drake_plan(
   ),
   
   variofitST2 = target(
-    variogST %>%
-      # filter(!is.na(bin)) %>%
-      as_variogramST() %>% {
-        nls(
-          gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp((dist/range + timelag/timerange)*log(0.05)),
-          # add the parameters from the spatial-only fit.
-          data = .,
-          start = c(
-            list(timerange = 2),
-            as.list(variofit2$m$getPars())
-          ),
-          lower = c(
-            list(timerange = 0.001),
-            as.list(variofit2$m$getPars())
-          ),
-          algorithm = "port",
-          weights = pmin(.$np/.$dist, 1),
-          control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
+    as_variogramST(variogST) %>%
+      stats::nls(
+        gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp((dist/range + timelag/timerange)*log(0.05)),
+        # add the parameters from the spatial-only fit.
+        data = .,
+        start = c(
+          list(timerange = 2),
+          variofit2$pars
+        ),
+        lower = c(
+          list(timerange = 0.001),
+          variofit2$pars
+        ),
+        algorithm = "port",
+        weights = pmin(.$np/.$dist, 1),
+        control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
+      ) %>% {
+        list(
+          pars = as.list(.$m$getPars()),
+          summary = variog_summary(.),
+          predict = variog_predict(
+            .,
+            newdata = expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
+          )
         )
       },
     transform = map(variogST, variofit2, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
@@ -1257,56 +1271,61 @@ plan2 <- drake_plan(
     apply(MARGIN = 2, match, x = 1),
   
   variog_data = target({
-    if (FALSE) list(correlog, variog, variogST, variofit2, variofitST2)
+    quote(list(correlog, variog, variogST, variofit2, variofitST2))
     ignore(plan2) %>%
-    filter(step == "correlog") %>%
-    select("correlog", timelag, guild, metric, tech, amplicon, algorithm) %>%
-    mutate_at("correlog", lapply, readd, character_only = TRUE, cache = ignore(cache)) %>%
-    mutate_at("correlog", map, "mantel.res") %>%
-    mutate_at("correlog", map_lgl, ~ any(.x[,"Pr(corrected)"] < 0.05 & .x[, "Mantel.cor"] > 0, na.rm = TRUE)) %>%
-    pivot_wider(names_from = "timelag", values_from = "correlog", names_prefix = "mantel_") %>%
-    left_join(
-      ignore(plan2) %>%
-        filter(step == "variofit2") %>%
-        select("variofit2", guild, metric, tech, amplicon, algorithm),
-      by = c("guild", "metric", "tech", "amplicon", "algorithm")
-    ) %>%
-    left_join(
-      ignore(plan2) %>%
-        filter(step == "variofitST2") %>%
-        select("variofitST2", "variogST", guild, metric, tech, amplicon, algorithm),
-      by = c("guild", "metric", "tech", "amplicon", "algorithm")
-    ) %>%
-    mutate(
-      variofit = ifelse(mantel_1, .data[["variofitST2"]], .data[["variofit2"]])
-    ) %>%
-    mutate_at(
-      c("variofit", "variogST", "variofitST2", "variofit2"),
-      map,
-      readd,
-      character_only = TRUE,
-      cache = ignore(cache)
-    ) %>%
-    select(mantel_0, mantel_1, "variofitST2", "variofit2", "variofit",
-           "variogST", guild, metric, tech, amplicon, algorithm) %>%
-    mutate_at(c("guild", "metric", "tech", "amplicon", "algorithm"),
-              str_replace_all, "\"", "") %>%
-    mutate(
-      guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("All Fungi", "ECM")),
-      metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
-      amplicon = factor(
-        amplicon,
-        levels = c("Short", "Long")
-      ),
-      algorithm = factor(
-        algorithm,
-        levels = c("Consensus", "PHYLOTAX", "PHYLOTAX+Cons"),
-        labels = c("Cons", "PHYLO", "PHYLO")
+      filter(step == "correlog") %>%
+      select("correlog", timelag, guild, metric, tech, amplicon, algorithm) %>%
+      mutate_at(
+        "correlog",
+        lapply,
+        readd,
+        character_only = TRUE,
+        path = ignore(cache_dir)
+      ) %>%
+      mutate_at("correlog", map, "mantel.res") %>%
+      mutate_at("correlog", map_lgl, ~ any(.x[,"Pr(corrected)"] < 0.05 & .x[, "Mantel.cor"] > 0, na.rm = TRUE)) %>%
+      pivot_wider(names_from = "timelag", values_from = "correlog", names_prefix = "mantel_") %>%
+      left_join(
+        ignore(plan2) %>%
+          filter(step == "variofit2") %>%
+          select("variofit2", guild, metric, tech, amplicon, algorithm),
+        by = c("guild", "metric", "tech", "amplicon", "algorithm")
+      ) %>%
+      left_join(
+        ignore(plan2) %>%
+          filter(step == "variofitST2") %>%
+          select("variofitST2", "variogST", guild, metric, tech, amplicon, algorithm),
+        by = c("guild", "metric", "tech", "amplicon", "algorithm")
+      ) %>%
+      mutate(
+        variofit = ifelse(mantel_1, .data[["variofitST2"]], .data[["variofit2"]])
+      ) %>%
+      mutate_at(
+        c("variofit", "variogST", "variofitST2", "variofit2"),
+        map,
+        readd,
+        character_only = TRUE,
+        path = ignore(cache_dir)
+      ) %>%
+      select(mantel_0, mantel_1, "variofitST2", "variofit2", "variofit",
+             "variogST", guild, metric, tech, amplicon, algorithm) %>%
+      mutate_at(c("guild", "metric", "tech", "amplicon", "algorithm"),
+                str_replace_all, "\"", "") %>%
+      mutate(
+        guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("All Fungi", "ECM")),
+        metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
+        amplicon = factor(
+          amplicon,
+          levels = c("Short", "Long")
+        ),
+        algorithm = factor(
+          algorithm,
+          levels = c("Consensus", "PHYLOTAX", "PHYLOTAX+Cons"),
+          labels = c("Cons", "PHYLO", "PHYLO")
+        )
       )
-    )
-    },
-    transform = combine(correlog, variog, variogST, variofit2, variofitST2),
-    memory_strategy = "unload"
+  },
+  transform = combine(correlog, variog, variogST, variofit2, variofitST2)
   ),
   
   variog_points = unnest(variog_data, "variogST") %>%
@@ -1332,10 +1351,7 @@ plan2 <- drake_plan(
     ),
   
   variog_fit = variog_data %>%
-    mutate_at("variofit", map,
-              ~ mutate(.y, gamma = predict(.x, newdata = .y)),
-              expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
-    ) %>%
+    mutate_at("variofit", purrr::map, "predict") %>%
     unnest("variofit") %>%
     filter(mantel_1 | timelag == "0", mantel_0) %>%
     mutate_at("timelag", factor),
@@ -1345,30 +1361,8 @@ plan2 <- drake_plan(
     select(mantel_0, mantel_1, variofit_0 = variofit2, variofit_1 = variofitST2,
            metric, amplicon, tech, guild, algorithm) %>%
     pivot_longer(1:4, names_to = c(".value", "timelag"), names_sep = "_") %>%
-    mutate(params = map(variofit, broom::tidy)) %>%
+    mutate(params = map(variofit, "summary")) %>%
     unnest(params) %>%
-    bind_cols(
-      pmap_dfr(
-        .,
-        function(mantel, variofit, term, ...) {
-          if (mantel) {
-            tryCatch(
-              broom::confint_tidy(object = variofit, parm = term) %>%
-                as.list %>%
-                inset2("term", term) %>%
-                as.data.frame,
-              error = function(e) tibble(
-                term = term,
-                conf.low = NA_real_,
-                conf.high = NA_real_
-              )
-            )
-          } else {
-            tibble(term = term, conf.low = NA_real_, conf.high = NA_real_)
-          }
-        }) %>%
-        select(-term)
-    ) %>%
     filter(term %in% c("range", "timerange")),
   
   taxdata = {
@@ -3075,22 +3069,24 @@ plan2 <- drake_plan(
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
 
 saveRDS(plan2, "data/plan/drake_light.rds")
+njobs <- max(local_cpus() %/% 2, 1)
+parallelism <- if (njobs > 1) "clustermq" else "loop"
 options(clustermq.scheduler = "multicore")
 #if (interactive()) {
 cache_dir <- ".drake"
-cache <- drake_cache(".drake")
+cache <- drake_cache(cache_dir)
 # dconfig <- drake_config(plan2, cache = cache)
 # vis_drake_graph(dconfig)
 make(
   plan2,
   cache = cache,
-  parallelism = "clustermq",
-  jobs = local_cpus() %/% 2,
-  # targets = "tree_fig",
+  parallelism = parallelism,
+  jobs = njobs,
+  # targets = "variofit2_ecm_bray_PacBio_Short_Consensus",
   lazy_load = FALSE,
   memory_strategy = "autoclean",
   garbage_collection = TRUE,
   cache_log_file = "drake_light_cache.csv",
-  console_log_file = "logs/drake_light.log"
+  console_log_file = file.path(normalizePath("logs"), "drake_light.log")
 )
 #}
