@@ -226,7 +226,7 @@ checkpoint pacbio_demux:
 # Return a closure which calls checkpoints.pacbio_demux.get() to indicate to Snakemake that this rule is
 # dynamically calculated after completion of pacbio_demux, and then find all the demultiplexed pacbio files
 # for the given plate.
-def demux_find(seqplate):
+def pacbio_find(seqplate):
     def subfind(wildcards):
         checkpoints.pacbio_demux.get(seqplate = seqplate)
         return glob("{trimdir}/{seqplate}/{seqplate}-*.trim.fastq.gz"
@@ -238,18 +238,18 @@ def demux_find(seqplate):
 localrules: pacbio_demuxall
 rule pacbio_demuxall:
     input:
-         demux_find('pb_500_001'),
-         demux_find('pb_500_002'),
-         demux_find('pb_483_001'),
-         demux_find('pb_483_002')
+         pacbio_find('pb_500_001'),
+         pacbio_find('pb_500_002'),
+         pacbio_find('pb_483_001'),
+         pacbio_find('pb_483_002')
 
 
 # put all the demultiplexed long PacBio reads in one file, with labeled samples
 localrules: pacbio_singledemux
 rule pacbio_singledemux:
     input:
-        demux_find('pb_500_001'),
-        demux_find('pb_500_002')
+        pacbio_find('pb_500_001'),
+        pacbio_find('pb_500_002')
     output:
         fastq = "{seqdir}/long_pacbio.fastq.gz".format_map(config),
         key   = "{seqdir}/long_pacbio.key.tsv".format_map(config)
@@ -483,10 +483,10 @@ rule hash_demux:
   output:
     config['demux_file']
   input:
-    demux_find('pb_500_001'),
-    demux_find('pb_500_002'),
-    demux_find('pb_483_001'),
-    demux_find('pb_483_002'),
+    pacbio_find('pb_500_001'),
+    pacbio_find('pb_500_002'),
+    pacbio_find('pb_483_001'),
+    pacbio_find('pb_483_002'),
     ion_find('is_057', '001'),
     illumina_find('SH-2257', '1'),
     illumina_find('SH-2257', '2')
