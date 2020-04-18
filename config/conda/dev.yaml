@@ -6,16 +6,23 @@ channels:
   - bfurneaux
 dependencies:
   - r-base=3.5.1
+  # R utility
   - r-tidyverse=1.2.1
   - r-tidyr>=1.0.0
   - r-here=0.1
-  - r-clustermq=0.8.8
   - r-tidyxl=1.0.4
   - r-glue=1.3.1
-  - r-seqinr=3.6_1
+  - r-assertr=2.6
+  # Drake and friends
+  - r-drake=7.8.0
+  - r-fst
+  - r-disk.frame
+  - r-clustermq=0.8.8
   - r-visnetwork=2.0.9
   - r-networkd3=0.4
   - r-tictoc=1.0
+  # R Bioinformatics
+  - r-seqinr=3.6_1
   - r-rcppparallel=4.4.4
   - r-phytools=0.6
   - r-phylobase=0.8.6
@@ -30,14 +37,11 @@ dependencies:
   - r-dada2=1.12.1
   - r-tzara=0.0.7.8
   - r-funguildr=0.1
-  - r-drake=7.8.0
-  - r-fst
-  - r-disk.frame
-  - r-assertr=2.6
   - r-tikzdevice=0.12
   - r-inext=2.0.19
   - r-ips=0.0.11
   - r-reldist=1.6
+  # external tools
   - infernal=1.1.2
   - vsearch=2.9.1
   - locarna=2.0.0
@@ -48,15 +52,18 @@ dependencies:
   - samtools
   - snakemake-minimal=5.5.4
   - pandas=0.25.1
-  - rstudio
-  - defaults::qt
-  - r-bookdown
+  # Plotting
   - r-ggpubr
-  - r-kableextra
-  - r-eulerr
-  - r-metacoder
   - r-ggnomics
   - bioconductor-ggtree
+  - r-eulerr
+  - r-metacoder
+  # Knitting
+  - r-bookdown
+  - r-kableextra  
+  # Rstudio and development tools
+  - rstudio
+  - defaults::qt
   - r-mcmcglmm
   - r-lme4
   - r-pdftools
