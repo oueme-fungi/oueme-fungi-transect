@@ -1353,10 +1353,7 @@ plan <- drake_plan(
       cache = ignore(cache_dir)
     ) %>%
       as.data.frame() %>%
-      tibble::as_tibble() %>%
-      dplyr::group_by_at(dplyr::vars(-nreads)) %>%
-      dplyr::summarize_at("nreads", sum) %>%
-      dplyr::ungroup(),
+      tibble::as_tibble(),
     transform = combine(
       qstats_derep2,
       qstats_demux,
