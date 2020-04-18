@@ -62,6 +62,18 @@ latexdirs <- file.path(c("transect_paper_files", "transect_supplement_files"), "
 # Drake plan
 plan2 <- drake_plan(
   # targets which are imported from first plan
+  file_meta = target(
+    transform = map(primer_ID = !!unique(itsx_meta$primer_ID)),
+    trigger = trigger(mode = "blacklist")
+  ),
+  illumina_group = target(
+    transform = map(
+      seq_run = !!unique(illumina_meta$seq_run),
+      .tag_in = step,
+      .id = seq_run
+    ),
+    trigger = trigger(mode = "blacklist")
+  ),
   allseqs = target(trigger = trigger(mode = "blacklist")),
   taxon_table = target(trigger = trigger(mode = "blacklist")),
   taxon = target(
@@ -2817,6 +2829,245 @@ plan2 <- drake_plan(
         file.rename("latex.tar.gz", file.path("..", "output", "latex.tar.gz"))
       }
     ),
+  
+  #### prepare submission materials for ENA ####
+  soil_samples =
+    readd(proto_physeq) %>%
+      phyloseq::sample_data() %>%
+      as("data.frame") %>%
+      dplyr::filter(sample_type == "Sample", tech == "PacBio") %>%
+      dplyr::left_join(
+        readRDS("config/tags/all.rds") %>%
+          tidyr::pivot_longer(
+            cols = matches("(primer|barcode|adapter)_(seq|tag)_(fwd|rev)"),
+            names_to = c(".value", "direction"),
+            names_pattern = "(.+)_(fwd|rev)"
+          ) %>%
+          tidyr::unite("seq", ends_with("seq"), sep = "") %>%
+          mutate_at(vars(ends_with("tag")), na_if, "unnamed") %>%
+          mutate(tag = dplyr::coalesce(barcode_tag, primer_tag)) %>%
+          dplyr::select(amplicon, well, direction, tag, seq) %>%
+          filter(nchar(seq) > 0) %>%
+          mutate_at("tag", str_replace, "its", "ITS") %>%
+          mutate_at("tag", str_replace, "lr", "LR") %>%
+          tidyr::unite("tag", tag, seq, sep = ": ") %>%
+          group_by(amplicon, well, direction) %>%
+          summarize(tag = paste(unique(tag), collapse = ", ")) %>%
+          group_by(amplicon, well) %>%
+          summarize(tag = paste(unique(tag), collapse = "; ")),
+        by = c("amplicon", "well"))%>%
+    dplyr::mutate(
+      sample_alias = glue::glue("OT-{substr(year, 3, 4)}-{site}-{x}-{substr(buffer, 1, 1)}-{substr(amplicon, 1, 1)}"),
+      tax_id = "410658",
+      scientific_name = "soil metagenome",
+      common_name = "soil metagenome",
+      sample_title = sample_alias,
+      sample_description = glue::glue("Ouémé Supérieur soil transect {year}, {ifelse(site == 'Ang', 'Angaradebou', 'Gando')} sample #{x}, preserved with {buffer}, {amplicon} amplicon"),
+      "project name" = "ena-STUDY-UPPSALA UNIVERISTY-19-03-2020-10:28:50:771-6",
+      "experimental factor" = paste(x, "m from transect origin"),
+      "sample volume or weight for dna extraction" = 0.05,
+      "nucleic acid extraction" = "Zymo Research Xpedition Soil Microbe DNA MiniPrep D6202",
+      "target gene" = ifelse(amplicon == "Long", "ITS1, 5.8S, ITS2, LSU", "ITS2"),
+      "pcr primers" = tag,
+      "pcr conditions" = ifelse(
+        amplicon == "Long",
+        "initial denaturation:95degC_10min; denaturation:95degC_45s; annealing:59degC_45s; extension:72degC_90s; cycles:30; final extension:72degC_10min",
+        "initial denaturation:95degC_10min; denaturation:95degC_60s; annealing:56degC_45s; extension:72degC_50s; cycles:35; final extension:72degC_3min"
+      ),
+      "sequencing method" = ifelse(
+        amplicon == "Long",
+        "PACBIO_SMRT",
+        "ION_TORRENT, PACBIO_SMRT, ILLUMINA"
+      ),
+      "investigation type" = "metagenome",
+      "collection date" = case_when(
+        year == "2015" ~ "2015-05",
+        year == "2016" ~ "2016-06"
+      ),
+      "geographic location (country and/or sea)" = "Benin",
+      "geographic location (latitude)" = case_when(
+        site == "Ang" ~ "N 9.75456",
+        site == "Gan" ~ "N 9.75678"
+      ),
+      "geographic location (longitude)" = case_when(
+        site == "Ang" ~ "W 2.14064",
+        site == "Gan" ~ "W 2.31058"
+      ),
+      "geographic location (region and locality)" = case_when(
+        site == "Ang" ~ "Borgou department, N'Dali Commune, Forêt Classée de l'Ouémé Supérieur near Angaradebou village",
+        site == "Gan" ~ "Borgou department, N'Dali Commune, Forêt Classée de l'Ouémé Supérieur near Gando village"
+      ),
+      "soil environmental package" = "soil",
+      "geographic location (depth)" = "0-0.05",
+      "environment (biome)" = "tropical savannah ENVO:01000188",
+      "environment (feature)" = "ectomycorrhizal woodland",
+      "environment (material)" = "tropical soil ENVO:00005778",
+      "geographic location (elevation)" = "320",
+      "amount or size of sample collected" = "0.125 L",
+      "sample weight for dna extraction" = "0.25",
+      "storage conditions (fresh/frozen/other)" = case_when(
+        buffer == "Xpedition" ~ "field lysis by bead beating in Xpedition lysis solution (Zymo Research)",
+        buffer == "LifeGuard" ~ "stored for approx. two months in LifeGuard Soil Preservation Solution (Quiagen)"
+      )
+    ),
+    ENA_soil_samples =  {
+      template_in <- file_in("config/ENA_soil_sample_template.tsv")
+      template_names <- names(read_tsv(template_in, skip = 2))
+      tsv_out <- file_out("output/ENA/ENA_soil_samples.tsv")
+      if (!dir.exists(dirname(tsv_out))) dir.create(dirname(tsv_out), recursive = TRUE)
+      file.copy(template_in, tsv_out, overwrite = TRUE)
+      soil_samples %>%
+        assertr::verify(template_names %in% names(.)) %>%
+        select_at(template_names) %>%
+        write_tsv(tsv_out, append = TRUE, col_names = FALSE)
+  },
+  control_samples =
+    readd(proto_physeq) %>%
+    phyloseq::sample_data() %>%
+    as("data.frame") %>%
+    dplyr::filter(sample_type == "Pos", tech == "PacBio") %>%
+    dplyr::left_join(
+      readRDS("config/tags/all.rds") %>%
+        tidyr::pivot_longer(
+          cols = matches("(primer|barcode|adapter)_(seq|tag)_(fwd|rev)"),
+          names_to = c(".value", "direction"),
+          names_pattern = "(.+)_(fwd|rev)"
+        ) %>%
+        tidyr::unite("seq", ends_with("seq"), sep = "") %>%
+        mutate_at(vars(ends_with("tag")), na_if, "unnamed") %>%
+        mutate(tag = dplyr::coalesce(barcode_tag, primer_tag)) %>%
+        dplyr::select(amplicon, well, direction, tag, seq) %>%
+        filter(nchar(seq) > 0) %>%
+        mutate_at("tag", str_replace, "its", "ITS") %>%
+        mutate_at("tag", str_replace, "lr", "LR") %>%
+        tidyr::unite("tag", tag, seq, sep = ": ") %>%
+        group_by(amplicon, well, direction) %>%
+        summarize(tag = paste(unique(tag), collapse = ", ")) %>%
+        group_by(amplicon, well) %>%
+        summarize(tag = paste(unique(tag), collapse = "; ")),
+      by = c("amplicon", "well")) %>%
+    dplyr::mutate(
+      sample_alias = glue::glue("OT-control-{plate}-{substr(amplicon, 1, 1)}"),
+      tax_id = "5341",
+      scientific_name = "Agaricus bisporus",
+      common_name = "common button mushroom",
+      sample_title = sample_alias,
+      sample_description = glue::glue("commercially purchased button mushroom as positive control, {amplicon} amplicon"),
+      isolation_source = "purchased at local grocery store",
+      "geographic location (country and/or sea)" = "Sweden",
+      "geographic location (region and locality)" = "Uppsala",
+      "project name" = "ena-STUDY-UPPSALA UNIVERISTY-19-03-2020-10:28:50:771-6",
+      "target gene" = ifelse(amplicon == "Long", "ITS1, 5.8S, ITS2, LSU", "ITS2"),
+      "pcr primers" = tag,
+      "pcr conditions" = ifelse(
+        amplicon == "Long",
+        "initial denaturation:95degC_10min; denaturation:95degC_45s; annealing:59degC_45s; extension:72degC_90s; cycles:30; final extension:72degC_10min",
+        "initial denaturation:95degC_10min; denaturation:95degC_60s; annealing:56degC_45s; extension:72degC_50s; cycles:35; final extension:72degC_3min"
+      ),
+      "sequencing method" = ifelse(
+        amplicon == "Long",
+        "PACBIO_SMRT",
+        "ION_TORRENT, PACBIO_SMRT, ILLUMINA"
+      )
+    ),
+  ENA_control_samples = {
+    template_in <- file_in("config/ENA_control_sample_template.tsv")
+    template_names <- names(read_tsv(template_in, skip = 2))
+    tsv_out <- file_out("output/ENA/ENA_control_samples.tsv")
+    if (!dir.exists(dirname(tsv_out))) dir.create(dirname(tsv_out), recursive = TRUE)
+    file.copy(template_in, tsv_out, overwrite = TRUE)
+    control_samples %>%
+      assertr::verify(template_names %in% names(.)) %>%
+      select_at(template_names) %>%
+      write_tsv(tsv_out, append = TRUE, col_names = FALSE)
+  },
+  pacbio_ion_manifest = 
+    dplyr::inner_join(
+      dplyr::bind_rows(
+        soil_samples,
+        control_samples
+      ) %>% select(sample_alias, "project name", plate, well, amplicon, sample_type),
+      dplyr::bind_rows(
+        file_meta_gits7its4 %>%
+          mutate(plate = ifelse(tech == "Ion Torrent", list(c("001", "002")), as.list(plate))) %>%
+          unnest(plate),
+        readd(file_meta_its1lr5)
+      ),
+      by = c("plate", "well", "amplicon")
+    ) %>%
+    dplyr::transmute(
+      STUDY = `project name`,
+      SAMPLE = sample_alias,
+      NAME = paste(sample_alias, tech, direction, sep = "-") %>% str_replace("-$", "") %>% str_replace(" ", ""),
+      INSTRUMENT = paste(tech, machine) %>% str_replace("Ion S5", "S5"),
+      LIBRARY_SOURCE = ifelse(sample_type == "Pos", "GENOMIC", "METAGENOMIC"),
+      LIBRARY_SELECTION = "PCR",
+      LIBRARY_STRATEGY = "AMPLICON",
+      FASTQ = trim_file,
+      DESCRIPTION = case_when(
+        direction == "f" ~ "Reads originally in forward orientation",
+        direction == "r" ~ "Reads originally in reverse orientation",
+        TRUE ~ "")
+    ) %>% 
+    chop(cols = c(SAMPLE, NAME, LIBRARY_SOURCE)) %>% 
+    mutate_at("LIBRARY_SOURCE", map, unique) %>%
+    rowwise() %>%
+    group_split() %>%
+    walk(
+      function(d) {
+        d <- map(as.list(d), unlist)
+        d <- map(as.list(d), unique)
+        if (length(d$SAMPLE) > 1) {
+          d$DESCRIPTION <- paste("also contains samples from", d$SAMPLE[2], "due to incomplete multiplexing")
+          d$SAMPLE <- d$SAMPLE[1]
+          d$NAME <- d$NAME[1]
+          d$LIBRARY_SOURCE <- d$LIBRARY_SOURCE[1]
+        }
+        if (length(d$NAME) > 1) print(d)
+        sink(file.path("output", "ENA", paste0(d$NAME, ".manifest")), append = FALSE)
+        iwalk(d, ~ for (x in .x) {cat(.y, x); cat("\n")})
+        sink()
+      }
+    ),
+  
+  illumina_manifest = dplyr::inner_join(
+    dplyr::bind_rows(
+      soil_samples,
+      control_samples
+    ) %>%
+      select(sample_alias, "project name", plate, well, amplicon, sample_type),
+    illumina_group_SH.2257,
+    by = c("plate", "well", "amplicon")
+  ) %>% 
+    dplyr::transmute(
+      STUDY = `project name`,
+      SAMPLE = sample_alias,
+      NAME = paste(sample_alias, tech, direction, sep = "-") %>% str_replace("-$", "") %>% str_replace(" ", ""),
+      INSTRUMENT = paste(tech, machine),
+      LIBRARY_SOURCE = ifelse(sample_type == "Pos", "GENOMIC", "METAGENOMIC"),
+      LIBRARY_SELECTION = "PCR",
+      LIBRARY_STRATEGY = "AMPLICON",
+      INSERT_SIZE = "350",
+      FASTQ = trim_file_R1,
+      FASTQ2 = trim_file_R2,
+      DESCRIPTION = case_when(
+        direction == "f" ~ "Reads in forward orientation",
+        direction == "r" ~ "Reads in reverse orientation",
+        TRUE ~ "")
+    ) %>%
+    slice(1) %>%
+    rowwise() %>%
+    group_split() %>%
+    walk(
+      function(d) {
+        d <- as.list(d)
+        d$FASTQ <- c(d$FASTQ, d$FASTQ2)
+        d$FASTQ2 <- NULL
+        sink(file.path("output", "ENA", paste0(d$NAME, ".manifest")), append = FALSE)
+        iwalk(d, ~ for (x in .x) {cat(.y, x); cat("\n")})
+        sink()
+      }
+    ),
   trace = TRUE
 ) %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
@@ -2824,17 +3075,20 @@ plan2 <- drake_plan(
 saveRDS(plan2, "data/plan/drake_light.rds")
 options(clustermq.scheduler = "multicore")
 #if (interactive()) {
-  cache <- drake_cache(".drake")
-  # dconfig <- drake_config(plan2, cache = cache)
-  # vis_drake_graph(dconfig)
-  make(
-    plan2,
-    cache = cache,
-    parallelism = "clustermq",
-    jobs = local_cpus() %/% 2,
-    # targets = "tree_fig",
-    lazy_load = FALSE,
-    memory_strategy = "autoclean",
-    garbage_collection = TRUE
-  )
+cache_dir <- ".drake"
+cache <- drake_cache(".drake")
+# dconfig <- drake_config(plan2, cache = cache)
+# vis_drake_graph(dconfig)
+make(
+  plan2,
+  cache = cache,
+  parallelism = "clustermq",
+  jobs = local_cpus() %/% 2,
+  # targets = "tree_fig",
+  lazy_load = FALSE,
+  memory_strategy = "autoclean",
+  garbage_collection = TRUE,
+  cache_log_file = "drake_light_cache.csv",
+  console_log_file = "logs/drake_light.log"
+)
 #}
