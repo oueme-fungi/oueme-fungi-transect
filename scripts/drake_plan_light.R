@@ -2729,27 +2729,69 @@ plan2 <- drake_plan(
     }
   ),
   
+  supplement_diff_tex = withr::with_dir(
+    "writing",
+    {
+      file_in(!!file.path("writing", "transect_supplement_original.tex"))
+      file_in(!!file.path("writing", "transect_supplement.tex"))
+      file_out(!!file.path("writing", "transect_supplement_diff.tex"))
+      tinytex::tlmgr_install("latexdiff")
+      system2(
+        command = "latexdiff",
+        args = list(
+          "transect_supplement_original.tex",
+          "transect_supplement.tex"
+        ),
+        stdout = TRUE
+      ) %>%
+        stringr::str_replace_all(
+          "transect_paper.tex",
+          "transect_paper_diff.tex"
+        ) %>%
+        writeLines("transect_supplement_diff.tex")
+    }
+  ),
+  
+  article_diff_tex = withr::with_dir(
+    "writing",
+    {
+      file_in(!!file.path("writing", "transect_paper_original.tex"))
+      file_in(!!file.path("writing", "transect_paper.tex"))
+      file_out(!!file.path("writing", "transect_paper_diff.tex"))
+      tinytex::tlmgr_install("latexdiff")
+      system2(
+        command = "latexdiff",
+        args = list(
+          "transect_paper_original.tex",
+          "transect_paper.tex"
+        ),
+        stdout = TRUE
+      ) %>%
+        stringr::str_replace_all(
+          "transect_supplement.tex",
+          "transect_supplement_diff.tex"
+        ) %>%
+        writeLines("transect_paper_diff.tex")
+    }
+  ),
+  
   supplement_pdf = withr::with_dir(
     "writing",
     {
       file_in(!!file.path("writing", "transect_supplement.tex"))
       file_in(!!file.path("writing", "transect_paper.tex"))
-      system2(
-        command = "lualatex",
-        args = c("--halt-on-error", "transect_supplement.tex")
-      )
       file_out(!!file.path("writing", "transect_supplement.pdf"))
+      tinytex::lualatex("transect_supplement.tex", bib_engine = "biber")
     }
   ),
   
-  article_bbl = withr::with_dir(
-    "writing", {
-      file_in(!!file.path("writing", "transect_paper.tex"))
-      system2(
-        command = "biber",
-        args = c("transect_paper")
-      )
-      file_out(!!file.path("writing", "transect_paper.bbl"))
+  supplement_diff_pdf = withr::with_dir(
+    "writing",
+    {
+      file_in(!!file.path("writing", "transect_supplement_diff.tex"))
+      file_in(!!file.path("writing", "transect_paper_diff.tex"))
+      file_out(!!file.path("writing", "transect_supplement_diff.pdf"))
+      tinytex::lualatex("transect_supplement_diff.tex", bib_engine = "biber")
     }
   ),
   
@@ -2757,13 +2799,19 @@ plan2 <- drake_plan(
     "writing", 
     {
       file_in(!!file.path("writing", "transect_paper.tex"))
-      file_in(!!file.path("writing", "transect_paper.bbl"))
       file_in(!!file.path("writing", "transect_supplement.tex"))
-      system2(
-        command = "lualatex",
-        args = c("--halt-on-error", "transect_paper.tex")
-      )
       file_out(!!file.path("writing", "transect_paper.pdf"))
+      tinytex::lualatex("transect_paper.tex", bib_engine = "biber")
+    }
+  ),
+  
+  article_diff_pdf = withr::with_dir(
+    "writing", 
+    {
+      file_in(!!file.path("writing", "transect_paper_diff.tex"))
+      file_in(!!file.path("writing", "transect_supplement_diff.tex"))
+      file_out(!!file.path("writing", "transect_paper_diff.pdf"))
+      tinytex::lualatex("transect_paper_diff.tex", bib_engine = "biber")
     }
   ),
   

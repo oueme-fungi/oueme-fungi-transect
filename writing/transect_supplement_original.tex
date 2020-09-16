@@ -1,0 +1,584 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdfauthor={Brendan Furneaux1,; Mohammad Bahram2,3,; Anna Rosling4,; Nourou S. Yorou5,; Martin Ryberg1; 1Program in Systematic Biology, Department of Organismal Biology, Uppsala University,; Uppsala, Sweden; 2Department of Ecology, Swedish University of Agricultural Sciences, Uppsala, Sweden; 3Institute of Ecology and Earth Sciences, University of Tartu, Tartu, Estonia; 4Program in Evolutionary Biology, Department of Ecology and Genetics, Uppsala University,; Uppsala, Sweden; 5Research Unit in Tropical Mycology and Plant-Fungi Interactions, LEB,; University of Parakou, Parakou, Benin},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\usepackage[margin=1in]{geometry}
+\usepackage{longtable,booktabs}
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+% table and figure caption width
+\usepackage[width=0.9\textwidth]{caption}
+
+% table formatting
+\usepackage{colortbl}
+\usepackage{makecell}
+
+% lookup cross-references from the paper
+\usepackage{xr}
+\externaldocument{transect_paper}
+
+% Figures and tables are prefixed with S for supplement
+\renewcommand{\thetable}{S\arabic{table}} 
+\renewcommand{\thefigure}{S\arabic{figure}}
+
+% put all tables and figures on their own pages
+\usepackage[nomarkers]{endfloat}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+\usepackage[]{biblatex}
+
+\title{Supplementary Information for:Long- and short-read metabarcoding technologies reveal similar spatio-temporal structures in fungal communities}
+\author{Brendan Furneaux\textsuperscript{1}, \and Mohammad Bahram\textsuperscript{2,3}, \and Anna Rosling\textsuperscript{4}, \and Nourou S. Yorou\textsuperscript{5}, \and Martin Ryberg\textsuperscript{1} \and \textsuperscript{1}Program in Systematic Biology, Department of Organismal Biology, Uppsala University, \and Uppsala, Sweden \and \textsuperscript{2}Department of Ecology, Swedish University of Agricultural Sciences, Uppsala, Sweden \and \textsuperscript{3}Institute of Ecology and Earth Sciences, University of Tartu, Tartu, Estonia \and \textsuperscript{4}Program in Evolutionary Biology, Department of Ecology and Genetics, Uppsala University, \and Uppsala, Sweden \and \textsuperscript{5}Research Unit in Tropical Mycology and Plant-Fungi Interactions, LEB, \and University of Parakou, Parakou, Benin}
+\date{}
+
+\begin{document}
+\maketitle
+
+\textbf{Supplementary file 1}: Mapping between samples, indexed primers, and read accession numbers for short amplicons.
+
+\textbf{Supplementary file 2}: Mapping between samples, indexed primers, and read accession numbers for long amplicons.
+
+\textbf{Supplementary file 3}: ML tree of all long metabarcoding ASVs (5.8S--ITS2--LSU) assigned to kingdom Fungi.
+Thick branches represent rapid bootstrap values \textgreater90\%.
+Taxonomic assignment by PHYLOTAX, based on assignments using RDPC, SINTAX, and IDTAXA, and Unite, Warcup, and RDP reference databases.
+Taxon names in blue were not fully resolved with PHYLOTAX, and are given as a list of alternative assignments, along with the number of methods which gave each assignment (max 9).
+Taxon names in red were reconstructed as polyphyletic.
+In some cases, this may be due to a poorly identified sequence ``splitting'' the group (e.g., the single \emph{Aspergillus} sequence nested in \emph{Monascus}, Aspergillaceae and Trichocomaceae sequences nested in Onygenales), but in other cases, the tree has clearly failed to reconstruct groups which are generally considered to be monophyletic based on multi-gene trees (e.g., Dothidiomycetes, Cantharellales).
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/buffer-pcoa-1} 
+
+}
+
+\caption[Unconstrained Principal Coordinate Analysis ordination of samples preserved with different buffers]{Unconstrained Principal Coordinate Analysis ordination of samples preserved with different buffers. For each sequencing strategy, only those sampling locations with more than 100 reads each for all three year/preservation buffer combinations were included.}\label{fig:buffer-pcoa}
+\end{figure}
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/buffer-compare-long-1} 
+
+}
+
+\caption{Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs.~LifeGuard) and sampling year, for long amplicon libraries.}\label{fig:buffer-compare-long}
+\end{figure}
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/buffer-compare-short-1} 
+
+}
+
+\caption{Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs.~LifeGuard) and sampling year, for short amplicon libraries.}\label{fig:buffer-compare-short}
+\end{figure}
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/rDNA-1} 
+
+}
+
+\caption[Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA, and internally transcribed spacer (ITS) regions]{Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines). D1-3 (grey) represent the first three variable regions in LSU, while LSU1-4 (black) represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces.}\label{fig:rDNA}
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/regions-1} 
+
+}
+
+\caption[Plot of total number of ASVs recovered vs.~fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using \texttt{LSUx}]{Plot of total number of ASVs recovered vs.~fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using \texttt{LSUx}. Some regions were formed by concatenation of extracted regions, as follows:
+LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4;
+ITS = ITS1--5.8S--ITS2;
+32S = 5.8S--ITS2--LSU;
+long = ITS--LSU.
+For this figure, subregions were concatenated prior to quality filtering and generating ASVs with DADA2.}\label{fig:regions}
+\end{figure}
+
+
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/phylotax-1} 
+
+}
+
+\caption[Phylogenetic refinement of taxonomic assignments (PHYLOTAX)]{Phylogenetic refinement of taxonomic assignments (PHYLOTAX). In the example, a clade includes seven OTUs (A-F), which have been identified by two methods as belonging to taxa ``Tax1'' or ``Tax2'', or are unidentified (``unk''), as shown in the tip labels.
+No taxon is assigned at node~1, because one of the child branches (A) is completely unassigned.
+No taxon is assigned at node~2, because the assignments at C and F are inconsistent.
+Node~3 is assigned to Tax1 because this is consistent with at least one of the assignments for both B and C.
+Node~4 (and thus also node~5) is assigned to Tax2 because this is consistent with at least one of the assignments for D and F, and because E is completely unassigned.}\label{fig:phylotax}
+\end{figure}
+
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/sample-depth-1} 
+
+}
+
+\caption[DNA concentrations after extraction and PCR, and sequencing depth along transects at the two sites Ang and Gan for the years 2015 and 2016]{DNA concentrations after extraction (leftmost column) and PCR (second and third columns), and sequencing depth (right three columns) along transects at the two sites Ang and Gan for the years 2015 and 2016.
+Sequencing reads which were filtered out during quality control are colored dark grey.
+Dotted horizontal line at 100~reads indicates cutoff for inclusion in community analysis.
+2016 samples were preserved using two different methods (LifeGuard, Xpedition), while 2015 samples were preserved only using Xpedition.}\label{fig:sample-depth}
+\end{figure}
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/full-length-1} 
+
+}
+
+\caption[Comparison of the length of denoised sequences from different length amplicons and sequencing technologies]{Comparison of the length of denoised sequences from different length amplicons and sequencing technologies. Length distribution (\emph{a}, \emph{c}) and empirical cumulative distribution function (ECDF; \emph{b}, \emph{d}) for short (\emph{a}, \emph{b}) and long (\emph{c}, \emph{d}) amplicons, respectively.}\label{fig:full-length}
+\end{figure}
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/region-lengths-1} 
+
+}
+
+\caption[Length distribution for each region extracted from long amplicons]{Length distribution for each region extracted from long amplicons. Filtering limits are shown as dashed vertical lines.}\label{fig:region-lengths}
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=1\linewidth]{transect_supplement_files/figure-latex/taxa-1} 
+
+}
+
+\caption[Heat tree summarizing taxonomic composition of soil community]{Heat tree summarizing taxonomic composition of soil community. Color and size of nodes represent the fractional ASV richness of that taxonomic group.
+Color and thickness of branches represent the fractional read abundance of all ASVs belonging to that taxonomic group.
+Diverse but relatively rare groups are thus shown as large, dark-colored nodes on relatively thin, light-colored branches (e.g., Dothideomycetes), while common but relatively non-diverse groups are shown as small, light-colored nodes on relatively thick, dark-colored branches (e.g., Russulales).
+Groups which are not represented by at least 1\% of reads or 1\% of ASVs in any dataset are collapsed into nodes labeled "*``.
+ASVs which could not be further assigned are labelled''?".
+ASV richness and read abundance are displayed as the mean across sequencing runs.
+Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
+The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.}\label{fig:taxa}
+\end{figure}
+
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/ecm-1} 
+
+}
+
+\caption[Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic assignments]{Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic assignments. Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
+``unidentified'' denotes ASVs which were assigned to kingdom Fungi, but could not be identified to family level or could not be assigned ECM status based on the available identification.
+Height of each bar represents the fraction of reads represented by that bar.
+Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP; ``All'' denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.}\label{fig:ecm}
+\end{figure}
+
+
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/ppcoa-1} 
+
+}
+
+\caption[Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding approaches]{Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding approaches, for all fungi (\textbf{a}) and ECM fungi (\textbf{b}).
+Spatio-temporal variation (i.e., variation between different soil samples) has been partialled out.
+Only samples with at least 100 reads for all three approaches are included.
+ASVs are clustered by taxonomic class for all fungi, and by family for ECM fungi.
+Abbreviations represent the approximate direction of increase for the classes and families with the highest scores: \textbf{So}: Sordariomycetes, \textbf{Ag}: Agaricomycetes, \textbf{Pe}: Pezizomycetes, \textbf{Eu}: Eurotiomycetes, and \textbf{Do}: Dothideomycetes; \textbf{In}: Inocybaceae, \textbf{Am}: Amanitaceae, \textbf{Sc}: Sclerodermataceae, \textbf{Ru}: Russulaceae, \textbf{Pe}: Pezizaceae, and \textbf{Cl}: Clavulinaceae.}\label{fig:ppcoa}
+\end{figure}
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/correlog-1} 
+
+}
+
+\caption[Mantel correlograms for community dissimilarities and spatio-temporal distance]{Mantel correlograms for community dissimilarities and spatio-temporal distance. Community dissimilarities are Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right). Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.}\label{fig:correlog}
+\end{figure}
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/ITS2-length-1} 
+
+}
+
+\caption[Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies]{Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies. \emph{a}) Length distribution. \emph{b}) Empirical cumulative distribution function.}\label{fig:ITS2-length}
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=1\linewidth]{transect_supplement_files/figure-latex/heattree-length-compare-1} 
+
+}
+
+\caption[Variation in read abundance and diversity for different amplicons across the taxonomic tree]{Variation in read abundance and diversity for different amplicons across the taxonomic tree. Color of nodes indicates variation in read abundance, while color of edges represents variation in ASV richness.
+In both cases red represents increased prevalence in the short amplicon library, while blue-green represents increased prevalence in the long amplicon library.
+Values are log\textsubscript{10} of the ratio of mean values across sequencing runs for each amplicon.
+Groups which are not represented by at least 1\% of reads or 1\% of ASVs in any dataset are collapsed into nodes labeled "*``.
+ASVs which could not be further assigned are labelled''?".
+Only nodes with a log read abundance ratio greater than 0.5 (abundance ratio \textgreater{} 3.2) are labeled.
+Refer to Figure~\ref{fig:taxa} for complete taxon labeling.}\label{fig:heattree-length-compare}
+\end{figure}
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_supplement_files/figure-latex/short-its-1} 
+
+}
+
+\caption[Kingdom-level taxonomic composition of ITS2 ASVs \(\le 140\) bp]{Kingdom-level taxonomic composition of ITS2 ASVs \(\le 140\) bp. Vertical axis shows fraction of total reads \(\le 140\) bp in each dataset.}\label{fig:short-its}
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=1\linewidth]{transect_supplement_files/figure-latex/ecm-heattree-1} 
+
+}
+
+\caption[Heat tree showing variation in read abundance and diversity for different amplicons, for ECM taxa only]{Heat tree showing variation in read abundance and diversity for different amplicons, for ECM taxa only. Red edges (nodes) represent increased read (ASV) count for the short amplicon library, while blue-green edges (nodes) represent increased read (ASV) count for the long amplicon library.
+Values are log\textsubscript{10} of the ratio of mean values across all sequencing technologies for each amplicon.
+Groups which are not represented by at least 1\% of reads or 1\% of ASVs in any dataset are collapsed into nodes labeled "*``.
+ASVs which could not be further assigned are labelled''?".
+Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
+The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.}\label{fig:ecm-heattree}
+\end{figure}
+
+\begin{table}
+
+\caption{\label{tab:region-limits}Minimum and maximum allowed lengths for each extracted region.}
+\centering
+\begin{tabular}[t]{lrr}
+\toprule
+Region & Min. length & Max. length\\
+\midrule
+ITS1 & 50 & 500\\
+5.8S & 50 & 200\\
+ITS2 & 50 & 500\\
+LSU1 & 25 & 200\\
+D1 & 20 & 500\\
+\addlinespace
+LSU2 & 50 & 500\\
+D2 & 20 & 2999\\
+LSU3 & 30 & 60\\
+D3 & 50 & 500\\
+LSU4 & 50 & 500\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+
+
+
+
+
+
+
+\begin{table}
+
+\caption[Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages]{\label{tab:bioinfo}Number of Amplicon Sequence Variants (ASV) and reads at different pipeline stages. \textbf{Raw}: raw reads as delivered by sequencing center (CCS reads for PacBio);
+\textbf{Trim}: reads with primers and demultiplexing barcodes removed;
+\textbf{Filter (full)}: full length amplicons with a maximum of three expected errors;
+\textbf{LSUx}: reads with a positive CM hit for 5.8S, allowing regions to be extracted;
+\textbf{Filter (ITS2)}: extracted ITS2 regions with a maximum of three expected errors;
+\textbf{ITS2}: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
+\textbf{short}, \textbf{ITS}, \textbf{LSU}, \textbf{long}: ITS2-based ASVs mapped to consensus ASVs for longer regions, where "short" and "long" denote the full-length short and long amplicons, respectively.}
+\centering
+\begin{tabular}[t]{lrrrrrrrr}
+\toprule
+\multicolumn{1}{c}{ } & \multicolumn{4}{c}{PacBio RS II} & \multicolumn{2}{c}{Ion Torrent Ion S5} & \multicolumn{2}{c}{Illumina MiSeq} \\
+\cmidrule(l{3pt}r{3pt}){2-5} \cmidrule(l{3pt}r{3pt}){6-7} \cmidrule(l{3pt}r{3pt}){8-9}
+\multicolumn{1}{c}{ } & \multicolumn{2}{c}{Long} & \multicolumn{2}{c}{Short} & \multicolumn{2}{c}{Short} & \multicolumn{2}{c}{Short} \\
+\cmidrule(l{3pt}r{3pt}){2-3} \cmidrule(l{3pt}r{3pt}){4-5} \cmidrule(l{3pt}r{3pt}){6-7} \cmidrule(l{3pt}r{3pt}){8-9}
+  & ASVs & reads & ASVs & reads & ASVs & reads & ASVs & reads\\
+\midrule
+Raw & – & 125,034 & – & 49,511 & – & 20,717,742 & – & 10,756,939\\
+Trim & – & 104,305 & – & 41,096 & – & 15,208,677 & – & 9,513,433\\
+Filter (full) & – & 44,190 & – & 38,742 & – & 12,177,705 & – & 7,674,712\\
+\addlinespace
+LSUx & – & 100,210 & – & 40,137 & – & 14,946,121 & – & –\\
+Filter (ITS2) & – & 87,861 & – & 38,753 & – & 13,474,669 & – & –\\
+ITS2 & 979 & 82,464 & 564 & 37,215 & 12,960 & 13,416,045 & 4,478 & 6,763,654\\
+\addlinespace
+short & – & – & 562 & 37,211 & 12,240 & 13,413,946 & 4,419 & 6,753,567\\
+ITS & 805 & 81,217 & – & – & – & – & – & –\\
+LSU & 777 & 81,087 & – & – & – & – & – & –\\
+long & 708 & 80,287 & – & – & – & – & – & –\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\setlength{\tabcolsep}{1ex}
+
+
+
+
+
+\begin{table}
+
+\caption[Correspondences between ASVs found by different sequencing strategies]{\label{tab:venn-table-asv}Correspondences between ASVs found by different sequencing strategies. Each row shows the number of ASVs (\emph{ASVs}) shared uniquely by one or more datasets, including the fraction of total ASVs for each dataset (\emph{ASVs frac}), the number of reads represented by those ASVs in each dataset (\emph{reads}) and the fraction of total reads for the dataset (\emph{reads frac}).}
+\centering
+\begin{tabular}[t]{rcrrcrrcrrcrrr}
+\toprule
+\multicolumn{2}{c}{ } & \multicolumn{6}{c}{PacBio RS II} & \multicolumn{3}{c}{Illumina MiSeq} & \multicolumn{3}{c}{Ion Torrent Ion S5} \\
+\cmidrule(l{3pt}r{3pt}){3-8} \cmidrule(l{3pt}r{3pt}){9-11} \cmidrule(l{3pt}r{3pt}){12-14}
+\multicolumn{2}{c}{ } & \multicolumn{3}{c}{Long} & \multicolumn{3}{c}{Short} & \multicolumn{3}{c}{Short} & \multicolumn{3}{c}{Short} \\
+\cmidrule(l{3pt}r{3pt}){3-5} \cmidrule(l{3pt}r{3pt}){6-8} \cmidrule(l{3pt}r{3pt}){9-11} \cmidrule(l{3pt}r{3pt}){12-14}
+\makecell[c]{\\} & ASVs & \makecell[c]{ASVs\\frac} & reads & \makecell[c]{reads\\frac} & \makecell[c]{ASVs\\frac} & reads & \makecell[c]{reads\\frac} & \makecell[c]{ASVs\\frac} & reads & \makecell[c]{reads\\frac} & \makecell[c]{ASVs\\frac} & reads & \makecell[c]{reads\\frac}\\
+\midrule
+ & 378 & 0.39 & 17k & 0.21 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 14 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.02 & 232 & 0.01 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 868 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.19 & 165k & 0.02 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 9373 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.72 & 1.8M & 0.14\\
+\addlinespace
+ & 28 & 0.03 & 682 & 0.01 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.01 & 12k & 0.00 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 41 & 0.04 & 886 & 0.01 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.00 & 3.2k & 0.00\\
+ & 26 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.05 & 420 & 0.01 & 0.01 & 29k & 0.00 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 10 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.02 & 148 & 0.00 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.00 & 2.4k & 0.00\\
+ & 2791 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.62 & 896k & 0.13 & 0.22 & 2.1M & 0.16\\
+\addlinespace
+ & 20 & 0.02 & 1.1k & 0.01 & 0.04 & 1.3k & 0.03 & 0.00 & 149k & 0.02 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 251 & 0.26 & 9k & 0.11 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.06 & 316k & 0.05 & 0.02 & 611k & 0.05\\
+ & 233 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.41 & 5.5k & 0.15 & 0.05 & 703k & 0.10 & 0.02 & 1.4M & 0.10\\
+\addlinespace
+ & 261 & 0.27 & 54k & 0.65 & 0.46 & 30k & 0.80 & 0.06 & 4.5M & 0.66 & 0.02 & 7.5M & 0.56\\
+\midrule
+Total & 14294 & 1.00 & 82k & 1.00 & 1.00 & 37k & 1.00 & 1.00 & 6.8M & 1.00 & 1.00 & 13M & 1.00\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+
+\begin{table}
+
+\caption[Correspondences between 97\% OTUs found by different sequencing strategies]{\label{tab:venn-table-otu}Correspondences between 97\% OTUs found by different sequencing strategies. Each row shows the number of OTUs (\emph{OTUs}) shared uniquely by one or more datasets, including the fraction of total OTUs for each dataset (\emph{OTUs frac}), the number of reads represented by those OTUs in each dataset (\emph{reads}) and the fraction of total reads for the dataset (\emph{reads frac}).}
+\centering
+\begin{tabular}[t]{rcrrcrrcrrcrrr}
+\toprule
+\multicolumn{2}{c}{ } & \multicolumn{6}{c}{PacBio RS II} & \multicolumn{3}{c}{Illumina MiSeq} & \multicolumn{3}{c}{Ion Torrent Ion S5} \\
+\cmidrule(l{3pt}r{3pt}){3-8} \cmidrule(l{3pt}r{3pt}){9-11} \cmidrule(l{3pt}r{3pt}){12-14}
+\multicolumn{2}{c}{ } & \multicolumn{3}{c}{Long} & \multicolumn{3}{c}{Short} & \multicolumn{3}{c}{Short} & \multicolumn{3}{c}{Short} \\
+\cmidrule(l{3pt}r{3pt}){3-5} \cmidrule(l{3pt}r{3pt}){6-8} \cmidrule(l{3pt}r{3pt}){9-11} \cmidrule(l{3pt}r{3pt}){12-14}
+\makecell[c]{\\} & OTUs & \makecell[c]{OTUs\\frac} & reads & \makecell[c]{reads\\frac} & \makecell[c]{OTUs\\frac} & reads & \makecell[c]{reads\\frac} & \makecell[c]{OTUs\\frac} & reads & \makecell[c]{reads\\frac} & \makecell[c]{OTUs\\frac} & reads & \makecell[c]{reads\\frac}\\
+\midrule
+ & 327 & 0.36 & 16k & 0.20 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 1 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.00 & 2 & 0.00 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 133 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.05 & 8.1k & 0.00 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 4054 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.60 & 192k & 0.01\\
+\addlinespace
+ & 4 & 0.00 & 56 & 0.00 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.00 & 935 & 0.00 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 45 & 0.05 & 950 & 0.01 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.01 & 2.6k & 0.00\\
+ & 2 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.00 & 18 & 0.00 & 0.00 & 3.1k & 0.00 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  }\\
+ & 4 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.01 & 18 & 0.00 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.00 & 712 & 0.00\\
+ & 1866 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.67 & 332k & 0.05 & 0.28 & 919k & 0.07\\
+\addlinespace
+ & 242 & 0.26 & 5.1k & 0.06 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.09 & 124k & 0.02 & 0.04 & 350k & 0.03\\
+ & 221 & \cellcolor{gray}{  } & \cellcolor{gray}{  } & \cellcolor{gray}{  } & 0.42 & 4.2k & 0.11 & 0.08 & 629k & 0.09 & 0.03 & 1.3M & 0.10\\
+\addlinespace
+ & 303 & 0.33 & 60k & 0.73 & 0.57 & 33k & 0.89 & 0.11 & 5.7M & 0.84 & 0.04 & 11M & 0.79\\
+\midrule
+Total & 7202 & 1.00 & 82k & 1.00 & 1.00 & 37k & 1.00 & 1.00 & 6.8M & 1.00 & 1.00 & 13M & 1.00\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+\begin{table}
+
+\caption{\label{tab:variofit}Parameters for exponential distance-decay fits. Range: range at which exponential function is at 95\% of its maximum value.}
+\centering
+\begin{tabular}[t]{lllllll}
+\toprule
+Guild & Amplicon & Tech & Algorithm & Metric & Space Range (m) & Time Range (a)\\
+\midrule
+All Fungi & Short & Illumina & Cons & Bray-Curtis & 13 (7.4– 23) & -\\
+All Fungi & Short & Illumina & PHYLO & Bray-Curtis & 13 (7.4– 23) & -\\
+All Fungi & Short & PacBio & Cons & Bray-Curtis & 25 ( 11– 59) & -\\
+All Fungi & Short & PacBio & PHYLO & Bray-Curtis & 25 ( 11– 59) & -\\
+All Fungi & Long & PacBio & PHYLO & Bray-Curtis & 18 (  9– 41) & 3.3 (1.9–6.9)\\
+All Fungi & Long & PacBio & PHYLO & W-UNIFRAC & 478 (0–5583) & -\\
+\addlinespace
+ECM & Short & Illumina & Cons & Bray-Curtis & 13 (6.5– 26) & -\\
+ECM & Short & Illumina & PHYLO & Bray-Curtis & 13 (6.7– 26) & -\\
+ECM & Short & PacBio & Cons & Bray-Curtis & 38 ( 11– 66) & -\\
+ECM & Short & PacBio & PHYLO & Bray-Curtis & 38 ( 11– 66) & -\\
+ECM & Long & PacBio & PHYLO & Bray-Curtis & 14 (5.2– 30) & 4.1 (1.9– 18)\\
+ECM & Long & PacBio & PHYLO & W-UNIFRAC & - & -\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\end{document}

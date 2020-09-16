@@ -28,7 +28,9 @@ d68c649e7f06c27c,target,aln_decipher_LSU_trim
 b6719e45ded67085,target,aln_decipher_short
 22f985131e94b96a,target,aln_infernal_32S
 d5edca71bd4992d7,target,article_bbl
-ec6a8cdcc3756def,target,article_pdf
+ad44c10cee44e59c,target,article_diff_pdf
+c85d88fc56f4e042,target,article_diff_tex
+009a038caf9960cd,target,article_pdf
 c85d88fc56f4e042,target,article_tex
 070c1e4bf98499ea,import,as_variogram
 2ebf0c74b54f23de,import,as_variogramST
@@ -159,6 +161,7 @@ c06791fc93d0ab90,target,ENA_soil_samples
 da04d160c77d9564,target,err_is_057_short
 69c8ba1883244317,target,err_pb_483_short
 46c8e566ca43e84a,target,err_pb_500_5_8S
+3d17a6937a1d7b60,import,f
 55ec14d1f95fd3ba,target,file_meta_gits7its4
 0984b3cb87117c58,target,file_meta_its1lr5
 84f9411ce4041021,target,filtercounts_full
@@ -372,6 +375,7 @@ da4ae28121beb5c8,import,stringi::stri_replace_all_regex
 ffacf475a9196064,import,stringr::str_match
 9a4cf0ec8fbf1fa1,import,stringr::str_split_fixed
 25b2f6f731436c32,import,stringr::str_replace
+a6a734995cf70675,import,stringr::str_replace_all
 9a24b3ec6249509f,import,stringr::str_to_title
 5f08905f930d6677,import,stringr::str_count
 077539475ba01eae,import,stringr::str_c
@@ -385,6 +389,8 @@ e8eb17099b4c47c4,import,taxize::classification
 eab244bd68d89704,import,taxize::get_uid_
 53cd7f712236ffbc,import,taxa::filter_taxa
 4c6261386c4e1600,import,taxa::parse_tax_data
+c06fc61029a1b6a9,import,tinytex::lualatex
+1389790efb134ff3,import,tinytex::tlmgr_install
 3ff990a3d71c58f9,import,tibble::tibble
 ac7f73915791f165,import,tibble::column_to_rownames
 85a1f3d9daeb6703,import,tibble::as_tibble
@@ -451,7 +457,7 @@ b5fb9e414473083c,import,file output/ENA/reads
 7f9f1bc628e048b6,target,file output/env_taxa_target.csv
 d8f3a7d4b6c919dc,target,file output/env_taxa_ncbi.csv
 2955b4e6ffdcfb96,target,file output/long_primers.tsv
-fbad28938b1236bf,target,file output/latex.tar.gz
+e1c29027d4255379,target,file output/latex.tar.gz
 0b5ac1a5686af843,target,file output/short_primers.tsv
 36c78101e7247479,target,file output/supp_file_1.tsv
 15b2fb388e327389,target,file output/supp_file_2.tsv
@@ -461,18 +467,24 @@ f6e965270ecfdd60,target,file output/taxa_ncbi.csv
 6c8915b3b52d882b,target,file output/taxa_target.csv
 1f2355afdb5d784a,import,file writing/preamble.tex
 d6543cebc702b45e,import,file writing/preamble_supplement.tex
-bcb307a5bfef6692,target,file writing/transect_paper.pdf
-0d8d10eadead1a02,target,file writing/transect_paper.tex
-5b12f1222db307d0,import,file writing/transect_paper.Rmd
+24cf5273f10db57a,target,file writing/transect_paper.pdf
+d16f26949b672ece,target,file writing/transect_paper.tex
+b327927f65d5c78a,import,file writing/transect_paper.Rmd
 20210bf506e22f80,target,file writing/transect_paper.aux
-c30e9879c59d8415,target,file writing/transect_paper.bbl
-bed269c65704160a,import,file writing/transect_paper_files/figure-latex
-81ea7fb48bc49cfe,target,file writing/transect_supplement.pdf
+b1bcd086aec80fca,target,file writing/transect_paper.bbl
+a51a8c9c15dbfeeb,import,file writing/transect_paper_original.tex
+9c582a1c806b01c8,target,file writing/transect_paper_diff.pdf
+03353eae5255fbac,target,file writing/transect_paper_diff.tex
+60ce286b739c04d8,import,file writing/transect_paper_files/figure-latex
+1445b3b03a0351ea,target,file writing/transect_supplement.pdf
 53c09b96a4f616f2,target,file writing/transect_supplement.tex
-71ac059ecbdde968,import,file writing/transect_supplement.Rmd
+15550055f33d4448,import,file writing/transect_supplement.Rmd
 06b90030a5f345ef,target,file writing/transect_supplement.aux
-ed57498335a07ceb,import,file writing/transect_supplement_files/figure-latex
-44954e5616d95420,import,file writing/all.bib
+53c09b96a4f616f2,import,file writing/transect_supplement_original.tex
+f324e5cff0d9f63b,target,file writing/transect_supplement_diff.pdf
+18a1cbebed74036b,target,file writing/transect_supplement_diff.tex
+7e79a68d6d9ecda9,import,file writing/transect_supplement_files/figure-latex
+3539504efd5fd5b1,import,file writing/all.bib
 7092149b53fe0713,import,file reference/RF00002.cm
 9be6ac5ddd7e926d,import,file reference/fungi_32S_LR5.cm
 ec043c8230e0e994,import,file scripts/output_functions.R
@@ -554,7 +566,9 @@ a971bfbdbbca5c69,target,strict_taxon_ITS_euk
 eb4b7b77e5a612aa,target,strict_taxon_ITS_fungi
 3c76d92e06c9535a,target,strict_taxon_short_euk
 7687d3889deaaf62,target,strict_taxon_short_fungi
-ee62c2b519cba8c8,target,supplement_pdf
+5b8ad0693854ce45,target,supplement_diff_pdf
+c85d88fc56f4e042,target,supplement_diff_tex
+b931ece7796133be,target,supplement_pdf
 c85d88fc56f4e042,target,supplement_tex
 6eb25f179cbfab28,target,surefungi
 89f18381cb433d9e,target,tagmap_long
@@ -1767,4 +1781,4 @@ b43b0108a324b868,import,venndata
 e70cfd89ebe0d3e5,target,vennplot_ASV
 83a41874f6caa34d,import,vennplot_data
 e5e666612c5e1a69,target,vennplot_OTU
-fbfd18bf80dcaed8,import,write_big_fasta
+25a49f51e2320249,import,write_big_fasta
