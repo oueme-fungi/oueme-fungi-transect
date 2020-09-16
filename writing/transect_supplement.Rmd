@@ -95,6 +95,7 @@ In some cases, this may be due to a poorly identified sequence "splitting" the g
 (ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis ordination of samples preserved with different buffers
 
 (ref:buffer-pcoa) For each sequencing strategy, only those sampling locations with more than 100 reads each for all three year/preservation buffer combinations were included.
+<!-- R3: your caption isn’t in line with your axes. Your axes say MDS1 and MDS2 – so it looks like a NMDS to me. But you caption says PCA. There is also insufficient information to jusdge this figure - No information on if reads were normalized or not, or what beta diversity metric this is based on, etc-->
 
 ```{r buffer-pcoa, fig.cap="(ref:buffer-pcoa-s). (ref:buffer-pcoa)", fig.scap = "(ref:buffer-pcoa-s)"}
 plot(readd(buffer_asv_pcoa), type = "none")
@@ -144,6 +145,7 @@ legend(
 ```
 
 (ref:buffer-compare-long) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for long amplicon libraries.
+<!-- R3: I have no idea how to interpret these figures. More explanation is needed!-->
 
 ```{r buffer-compare-long, fig.cap = "(ref:buffer-compare-long)"}
 oldtheme <- theme_update(panel.border = element_blank())
@@ -162,6 +164,7 @@ theme_set(oldtheme)
 (ref:rDNA-s) Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA, and internally transcribed spacer (ITS) regions
 
 (ref:rDNA) Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines).  D1-3 (grey) represent the first three variable regions in LSU, while LSU1-4 (black) represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces.
+<!-- R3: Figure S4 is useful and should be in the main paper. -->
 
 ```{tikz rDNA, fig.cap = "(ref:rDNA)", fig.scap = "(ref:rDNA-s)", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
 
@@ -195,6 +198,7 @@ No taxon is assigned at node\ 1, because one of the child branches (A) is comple
 No taxon is assigned at node\ 2, because the assignments at C and F are inconsistent.
 Node\ 3 is assigned to Tax1 because this is consistent with at least one of the assignments for both B and C.
 Node\ 4 (and thus also node\ 5) is assigned to Tax2 because this is consistent with at least one of the assignments for D and F, and because E is completely unassigned.
+<!-- Is there an error in the legend? It appears that node 3 is assigned to Taxa 1 based on box color coding and node 4 to Taxon 2 based on different box color coding. In the legend, it states that node 3 is assigned to Taxa 1, but there are three matches to Taxon 2 at that node and Taxon 2 is presented in Salmon color consistent with the box color for node 3. As such, I think the authors meant to designate node 3 as being assigned to Taxon 2. If this is wrong, then more details in the legend explaining why the greater presence of matches to Tax2 yet assignment to Tax1 is needed. -->
 
 ```{r phylotax, fig.height = 2, fig.width = 3, fig.cap = "(ref:phylotax-s). (ref:phylotax)", fig.scap="(ref:phylotax-s)"}
 readd(phylotax_fig)
@@ -206,6 +210,7 @@ readd(phylotax_fig)
 Sequencing reads which were filtered out during quality control are colored dark grey.
 Dotted horizontal line at 100\ reads indicates cutoff for inclusion in community analysis.
 2016 samples were preserved using two different methods (LifeGuard, Xpedition), while 2015 samples were preserved only using Xpedition.
+<!-- R3: please enlarge. This is too small. -->
 
 ```{r sample-depth, fig.cap = "(ref:sample-depth)", fig.scap = "(ref:sample-depth-s)"}
 ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend = TRUE) +
