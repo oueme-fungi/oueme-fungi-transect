@@ -49,7 +49,11 @@ assemble_physeq <- function(platemap, datasets, seqtable, tree = NULL, chimeras)
   asvs <- colnames(seqtable)
   if (!is.null(tree)) asvs <- intersect(asvs, tree$tip.label)
   asvs <- setdiff(asvs, chimeras)
-  asvtab <- seqtable[,asvs, drop = FALSE] %>%
+  miss_samples <- setdiff(row.names(samp), row.names(seqtable))
+  asvtab <- rbind(
+    seqtable[,asvs, drop = FALSE],
+    matrix(0, nrow = length(miss_samples), ncol = length(asvs), dimnames = list(miss_samples, asvs))
+  ) %>%
     phyloseq::otu_table(taxa_are_rows = FALSE)
   
   if (is.null(tree)) {

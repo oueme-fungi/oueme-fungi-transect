@@ -3,6 +3,7 @@ if (exists("snakemake")) {
 } else {
   load("data/plan/drake.Rdata")
 }
+if (file.exists("ENTREZ_KEY")) Sys.setenv(ENTREZ_KEY = readLines("ENTREZ_KEY"))
 suppressPackageStartupMessages({
   library(drake)
   library(magrittr)
@@ -14,7 +15,10 @@ suppressPackageStartupMessages({
   library(disk.frame)
   library(ape)
   library(ggplot2)
+  library(futile.logger)
 })
+
+setup_log("drake_light")
 
 source(file.path(config$rdir, "dada.R"))
 source(file.path(config$rdir, "mantel.R"))
@@ -29,15 +33,15 @@ regions <- read_csv(config$regions, col_types = "cccciiiiic")
 
 # Data frame for mapping between targets for guild assignment
 guilds_meta <- tibble(
-  consensus_taxa = c(
-    "phylotaxon_decipher_unconst_long_fungi",
-    "strict_taxon_short_fungi",
-    "best_taxon_short_fungi"
+  preguild_taxa = c(
+    "preguild_taxa_long_fungi_PHYLOTAX",
+    "preguild_taxa_short_fungi_Consensus",
+    "preguild_taxa_short_fungi_PHYLOTAX.Cons"
   ),
   amplicon = c("Long", "Short", "Short"),
   algorithm = c("PHYLOTAX", "Consensus", "PHYLOTAX+Cons")
 ) %>%
-  mutate_at("consensus_taxa", syms)
+  mutate_at("preguild_taxa", syms)
 
 # Data frame for mapping between targets for building phyloseq experiment objects
 physeq_meta <-
@@ -117,12 +121,6 @@ plan2 <- drake_plan(
   # Download the FUNGuild database
   funguild_db = FUNGuildR::get_funguild_db(),
   
-  # guilds_table ----
-  # Assign ecological guilds to the ASVs based on taxonomy.
-  # guilds_table = target(
-  #   FUNGuildR::funguild_assign(taxon_table, db = funguild_db),
-  #   format = "fst"),
-  
   # platemap ----
   # Read the map between plate locations and samples
   platemap = target(
@@ -137,8 +135,23 @@ plan2 <- drake_plan(
       read_rds(file_in(!!file.path("config", "tags", "long.rds"))),
       by = "well"
     ) %>%
-    select(year, site, buffer, x, sample_type, amplicon, everything()) %T>%
-    write_tsv(file_out(!!file.path("output", "supp_file_2.tsv"))),
+    select(year, site, buffer, x, sample_type, amplicon, everything()) %>%
+    dplyr::mutate(
+      sample_alias = dplyr::case_when(
+        sample_type == "Sample" ~
+          paste("OT", substr(as.character(year), 3,4), site, x, substr(buffer, 1, 1),
+                substr(amplicon, 1, 1), sep = "-"),
+        sample_type == "Pos" ~
+          paste("OT-control", formatC(plate, width = 3, flag = "0"), substr(amplicon, 1, 1),
+                sep = "-"),
+        sample_type == "Blank" ~
+          paste("OT-blank", formatC(plate, width = 3, flag = "0"), substr(amplicon, 1, 1),
+                sep = "-")
+      )
+    )  %>%
+    dplyr::left_join(read_accnos) %>%
+    dplyr::select(-"Illumina-f", -"Illumina-r", -"IonTorrent") %T>%
+    write_tsv(file_out(!!file.path("output", "supp_file_2.tsv")), na = ""),
   
   tagmap_short = platemap %>%
     filter(primer_pair == "gITS7_ITS4") %>%
@@ -147,8 +160,28 @@ plan2 <- drake_plan(
       read_rds(file_in(!!file.path("config", "tags", "short.rds"))),
       by = "well"
     ) %>%
-    select(year, site, buffer, x, sample_type, amplicon, everything()) %T>%
-    write_tsv(file_out(!!file.path("output", "supp_file_1.tsv"))),
+    dplyr::mutate(
+      sample_alias = dplyr::case_when(
+        sample_type == "Sample" ~
+          paste("OT", substr(as.character(year), 3,4), site, x, substr(buffer, 1, 1),
+                substr(amplicon, 1, 1), sep = "-"),
+        sample_type == "Pos" ~
+          paste("OT-control", formatC(plate, width = 3, flag = "0"), substr(amplicon, 1, 1),
+                sep = "-"),
+        sample_type == "Blank" ~
+          paste("OT-blank", formatC(plate, width = 3, flag = "0"), substr(amplicon, 1, 1),
+                sep = "-")
+      )
+    )  %>%
+    dplyr::left_join(read_accnos) %>% {
+      dplyr::left_join(
+        dplyr::select(., -IonTorrent),
+        dplyr::select(., well, IonTorrent) %>% dplyr::filter(!is.na(IonTorrent)),
+        by = "well"
+      )
+    } %>%
+    select(sample_alias, year, site, buffer, x, sample_type, amplicon, everything()) %T>%
+    write_tsv(file_out(!!file.path("output", "supp_file_1.tsv")), na = ""),
   
   # tree_decipher_LSU = target(
   #   raxml_decipher_LSU$bipartitions,
@@ -273,7 +306,9 @@ plan2 <- drake_plan(
   
   phylotaxon = target(
     phylotax(tree = tree, taxa = taxon_table),
-    transform = map(tree, .tag_in = step, 
+    transform = map(tree, .tag_in = step,
+                    taxname = "long",
+                    algorithm = "PHYLOTAX",
                     .tag_out = consensus_taxa, .id = c(treename, group))
   ),
   
@@ -302,6 +337,7 @@ plan2 <- drake_plan(
     transform = map(
       taxname = "short",
       group = "euk",
+      algorithm = "Consensus",
       .tag_out = c(consensus_taxa, strict_taxon),
       .id = FALSE
     )
@@ -314,6 +350,7 @@ plan2 <- drake_plan(
     transform = map(
       taxname = "short",
       group = "fungi",
+      algorithm = "Consensus",
       .tag_out = c(consensus_taxa, strict_taxon),
       .id = FALSE
     )
@@ -330,6 +367,7 @@ plan2 <- drake_plan(
       list(tip_taxa = .),
     transform = map(group = "euk",
                     taxname = "short",
+                    algorithm = "PHYLOTAX+Cons",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
   
@@ -344,6 +382,7 @@ plan2 <- drake_plan(
       list(tip_taxa = .),
     transform = map(group = "fungi",
                     taxname = "short",
+                    algorithm = "PHYLOTAX+Cons",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
   strict_taxon_ITS_euk = target(
@@ -365,10 +404,10 @@ plan2 <- drake_plan(
       ) %>%
       unique() %>%
       list(tip_taxa = .),
-    
     transform = map(
       taxname = "ITS",
       group = "euk",
+      algorithm = "Consensus",
       .tag_out = c(consensus_taxa, strict_taxon),
       .id = FALSE
     )
@@ -381,6 +420,7 @@ plan2 <- drake_plan(
     transform = map(
       taxname = "ITS",
       group = "fungi",
+      algorithm = "Consensus",
       .tag_out = c(consensus_taxa, strict_taxon),
       .id = FALSE
     )
@@ -397,6 +437,7 @@ plan2 <- drake_plan(
       list(tip_taxa = .),
     transform = map(group = "euk",
                     taxname = "ITS",
+                    algorithm = "PHYLOTAX+Cons",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
   
@@ -411,10 +452,11 @@ plan2 <- drake_plan(
       list(tip_taxa = .),
     transform = map(group = "fungi",
                     taxname = "ITS",
+                    algorithm = "PHYLOTAX+Cons",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
   
-  guilds = target(
+  preguild_taxa = target(
     consensus_taxa$tip_taxa %>%
       dplyr::group_by(label, rank) %>%
       dplyr::filter((!"ITS" %in% region) | region != "Short") %>%
@@ -444,10 +486,15 @@ plan2 <- drake_plan(
         .,
         tidyr::gather(., key = "rank", value = "taxon", kingdom:genus) %>%
           dplyr::group_by(label) %>%
+          dplyr::filter(!is.na(taxon)) %>%
           dplyr::summarize(Taxonomy = paste(taxon, collapse = ";")),
         by = "label"
-      ) %>%
-      FUNGuildR::funguild_assign(funguild_db),
+      ),
+    transform = map(consensus_taxa, .tag_in = step, .id = c(taxname, group, algorithm))
+  ),
+  
+  guilds = target(
+      FUNGuildR::funguild_assign(preguild_taxa, funguild_db),
     transform = map(.data = !!guilds_meta, .tag_in = step, .id = algorithm)
   ),
   
@@ -1271,7 +1318,7 @@ plan2 <- drake_plan(
     apply(MARGIN = 2, match, x = 1),
   
   variog_data = target({
-    quote(list(correlog, variog, variogST, variofit2, variofitST2))
+    rlang::quo(list(correlog, variog, variogST, variofit2, variofitST2))
     ignore(plan2) %>%
       filter(step == "correlog") %>%
       select("correlog", timelag, guild, metric, tech, amplicon, algorithm) %>%
@@ -2977,11 +3024,72 @@ plan2 <- drake_plan(
       select_at(template_names) %>%
       write_tsv(tsv_out, append = TRUE, col_names = FALSE)
   },
+  blank_samples =
+    readd(proto_physeq) %>%
+    phyloseq::sample_data() %>%
+    as("data.frame") %>%
+    dplyr::filter(sample_type == "Blank", tech == "PacBio") %>%
+    dplyr::left_join(
+      readRDS("config/tags/all.rds") %>%
+        tidyr::pivot_longer(
+          cols = matches("(primer|barcode|adapter)_(seq|tag)_(fwd|rev)"),
+          names_to = c(".value", "direction"),
+          names_pattern = "(.+)_(fwd|rev)"
+        ) %>%
+        tidyr::unite("seq", ends_with("seq"), sep = "") %>%
+        mutate_at(vars(ends_with("tag")), na_if, "unnamed") %>%
+        mutate(tag = dplyr::coalesce(barcode_tag, primer_tag)) %>%
+        dplyr::select(amplicon, well, direction, tag, seq) %>%
+        filter(nchar(seq) > 0) %>%
+        mutate_at("tag", str_replace, "its", "ITS") %>%
+        mutate_at("tag", str_replace, "lr", "LR") %>%
+        tidyr::unite("tag", tag, seq, sep = ": ") %>%
+        group_by(amplicon, well, direction) %>%
+        summarize(tag = paste(unique(tag), collapse = ", ")) %>%
+        group_by(amplicon, well) %>%
+        summarize(tag = paste(unique(tag), collapse = "; ")),
+      by = c("amplicon", "well")) %>%
+    dplyr::mutate(
+      sample_alias = glue::glue("OT-blank-{plate}-{substr(amplicon, 1, 1)}"),
+      tax_id = "2582415",
+      scientific_name = "blank sample",
+      common_name = "blank sample",
+      sample_title = sample_alias,
+      sample_description = "PCR blank",
+      isolation_source = "Nuclease free water",
+      "geographic location (country and/or sea)" = "Sweden",
+      "geographic location (region and locality)" = "Uppsala",
+      "project name" = "ena-STUDY-UPPSALA UNIVERISTY-19-03-2020-10:28:50:771-6",
+      "target gene" = ifelse(amplicon == "Long", "ITS1, 5.8S, ITS2, LSU", "ITS2"),
+      "pcr primers" = tag,
+      "pcr conditions" = ifelse(
+        amplicon == "Long",
+        "initial denaturation:95degC_10min; denaturation:95degC_45s; annealing:59degC_45s; extension:72degC_90s; cycles:30; final extension:72degC_10min",
+        "initial denaturation:95degC_10min; denaturation:95degC_60s; annealing:56degC_45s; extension:72degC_50s; cycles:35; final extension:72degC_3min"
+      ),
+      "sequencing method" = ifelse(
+        amplicon == "Long",
+        "PACBIO_SMRT",
+        "ION_TORRENT, PACBIO_SMRT, ILLUMINA"
+      )
+    ),
+  ENA_blank_samples = {
+    template_in <- file_in("config/ENA_control_sample_template.tsv")
+    template_names <- names(read_tsv(template_in, skip = 2))
+    tsv_out <- file_out("output/ENA/ENA_blank_samples.tsv")
+    if (!dir.exists(dirname(tsv_out))) dir.create(dirname(tsv_out), recursive = TRUE)
+    file.copy(template_in, tsv_out, overwrite = TRUE)
+    blank_samples %>%
+      assertr::verify(template_names %in% names(.)) %>%
+      select_at(template_names) %>%
+      write_tsv(tsv_out, append = TRUE, col_names = FALSE)
+  },
   pacbio_ion_manifest = 
     dplyr::inner_join(
       dplyr::bind_rows(
         soil_samples,
-        control_samples
+        control_samples,
+        blank_samples
       ) %>% select(sample_alias, "project name", plate, well, amplicon, sample_type),
       dplyr::bind_rows(
         file_meta_gits7its4 %>%
@@ -2996,7 +3104,11 @@ plan2 <- drake_plan(
       SAMPLE = sample_alias,
       NAME = paste(sample_alias, tech, direction, sep = "-") %>% str_replace("-$", "") %>% str_replace(" ", ""),
       INSTRUMENT = paste(tech, machine) %>% str_replace("Ion S5", "S5"),
-      LIBRARY_SOURCE = ifelse(sample_type == "Pos", "GENOMIC", "METAGENOMIC"),
+      LIBRARY_SOURCE = dplyr::case_when(
+        sample_type == "Pos" ~ "GENOMIC",
+        sample_type == "Sample" ~ "METAGENOMIC",
+        sample_type == "Blank" ~ "OTHER"
+      ),
       LIBRARY_SELECTION = "PCR",
       LIBRARY_STRATEGY = "AMPLICON",
       FASTQ = trim_file,
@@ -3029,7 +3141,8 @@ plan2 <- drake_plan(
   illumina_manifest = dplyr::inner_join(
     dplyr::bind_rows(
       soil_samples,
-      control_samples
+      control_samples,
+      blank_samples
     ) %>%
       select(sample_alias, "project name", plate, well, amplicon, sample_type),
     illumina_group_SH.2257,
@@ -3040,7 +3153,11 @@ plan2 <- drake_plan(
       SAMPLE = sample_alias,
       NAME = paste(sample_alias, tech, direction, sep = "-") %>% str_replace("-$", "") %>% str_replace(" ", ""),
       INSTRUMENT = paste(tech, machine),
-      LIBRARY_SOURCE = ifelse(sample_type == "Pos", "GENOMIC", "METAGENOMIC"),
+      LIBRARY_SOURCE = dplyr::case_when(
+        sample_type == "Pos" ~ "GENOMIC",
+        sample_type == "Sample" ~ "METAGENOMIC",
+        sample_type == "Blank" ~ "OTHER"
+      ),
       LIBRARY_SELECTION = "PCR",
       LIBRARY_STRATEGY = "AMPLICON",
       INSERT_SIZE = "350",
@@ -3051,7 +3168,6 @@ plan2 <- drake_plan(
         direction == "r" ~ "Reads in reverse orientation",
         TRUE ~ "")
     ) %>%
-    slice(1) %>%
     rowwise() %>%
     group_split() %>%
     walk(
@@ -3064,6 +3180,91 @@ plan2 <- drake_plan(
         sink()
       }
     ),
+  read_accnos =
+    list.files(path = file_in("output/ENA/reads"), pattern = "receipt.xml", recursive = TRUE) %>%
+    stringr::str_split_fixed("/", 3) %>%
+    magrittr::extract( , 1) %>%
+    set_names(., .) %>%
+    purrr::map_chr(get_reads_accno) %>%
+    tibble::enframe(name = "sample_alias", value = "accno") %>%
+    tidyr::extract(
+      "sample_alias",
+      into = c("sample_alias", "tech"),
+      regex = "(.+)-((?:Illumina|PacBio|IonTorrent)-?[fr]?)"
+    ) %>%
+    tidyr::pivot_wider(names_from = "tech", values_from = "accno"),
+  pretaxid =
+    preguild_taxa_short_euk_PHYLOTAX.Cons %>%
+    dplyr::select(kingdom:genus, Taxonomy, label) %>%
+    dplyr::mutate_at("Taxonomy", stringi::stri_replace_all_fixed, ";NA", "") %>%
+    dplyr::mutate_at("Taxonomy", stringi::stri_replace_first_regex, ";[A-Za-z]+\\d+$", "") %>%
+    unique() %>%
+    tidyr::pivot_longer(cols = kingdom:genus, names_to = "rank", values_to = "taxon") %>%
+    dplyr::filter(complete.cases(.), !stringr::str_detect(taxon, "\\d")) %>%
+    dplyr::group_by(Taxonomy) %>%
+    dplyr::summarize(
+      taxon = dplyr::last(taxon),
+      rank = dplyr::last(rank),
+      label = paste(label, collapse = ",")
+    ),
+  taxid = target(
+    do.call(lookup_ncbi_taxon, pretaxid),
+    dynamic = map(pretaxid),
+    retries = 2
+  ),
+  taxid_all = bind_rows(readd(taxid)) %T>%
+    write_csv(file_out("output/taxa.csv")) %T>% {
+      dplyr::select(., label, targetTaxonomy, targetRank) %>%
+        write_csv(file_out("output/taxa_target.csv"))
+    } %T>% {
+      dplyr::select(., label, Taxonomy, rank) %>%
+        write_csv(file_out("output/taxa_ncbi.csv"))
+    },
+  pretaxid_env =
+    preguild_taxa_short_euk_PHYLOTAX.Cons %>%
+    dplyr::select(kingdom:order, label) %>%
+    dplyr::group_by_at(vars(kingdom:order)) %>%
+    dplyr::summarize(label = paste(label, collapse = ",")) %>% 
+    tidyr::pivot_longer(cols = kingdom:order, names_to = "rank", values_to = "taxon") %>%
+    dplyr::filter(complete.cases(.), !stringr::str_detect(taxon, "\\d")) %>%
+    dplyr::group_by(label) %>%
+    dplyr::summarize(
+      Taxonomy = paste(taxon, collapse = ";"),
+      taxon = dplyr::last(taxon),
+      rank = dplyr::last(rank)
+    ) %>%
+    dplyr::group_by(Taxonomy, taxon, rank) %>%
+    dplyr::summarize(label = paste(label, collapse = ",")) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate_at(
+      "taxon",
+      stringi::stri_replace_all_regex,
+      c("Fungi", "Alveolata", "Gregarinasina", "Neogregarinorida", "NA", "Angiospermae", "Stramenopila",
+        "Kickxellomycota", "Zoopagomycota", "Monoblepharomycota", "Morteriellomycota", "Bryopsida",
+        "Chromerida", "Gigasporales", "Paraglomeromycetes", "Ichthyosporia"),
+      c("fungus", "alveolate", "gregarine", "gregarine", "eukaryote", "Magnoliophyta", "Stramenopile",
+        "Kickxellomycotina", "Zoopagomycotina", "Monoblepharidomycetes", "Morteriellomycotina", "Bryophyta",
+        "Colpodellida", "Diversisporales", "Paraglomerales", "Ichthyosporea"),
+      vectorize_all = FALSE
+    ) %>%
+    dplyr::mutate(taxon = ifelse(
+      grepl("(Streptophyta|Metazoa)", Taxonomy),
+      paste(taxon, "environmental sample"),
+      paste("uncultured", taxon)
+    )),
+  taxid_env = target(
+    do.call(lookup_ncbi_taxon, pretaxid_env),
+    dynamic = map(pretaxid_env),
+    retries = 2
+  ),
+  taxid_env_all = bind_rows(readd(taxid_env)) %T>%
+    write_csv(file_out("output/env_taxa.csv")) %T>% {
+      dplyr::select(., targetTaxonomy) %>%
+        write_csv(file_out("output/env_taxa_target.csv"))
+    } %T>% {
+      dplyr::select(., Taxonomy) %>%
+        write_csv(file_out("output/env_taxa_ncbi.csv"))
+    },
   trace = TRUE
 ) %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)

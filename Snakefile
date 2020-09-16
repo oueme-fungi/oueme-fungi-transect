@@ -58,10 +58,11 @@ rule all:
     input:
         "{rmddir}/transect_paper.pdf".format_map(config),
         "{rmddir}/transect_supplement.pdf".format_map(config),
+        "{outdir}/taxa.csv".format_map(config),
+        "{outdir}/env_taxa.csv".format_map(config),
         "{outdir}/supp_file_1.tsv".format_map(config),
         "{outdir}/supp_file_2.tsv".format_map(config),
         "{outdir}/supp_file_3.pdf".format_map(config)
-        #{outdir}/tech_compare.pdf".format_map(config)
 
 localrules: repair
 rule repair:
@@ -748,6 +749,8 @@ rule lightplan:
     output:
         "{rmddir}/transect_paper.pdf".format_map(config),
         "{rmddir}/transect_supplement.pdf".format_map(config),
+        "{outdir}/taxa.csv".format_map(config),
+        "{outdir}/env_taxa.csv".format_map(config),
         "{outdir}/supp_file_1.tsv".format_map(config),
         "{outdir}/supp_file_2.tsv".format_map(config),
         "{outdir}/supp_file_3.pdf".format_map(config)
@@ -770,7 +773,7 @@ rule lightplan:
         flag      = rules.heavy.output.flag,
         script    = "{rdir}/drake_plan_light.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: 4
+    threads: 8
     resources:
         walltime = 60
     log: "{logdir}/drake_light.log".format_map(config)

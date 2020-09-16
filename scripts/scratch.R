@@ -1739,19 +1739,128 @@ DECIPHER::AlignSeqs(
   refinements = 0
 )
 
-readd(proto_physeq) %>%
-  phyloseq::sample_data() %>%
-  as("data.frame") %>%
-  filter(sample_type == "Sample") %>%
-  transmute(
-    tax_id = "410658",
-    scientific_name = "soil metagenome",
-    sample_title = glue::glue("OT-{year}-{site}-{x}-{buffer}-{amplicon}"),
-    sample_description = sample_title,
-    "project name" = "ena-STUDY-UPPSALA UNIVERISTY-19-03-2020-10:28:50:771-6",
-    "experimental factor" = paste(x, "m from transect origin"),
-    "sample volume or weight for dna extraction" = 0.05,
-    "nucleic acid extraction" = "Zymo Research Xpedition Soil Microbe DNA MiniPrep D6202",
-    "nucleic acid amplification" = "PCR",
-    "target gene" = ifelse(amplicon == "Long", "ITS1, 5.8S, ITS2, LSU", "ITS2")
+library(magrittr)
+library(drake)
+dplyr::inner_join(
+  dplyr::bind_rows(
+    readd(soil_samples),
+    readd(control_samples)
+  ) %>% select(sample_alias, "project name", plate, well, amplicon, sample_type),
+  dplyr::bind_rows(
+  readd(file_meta_gits7its4) %>%
+    mutate(plate = ifelse(tech == "Ion Torrent", list(c("001", "002")), as.list(plate))) %>%
+    unnest(plate),
+  readd(file_meta_its1lr5)
+  ),
+  by = c("plate", "well", "amplicon")
+) %>%
+  dplyr::transmute(
+    STUDY = `project name`,
+    SAMPLE = sample_alias,
+    NAME = paste(sample_alias, tech, direction, sep = "-") %>% str_replace("-$", "") %>% str_replace(" ", ""),
+    INSTRUMENT = paste(tech, machine) %>% str_replace("Ion S5", "S5"),
+    LIBRARY_SOURCE = ifelse(sample_type == "Pos", "GENOMIC", "METAGENOMIC"),
+    LIBRARY_SELECTION = "PCR",
+    LIBRARY_STRATEGY = "AMPLICON",
+    FASTQ = trim_file,
+    DESCRIPTION = case_when(
+      direction == "f" ~ "Reads originally in forward orientation",
+      direction == "r" ~ "Reads originally in reverse orientation",
+      TRUE ~ "")
+  ) %>% 
+  chop(cols = c(SAMPLE, NAME, LIBRARY_SOURCE)) %>% 
+  mutate_at("LIBRARY_SOURCE", map, unique) %>%
+  rowwise() %>%
+  group_split() %>%
+  walk(
+    function(d) {
+      d <- map(as.list(d), unlist)
+      d <- map(as.list(d), unique)
+      if (length(d$SAMPLE) > 1) {
+        d$DESCRIPTION <- paste("also contains samples from", d$SAMPLE[2], "due to incomplete multiplexing")
+        d$SAMPLE <- d$SAMPLE[1]
+        d$NAME <- d$NAME[1]
+        d$LIBRARY_SOURCE <- d$LIBRARY_SOURCE[1]
+      }
+      if (length(d$NAME) > 1) print(d)
+      sink(file.path("output", "ENA", paste0(d$NAME, ".manifest")), append = FALSE)
+      iwalk(d, ~ for (x in .x) {cat(.y, x); cat("\n")})
+      sink()
+    }
   )
+
+dplyr::inner_join(
+  dplyr::bind_rows(
+    readd(soil_samples),
+    readd(control_samples)
+  ) %>% select(sample_alias, "project name", plate, well, amplicon, sample_type),
+  readd(illumina_group_SH.2257),
+  by = c("plate", "well", "amplicon")
+) %>% 
+  dplyr::transmute(
+    STUDY = `project name`,
+    SAMPLE = sample_alias,
+    NAME = paste(sample_alias, tech, direction, sep = "-") %>% str_replace("-$", "") %>% str_replace(" ", ""),
+    INSTRUMENT = paste(tech, machine),
+    LIBRARY_SOURCE = ifelse(sample_type == "Pos", "GENOMIC", "METAGENOMIC"),
+    LIBRARY_SELECTION = "PCR",
+    LIBRARY_STRATEGY = "AMPLICON",
+    INSERT_SIZE = "350",
+    FASTQ = trim_file_R1,
+    FASTQ2 = trim_file_R2,
+    DESCRIPTION = case_when(
+      direction == "f" ~ "Reads in forward orientation",
+      direction == "r" ~ "Reads in reverse orientation",
+      TRUE ~ "")
+  ) %>%
+  slice(1) %>%
+  rowwise() %>%
+  group_split() %>%
+  walk(
+    function(d) {
+      d <- as.list(d)
+      d$FASTQ <- c(d$FASTQ, d$FASTQ2)
+      d$FASTQ2 <- NULL
+      sink(file.path("output", "ENA", paste0(d$NAME, ".manifest")), append = FALSE)
+      iwalk(d, ~ for (x in .x) {cat(.y, x); cat("\n")})
+      sink()
+    }
+  )
+
+
+get_reads_accno <- function(sample, reads_dir = "output/ENA/reads") {
+  file.path(reads_dir, sample, "submit", "receipt.xml") %>%
+    xml2::read_xml() %>%
+    xml2::xml_find_first("RUN") %>%
+    xml2::xml_attr("accession")
+}
+
+list.files(path = "output/ENA/reads", pattern = "receipt.xml", recursive = TRUE) %>%
+  stringr::str_split_fixed("/", 3) %>%
+  magrittr::extract( , 1) %>%
+  set_names(., .) %>%
+  purrr::map_chr(get_reads_accno) %>%
+  tibble::enframe(name = "sample_alias", value = "accno") %>%
+  tidyr::extract(
+    "sample_alias",
+    into = c("sample_alias", "tech"),
+    regex = "(.+)-((?:Illumina|PacBio|IonTorrent)-?[fr]?)"
+  ) %>%
+  tidyr::pivot_wider(names_from = "tech", values_from = "accno") %>% View()
+
+get_reads_accno("OT-control-001-L-PacBio-r")
+get_reads_md5 <- function(sample, reads_dir = "output/ENA/reads") {
+  file.path(reads_dir, sample, "submit", "run.xml") %>%
+    xml2::read_xml() %>%
+    xml2::xml_find_first("//FILE") %>%
+    xml2::xml_attr("checksum")
+}
+
+ncbi_get_taxon_summary()%>%
+  stringi::stri_replace_all_fixed(
+    c("Fungi", "Alveolata"),
+    c("fungus", "alveolate"),
+    vectorize_all = FALSE
+  ) %>%
+  paste("uncultured", .) %T>%
+  writeLines("output/ENA/env_taxa.txt"),

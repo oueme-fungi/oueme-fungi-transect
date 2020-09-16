@@ -129,7 +129,7 @@ variog_summary = function(model) {
     confint = purrr::map(
       term,
       ~ tryCatch(
-        broom::confint_tidy(model, term = .),
+        broom::confint_tidy(model, parm = .),
         error = function(e) tibble::tibble(conf.low = NA_real_, conf.high = NA_real_)
       )
     )
