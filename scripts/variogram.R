@@ -118,3 +118,21 @@ variogST <- function(physeq, metric, breaks) {
     breaks = breaks
   )
 }
+
+variog_predict = function(model, newdata) {
+  mutate(newdata, gamma = predict(model, newdata = newdata))
+}
+
+variog_summary = function(model) {
+  dplyr::mutate(
+    broom::tidy(model),
+    confint = purrr::map(
+      term,
+      ~ tryCatch(
+        broom::confint_tidy(model, parm = .),
+        error = function(e) tibble::tibble(conf.low = NA_real_, conf.high = NA_real_)
+      )
+    )
+  ) %>%
+    tidyr::unnest(confint)
+}

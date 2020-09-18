@@ -58,10 +58,11 @@ rule all:
     input:
         "{rmddir}/transect_paper.pdf".format_map(config),
         "{rmddir}/transect_supplement.pdf".format_map(config),
+        "{outdir}/taxa.csv".format_map(config),
+        "{outdir}/env_taxa.csv".format_map(config),
         "{outdir}/supp_file_1.tsv".format_map(config),
         "{outdir}/supp_file_2.tsv".format_map(config),
         "{outdir}/supp_file_3.pdf".format_map(config)
-        #{outdir}/tech_compare.pdf".format_map(config)
 
 localrules: repair
 rule repair:
@@ -226,7 +227,7 @@ checkpoint pacbio_demux:
 # Return a closure which calls checkpoints.pacbio_demux.get() to indicate to Snakemake that this rule is
 # dynamically calculated after completion of pacbio_demux, and then find all the demultiplexed pacbio files
 # for the given plate.
-def demux_find(seqplate):
+def pacbio_find(seqplate):
     def subfind(wildcards):
         checkpoints.pacbio_demux.get(seqplate = seqplate)
         return glob("{trimdir}/{seqplate}/{seqplate}-*.trim.fastq.gz"
@@ -238,18 +239,18 @@ def demux_find(seqplate):
 localrules: pacbio_demuxall
 rule pacbio_demuxall:
     input:
-         demux_find('pb_500_001'),
-         demux_find('pb_500_002'),
-         demux_find('pb_483_001'),
-         demux_find('pb_483_002')
+         pacbio_find('pb_500_001'),
+         pacbio_find('pb_500_002'),
+         pacbio_find('pb_483_001'),
+         pacbio_find('pb_483_002')
 
 
 # put all the demultiplexed long PacBio reads in one file, with labeled samples
 localrules: pacbio_singledemux
 rule pacbio_singledemux:
     input:
-        demux_find('pb_500_001'),
-        demux_find('pb_500_002')
+        pacbio_find('pb_500_001'),
+        pacbio_find('pb_500_002')
     output:
         fastq = "{seqdir}/long_pacbio.fastq.gz".format_map(config),
         key   = "{seqdir}/long_pacbio.key.tsv".format_map(config)
@@ -466,6 +467,8 @@ rule taxon_references:
   output: "{ref_root}/{{reference}}.fasta.gz".format_map(config)
   params:
     url = "{reannotate_url}/{{reference}}.fasta.gz".format_map(config)
+  resources:
+    connection=1
 #  log: "{logdir}/references_{{reference}}.log".format_map(config)
   shell: "cd {config[ref_root]} && wget {params.url}"
 
@@ -483,10 +486,10 @@ rule hash_demux:
   output:
     config['demux_file']
   input:
-    demux_find('pb_500_001'),
-    demux_find('pb_500_002'),
-    demux_find('pb_483_001'),
-    demux_find('pb_483_002'),
+    pacbio_find('pb_500_001'),
+    pacbio_find('pb_500_002'),
+    pacbio_find('pb_483_001'),
+    pacbio_find('pb_483_002'),
     ion_find('is_057', '001'),
     illumina_find('SH-2257', '1'),
     illumina_find('SH-2257', '2')
@@ -508,6 +511,16 @@ checkpoint drake_plan:
     output:
         drakedata         = config['drakedata']
     input:
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['warcup', 'unite'],
+               region = ['ITS'],
+               method = ['sintax', 'dada2']),
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['rdp_train'],
+               region = ['LSU'],
+               method = ['sintax', 'dada2']),
         "{rdir}/dada.R".format_map(config),
         "{rdir}/qstats.R".format_map(config),
         "{rdir}/inferrnal.R".format_map(config),
@@ -691,16 +704,6 @@ rule consensus:
     output:
         flag    = ".consensus"
     input:
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['warcup', 'unite'],
-               region = ['ITS'],
-               method = ['sintax', 'dada2']),
-        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
-               ref_root = config['ref_root'],
-               db = ['rdp_train'],
-               region = ['LSU'],
-               method = ['sintax', 'dada2']),
         flag = rules.preconsensus.output.flag,
         drakedata = rules.drake_plan.output.drakedata,
         script = "{rdir}/drake-07-consensus.R".format_map(config)
@@ -746,6 +749,8 @@ rule lightplan:
     output:
         "{rmddir}/transect_paper.pdf".format_map(config),
         "{rmddir}/transect_supplement.pdf".format_map(config),
+        "{outdir}/taxa.csv".format_map(config),
+        "{outdir}/env_taxa.csv".format_map(config),
         "{outdir}/supp_file_1.tsv".format_map(config),
         "{outdir}/supp_file_2.tsv".format_map(config),
         "{outdir}/supp_file_3.pdf".format_map(config)
@@ -768,7 +773,7 @@ rule lightplan:
         flag      = rules.heavy.output.flag,
         script    = "{rdir}/drake_plan_light.R".format_map(config)
     conda: "config/conda/drake.yaml"
-    threads: 4
+    threads: 8
     resources:
         walltime = 60
     log: "{logdir}/drake_light.log".format_map(config)

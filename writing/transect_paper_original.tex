@@ -1,0 +1,689 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+  12pt,
+]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\hypersetup{
+  pdftitle={Long- and short-read metabarcoding technologies reveal similar spatio-temporal structures in fungal communities},
+  pdfauthor={Brendan Furneaux1,*,; Mohammad Bahram2,3,; Anna Rosling4,; Nourou S. Yorou5,; Martin Ryberg1},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+\urlstyle{same} % disable monospaced font for URLs
+\usepackage[left=2.5cm,right=2.5cm,top=3cm,bottom=3cm]{geometry}
+\usepackage{longtable,booktabs}
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{5}
+% line numbers -- only needed for MS
+\usepackage{lineno}
+\linenumbers
+
+% put all tables and figures at the end -- only needed for MS
+\usepackage[nomarkers]{endfloat}
+
+% double spacing -- only needed for MS
+\usepackage{setspace}
+\doublespacing
+
+% table and figure caption width
+\usepackage[width=0.9\textwidth]{caption}
+
+% crossreferences to supporting information -- transect_supplement.aux is required
+\usepackage{xr}
+\externaldocument{transect_supplement}
+\usepackage[style=apa,]{biblatex}
+% Produce [dataset] references
+\NewBibliographyString{dataset}
+
+\DefineBibliographyStrings{english}{
+  dataset = {dataset},
+}
+
+\renewbibmacro{begentry}{%
+  \ifkeyword{meta}{\textsuperscript{*}}{}%
+  \ifentrytype{dataset}
+    {\bibstring[\mkbibbrackets]{dataset}%
+     \setunit{\addspace}}
+    {}%
+}
+\addbibresource{all.bib}
+\addbibresource{R.bib}
+
+\title{Long- and short-read metabarcoding technologies reveal similar spatio-temporal structures in fungal communities}
+\author{Brendan Furneaux\textsuperscript{1,*}, \and Mohammad Bahram\textsuperscript{2,3}, \and Anna Rosling\textsuperscript{4}, \and Nourou S. Yorou\textsuperscript{5}, \and Martin Ryberg\textsuperscript{1}}
+\date{\textsuperscript{1}Program in Systematic Biology, Department of Organismal Biology, Uppsala University, Uppsala, Sweden\\
+\textsuperscript{2}Department of Ecology, Swedish University of Agricultural Sciences, Uppsala, Sweden\\
+\textsuperscript{3}Institute of Ecology and Earth Sciences, University of Tartu, Tartu, Estonia\\
+\textsuperscript{4}Program in Evolutionary Biology, Department of Ecology and Genetics, Uppsala University, Uppsala, Sweden\\
+\textsuperscript{5}Research Unit in Tropical Mycology and Plant-Fungi Interactions, LEB, University of Parakou, Parakou, Benin\\
+\textsuperscript{*}Corresponding author, \texttt{brendan.furneaux@ebc.uu.se}}
+
+\begin{document}
+\maketitle
+
+\hypertarget{abstract}{%
+\section*{Abstract}\label{abstract}}
+\addcontentsline{toc}{section}{Abstract}
+
+Fungi form diverse communities and play essential roles in many terrestrial ecosystems, yet there are methodological challenges in taxonomic and phylogenetic placement of fungi from environmental sequences.
+To address such challenges we investigated spatio-temporal structure of a fungal community using soil metabarcoding with four different sequencing strategies: short amplicon sequencing of the ITS2 region (300--400~bp) with Illumina MiSeq, Ion Torrent Ion S5, and PacBio RS II, as well as long amplicon sequencing of the full ITS and partial LSU regions (1200--1600~bp) with PacBio RS II.
+Resulting community structure and diversity depended more on statistical method than sequencing technology.
+The use of long-amplicon sequencing enables construction of a phylogenetic tree from metabarcoding reads, which facilitates taxonomic identification of sequences.
+However, long reads present issues for denoising algorithms in diverse communities.
+We present a solution that splits the reads into shorter homologous regions prior to denoising, and then reconstructs the full denoised reads.
+In the choice between short and long amplicons, we suggest a hybrid approach using short amplicons for sampling breadth and depth, and long amplicons to characterize the local species pool for improved identification and phylogenetic analyses.
+
+\hypertarget{introduction}{%
+\section{Introduction}\label{introduction}}
+
+Fungi are key drivers of nutrient cycling in terrestrial ecosystems.
+One important guild of fungi form ectomycorrhizas (ECM), a symbiosis between fungi and plants in which fungal hyphae enclose the plant's fine root tips.
+The fungi provide nutrients and protection from pathogens in exchange for carbon from the plant \autocite{Smith2010}.
+Approximately 8\% of described fungal species are thought to take part in ECM symbiosis \autocite{ainsworth2008ainsworth,Rinaldi2008}.
+Although only about 2\% of land plant species form ECM, these include ecologically and economically important stand-forming trees belonging to both temperate and boreal groups such as Pinaceae and Fagaceae, and tropical groups such as Dipterocarpaceae, \emph{Uapaca} (Phyllanthaceae) and Fabaceae tr. Amherstieae \autocite{brundrett2017a}.
+
+Although ECM fungi form many well-known mushrooms (e.g., \emph{Amanita}, \emph{Cantharellus}, \emph{Boletus}), some instead produce inconspicuous (e.g., \emph{Tomentella}) or no (e.g., \emph{Cenococcum}) fruit bodies.
+Even when fruitbodies are large, they are ephemeral, so study of ECM communities is facilitated by looking at vegetative structures \autocite{horton2001}.
+Unlike many saprotrophic fungi which grow easily in axenic culture, ECM fungi are usually difficult to culture, so DNA barcoding is increasingly used to investigate vegetative structures in the field.
+The advent of high-throughput sequencing (HTS) has facilitated such studies by providing enough sequencing depth for metabarcoding of bulk environmental samples such as soils \autocite{Lindahl2013}.
+
+As additional techniques and methods are developed for HTS, there is an increasing array of choices for researchers investigating fungal communities.
+Fungal metabarcoding studies using short-read HTS technologies have targeted the ITS1 or ITS2 regions, which provide sufficient resolution to distinguish fungal species in many groups, and which are usually short enough for HTS \autocite{schoch2012,Lindahl2013}.
+The resulting sequencing reads are clustered by sequence similarity to form operational taxonomic units (OTUs), which are then used as the units for further community analysis \autocite{Lindahl2013}.
+If taxonomic identification is desired in order to put OTUs in a wider context and associate functional information, it has usually been performed by database searches using BLAST \autocite{altschul1990,Lindahl2013}.
+However, this approach comes with some potential weaknesses.
+
+While ITS1 and ITS2 often have suitable variation to distinguish species, they cannot be reliably aligned over the fungal kingdom \autocite{Lindahl2013,Tedersoo2018}.
+Additionally, the wide range of length variation of these regions may introduce bias in recovery of different taxa.
+Further bias is introduced by variation in the 5.8S region which separates the two ITS regions, as well as in the 5' end of LSU, which makes it difficult to design primers that are suitable for all fungi \autocite{tedersoo2015}.
+
+Distance-based clustering conflates intra-species variation and sequencing error, and results are dataset-specific.
+In contrast, more recent denoising methods such as DADA2 \autocite{callahan2017}, Deblur \autocite{amir2017}, and UNOISE2 \autocite{edgar2016} utilize read quality information to control for sequencing error while preserving intra-species variation.
+The resulting units are known as amplicon sequence variants (ASVs) or exact sequence variants (ESVs), as they should represent true amplicon sequences from the sample.
+Unlike cluster-based OTUs, ASVs can capture variation of as little as one base pair, and are less dataset specific \autocite{callahan2017}.
+
+Assignment of taxonomic identities using BLAST requires \emph{a priori} choice of thresholds for different taxonomic ranks.
+Several algorithms specifically designed for taxonomic assignment have been published which use information about variability within different taxa in the reference database to assign unknown sequences, along with confidence estimates for these assignments \autocites[e.g.,][]{wang2007,edgar2016a,murali2018a}.
+In addition, methods have been published which integrate predictions from multiple algorithms to increase the reliability of assignments \autocite{somervuo2016,gdanetz2017}.
+
+Recent long-read HTS technologies such as Pacific Biosciences Single Molecule Real Time sequencing (PacBio) enable sequencing longer amplicons which include both the ITS regions and the flanking, more highly conserved SSU and/or LSU regions \autocite{Tedersoo2018}.
+This can potentially improve taxonomic placement of sequences that lack close database matches and allow the alignment of metabarcoding reads for subsequent phylogenetic analysis.
+Information from phylogenetic trees produced from long-amplicon metabarcoding has the potential to both improve taxonomic assignment and provide alternative measures of community alpha and beta diversity.
+Because OTU clustering may both ``clump'' different species into a single OTU, and ``split'' a single species into multiple OTUs \autocite{ryberg2015}, diversity measures based on counting species within a community or shared species between two communities may give different results depending on the clustering threshold.
+In contrast, phylogenetic community distance measures \autocite{wong2016} are relatively insensitive to species/OTU delimitation, but require a phylogenetic tree.
+Phylogenetic placement algorithms have been developed to place short amplicon reads onto a reference tree \autocite{matsen2010,berger2011}, but are not easy to apply to ITS sequences because they require that the query sequences be aligned to a reference alignment.
+Additionally, methods exist to place OTUs on a simplified tree based on taxonomic assignments \autocite{tedersoo2018}.
+However, long amplicon sequencing allows the inclusion of alignable regions for construction of more fully resolved phylogenetic trees directly from metabarcoding reads.
+However, long-read technologies are currently more expensive per read compared to short-read sequencing, and so their use entails a trade-off with sequencing depth and/or sample number \autocite{Kennedy2018}.
+
+Here we investigated the effects of different sequencing strategies and post-analysis on biological conclusions using measurement of the spatiotemporal turnover rate of the fungal community in an ECM-dominated Soudanian woodland in Benin by metabarcoding of bulk soil, sampled at narrow intervals, over two years.
+We compare three different sequencing platforms (PacBio RS II, Illumina MiSeq, Ion Torrent Ion S5), long and short amplicons, three different taxonomic assignment algorithms (RDP classifier, SINTAX, IDTAXA) and reference databases (Unite, Warcup, RDP), and two different community distance measures (Bray-Curtis vs.~weighted UNIFRAC).
+We also present new algorithms for dividing the rDNA into regions, combining denoising results from multiple regions, and incorporating phylogenetic information into taxonomic assignments.
+
+\hypertarget{materials-and-methods}{%
+\section{Materials and Methods}\label{materials-and-methods}}
+
+\hypertarget{sampling}{%
+\subsection{Sampling}\label{sampling}}
+
+Sampling was conducted at two sites (Ang: N 9.75456° W 2.14064°; Gan: N 9.75678° W 2.31058 °) approximately 30~km apart in the \emph{Forêt Classée de l'Ouémé Supérieur} (Upper Ouémé Forest Reserve) in central Benin.
+Both sites were located in woodlands dominated by the ECM host tree \emph{Isoberlinia doka} (Caesalpinioideae).
+At each site, 25~soil samples were collected along a linear transect at intervals of 1~m in May 2015.
+One third of the sample locations (3~m spacing) were resampled one year later in June 2016.
+For each sample, any coarse organic debris was removed from the soil surface and a sample of approximately 5cm×5cm×5cm was extracted with a sterilized knife blade.
+Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
+Approximately 250~mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0~mL microtube containing 750~mL of lysis buffer and lysis beads (Xpedition\textsuperscript{TM} Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA) and lysed in the field using a handheld bead-beater (TerraLyser\textsuperscript{TM}; Zymo Research Corporation).
+
+An additional sample was collected at every sampling location (1-m spacing) in 2016 using LifeGuard\textsuperscript{TM} Soil Preservation Solution (MO BIO, Carlsbad, CA; USA) for preservation, without field lysis.
+Sequencing results for these samples differed significantly (PERMANOVA with 9999 permutations, \(p < 0.0001\), \(R^2 = 0.06\)) from samples preserved using the Xpedition\textsuperscript{TM} lysis buffer (Figures \ref{fig:buffer-pcoa}, \ref{fig:buffer-compare-long}, and \ref{fig:buffer-compare-short}); as such these samples were excluded from our spatial analyses.
+However, reads from these samples were included in the full bioinformatics workflow, including ASV calling, OTU clustering, and phylogenetic trees.
+
+\hypertarget{dna-extraction-amplification-and-sequencing}{%
+\subsection{DNA extraction, amplification, and sequencing}\label{dna-extraction-amplification-and-sequencing}}
+
+After field lysis, DNA was extracted using the Xpedition\textsuperscript{TM} Soil/Fecal Prep kit (see above).
+Samples preserved using LifeGuard were first centrifuged at 10000~g for 1~minute, after which the supernatant was removed and DNA was extracted from the remaining soil using the Soil/Fecal Prep kit as for the other samples.
+DNA was quantified using fluorometrically using Quant-iT\textsuperscript{TM} PicoGreen\textsuperscript{TM} dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
+
+Two different fragments of the nuclear rDNA were amplified (Figure~\ref{fig:rDNA}).
+The short amplicon (approximately 300~bp) targeted the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 \autocite{ihrmark2012} as the forward primer and a mix of ITS4 \autocite{white1990amplification} and ITS4a \autocite{urbina2016} as the reverse primer (hereafter, ITS4m).
+The long amplicon (approximately 1500~bp) targeted the full ITS region including the 5.8S rDNA and approximately 950~bp at the 5' end of the LSU, including the first three variable regions (Figure~\ref{fig:rDNA}), using ITS1 \autocite{white1990amplification} as the forward primer and LR5 \autocite{vilgalys1990} as the reverse primer.
+Each PCR run also included a blank sample and a positive control consisting of freshly extracted DNA from a commercially purchased fruitbody of \emph{Agaricus bisporus}.
+
+The gITS7 primers for the short amplicon were indexed for multiplexing (Supplementary File 1).
+Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200~µM dNTP mix, 250~µM indexed gITS7 primer, 150µM ITS4m, 2mM MgCl\textsubscript{2}, 0.1~U \emph{Taq} polymerase (Dream \emph{Taq}, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7~ng purified DNA in Dream \emph{Taq} buffer.
+The reaction conditions were 10~min at 95°, followed by 35~cycles of 60~s at 95°, 45~s at 56°, and 50~s at 72°, and finally 3~min at 72°.
+Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity, which were pooled after amplification.
+
+Both primers for the long amplicon were indexed for multiplexing (Supplementary File 2).
+PCR was performed as for the short amplicons, but with 500~µM of each of the two primers.
+Reaction conditions were 10~min at 95°, 30~cycles of 45~s at 95°, 45~s at 59°, and 90~s at 72°, and finally 10~min at 72°.
+Each reaction was performed in three technical replicates as for short amplicons.
+
+Amplicons were purified using SPRI beads \autocite{vesterinen2016} and quantified fluorometrically as above.
+An aliquot of 100~ng of DNA from each sample (or the total PCR product if less than 100~ng) was pooled into two libraries each for long and short amplicons.
+Each library was sequenced using Single Molecule Real Time (SMRT) sequencing on a Pacific Biosciences (PacBio) RS II sequencer at the Uppsala Genome Center (UGC; Uppsala Genome Center, Science
+for Life Laboratory, Dept. of Immunology, Genetics and Pathology, Uppsala University, BMC, Box 815, SE-752~37 UPPSALA, Sweden).
+Short amplicon libraries were sequenced on two SMRT cells each, while long amplicon libraries were sequenced on four SMRT cells each.
+
+Additionally, the short amplicon libraries were combined and sequenced using an Ion S5 (Ion Torrent) sequencer using one 520 chip at UGC, and a MiSeq (Illumina Inc.) sequencer using v3 chemistry with a paired-end read length of 300~bp at the SNP\&SEQ Technology Platform (Dept. of Medical Sciences, Uppsala University, BMC, Box 1432, SE-751~44 UPPSALA, Sweden).
+The Illumina library was pooled with samples for another project, with half of the reads from one lane devoted to the current study.
+
+\hypertarget{bioinformatics}{%
+\subsection{Bioinformatics}\label{bioinformatics}}
+
+Circular consensus sequence (CCS) basecalls for PacBio sequences were made using \texttt{ccs} version 3.4 \autocite{pacificbiosciences2019} using the default settings.
+The resulting sequences, as well as the paired-end Illumina sequences, were demultiplexed and sequencing primers were removed using \texttt{cutadapt} version 2.8 \autocite{martin2011}.
+Sequencing primers were similarly removed from the Ion Torrent sequences, but interference between the tagged gITS7 primers and the Ion XPress tags used in library prep made full demultiplexing of the Ion Torrent sequences impossible, and these reads were thus only analyzed as a pool.
+For Ion Torrent and PacBio, reads were discarded if they did not have the appropriate primers on both ends.
+Reads were searched in both directions, and reads where the primers were found in the reverse direction were reverse complemented before further analysis.
+For Illumina sequences, read pairs were only retained when PCR primers were detected at the 5' ends of both the forward and reverse read.
+Primers were also searched for and removed on the 3' ends of the reads, in case of readthrough with short amplicons.
+Read pairs where the primers were found in reverse orientation were kept in separate files, but were retained in their original orientation until after denoising.
+
+\hypertarget{denoising}{%
+\subsubsection{Denoising}\label{denoising}}
+
+We attempted to denoise both long and short PacBio amplicons using DADA2 according to the steps outlined in the supplementary information in \textcite{callahan2019}.
+However, only 38 amplicon sequence variants (ASVs) were obtained for the long amplicons, representing 12\% of the trimmed reads.
+We conclude that this poor performance was due to a combination of long read length and low sequencing depth relative to community diversity.
+The DADA2 algorithm requires that the seed sequence of each ASV be represented by at least two error-free reads \autocite{callahan2016}.
+If sequencing errors are uniformly distributed, then the probability that a given read will be error-free is \((1-\epsilon)^L\), where \(\epsilon\) is the sequencing error rate and \(L\) is the read length in base pairs.
+Then the number of reads of a given sequence that would be required to obtain two error-free reads in expectation is \(2/(1-\epsilon)^L\).
+For the combination of long reads (median \(L=1509 \text{ bp}\) after trimming) and moderate error rate (mean \(\epsilon= 0.0066\) based on ccs quality scores) for the long amplicon in this study, the expected number of reads required to achieve two error-free reads is 43,720.
+Given the high diversity relative to sequencing depth in this study (485 ASVs based on PacBio short amplicons, 104,305 trimmed long amplicon reads), this requirement could not have been met for the long amplicons except by the most abundant sequences.
+In comparison, the equivalent requirement for the short amplicon (\(L=265 \text{ bp}\), \(\epsilon=0.0022\)) is only 3.6 reads.
+We therefore developed a new workflow to assemble ASVs from the long amplicons, as follows:
+
+Raw reads were divided into shorter regions by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure \autocite{eddy1994}.
+First, the 5.8S rDNA was located in each read by searching for Rfam model RF0002 \autocite{kalvari2018} using \texttt{cmsearch} from Infernal 1.1.2 \autocite{nawrocki2013}, and all bases before the 5.8S were assigned to ITS1.
+No attempt was made to remove the approximately 12~bp fragment of the SSU from the 5' end of ITS1 in the long amplicons; it was too short to be reliably detected by a CM or the HMMs employed by ITSx \autocite{bengtsson-palme2013}.
+A reference alignment including conserved RNA base pairing between and within the 5.8S and relevant portions of LSU was generated from the fungal 28S RNA seed alignment from the Ribosomal Data Project (RDP) release 11.5 \autocite{glockner2017,cole2014} by truncating after the LR5 primer site and using the reference line to annotate the variable regions \emph{sensu} \textcite{michot1984} and \textcite{raue1988}.
+A CM was generated from the alignment using \texttt{cmbuild} from Infernal.
+The fragment of each read beginning with the 5.8S rDNA was then aligned to the CM using \texttt{cmalign} from Infernal.
+The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved regions as shown in Figure~\ref{fig:rDNA},
+where LSU1-4 represent the conserved regions of LSU flanking the variable D1-3 regions \autocite{michot1984}.
+For short amplicons, only (partial) 5.8S, ITS2, and (partial) LSU1 were extracted.
+Code to extract the regions, including annotated seed alignments and CMs, is available in the new R package \texttt{LSUx}.
+
+Each of the extracted regions was independently filtered for length (Supplementary Table~\ref{tab:region-limits}) and a maximum of three expected errors.
+Sequences were then dereplicated and denoised into amplicon sequencing variants (ASVs) using DADA2 version 1.12.1 \autocite{callahan2016,callahan2019}.
+The error model for DADA2 denoising was fit using the 5.8S region for long amplicons, and using the entire read for short amplicons.
+Independent error models were fit for each sequencing run (i.e., long \emph{vs.} short amplicons, different sequencing technologies).
+For PacBio libraries, DADA2 was run with complete pooling and a band size of 16.
+For Ion Torrent libraries, pseudo-pooling and a band size of 32 were used, and the homopolymer gap penalty was set to -1, as recommended by the DADA2 FAQ (\url{https://benjjneb.github.io/dada2/faq.html}).
+Chimeras within each region were removed using \texttt{removeBimeraDenovoTable} from DADA2.
+
+For each ITS2 ASV from the long amplicon data set, the denoised sequences for the other regions corresponding to the same sequencing reads were concatenated to form a set of full-length reads.
+For reads which were not assigned a denoised sequence for each region, the raw read for the region was used instead.
+Because ITS2 is the most variable of the amplified regions (Figure~\ref{fig:regions}), reads with identical ITS2 regions are expected to have highly similar sequences in the other regions, unless the amplicon was chimeric.
+The concatenated ASVs representing each long read were aligned in R using the \texttt{DECIPHER} package \autocite{wright2015}.
+Outlier sequences, as determined by mean pairwise distance from the rest of the alignment, were removed from each alignment using the \texttt{odseq} package \autocite{jehl2015}, using the default threshold of 0.025.
+The consensus of the remaining aligned sequences was assigned as the full-length ASV sequence.
+Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleotide \textgreater50\% at a given position) were removed.
+The count and sample distribution of reads assigned to each full-length ASV were calculated in order to form a sample × ASV community matrix.
+A similar process was used to generate a consensus ITS (ITS1--5.8S--ITS2) and LSU (LSU1--D1--LSU2--D2--LSU3--D3--LSU4) sequence for each ASV.
+The process of assigning consensus full-length ASVs was carried out using the new \texttt{tzara} package for R.
+
+Because the Illumina dataset consisted of paired-end reads, regions were not extracted prior to denoising.
+ASVs were instead generated according to a standard workflow for DADA2.
+Demultiplexed reads were truncated after the first base with quality score \textless= 10, and then reads with more than 3 expected errors in either read were discarded.
+Forward and reverse reads were denoised using DADA2 version 1.12.1 \autocite{callahan2016} using separate error models and pseudo-pooling, and then forward and reverse reads were merged.
+The ITS2 region was extracted from the ASVs using \texttt{LSUx} for comparison to the other technologies.
+
+\hypertarget{taxonomy-assignment}{%
+\subsubsection{Taxonomy assignment}\label{taxonomy-assignment}}
+
+Taxonomic annotations of the Ribosomal Data Project's LSU fungal training set (RDP) version 11.5 \autocite{cole2014} and Warcup ITS training set \autocite{deshpande2016} were mapped to the taxonomic classification system used in the Unite database version 8 \autocite{nilsson2019a}.
+In particular, the classification for fungi was according to \textcite{tedersoo2018}, and for non-fungal eukaryotes was according to the proposed system of \textcite{tedersoo2017c} as described in \autocite{tedersoodata2017}.
+Although the latter system is not formally published, it is consistent with the annotations for non-fungal eukaryotes in the Unite database.
+Additionally, it is a system with both purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as that of the International Society of Protistologists \autocite{adl2019}, which utilizes hierarchical nameless ranks.
+
+Taxonomic assignment was performed to genus level separately on the ITS region using Unite and Warcup and on the LSU region using RDP, respectively, as taxonomic references.
+For each region/reference combination, taxonomy was assigned using three algorithms:
+the RDP Naïve Bayesian Classifier \autocite[RDPC,][]{wang2007} as implemented in DADA2;
+SINTAX \autocite{edgar2016a} as implemented in VSEARCH v2.9.1 \autocite{rognes2016};
+and IDTAXA \autocite{murali2018}.
+Each full-length ASV was thus given up to nine preliminary taxonomic assignments (three references \(\times\) three algorithms).
+ASVs from the short-amplicon datasets for which no matching long-amplicon ASV could be reconstructed were taxonomically assigned using Unite and Warcup on the full length of the short amplicon.
+
+Sequences were assigned as ECM based on taxonomic assignments using the FUNGuild database \autocite{nguyen2016funguild} via the R package \texttt{FUNGuildR} (\url{https://github.com/brendanf/FUNGuildR}).
+All taxa which included ``Ectomycorrhiza'' in the guild assignment at any level of confidence were included.
+
+\hypertarget{clustering}{%
+\subsubsection{Clustering}\label{clustering}}
+
+For comparison with clustering-based methods, ASVs were clustered into operational taxonomic units (OTUs) at 97\% similarity using VSEARCH v2.9.1 \autocite{rognes2016}.
+
+\hypertarget{alignment-and-phylogenetic-inference}{%
+\subsubsection{Alignment and phylogenetic inference}\label{alignment-and-phylogenetic-inference}}
+
+Full length long amplicon ASVs were aligned using DECIPHER \autocite{wright2015} with up to 10~iterations of progressive alignment and conserved RNA secondary structure calculation and 10~refinement iterations.
+This alignment was truncated at a position after the D3 region corresponding to base 907 of the \emph{Saccharomyces cerevisiae} S288C reference sequence for LSU, because several sequences had introns after this position, as also observed in several fungal species by \textcite{holst-jensen1999}.
+
+An ML tree was produced using RAxML version 8.2.12 \autocite{stamatakis2014} using the GTR+GAMMA model and rapid bootstrapping with the MRE\_IGN stopping criterion.
+The tree was rooted outside the kingdom Fungi by using the most abundant ASV which was confidently assigned to a non-fungal kingdom by all 6 applicable taxonomic assignment methods.
+Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset.
+The kingdom Fungi was identified as the minimal clade containing all ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
+ASVs falling outside this clade were not included in downstream fungal community analysis.
+
+Taxonomic assignments of ASVs from the long amplicon dataset were refined using the phylogenetic tree (Figure~\ref{fig:phylotax}).
+A taxon at a particular rank was assigned to a node and all its descendants if that taxon was consistent with the reference-based taxonomic assignments for each of the descendants.
+A taxon assignment was considered to be consistent if at least one algorithm assigned that taxon at greater than 50\% confidence, or if no algorithm successfully classified the sequence at greater than 50\% confidence.
+The result of this process is twofold.
+First, it gives a taxonomic assignment to ASVs which were previously unassigned if they are nested within a clade which is consistently given an assignment.
+Second, it clarifies the assignment of ASVs where different algorithms had resulted in different assignments, but only one of these is consistent with the assignments of other ASVs in the same clade.
+This refinement algorithm is referred to as ``PHYLOTAX''.
+
+ASVs from the short amplicon datasets were refined using only the final strict consensus step, i.e., an assignment at a given rank was accepted if there was no conflict between the different assignment algorithms at greater than 50\% confidence.
+This refinement method is referred to as ``Consensus''.
+Additionally, a hybrid method, was applied to the short amplicon datasets, in which assignments from PHYLOTAX were used for ASVs which could be linked by an identical ITS2 region to a long amplicon, and assignments from Consensus were used for the remaining ASVs.
+
+\hypertarget{community-comparison}{%
+\subsection{Community comparison}\label{community-comparison}}
+
+The fungal communities recovered by the three sequencing strategies that were successfully demultiplexed (Illumina, PacBio Short, PacBio Long) were compared by PERMANOVA.
+In order to detect bias at larger taxonomic scales, ASVs were clustered according to the assigned taxonomic class.
+Only samples where all three strategies yielded at least 100~fungal reads (34 samples), and classes which represented at least 1\% of reads in at least one sample (14 classes), were included.
+PERMANOVA included three terms: an indicator for soil sample, comprising all spatiotemporal effects; amplicon length (long vs.~short); and sequencing technology (Illumina MiSeq vs.~PacBio RS II).
+The marginal significance of each term for explaining variation in the Bray-Curtis community dissimilarity matrix was performed using the \texttt{adonis2} function in the R package \texttt{vegan} \autocite{R-vegan}, with 9999 permutations.
+Partial Principal Coordinates Analysis (PPCoA) was applied to the same dissimilarity matrix using the \texttt{capscale} function in \texttt{vegan} \autocite{R-vegan}.
+Spatiotemporal effects were partialled out in order to visualize effects due to sequencing technology and amplicon length.
+
+A similar analysis was also applied to only fungi classified as ECM, clustered at the family level.
+
+\hypertarget{spatiotemporal-analysis}{%
+\subsection{Spatiotemporal analysis}\label{spatiotemporal-analysis}}
+
+Turnover scale is the distance at which two communities can be considered to be independent samples of the local species pool.
+Knowledge of turnover scale is import when planning studies of local diversity and its environmental correlates.
+It varies between different ecosystems and taxonomic groups.
+Turnover scale is often measured by the range at which a Mantel correlogram indicates significant autocorrelation, or by fitting a function to an empirical distance-decay curve of community dissimilarity vs.~distance \autocite{legendre2012}.
+
+Ecological community dissimilarity matrices were calculated using the ASV/OTU based Bray-Curtis metric (both long and short amplicons) and the phylogenetically based weighted UNIFRAC method (only long amplicons) in \texttt{phyloseq} version 1.26.0.
+Each of these distance matrices was used to calculate a Mantel correlogram for distances of 0--12~m.
+Separate correlograms were drawn for samples taken during the same year, and samples separated in time by one year, in order to assess the degree to which the soil community changes over the course of one year.
+
+Additionally, empirical distance-decay curves were generated by plotting mean community dissimilarity as a function of spatial distance, and fit to an exponential model of the form given by \textcite{legendre2012} using the \texttt{nls} function in R.
+Points in the empirical distance-decay curve were weighted by the number of comparisons within the distance class and the inverse of the distance for the purposes of model fitting.
+For datasets where the Mantel correlogram indicated spatial correlation between samples taken in separate years, the model was re-fit with an additional term to represent temporal correlation:
+\[D = C_0 + C_1\left[1 - \exp\left(-3  \left(\frac{d}{a_d} + \frac{t}{a_t}\right)\right)\right]\]
+where \(D\), \(d\), and \(t\) represent the community dissimilarity, spatial distance, and time lag between samples, respectively, and the parameters are \(C_0\), the community dissimilarity from replicate samples (``nugget''); \(C_0 + C_1\), the community dissimilarity at long distances (``sill''); \(a_d\) the spatial range at which the community dissimilarity has moved 95\% of the way from ``nugget'' to ``sill''; and \(a_t\), the equivalent temporal range.
+The 95\% confidence intervals were calculated for the spatial and temporal range parameters by profiling using the \texttt{MASS} package in R.
+
+\hypertarget{results}{%
+\section{Results}\label{results}}
+
+DNA concentrations after extraction and PCR, as well as sequencing reads for PacBio and Illumina, are shown per sample in Figure \ref{fig:sample-depth}.
+Samples from Ang in 2015 yielded low quantities of DNA, poor PCR performance, and ultimately very few sequencing reads, especially in the long amplicon library, where only one sample produced more than 100~reads.
+Consequently, Ang samples were excluded from spatial analysis, although they were retained for denoising, phylogenetic reconstruction, and taxonomic assignment.
+
+The number of sequencing reads and ASVs at each stage in the bioinformatics pipeline are shown in Table~\ref{tab:bioinfo}.
+Sequencing with PacBio RS II yielded more than twice as many raw reads for long amplicons as for short amplicons, with approximately 125 thousand and 50 thousand reads, respectively.
+Ion Torrent Ion S5 and Illumina MiSeq yielded substantially more reads, with 20.7 million and 10.8 million, respectively.
+Demultiplexing, primer trimming, and quality filtering reduced these totals by 64\% for PacBio long reads, but only by 21\% for PacBio short reads, resulting in a similar number of filtered reads for the two strategies.
+Losses in demultiplexing, trimming, and quality filtering were intermediate for Ion Torrent and Illumina, with 41\% and 28\% loss, respectively.
+In contrast, extraction of only the ITS2 region before quality filtering resulted in the loss of 29\% of trimmed long amplicon PacBio reads, 21\% of trimmed short amplicon PacBio reads, and 34\% of trimmed Ion Torrent reads.
+This represented greater loss of PacBio short reads, but less loss of PacBio long reads and Ion Torrent reads.
+
+Almost all of the short amplicons from all three technologies were between 240 and 375~bp long (Figure~\ref{fig:full-length}a).
+Although the length profile of the three sequencing runs were similar, Illumina MiSeq had the largest fraction of reads near the top of the range, followed by Ion Torrent Ion S5 and PacBio RS II (Figure~\ref{fig:full-length}b).
+The difference in length distributions was statistically significant due to the large sample size (Kruskal-Wallis statistic = \ensuremath{8.5735947\times 10^{4}}, \(p < 2.2\times10^{-16}\)), but the difference between means was fairly small, with mean amplicon lengths of 276, 281, and 286 bp for PacBio, Ion Torrent, and Illumina, respectively.
+In contrast, the length of the long amplicon reads varied widely, from 696 to 1638 bp, with a mean of 1431 bp.
+
+The length distribution of the different regions extracted from the long amplicon are shown in Figure~\ref{fig:region-lengths}.
+ITS1 showed the greatest length variability (mean \(\pm\) standard deviation: 193 \(\pm\) 55~bp), followed by ITS2 (184 \(\pm\) 41~bp) and the variable regions in LSU (D2: 227 \(\pm\) 36~bp; D3: 108 \(\pm\) 10~bp; D1: 159 \(\pm\) 5~bp).
+Approximately 2\% of reads included an intron of 40--60 bp in the LSU4 region, not visible in Figure~\ref{fig:region-lengths} due to rarity.
+Except for these sequences, all conserved regions of LSU, as well as 5.8S, displayed very little size variation, as expected, with standard deviations \textless{} 2 bp.
+
+\emph{Agaricus bisporus}, the positive control, was represented by a single ASV in the positive control samples for both long- and short-amplicon PacBio datasets, and in the Ion Torrent dataset.
+\emph{A. bisporus} was represented by two ASVs in the Illumina dataset, which differed at one base pair (99.5\% similarity in ITS2).
+The abundance of the second ASV was 1.1\% and 1.0\% that of the primary \emph{A. bisporus} ASV in the two Illumina positive controls.
+The consistency of this ratio across replicate positive controls suggests that it represents true inter-copy variation within the specimen, rather than sequencing or PCR error.
+Despite higher total sequencing depth, this ASV was not identified from the Ion Torrent dataset.
+
+\emph{A. bisporus} sequences represented 0.01\%, 0.09\%, 0.09\%, and 0.09\% of non-control reads, in the PacBio long, PacBio short, Illumina, and Ion Torrent datasets, respectively, giving similar estimates for the rate of tag-switching for all technologies.
+These reads were excluded from community analyses.
+
+\hypertarget{reproducibility-of-sequence-capture-using-different-technologies}{%
+\subsection{Reproducibility of sequence capture using different technologies}\label{reproducibility-of-sequence-capture-using-different-technologies}}
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_paper_files/figure-latex/venn-1} \includegraphics[width=0.7\linewidth]{transect_paper_files/figure-latex/venn-2} 
+
+}
+
+\caption[Venn diagrams of shared ASVs and OTUs between different sequencing technologies]{Venn diagrams showing shared ITS2-based ASVs (\emph{a}, \emph{c}) and 97\% OTUs (\emph{b}, \emph{d}) between different sequencing technologies from the same short amplicon library (\emph{a}, \emph{b}), and between long and short amplicon libraries (\emph{c}, \emph{d}).
+In each region, the number of ASVs/OTUs is given above, while the fractions of reads for each sequencing strategy are shown below.
+For short amplicons in \emph{c} and \emph{d}, ASV/OTU counts reflect detection by any of the three technologies, and read counts represent the mean fraction of reads across the three technologies.}\label{fig:venn}
+\end{figure}
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_paper_files/figure-latex/read-compare-1} 
+
+}
+
+\caption[Comparison between read numbers for different sequencing strategies]{Comparison between read numbers for different sequencing strategies, by ASV (\textbf{a}) and 97\% OTU (\textbf{b}). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. \(R^2\) value displayed is for log-transformed non-zero read numbers.}\label{fig:read-compare}
+\end{figure}
+
+The majority of abundant ASVs and OTUs were captured by all sequencing strategies used (Figure~\ref{fig:venn}).
+ASVs shared between all datasets represented 56--80\% of the reads for the long and short PacBio datasets, Illumina dataset, and Ion Torrent dataset, respectively.
+These fractions increased to 73--89\% when differences at the intra-species scale were removed by clustering the ASVs into 97\% OTUs.
+In particular, 100\%, 93\% , and 89\% of reads in the PacBio, Illumina, and Ion Torrent short-amplicon datasets belonged to OTUs shared between all three datasets.
+In contrast, 21\% of reads in the long PacBio dataset belonged to ASVs which were unique to that dataset, and the fraction only reduced to 20\% after OTU clustering.
+Complete tabulations of the number of ASVs and OTUs shared between the different sequencing strategies are shown in Supplementary Tables \ref{tab:venn-table-asv} and \ref{tab:venn-table-otu}, respectively.
+
+Figure~\ref{fig:read-compare} shows the correspondence between the read count for different ASVs (\ref{fig:read-compare}a) and OTUs(\ref{fig:read-compare}b) in the different technologies, where shared ASVs/OTUs are plotted as circles, and unshared OTUs are plotted as lines along the axes.
+In all cases, the read counts for shared ASVs and OTUs were correlated, with a minimum \(R^2\) value of 0.47.
+Correlations between read counts for the three technologies using the short amplicon library were increased by OTU clustering
+(0.69 to 0.72,
+0.49 to 0.74, and
+0.74 to 0.82,
+for PacBio vs.~Illumina, PacBio vs.~Ion Torrent, and Illumina vs.~Ion Torrent, respectively), but not between the long amplicon library and short amplicon library
+(0.65 to 0.62,
+0.58 to 0.57, and
+0.47 to 0.49, for PacBio long amplicon reads vs.~PacBio, Illumina, and Ion Torrent short reads, respectively).
+
+\hypertarget{taxonomic-assignment}{%
+\subsection{Taxonomic assignment}\label{taxonomic-assignment}}
+
+For all sequencing datasets and taxonomic assignment protocols, a higher proportion of reads was assigned than of ASVs, indicating that common ASVs were more likely to be identified than rare ASVs (Figure~\ref{fig:tax-chart}).
+A greater fraction of ITS reads and ASVs were assigned using the Unite database than the Warcup database across sequencing technologies, amplicons, algorithms, and taxonomic ranks.
+At most taxonomic ranks, the RDPC algorithm assigned the greatest fraction of reads and ASVs, followed by SINTAX, and then IDTAXA.
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_paper_files/figure-latex/tax-chart-1} 
+
+}
+
+\caption[Summary of taxonomic assignments]{Fraction of ASVs (left) and reads (right) assigned to each taxonomic rank, for different sequencing technologies (PacBio RS II, Illumina MiSeq, Ion Torrent Ion S5), amplicons (Long, Short), reference databases (Unite, Warcup, RDP), and assignment algorithms (PHYLOTAX, Consensus, RDPC, SINTAX, IDTAXA).
+Consensus and PHYLOTAX assignments are based on the consensus of RDPC, SINTAX, and IDTAXA, using all available databases and, in the case of PHYLOTAX, phylogenetic information.
+These two methods are plotted in each column to compare with results for the individual databases.}\label{fig:tax-chart}
+\end{figure}
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_paper_files/figure-latex/fungi-comm-1} 
+
+}
+
+\caption[Taxonomic composition of fungal community at the class level]{Taxonomic composition of fungal community at the class level. Values represent the fraction of all ASVs, OTUs, or reads which were assigned to kingdom Fungi.
+Assignments based on PHYLOTAX.
+Classes which represented less than 2\% of reads, OTUs, and ASVs in all datasets are grouped together as ``other''.}\label{fig:fungi-comm}
+\end{figure}
+
+Taxonomic composition of the sequenced soil fungal community at the class level is is summarized in Figure~\ref{fig:fungi-comm} and as a heat tree \autocite{foster2017} in Figure~\ref{fig:taxa}.
+The ML tree for fungal ASVs, along with taxonomic assignments, is shown in Supplementary File 3.
+According to the PHYLOTAX assignments, Fungi represented 76\% of the ASVs and 90\% of the reads in the long amplicon library, compared to 89.8\%--94.9\% of the ASVs and 98.4\%--99.0\% of the reads in the short amplicon library.
+Measured fungal community composition at the class level varied significantly between amplicons (PERMANOVA with 9999 permutations, \(p<0.0001\), \(R^2=0.047\)), but only marginally between sequencing technologies (\(p=0.0532\), \(R^2=0.002\)).
+The majority of variation was spatiotemporal (i.e., between samples; \(p<0.0001\), \(R^2=0.90\)), but once this variation was removed, the remaining effect consisted of a clear bias against Sordariomycetes in the long amplicon dataset (Figures~\ref{fig:fungi-comm} and \ref{fig:ppcoa}).
+
+Fungi categorized as ECM made up 8.5\% of ASVs and 39.4\% of reads in the long amplicon library, and 6.3\%--13.8\% of the ASVs and 36.7\%--47.4\% of the reads in the short amplicon library (Figure~\ref{fig:ecm}).
+Although amplicon length had a significant effect on ECM community composition at the family level, the explained variation was very low (PERMANOVA with 9999 permutations, \(p=0.0019\), \(R^2=0.002\)), and the majority of variation was again spatiotemporal (\(p<0.0001\), \(R^2=0.98\)).
+Variation between sequencing technologies was not significant (\(p=0.76\), \(R^2=0.0002\)).
+
+\hypertarget{spatial-analysis}{%
+\subsection{Spatial analysis}\label{spatial-analysis}}
+
+Results of spatial analysis based on the Bray-Curtis dissimilarity were qualitatively similar between the two amplicon libraries and between PacBio and Illumina sequencing, with significant autocorrelation at \(p < 0.05\) for ranges of up to 2--3~m for the total fungal community, and 1--2~m for the ECM fungal community (Figure~\ref{fig:correlog}).
+In both cases, the greatest correlation magnitudes were found with Illumina, followed by long amplicon PacBio.
+The least spatial structure was detected with PacBio short amplicon sequencing.
+
+The Bray-Curtis metric showed significant (\(p < 0.05\)) positive correlation when resampling at the same locations one year later (i.e., spatial distance of 0~m, time lag of 1~year), for both the total fungal and ECM fungal communities in the long amplicon library.
+For the short amplicon library, although the general profile of the correlograms was similar, correlation at 0~m and 1~year was not significant, but there was a negative correlation at time lag of 1~year and a distance of 1~m for both sequencing technologies.
+This puzzling negative correlation was significant in all correlograms based on short amplicon sequencing irrespective of technology.
+
+In contrast to the Bray-Curtis distance, the weighted UNIFRAC distance showed very little spatial structure, with only the total fungal community in the 1~m
+distance class showing a significant correlation at \(p < 0.05\).
+No temporal correlation was found for the weighted UNIFRAC distance.
+
+The best fit spatial ranges based on distance-decay curves vary between the different datasets by a factor of about 3, but there is overlap of the 95\% confidence intervals for all of the Bray-Curtis spatial ranged in both the total fungal and ECM fungal communities, across amplicon libraries and sequencing technologies (Figure~\ref{fig:spatio}, Table~\ref{tab:variofit}).
+Although a distance-decay model was fit for the weighted UNIFRAC distance applied to the total fungal community, the result was very poorly constrained, and a range of 0~m, indicating no spatial structure, was included in the 95\% confidence interval.
+
+
+
+
+
+
+
+
+
+
+\begin{figure}
+
+{\centering \includegraphics[width=0.7\linewidth]{transect_paper_files/figure-latex/spatio-1} 
+
+}
+
+\caption[Distance-decay plot for community dissimilarities and spatio-temporal distance]{Distance-decay plot for community dissimilarities and spatio-temporal distance. Circles represent community data from short (top two rows) and long (bottom two rows) amplicon libraries, sequenced by Illumina MiSeq (top row) or PacBio RS II (bottom three rows).
+Community dissimilarities are calculated using the Bray-Curtis dissimilarity for all datasets (top three rows) and using the weighted UNIFRAC dissimilarity for the long amplicon library, for which a phylogenetic tree could be constructed (bottom row).
+The left column represents the full fungal community, and the right column only sequences identified as ECM.
+The color of each circle represents the time lag between samples being compared (0 or 1~year), and the size represents the number of comparisons for that spatial distance and time lag.
+Lines are the best-fit lines for an exponential decay to max model.
+The model was only fit for datasets where the Mantel test indicated a significant relationship between community dissimilarity and spatial (for the 0~year timelag) or spatiotemporal (for the 1~year time lag) distance.}\label{fig:spatio}
+\end{figure}
+
+\hypertarget{discussion}{%
+\section{Discussion}\label{discussion}}
+
+\hypertarget{reconstruction-of-long-amplicons-from-denoised-subregions}{%
+\subsection{Reconstruction of long amplicons from denoised subregions}\label{reconstruction-of-long-amplicons-from-denoised-subregions}}
+
+ASV recovery for long amplicons using DADA2 was dramatically improved (12\% to 76\% of reads) by denoising homologous subregions independently using the \texttt{LSUx} and \texttt{tzara} packages.
+Although newer sequencing platforms from PacBio (Sequel and Sequel II) feature increased sequencing depth and lower error rate compared to the RS II, long sequences inherently require much more sampling depth to identify ASVs.
+Thus, \texttt{tzara} should increase ASV recovery from these platforms as well.
+It may also be adaptable to Oxford Nanopore sequencing, which has hitherto posed difficulties for application to complex community metabarcoding \autocite{loit2019}.
+
+\hypertarget{comparison-of-sequencing-strategies}{%
+\subsection{Comparison of sequencing strategies}\label{comparison-of-sequencing-strategies}}
+
+The three sequencing technologies gave similar results for the short amplicon library, the major difference being in sequencing depth.
+Although a greater fraction of PacBio raw reads were ultimately mapped to ASVs (75\%) compared to Illumina (63\%) or Ion Torrent (65\%),
+the latter two technologies provided much greater sequencing depth for a similar cost, allowing a greater diversity of rare ASVs to be recovered.
+
+DADA2 denoising may perform differently on different technologies (or perhaps sequencing runs), indicated by the fact that clustering ASVs at 97\% led to substantially higher correspondence between both the set of sequences recovered from the same library by different technologies (Figure~\ref{fig:venn}) and the read counts for each sequence (Figure~\ref{fig:read-compare}).
+The large number of ASVs unique to Ion Torrent, while only the Illumina dataset recovered an apparent intragenomic variant in the positive control sample, suggests that DADA2 may not control sequencing error as effectively in Ion Torrent sequences as in Illumina, for which it was developed \autocite{callahan2016}.
+
+Although the longer read length capabilities of PacBio would allow recovery of longer ITS2 sequences than the other two technologies, PacBio did not recover any ITS2 fragments longer than those recovered by Illumina and Ion Torrent.
+Notably, neither long nor short amplicon sequencing recovered any sequences identifiable to \emph{Cantharellus}, an ECM genus which is commonly observed at the study sites as fruitbodies (personal observation), but which is also known to have accelerated evolution in the rDNA \autocite{moncalvo2006} and longer ITS regions than other fungi \autocite{Feibelman_1994}, making it an especially difficult target for metabarcoding.
+Contrary to expectations, Illumina showed a slightly higher fraction of longer ITS2 sequences than Ion Torrent, which in turn showed slightly longer sequences than PacBio (Figures~\ref{fig:full-length} and \ref{fig:ITS2-length}).
+
+Of long amplicon reads, 21\% belonged to ASVs which occurred only in the long amplicon dataset, and clustering at 97\% similarity only reduced this fraction to 20\%.
+Additionally, ITS2 sequences extracted from the long amplicon dataset included some sequences that were much shorter than those recovered from the short amplicon datasets (Figure \ref{fig:ITS2-length}).
+Taxonomic assignments revealed that the majority of these non-shared sequences fall outside kingdom Fungi (Figure~\ref{fig:heattree-length-compare}), and that in particular the short ITS2 sequences are mostly Alveolates (Figure~\ref{fig:short-its}).
+Within Fungi, the short amplicon datasets recovered more Sordariomycetes (Figures~\ref{fig:fungi-comm}, \ref{fig:ppcoa}, and \ref{fig:heattree-length-compare}).
+Additionally, several smaller groups showed increased detection in either the long or short datasets, such as Tulasnellaceae and Pyronemataceae in the long amplicon dataset, and \emph{Myerozyma} in the short amplicon datasets (Figures~\ref{fig:heattree-length-compare} and \ref{fig:ecm-heattree}).
+These differences may be due to primer mismatches in these taxa.
+
+\hypertarget{taxonomic-identification}{%
+\subsection{Taxonomic identification}\label{taxonomic-identification}}
+
+The RDP fungal training set and Unite performed comparably at taxonomic placement of long amplicon sequences.
+The Warcup database placed notably fewer sequences at all taxonomic levels for all datasets, probably in part due to the fact that only fungal sequences are included.
+However, even with this considered, IDTAXA performed very poorly with the Warcup database, placing \textless25\% of ASVs to kingdom in all datasets.
+IDTAXA placed fewer sequences than RDPC or SINTAX even with the other databases, but this is expected given its more conservative assignment of confidence scores \autocite{murali2018a}.
+
+\textcite{gdanetz2017} showed that a majority-rule consensus of three assignment algorithms can improve the fraction of sequences assigned as well as decrease the false assignment rate.
+Strict consensus rejects assignments whenever there is conflict between methods and should therefore provide more conservative taxonomic assignments than majority-rule consensus.
+Here, we found that strict consensus also usually increases the number of assigned sequences relative to any single method, except at family and genus level identifications.
+This suggests that different assignment algorithms and databases bring mostly complementary, non-contradictory information at higher taxonomic levels.
+However, contradictory assignments between different methods is more common at lower taxonomic levels, which can be problematic because accurate assignment at the family or genus level is generally required for ecological guild assignment using FUNGuild.
+
+For ASVs where a long amplicon sequence is available, PHYLOTAX uses phylogenetic relationships to resolve these disagreements in a principled manner.
+For instance, 56\% and 87\% of Illumina reads were assigned to genus and family, respectively, by the strict consensus of methods, but PHYLOTAX increased this fraction to 75\% and 97\%.
+This led to a corresponding increase in the fraction of reads assigned to a functional guild (Figure~\ref{fig:ecm}).
+
+\hypertarget{turnover-rate}{%
+\subsection{Turnover rate}\label{turnover-rate}}
+
+Weighted UNIFRAC did not reliably detect spatial structure within this relatively ecologically homogeneous community.
+Although the Mantel test did show a small but significant positive autocorrelation in the fungal community at the smallest size category (1~m; Figure~\ref{fig:correlog}), the distance-decay plot in Figure~\ref{fig:spatio} does not show any clear relationship.
+The functional fit showed poor convergence, with a 95\% confidence interval for spatial range of 0--5700~m, indicating little evidence of spatial structure.
+This is probably due to the majority of weighted branch length in the community being between the Pezizomycotina and Agaricomycetes (Figure~\ref{fig:taxa}), which are both well represented in the majority of samples.
+UNIFRAC would be more suited at larger spatial scales and/or larger ecological gradients.
+
+Mantel correlograms based on the Bray-Curtis dissimilarity (Figure~\ref{fig:correlog}) revealed spatial autocorrelation in the soil fungal community at distance classes \(\le 3\) m for both Illumina and PacBio using long and short amplicons, and in the ECM fungal community at distance classes \(\le 2\) m for Illumina and PacBio long amplicons, and \(\le 1\) m for the PacBio short amplicons.
+These results are similar to autocorrelation ranges found in previous work based on ECM root tips in temperate forests \autocite{lilleskov2004,pickles2012a}.
+\textcite{lilleskov2004} found autocorrelation only at ranges \textless2.6~m at most sites using Sanger sequencing.
+Similarly, \textcite{pickles2012a} found autocorrelation at distances \textless3.4~m based on T-RFLP analysis.
+However, previous work in Miombo woodland, a similar ecosystem to the Soudanian woodland in this study, found autocorrelation at ranges \textless10~m using Sanger sequencing of ECM root tips \autocite{tedersoo2011}, which was their smallest distance class.
+
+Distance-decay plots (Figure~\ref{fig:spatio}, Table~\ref{tab:variofit}) gave substantially longer autocorrelation distances.
+There was little variation in the results between the Illumina and long-amplicon PacBio datasets for both the total fungal community and the ECM community, with best fit estimates ranging from 13--18~m.
+The 95\% confidence interval was substantially wider than this variation, generally covering a range of 5--41~m.
+All of these values are smaller than the 65~m reported by \textcite{Bahram2013}, also based on distance-decay curves from an ECM woodland habitat in Benin.
+
+The PacBio short amplicon dataset shows a longer spatial range, of 25~m for the total fungal community and 38--38~m for the ECM community, in both cases with wide confidence intervals spanning 11--214~m.
+It is possible that the weaker fit for this dataset, which also showed weaker autocorrelation in the Mantel correlogram, is due to low sequencing depth.
+
+The Bray-Curtis Mantel correlogram for both the total fungal and ECM communities from the long amplicon dataset show a significant positive correlation at 0~m and 1~year.
+The spatiotemporal distance-decay fit estimated the temporal turnover range as 3.3~years for the total fungal community and 4.1~years for the ECM community, but with overlapping confidence intervals.
+Both datasets from the short amplicon library showed a puzzling pattern with no autocorrelation at 0~m and 1~year, but a weak negative correlation at 1~m and 1~year.
+The general shape of the correlograms were similar for long and short amplicon datasets.
+We hypothesize that two different processes may be at work with differing spatiotemporal scales, whose superposition result in this pattern.
+
+\hypertarget{conclusion}{%
+\subsection{Conclusion}\label{conclusion}}
+
+The choice of amplicon and sequencing technology did not seem to affect the results of the spatial analysis, provided sufficient sequencing depth.
+However, the addition of long amplicon reads did allow the construction of a phylogenetic tree from the metabarcoding reads, which allowed refinement of taxonomic assignments.
+DADA2 ASV yield was initially poor for long reads, but this was improved by developing a workflow for extraction of subregions, separate denoising, and then reconstruction of full-length unique sequences.
+Together these approaches provide a hybrid approach using long-read sequencing to acquire long amplicon sequences for the local species pool, and cost-effective short-read sequencing to provide high sampling depth and sample number.
+
+\hypertarget{acknowledgements}{%
+\section*{Acknowledgements}\label{acknowledgements}}
+\addcontentsline{toc}{section}{Acknowledgements}
+
+This project was funded by the Swedish research council FORMAS grant number 2014-01109.
+
+Laboratory work including PCR and library pooling was performed by Dr.~Ylva Strid.
+
+The authors would like to acknowledge support of the National Genomics Infrastructure (NGI) / Uppsala Genome Center and UPPMAX for providing assistance in massive parallel sequencing and computational infrastructure.
+Work performed at NGI / Uppsala Genome Center has been funded by RFI / VR and and Science for Life Laboratory, Sweden.
+
+Sequencing was performed by the SNP\&SEQ Technology Platform in Uppsala.
+The facility is part of the National Genomics Infrastructure (NGI) Sweden and Science for Life Laboratory.
+The SNP\&SEQ Platform is also supported by the Swedish Research Council and the Knut and Alice Wallenberg Foundation.
+
+\singlespacing
+
+\printbibliography
+
+\doublespacing
+
+\hypertarget{data-accessibility}{%
+\section*{Data Accessibility}\label{data-accessibility}}
+\addcontentsline{toc}{section}{Data Accessibility}
+
+\begin{itemize}
+\tightlist
+\item
+  Trimmed, demultiplexed sequencing reads have been deposited at the European Nucleotide Archive (ERA) under Project accession number PRJEB37385. Accession numbers are given in Supplementary Files 1 and 2.
+\item
+  Consensus ASV sequences will also be deposited at ENA prior to publication.
+\item
+  Nucleotide alignment and ML tree will be deposited at Dryad prior to final publication \autocite{furneauxdata2020}.
+\item
+  R packages \texttt{LSUx}, \texttt{tzara}, \texttt{phylotax}, and \texttt{FUNGuildR} are available on Github at \url{https://github.com/brendanf/LSUx}, \url{https://github.com/brendanf/tzara}, \url{https://github.com/brendanf/phylotax}, and \url{https://github.com/brendanf/FUNGuildR}.
+  These packages are currently being prepared for submission to CRAN/Bioconductor.
+  If they are not accepted prior to final publication, snapshots will be archived at Dryad.
+\item
+  FASTA-format files for the RDP, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at \url{https://github.com/brendanf/reannotate}. The versions used in this paper will be archived at Dryad prior to publication.
+\item
+  Bioinformatics pipeline and analysis scripts are available at \url{https://github.com/oueme-fungi/oueme-fungi-transect}.
+\end{itemize}
+
+\hypertarget{author-contributions}{%
+\section*{Author Contributions}\label{author-contributions}}
+\addcontentsline{toc}{section}{Author Contributions}
+
+Sampling was planned and carried out by BF, NSY, and MR.
+Bioinformatics and data analysis were performed by BF with input from MB, AR, and MR.
+Scripts and R packages were written by BF.
+The manuscript was drafted by BF and MR.
+All authors contributed to and approved the final version of the manuscript.
+
+\processdelayedfloats
+
+
+\end{document}

@@ -407,7 +407,7 @@ Except for these sequences, all conserved regions of LSU, as well as 5.8S, displ
 
 *Agaricus bisporus*, the positive control, was represented by a single ASV in the positive control samples for both long- and short-amplicon PacBio datasets, and in the Ion Torrent dataset.
 *A. bisporus* was represented by two ASVs in the Illumina dataset, which differed at one base pair (`r Biostrings::readDNAStringSet(here::here("data/clusters/ITS2.fasta.gz")) %>% magrittr::extract(startsWith(names(.), "f2ab49e8")) %>% Biostrings::width() %>% unique() %>% divide_by(1, .) %>% subtract(1, .) %>% percent(digits = 1, format = "f")` similarity in ITS2).
-The abundance of the second ASV was `r readd(agaricus_reads) %>% as.data.frame() %>% {.[["f2ab49e8"]]/.[["39d80c19"]]} %>% keep(~. > 0) %>% percent(format = "f", digits = 1) %>% paste(collapse = " and ")` that of the primary *A. bisporus* ASV in the two Illumina positive controls.
+The abundance of the second ASV was `r readd(agaricus_reads) %>% as.data.frame() %>% filter(rowSums(.) > 0) %>% {.[["f2ab49e8"]]/.[["39d80c19"]]} %>% keep(~. > 0) %>% percent(format = "f", digits = 1) %>% paste(collapse = " and ")` that of the primary *A. bisporus* ASV in the two Illumina positive controls.
 The consistency of this ratio across replicate positive controls suggests that it represents true inter-copy variation within the specimen, rather than sequencing or PCR error.
 Despite higher total sequencing depth, this ASV was not identified from the Ion Torrent dataset.
 
@@ -791,11 +791,12 @@ The SNP&SEQ Platform is also supported by the Swedish Research Council and the K
 
 # Data Accessibility {-}
 
- - Sequence data, including raw reads and ASV sequences, will be deposited at the European Nucleotide Archive (ENA) prior to final publication.
+ - Trimmed, demultiplexed sequencing reads have been deposited at the European Nucleotide Archive (ERA) under Project accession number PRJEB37385. Accession numbers are given in Supplementary Files 1 and 2.
+ - Consensus ASV sequences will also be deposited at ENA prior to publication.
  - Nucleotide alignment and ML tree will be deposited at Dryad prior to final publication [@furneauxdata2020].
  - R packages `LSUx`, `tzara`, `phylotax`, and `FUNGuildR` are available on Github at https://github.com/brendanf/LSUx, https://github.com/brendanf/tzara, https://github.com/brendanf/phylotax, and https://github.com/brendanf/FUNGuildR.
-These packages are currently being prepared for submission to Bioconductor.
-If they are not accepted at Bioconductor prior to final publication, they will be archived at Dryad.
+These packages are currently being prepared for submission to CRAN/Bioconductor.
+If they are not accepted prior to final publication, snapshots will be archived at Dryad.
  - FASTA-format files for the RDP, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper will be archived at Dryad prior to publication.
  - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect.
 

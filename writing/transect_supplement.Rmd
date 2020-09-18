@@ -81,9 +81,9 @@ datasets <- read_csv(here("config/datasets.csv"), col_types = "ccccccciccccccccc
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 ```
 
-**Supplementary file 1**: Mapping between samples and indexed primers for short amplicons.
+**Supplementary file 1**: Mapping between samples, indexed primers, and read accession numbers for short amplicons.
 
-**Supplementary file 2**: Mapping between samples and indexed primers for long amplicons.
+**Supplementary file 2**: Mapping between samples, indexed primers, and read accession numbers for long amplicons.
 
 **Supplementary file 3**: ML tree of all long metabarcoding ASVs (5.8S--ITS2--LSU) assigned to kingdom Fungi.
 Thick branches represent rapid bootstrap values >90%.
@@ -479,12 +479,22 @@ venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", capti
  readd(variofit_table) %>%
   mutate_at("conf.low", replace_na, 0) %>%
   mutate(value = ifelse(
-    is.na(estimate) | is.na(conf.high),
+    is.na(estimate) | is.na(conf.high) | mantel == FALSE,
     "-",
-    sprintf("%.2g (%.2g–%.2g)", estimate, conf.low, conf.high)
+    sprintf(
+      "%s (%s–%s)",
+      formatC(estimate, digits = 2, format = "fg"),
+      formatC(conf.low, digits = 2, format = "fg"),
+      formatC(conf.high, digits = 2, format = "fg")
+      )
   )) %>%
   filter(timelag == "0" | term == "timerange") %>%
-  pivot_wider(names_from = "term", values_from = "value", id_cols = c("guild", "amplicon", "tech", "metric", "algorithm")) %>%
+  pivot_wider(
+    names_from = "term",
+    values_from = "value",
+    id_cols = c("guild", "amplicon", "tech", "metric", "algorithm"),
+    values_fill = list(value = "-")
+  ) %>%
   select(Guild = guild, Amplicon = amplicon, Tech = tech, Algorithm = algorithm, Metric = metric, "Space Range (m)" = range, "Time Range (a)" = timerange) %>%
   arrange(Guild, Amplicon, Tech, Algorithm, Metric) %>%
   kable(booktabs = TRUE, caption = "(ref:variofit)", linesep = c(rep("", 5), "\\addlinespace"))

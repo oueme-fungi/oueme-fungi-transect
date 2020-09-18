@@ -393,3 +393,42 @@ choosevars <- function(d, g, .data) {
       y_amplicon = g$y_amplicon
     )
 }
+
+# get the ENA accession number from the submission receipt
+get_reads_accno <- function(sample, reads_dir = "output/ENA/reads") {
+  file.path(reads_dir, sample, "submit", "receipt.xml") %>%
+    xml2::read_xml() %>%
+    xml2::xml_find_first("RUN") %>%
+    xml2::xml_attr("accession")
+}
+
+lookup_ncbi_taxon <- function(taxon, Taxonomy, rank, label, ...) {
+  uid <- taxize::get_uid_(
+    taxon,
+    key = readLines("ENTREZ_KEY"),
+    messages = FALSE
+  )[[1]]
+  if (is.null(uid)) {
+    return(tibble::tibble(label = label, taxon = taxon, targetTaxonomy = Taxonomy, targetRank = rank))
+  }
+  uid$label <- label
+  uid$taxon <- taxon
+  uid$targetTaxonomy <- Taxonomy
+  uid$targetRank <- rank
+  uid$Taxonomy <- taxize::classification(
+    uid$uid,
+    db = "ncbi"
+  ) %>%
+    purrr::map_chr(~paste(.$name, collapse = ";"))
+  uid$dist <- stringdist::stringdist(uid$Taxonomy, Taxonomy, method = "jaccard", q = 5)
+  if (nrow(uid) <= 1) {
+    return(uid)
+  }
+  # if (rank %in% uid$rank) {
+  #   uid <- uid[uid$rank == rank, , drop = FALSE]
+  #   if (nrow(uid) <= 1) {
+  #     return(uid)
+  #   }
+  # }
+  uid
+}
