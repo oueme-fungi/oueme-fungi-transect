@@ -1,4 +1,5 @@
 *.tex
+!*_original.tex
 *.pdf
 *-blx.bib
 *.log
