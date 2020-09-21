@@ -1,9 +1,14 @@
 #------------------------------------------------------
-#Supporting Information
+#Supporting Information
 
-#Estimating and Comparing Microbial Diversity in the Presence of Sequencing Errors
-#Chun-Huo Chiu and Anne Chao
-#Institute of Statistics, National Tsing Hua University, Hsin-Chu, Taiwan, 30043
+
+#Estimating and Comparing Microbial Diversity in the Presence of Sequencing Errors
+
+#Chun-Huo Chiu and Anne Chao
+
+#Institute of Statistics, National Tsing Hua University, Hsin-Chu, Taiwan, 30043
+
+
 
 #Supplemental Text S1: R codes for obtaining estimators of Hill numbers 
 
@@ -378,53 +383,53 @@ singleton.ChaoHill <- function(dat, datatype=c("abundance", "incidence"), from=0
 
 
 
-######Example: Swine-feces data of Table 1 in the main text 
-
-
-# run all R functions above. 
-
-
-
-fi=c(8025,605,129,41,16,8,4,2,1,1,1) # OTU frequency counts of swine-feces data
-
-data=rep(1:length(fi),fi) # transform frequency counts data to species abundances 
-
-output=singleton.ChaoHill(data,"abundance",from=0,to=2,interval=1,B=200);
-
-#estimates of Hill numbers (order q= 0, 1, 2) and corresponding 95% confidence interval
-
-
-
-output
-
-$Singleton.est
-[1] 2831.436
-
-$EST
-             q = 0    q = 1    q = 2
-Observed   3639.00 3250.379 2741.880
-Chao_2013 10261.22 9081.061 6404.025
-
-$SD
-             q = 0     q = 1     q = 2
-Observed   24.5368  33.72911  54.18838
-Chao_2013 278.8550 178.56957 198.79723
-
-$LCI
-             q = 0    q = 1    q = 2
-Observed  3591.840 3181.323 2630.539
-Chao_2013 9696.206 8736.525 6006.244
-
-$UCI
-             q = 0    q = 1    q = 2
-Observed   3682.89 3304.304 2837.815
-Chao_2013 10814.14 9427.188 6768.070
-
-
-##### Rarefaction and Extrapolation of Hill numbers 
-#First correct the raw singleton count by running singleton.Est function.
-data=singleton.Est(data,"abundance")$corrected.data;
-
-#Then, using R package "iNEXT" to plot the rarefaction and extrapolation curve as shown in Fig. 2 and Fig. 3. 
+# ######Example: Swine-feces data of Table 1 in the main text 
+# 
+# 
+# # run all R functions above. 
+# 
+# 
+# 
+# fi=c(8025,605,129,41,16,8,4,2,1,1,1) # OTU frequency counts of swine-feces data
+# 
+# data=rep(1:length(fi),fi) # transform frequency counts data to species abundances 
+# 
+# output=singleton.ChaoHill(data,"abundance",from=0,to=2,interval=1,B=200);
+# 
+# #estimates of Hill numbers (order q= 0, 1, 2) and corresponding 95% confidence interval
+# 
+# 
+# 
+# output
+# 
+# $Singleton.est
+# [1] 2831.436
+# 
+# $EST
+#              q = 0    q = 1    q = 2
+# Observed   3639.00 3250.379 2741.880
+# Chao_2013 10261.22 9081.061 6404.025
+# 
+# $SD
+#              q = 0     q = 1     q = 2
+# Observed   24.5368  33.72911  54.18838
+# Chao_2013 278.8550 178.56957 198.79723
+# 
+# $LCI
+#              q = 0    q = 1    q = 2
+# Observed  3591.840 3181.323 2630.539
+# Chao_2013 9696.206 8736.525 6006.244
+# 
+# $UCI
+#              q = 0    q = 1    q = 2
+# Observed   3682.89 3304.304 2837.815
+# Chao_2013 10814.14 9427.188 6768.070
+# 
+# 
+# ##### Rarefaction and Extrapolation of Hill numbers 
+# #First correct the raw singleton count by running singleton.Est function.
+# data=singleton.Est(data,"abundance")$corrected.data;
+# 
+# #Then, using R package "iNEXT" to plot the rarefaction and extrapolation curve as shown in Fig. 2 and Fig. 3. 
 
 
