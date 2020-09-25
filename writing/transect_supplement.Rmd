@@ -188,6 +188,21 @@ ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend =
   theme(panel.spacing = unit(0, "mm"))
 ```
 
+(ref:qual-check-s) Read quality profiles for different sequencing strategies
+
+(ref:qual-check) **(a)** per-base error rate; **(b)** expected number of errors per read. Statistics are based on quality scores assigned by technology-specific basecallers. **THIS NEEDS TO BE MENTIONED IN THE TEXT (addresses reviewer comment)**
+
+```{r qual-check, fig.cap = "(ref:qual-check-s). (ref:qual-check)", fig.scap = "(ref:qual-check-s)"}
+ggpubr::ggarrange(
+  readd(erate_plot),
+  readd(eexp_plot),
+  ncol = 1,
+  common.legend = TRUE,
+  legend = "bottom",
+  labels = "auto"
+)
+```
+
 (ref:full-length-s) Comparison of the length of denoised sequences from different length amplicons and sequencing technologies
 
 (ref:full-length) Length distribution (*a*, *c*) and empirical cumulative distribution function (ECDF; *b*, *d*) for short (*a*, *b*) and long (*c*, *d*) amplicons, respectively.

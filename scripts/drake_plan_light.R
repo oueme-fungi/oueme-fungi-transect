@@ -2645,6 +2645,82 @@ plan2 <- drake_plan(
     summarize(reads = sum(reads)) %>%
     tidyr::complete(seq_run, length, fill = list(reads = 0)),
   
+  # summary stats for quality check pdf, and supplementary plot
+  parsed_qstat_raw = parsed_qstat %>%
+    dplyr::group_by(seq_run, region, step, stat, value, region, read) %>%
+    dplyr::summarize_at("nreads", sum) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate_at(
+      "region",
+      factor,
+      levels = c(NA, "ITS2", "ITS1", "5_8S", "LSU1", "LSU2", "LSU3", "LSU4",
+                 "D1", "D2", "D3", "short", "ITS", "LSU", "32S", "long")
+    ) %>%
+    dplyr::left_join(
+      dplyr::select(datasets, dataset, seq_run, tech, machine, amplicon),
+      by = "seq_run"
+    ) %>%
+    dplyr::mutate_at(
+      "dataset", factor,
+      levels = c("short-ion", "short-illumina", "short-pacbio", "long-pacbio")
+    ) %>%
+    tidyr::replace_na(list(read = "")) %>%
+    dplyr::mutate(
+      `Read type` = paste(tech, amplicon, substr(read, 2, 3)) %>%
+        trimws()
+    ),
+  
+  ## Error rate -- strategies
+  
+  erate_plot = dplyr::filter(parsed_qstat_raw, stat == "erate", step == "raw") %>%
+    dplyr::arrange(value) %>%
+    dplyr::group_by(`Read type`) %>%
+    dplyr::mutate(ecdf = cumsum(nreads)/sum(nreads)) %>%
+    ggplot(aes(
+      x = value,
+      y = ecdf,
+      linetype = `Read type`,
+      group = `Read type`,
+      color = `Read type`
+    )) +
+    geom_line() +
+    scale_x_continuous(
+      name = "Expected error-rate",
+      trans = reverselog_trans(10),
+      limits = c(NA, 1e-5),
+      oob = squish
+    ) +
+    scale_y_continuous(name = "Fraction passing") +
+    scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
+    scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
+    theme(legend.position = "bottom"),
+  
+  ## Expected number of errors --strategies
+  
+  eexp_plot = dplyr::filter(parsed_qstat_raw, stat == "eexp", step == "raw") %>%
+    dplyr::arrange(value) %>%
+    dplyr::group_by(`Read type`) %>%
+    dplyr::mutate(ecdf = cumsum(nreads)/sum(nreads)) %>%
+    ggplot(aes(
+      x = value,
+      y = ecdf,
+      linetype = `Read type`,
+      group = `Read type`,
+      color = `Read type`
+    )) +
+    geom_vline(xintercept = 3, linetype = "dashed", color = "gray50") +
+    geom_line() +
+    scale_x_continuous(
+      name = "Expected number of errors",
+      trans = reverselog_trans(10),
+      limits = c(NA, 0.1),
+      oob = squish
+    ) +
+    scale_y_continuous(name = "Fraction passing") +
+    scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
+    scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
+    theme(legend.position = "bottom"),
+  
   # short_length_glm = 
   #   short_length_table %>%
   #   glm(reads ~ seq_run + seq_run:length - 1, family = "poisson", data = .),
