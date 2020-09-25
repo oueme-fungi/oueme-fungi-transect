@@ -274,17 +274,17 @@ where LSU1-4 represent the conserved domains of LSU flanking the variable D1-3 d
 For short amplicons, only (partial) 5.8S, ITS2, and (partial) LSU1 were extracted.
 Code to extract the segments, including annotated seed alignments and CMs, is available in the new R package `LSUx`, available on Github at https://github.com/brendanf/LSUx.
 
-Each of the extracted regions was independently filtered for length (Supplementary Table\ \@ref(tab:region-limits)) and a maximum of three expected errors, and denoised using DADA2.
-The error model for DADA2 denoising was fit using the 5.8S region for long amplicons, and using the entire read for short amplicons.
-Independent error models were fit for each sequencing run (i.e., long *vs.* short amplicons, different sequencing technologies).
+Each of the extracted domains was independently filtered for length (Supplementary Table\ \@ref(tab:region-limits)) and a maximum of three expected errors, and denoised using DADA2.
+To test the performance of DADA2 on intermediate-length amplicons, adjacent domains from each read were concatenated to form full ITS (ITS1 + 5.8S + ITS2), partial LSU (LSU1 + D1 + LSU2 + D2 + LSU3 + D3 + LSU4), and partial 32S (5.8S + ITS2 + LSU) datasets, and these were also denoised. 
+The DADA2 error model was fit using the 5.8S region for long amplicons, and using the entire read for short amplicons.
+Independent error models were fit for each sequencing strategy (i.e., long *vs.* short amplicons, different sequencing technologies).
 DADA2 was run with complete pooling for PacBio libraries, and pseudo-pooling
 for Ion Torrent libraries.
 Chimeras within each region were removed using `removeBimeraDenovoTable` from DADA2.
 
-For each raw read, the ASV sequences of the different domains were concatenated to form a set of full-length sequences.
+For each raw read, the denoised sequences of the different domains were concatenated to form a set of full-length sequences.
 For reads which were not assigned a denoised sequence for each domain, the raw read for the domain was used instead.
-Because ITS2 is the most variable of the amplified regions (Figure\ \@ref(fig:regions)b), reads with identical ITS2 regions are expected to have highly similar sequences in the other regions, unless the amplicon was chimeric.
-<!-- R3: please explain how figure S5 shows me that ITS2 is the most variable of the amplified regions. I don’t get it.-->
+Because ITS2 is the most variable of the amplified domains as indicated by the greatest number of unique ASVs (Figure\ \@ref(fig:regions)b), reads with identical ITS2 regions are expected to have highly similar sequences in the other regions, unless the amplicon was chimeric.
 Therefore, concatenated sequences with identical ITS2 were clustered, and each cluster was aligned in R using the `DECIPHER` package [@wright2015].
 Outlier sequences, as determined by mean pairwise distance from the rest of the alignment, were removed from each alignment using the `odseq` package [@jehl2015], using the default threshold of 0.025.
 The consensus of the remaining aligned sequences was assigned as the full-length ASV sequence for the entire cluster.
@@ -295,12 +295,7 @@ The process of assigning consensus full-length ASVs was carried out using the ne
 
 (ref:region-asv-s) rDNA regions
 
-(ref:region-asv) **(a)** Partial map of rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines).  D1-3 (grey) represent the first three variable regions in LSU, while LSU1-4 (black) represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces. **(b)** Total number of ASVs recovered vs. fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`. Some regions were formed by concatenation of extracted regions, as follows:
-LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4;
-ITS = ITS1--5.8S--ITS2;
-32S = 5.8S--ITS2--LSU;
-long = ITS--LSU.
-For this figure, subregions were concatenated prior to quality filtering and generating ASVs with DADA2.
+(ref:region-asv) **(a)** Partial map of rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines).  D1-3 (grey) represent the first three variable regions in LSU, while LSU1-4 (black) represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces. **(b)** Total number of DADA2 ASVs vs. fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from a set of long PacBio amplicon sequences using `LSUx`. Shorter and more conserved regions yield a greater fraction of successfully mapped reads<!-- This sentence is a result shown in the figure (although it is also theoretically expected)-->. At a given fraction of mapped reads, more variable regions yield a greater number of unique ASVs<!-- This sentence is how to interpret the figure -->.
 
 ```{r regions, fig.cap="(ref:region-asv-s). (ref:region-asv)", fig.scap="(ref:region-asv-s)", fig.subcap=rep("", 2), fig.ncol = 1, fig.align = "center"}
 knitr::include_graphics("rDNA_amplicons", auto_pdf = TRUE)
@@ -312,7 +307,8 @@ readd(region_table) %>%
   geom_point() +
   ggrepel::geom_text_repel() +
   scale_color_gradientn(colors = c("blue", "red", "green1"), limits = c(30, 2000), breaks = c(50, 150, 400, 1000), trans = "log10", name = "median length") +
-  scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1))
+  scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1)) +
+  ylab("Unique ASVs")
 ```
 
 Because the Illumina dataset consisted of paired-end reads, domains could not be extracted prior to denoising, and the ASVs generated according to the standard DADA2 workflow were used.
@@ -705,7 +701,6 @@ The large number of ASVs unique to Ion Torrent, while only the Illumina dataset 
 
 Although the longer read length capabilities of PacBio would allow recovery of longer ITS2 sequences than the other two technologies, PacBio did not recover any ITS2 fragments longer than those recovered by Illumina and Ion Torrent.
 Notably, neither long nor short amplicon sequencing recovered any sequences identifiable to *Cantharellus*, an ECM genus which is commonly observed at the study sites as fruitbodies (personal observation), but which is also known to have accelerated evolution in the rDNA [@moncalvo2006] and longer ITS regions than other fungi [@Feibelman_1994], making it an especially difficult target for metabarcoding.
-<!-- R3: what a bummer! -->
 Contrary to expectations, Illumina showed a slightly higher fraction of longer ITS2 sequences than Ion Torrent, which in turn showed slightly longer sequences than PacBio (Figures\ \@ref(fig:full-length) and \@ref(fig:ITS2-length)).
 
 Of long amplicon reads, `r percent(readd(venn_ASV)["1000", "reads_frac_pb_500"])` belonged to ASVs which occurred only in the long amplicon dataset, and clustering at 97% similarity only reduced this fraction to `r percent(readd(venn_OTU)["1000", "reads_frac_pb_500"])`.
@@ -713,10 +708,10 @@ Additionally, ITS2 sequences extracted from the long amplicon dataset included s
 Taxonomic assignments revealed that the majority of these non-shared sequences fall outside kingdom Fungi (Figure\ \@ref(fig:heattree-length-compare)), and that in particular the short ITS2 sequences are mostly Alveolates (Figure\ \@ref(fig:short-its)).
 Within Fungi, the short amplicon datasets recovered more Sordariomycetes (Figures\ \@ref(fig:fungi-comm), \@ref(fig:ppcoa), and \@ref(fig:heattree-length-compare)).
 Additionally, several smaller groups showed increased detection in either the long or short datasets, such as Tulasnellaceae and Pyronemataceae in the long amplicon dataset, and *Myerozyma* in the short amplicon datasets (Figures\ \@ref(fig:heattree-length-compare) and \@ref(fig:ecm-heattree)).
+<!-- R3: what do you mean by smaller groups? Having fewer genera per class?-->
 These differences may be due to primer mismatches in these taxa.
 <!-- R1: Can this be quantified? For example, do we know how well for example LR5 selects for fungi relative to alveolates based on priming site matches? Additionally, were the short reads more common on one side of the “long read” than the other? For example, if all the short reads are common on the LR5 end of the long read, that might suggest using a different LSU primer would minimize the inclusion of alveolates and other non-target taxa.-->
 <!-- R2: Primer mismatches are mentioned here, but only in relation to a few groups and as a final point in this section. But these are established primers whose biases are probably known and published. Do you results make sense? I would also need to see some discussion on how this bias might affect the study as a whole, because different platforms/reads used different primers. -->
-<!-- R3: what do you mean by smaller groups? Having fewer genera per class?-->
 
 ## Taxonomic identification
 
