@@ -1741,13 +1741,13 @@ plan2 <- drake_plan(
     dplyr::mutate_at("amplicon", factor, levels = c("Short", "Long")) %>%
     dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
     arrange(tech, amplicon) %>%
-    mutate(group = paste(tech, "-", amplicon) %>% factor(levels = unique(.))),
+    mutate(group = paste(tech, amplicon) %>% factor(levels = unique(.))),
   
   full_dens_short = length_table %>%
     filter(amplicon == "Short", region == "short") %>%
-    ggplot(aes(length, weight = reads, color = tech, group = tech)) +
+    ggplot(aes(length, weight = reads, color = group, group = group)) +
     stat_density(bw = 0.5, geom = "line", position = "identity") +
-    scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
+    scale_color_strategy(guide = "none") +
     scale_y_continuous(name = "Density") +
     scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
     ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
@@ -1755,9 +1755,9 @@ plan2 <- drake_plan(
   
   full_dens_long = length_table %>%
     filter(amplicon == "Long", region == "long") %>%
-    ggplot(aes(length, weight = reads, color = tech, group = tech)) +
+    ggplot(aes(length, weight = reads, color = group, group = group)) +
     stat_density(bw = 0.5, geom = "line", position = "identity") +
-    scale_color_brewer(type = "qual", guide = "none", palette = "Set2") +
+    scale_color_strategy(guide = "none") +
     scale_y_continuous(name = "Density") +
     scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
     ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
@@ -1765,10 +1765,9 @@ plan2 <- drake_plan(
   
   full_ecdf_short = length_table %>%
     filter(amplicon == "Short", region == "short") %>%
-    ggplot(aes(x = length, y = ecdf, color = tech, group = tech)) +
+    ggplot(aes(x = length, y = ecdf, color = group, group = group)) +
     geom_step() +
-    scale_color_brewer(type = "qual",
-                       name = NULL, palette = "Set2") +
+    scale_color_strategy(name = NULL) +
     scale_y_continuous(name = "ECDF") +
     scale_x_continuous(name = NULL) +
     facet_grid( amplicon ~ ., scales = "free_x") +
@@ -1781,10 +1780,9 @@ plan2 <- drake_plan(
   
   full_ecdf_long = length_table %>%
     filter(amplicon == "Long", region == "long") %>%
-    ggplot(aes(x = length, y = ecdf, color = tech, group = tech)) +
+    ggplot(aes(x = length, y = ecdf, color = group, group = group)) +
     geom_step() +
-    scale_color_brewer(type = "qual",
-                       name = NULL, palette = "Set2", direction = -1) +
+    scale_color_strategy(name = NULL) +
     scale_y_continuous(name = "ECDF") +
     scale_x_continuous(name = "Length (bp)") +
     facet_grid( amplicon ~ ., scales = "free_x") +
@@ -1799,7 +1797,7 @@ plan2 <- drake_plan(
     filter(region == "ITS2") %>%
     ggplot(aes(length, weight = reads, color = group, group = group)) +
     stat_density(bw = 0.5, geom = "line", position = "identity") +
-    scale_color_brewer(type = "qual", guide = "none", palette = "Set2", direction = -1) +
+    scale_color_strategy(guide = "none") +
     scale_y_continuous(name = "Density") +
     scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
     ggnomics::facet_nested(rows = vars(tech, amplicon), scales = "free_y",
@@ -1811,8 +1809,7 @@ plan2 <- drake_plan(
     mutate(tech = "", amplicon = "") %>%
     ggplot(aes(x = length, y = ecdf, color = group, group = group)) +
     geom_step() +
-    scale_color_brewer(type = "qual",
-                       name = NULL, palette = "Set2", direction = -1) +
+    scale_color_strategy(name = NULL) +
     scale_y_continuous(name = "ECDF") +
     scale_x_continuous(name = "ITS2 Length (bp)") +
     facet_grid(rows = vars(tech, amplicon), scales = "free_y") +

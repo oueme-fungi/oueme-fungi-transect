@@ -432,3 +432,39 @@ lookup_ncbi_taxon <- function(taxon, Taxonomy, rank, label, ...) {
   # }
   uid
 }
+
+scale_color_strategy <- function(...) {
+  scale_color_manual(
+    values = c(
+      "PacBio Long" = "#e7298a",
+      "PacBio Short" = "#1b9e77",
+      "Illumina Short" = "#7570b3",
+      "Ion Torrent Short" = "#d95f02"
+    ),
+    ...
+  )
+}
+
+scale_color_tech <- function(...) {
+  scale_color_manual(
+    values = c(
+      "PacBio" = "#e7298a",
+      "Illumina" = "#7570b3",
+      "Ion Torrent" = "#d95f02"
+    ),
+    ...
+  )
+}
+
+scale_color_read <- function(...) {
+  scale_color_manual(
+    values = c(
+      "PacBio Long" = "#e7298a",
+      "PacBio Short" = "#1b9e77",
+      "Illumina Short R1" = "#7570b3",
+      "Illumina Short R2" = "#66a61e",
+      "Ion Torrent Short" = "#d95f02"
+    ),
+    ...
+  )
+}
