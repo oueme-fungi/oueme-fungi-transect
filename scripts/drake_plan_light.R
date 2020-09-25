@@ -2522,38 +2522,49 @@ plan2 <- drake_plan(
   
   # Plot of reads along transect
   reads_plot = parsed_qstat %>%
-    filter(stat == "n") %>%
+    dplyr::filter(stat == "n") %>%
     tidyr::extract(col = "well", into = c("row", "col"),
                    regex = "([A-H])(\\d+)") %>%
-    filter(is.na(step), !is.na(seq_run), read != "_R2" | is.na(read)) %>%
-    group_by(seq_run, plate, row, col) %>%
-    summarize(raw_reads = sum(nreads)) %>%
-    ungroup() %>%
-    mutate_at("col", as.integer) %>%
-    left_join(
+    dplyr::filter(
+      is.na(step) | step == "demux",
+      !is.na(seq_run),
+      read != "_R2" | is.na(read)
+    ) %>%
+    dplyr::group_by(seq_run, plate, row, col) %>%
+    dplyr::summarize(raw_reads = sum(nreads)) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate_at("col", as.integer) %>%
+    dplyr::left_join(
       proto_physeq %>% {
-        mutate(
+        dplyr::mutate(
           phyloseq::sample_data(.),
           reads = phyloseq::otu_table(.) %>% rowSums()
         )
       } %>%
-        select(seq_run, plate, row, column, site, year, qual, sample_type, x, buffer, tech, amplicon, reads) %>%
-        mutate(row = LETTERS[row]) %>%
+        dplyr::select(seq_run, plate, row, column, site, year, qual, sample_type,
+                      x, buffer, tech, amplicon, reads) %>%
+        dplyr::mutate(row = LETTERS[row]) %>%
         unique(),
       by = c("seq_run", "plate", "row", "col" = "column")
     ) %>%
-    filter(tech != "Ion Torrent", !is.na(year), !is.na(seq_run), !is.na(x), !is.na(buffer)) %>%
-    complete(nesting(seq_run, tech, amplicon), site, x, nesting(year, buffer)) %>%
-    pivot_longer(cols = c("reads", "raw_reads"), names_to = "type", values_to = "reads") %>%
-    mutate(
+    dplyr::filter(tech != "Ion Torrent", !is.na(year), !is.na(seq_run),
+                  !is.na(x), !is.na(buffer)) %>%
+    tidyr::complete(tidyr::nesting(seq_run, tech, amplicon), site, x,
+                    tidyr::nesting(year, buffer)) %>%
+    tidyr::pivot_longer(
+      cols = c("reads", "raw_reads"),
+      names_to = "type",
+      values_to = "reads"
+    ) %>%
+    dplyr::mutate(
       type = factor(type, levels = c("raw_reads", "reads")),
       buffer = factor(buffer, levels = c("Xpedition", "LifeGuard")),
       tech = factor(tech, levels = c("PacBio", "Illumina")),
       "Sample group" = paste(year, buffer) %>%
         ifelse(type == "raw_reads", "Raw", .) %>%
-        fct_relevel("Raw")
+        forcats::fct_relevel("Raw")
     ) %>%
-    arrange(`Sample group`) %>%
+    dplyr::arrange(`Sample group`) %>%
     ggplot(aes(x = x, y = reads, group = `Sample group`, fill = `Sample group`)) +
     geom_col(position = "identity") +
     ggnomics::facet_nested(
@@ -2563,7 +2574,11 @@ plan2 <- drake_plan(
       resect = unit(1, "mm")
     ) +
     scale_fill_manual(
-      values = c(RColorBrewer::brewer.pal(3, "Set2") %>% set_names(c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition")), Raw = "gray20"),
+      values = c(
+        RColorBrewer::brewer.pal(3, "Set2") %>%
+          set_names(c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition")),
+        Raw = "gray20"
+      ),
       breaks = c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition", "Raw"),
       labels = c("2015 Xpedition", "2016 LifeGuard", "2016 Xpedition", "Filtered")) +
     scale_y_log10(breaks = c(10, 1e3, 1e5),
