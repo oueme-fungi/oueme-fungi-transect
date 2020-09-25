@@ -260,8 +260,8 @@ read_comparison <- function(multi_table, comparisons, type) {
       limits = c(1, 1e6)
     ) +
     coord_equal() +
-    xlab(NULL) +
-    ylab(NULL) +
+    xlab(paste(type, "count")) +
+    ylab(paste(type, "count")) +
     geom_rug(aes(y = y), sides = "l", alpha = 0.2,
              data = multi_table %>% filter(x == 0, y > 0)) +
     geom_rug(aes(x = x), sides = "b", alpha = 0.2,
