@@ -14,6 +14,8 @@ library(ShortRead)
 library(ggplot2)
 library("scales")
 library(drake)
+source(here::here("scripts", "qstats.R"))
+source(here::here("scripts", "output_functions.R"))
 knitr::opts_chunk$set(echo = FALSE, device = "tikz")
 theme_set(theme_bw(base_size = 24) + theme(legend.direction = "vertical"))
 ```
@@ -22,18 +24,27 @@ theme_set(theme_bw(base_size = 24) + theme(legend.direction = "vertical"))
 datasets <- readd(datasets)
 # xdata <- readd(itsxtrim_.its1.lr5.)
 # pos <- readd(positions_pb500002A1f)
-reads <- readd(qstats_join) %>%
-  mutate_at("Region", factor,
-            levels = c("ITS2", "ITS1", "short", "ITS", "LSU", "long")) %>%
-  mutate_at("Dataset", factor,
-            levels = c("short-ion", "short-pacbio", "long-pacbio")) %>%
-  group_by(Dataset, Plate, Region)
-reads_subset <- reads %>%
-  do(if (nrow(.) > 10000) sample_n(., 10000) else .)
-summarize(reads, n = n())
+reads <- readd(parsed_qstat) %>%
+  dplyr::group_by(seq_run, region, step, stat, value, region, read) %>%
+  dplyr::summarize_at("nreads", sum) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate_at(
+    "region",
+    factor,
+    levels = c(NA, "ITS2", "ITS1", "5_8S", "LSU1", "LSU2", "LSU3", "LSU4", "D1", "D2", "D3", "short", "ITS", "LSU", "32S", "long")
+  ) %>%
+  dplyr::left_join(
+    dplyr::select(datasets, dataset, seq_run, tech, machine, amplicon),
+    by = "seq_run"
+  ) %>%
+  dplyr::mutate_at(
+    "dataset", factor,
+    levels = c("short-ion", "short-illumina", "short-pacbio", "long-pacbio")
+  ) %>%
+  tidyr::replace_na(list(read = "")) %>%
+  dplyr::mutate(`Read type` = paste(tech, amplicon, substr(read, 2, 3)) %>%
+                  trimws())
 ```
-
-
 
 ```{r}
 reverselog_trans <- function(base = exp(1)) {
@@ -45,95 +56,163 @@ reverselog_trans <- function(base = exp(1)) {
 }
 ```
 
-## Minimum quality score
+## Minimum quality score -- strategies
+
 ```{r}
-ggplot(reads_subset, aes(x = minq,
-                  linetype = Dataset,
-                  group = paste(Dataset, Region),
-                  color = Region)) +
-  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
+dplyr::filter(reads, stat == "minq", step == "raw") %>%
+  dplyr::arrange(value) %>%
+  dplyr::group_by(`Read type`) %>%
+  dplyr::mutate(ecdf = 1 - cumsum(nreads)/sum(nreads)) %>%
+  ggplot(aes(x = value,
+             y = ecdf,
+             linetype = `Read type`,
+             group = `Read type`,
+             color = `Read type`)) +
+  geom_line() +
   scale_x_continuous(name = "Minimum quality score",
                      # trans = reverselog_trans(10),
                      # limits = c(NA, 1e-5),
                      oob = squish) +
   scale_y_continuous(name = "Fraction passing") +
-  scale_color_viridis_d(option = "C") +
+  scale_color_read() +
   scale_linetype_discrete()
 ```
 
-## Expected error rate
-```{r}
+## Minimum quality score -- regions
 
-ggplot(reads_subset, aes(x = erate,
-                  linetype = Dataset,
-                  group = paste(Dataset, Region),
-                  color = Region)) +
-  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
-  scale_x_continuous(name = "Expected number of errors per base",
+```{r}
+dplyr::filter(reads, stat == "minq", step == "lsux", amplicon == "Long",
+              region %in% c("ITS1", "ITS2", "5_8S", "ITS", "LSU", "long")) %>%
+  dplyr::arrange(value) %>%
+  dplyr::group_by(region) %>%
+  dplyr::mutate(ecdf = 1 - cumsum(nreads)/sum(nreads)) %>%
+  ggplot(aes(x = value,
+             y = ecdf,
+             linetype = region,
+             group = region,
+             color = region)) +
+  geom_line() +
+  scale_x_continuous(name = "Minimum quality score",
+                     # trans = reverselog_trans(10),
+                     # limits = c(NA, 1e-5),
+                     oob = squish) +
+  scale_y_continuous(name = "Fraction passing") +
+  scale_color_viridis_d(end = 0.95) +
+  scale_linetype_discrete()
+```
+
+## Expected error rate --strategies
+
+```{r}
+erate_plot <- dplyr::filter(reads, stat == "erate", step == "raw") %>%
+  dplyr::arrange(value) %>%
+  dplyr::group_by(`Read type`) %>%
+  dplyr::mutate(ecdf = cumsum(nreads)/sum(nreads)) %>%
+  ggplot(aes(x = value,
+             y = ecdf,
+             linetype = `Read type`,
+             group = `Read type`,
+             color = `Read type`)) +
+  geom_line() +
+  scale_x_continuous(name = "Expected error-rate",
                      trans = reverselog_trans(10),
                      limits = c(NA, 1e-5),
                      oob = squish) +
   scale_y_continuous(name = "Fraction passing") +
-  scale_color_viridis_d(option = "C") +
-  scale_linetype_discrete()
+  scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
+  scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
+  theme(legend.position = "bottom")
+erate_plot
 ```
 
-## Expected number of errors
+## Expected number of errors --strategies
+
 ```{r}
-ggplot(reads_subset, aes(x = eexp,
-                  linetype = Dataset,
-                  group = paste(Dataset, Region),
-                  color = Region)) +
-  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
+eexp_plot <- dplyr::filter(reads, stat == "eexp", step == "raw") %>%
+  dplyr::arrange(value) %>%
+  dplyr::group_by(`Read type`) %>%
+  dplyr::mutate(ecdf = cumsum(nreads)/sum(nreads)) %>%
+  ggplot(aes(x = value,
+             y = ecdf,
+             linetype = `Read type`,
+             group = `Read type`,
+             color = `Read type`)) +
+  geom_vline(xintercept = 3, linetype = "dashed", color = "gray50") +
+  geom_line() +
   scale_x_continuous(name = "Expected number of errors",
                      trans = reverselog_trans(10),
                      limits = c(NA, 0.1),
                      oob = squish) +
   scale_y_continuous(name = "Fraction passing") +
-  scale_color_viridis_d(option = "C") +
-  scale_linetype_discrete()
+  scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
+  scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
+  theme(legend.position = "bottom")
+eexp_plot
 ```
 
-## Error-free probability
+## Per-base and per-read error rate -- strategies
 
 ```{r}
-ggplot(reads_subset, aes(x = p.noerr,
-                  linetype = Dataset,
-                  group = paste(Dataset, Region),
-                  color = Region)) +
-  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
+ggpubr::ggarrange(erate_plot, eexp_plot, ncol = 1, common.legend = TRUE,
+                  legend = "bottom", labels = "auto")
+```
+
+
+## Error-free probability --strategies
+
+```{r}
+dplyr::filter(reads, stat == "p.noerr", step == "raw") %>%
+  dplyr::arrange(dplyr::desc((value))) %>%
+  dplyr::group_by(`Read type`) %>%
+  dplyr::mutate(ecdf = cumsum(nreads)/sum(nreads)) %>%
+  ggplot(aes(x = value,
+             y = ecdf,
+             linetype = `Read type`,
+             group = `Read type`,
+             color = `Read type`)) +
+  geom_line() +
   scale_x_continuous(name = "Expectation of being error-free",
                      # trans = log_trans(10),
                      limits = c(0, 1),
                      oob = squish) +
   scale_y_continuous(name = "Fraction passing") +
-  scale_color_viridis_d(option = "C") +
+  scale_color_read() +
   scale_linetype_discrete()
 ```
 
-## Read length
+## Read length -- strategies
 
 ```{r}
-ggplot(reads_subset, aes(x = length,
-                  linetype = Dataset,
-                  group = paste(Dataset, Region),
-                  color = Region)) +
-  geom_line(aes(y = 1 - ..y..), stat = "ecdf") +
+dplyr::filter(reads, stat == "length", step == "raw") %>%
+  dplyr::arrange(value) %>%
+  dplyr::group_by(`Read type`) %>%
+  dplyr::mutate(ecdf = 1 - cumsum(nreads)/sum(nreads)) %>%
+  ggplot(aes(x = value,
+             y = ecdf,
+             linetype = `Read type`,
+             group = `Read type`,
+             color = `Read type`)) +
+  geom_line() +
   scale_x_log10(name = "Length (bp)",
                 limits = c(50, NA),
                 oob = squish) +
   scale_y_continuous(name = "Fraction Greater than length") +
-  scale_color_viridis_d(option = "C") +
+  scale_color_viridis_d(option = "C", end = 0.9) +
   scale_linetype_discrete()
 ```
 
 ## Read length density
 ```{r}
-ggplot(reads_subset, aes(x = length,
-                  linetype = Dataset,
-                  group = paste(Dataset, Region),
-                  color = Region)) +
-  geom_line(stat = "density") +
+dplyr::filter(reads, stat == "erate", step == "raw") %>%
+  dplyr::arrange(value) %>%
+  dplyr::group_by(`Read type`) %>%
+  dplyr::mutate(ecdf = cumsum(nreads)/sum(nreads)) %>%
+  ggplot(aes(x = value,
+             y = ecdf,
+             linetype = `Read type`,
+             group = `Read type`,
+             color = `Read type`)) +
+  geom_line() +
   scale_x_log10(name = "Length (bp)",
                 limits = c(50, NA),
                 oob = squish) +
@@ -145,153 +224,9 @@ ggplot(reads_subset, aes(x = length,
 ## Expected error-free reads
 ```{r}
 reads %>%
-  group_by(Dataset, Plate, Region) %>%
-  summarize(`Expected Error-Free` = sum(p.noerr),
-            Total = n()) %>%
+  dplyr::filter(step %in% c("raw", "lsux"), stat == "p.noerr") %>%
+  group_by(dataset, read, region) %>%
+  summarize(`Expected Error-Free` = sum(value * nreads),
+            Total = sum(nreads)) %>%
   knitr::kable()
 ```
-
-```{r eval = FALSE}
-library(dada2)
-dada2::plotQualityProfile(unique(filter(reads, Tech == "PacBio")$files))
-```
-
-
-```{r eval = FALSE}
-counts <- readd(seq_counts) %>% 
-  tidyr::extract(col = "file",
-                     into = c("Seq.Run", "Plate", "Well","Region","Type"),
-                     regex = "([:alpha:]+_\\d+)_(\\d+)-([A-H]1?\\d)[fr]?-?([:alnum:]*)\\.([:alnum:]+).+") %>%
-  mutate(Type = ifelse(Type == "trim" & str_length(Region) > 0,
-                       "itsx",
-                       Type)) %>%
-  group_by(Seq.Run, Region, Type) %>%
-  summarize(reads = sum(reads)) %>%
-  spread(key = "Type", value = "reads") %>%
-  select(Seq.Run, trim, Region, itsx, qfilt) %>%
-  group_by(Seq.Run) %>%
-  mutate(trim = na.omit(trim)) %>%
-  filter(all(is.na(itsx)) | !is.na(itsx)) %>%
-  ungroup()
-
-demux.counts <- read_lines(file.path(data.dir, "demux.counts")) %>%
-  str_match("([^:]+): (\\d+) sequences ([^(]+)( \\(([FR]): (\\d+), ([FR]): (\\d+)\\))?\\.") %>%
-  magrittr::extract(,c(2,3,4,6,7,8, 9)) %>%
-  set_colnames(c("file", "reads", "type", "d1", "n1", "d2", "n2")) %>%
-  as_tibble() %>%
-  mutate_at(c("reads", "n1", "n2"), as.integer) %>%
-  mutate(fwd = case_when(!is.na(d1) & d1 == "F" ~ n1,
-                         !is.na(d2) & d2 == "F" ~ n2,
-                         TRUE ~ NA_integer_),
-         rev = case_when(!is.na(d1) & d1 == "R" ~ n1,
-                         !is.na(d2) & d2 == "R" ~ n2,
-                         TRUE ~ NA_integer_)) %>%
-  select(-(d1:n2)) %>%
-  mutate(dataset = map(file, str_extract, datasets$Dataset) %>%
-           map_chr(purrr::compose(dplyr::first, sort, unique)),
-         seq.run = map(file, str_extract, datasets$Seq.Run) %>%
-           map_chr(purrr::compose(dplyr::first, sort, unique)),
-         seq.plate = map(file, str_extract, paste0(datasets$Dataset, "-[0-9]{3}")) %>%
-           map_chr(purrr::compose(dplyr::first, sort, unique))) %>%
-  group_by(dataset, seq.run, seq.plate,type) %>%
-  summarize_at(c("reads", "fwd", "rev"), sum) %>%
-  ungroup() %>%
-  mutate(type = recode(type,
-                       "with at least one tag match" = "any.tag",
-                       "match at least 90% of tag length" = "tag.cover",
-                       "with at most 3 tag mismatches" = "tag.score",
-                       "with no more than one distinct tag in each direction" = "identifiable",
-                       "with tags in both directions" = "both.tags",
-                       "with tags appearing in correct order" = "tag.order")) %>%
-  gather(key = "dir", value = "reads", reads, fwd, rev) %>%
-  mutate_at("dir", str_replace, "^reads$", "") %>%
-  tidyr::unite("type", type, dir, sep = ".") %>%
-  spread(key = "type", value = "reads") %>%
-  set_names(str_replace(names(.), "\\.$", "")) %>%
-  keep(~!all(is.na(.))) %>%
-  select(dataset, starts_with("any.tag"), starts_with("tag.cover"),
-         starts_with("tag.score"), starts_with("identifiable"), both.tags, tag.order) %>%
-  left_join(select(counts, dataset, original, demux) %>%
-              filter(complete.cases(.)) %>%
-              unique()) %>%
-  select(dataset, original, any.tag:tag.order, demux) %>%
-  left_join(select(counts, dataset, region, ITSx, trim))
-
-dada.counts <-
-  demux.counts %>%
-  left_join(select(datasets, dataset = Dataset, Seq.Run)) %>%
-  mutate(file = glue("{data.dir}/{dataset}_{Seq.Run}.dada.seqtable.rds"),
-         file = ifelse(is.na(region),
-                       file,
-                       str_replace(file, "\\.dada", glue(".{region}.dada"))),
-         seq.tab = map(file, readRDS),
-         assigned = map_int(seq.tab, sum),
-         n_ASV = map_int(seq.tab, ncol),
-         file = str_replace(file, "\\.dada\\.seqtable\\.rds",
-                            ".dada.nochim.rds"),
-         nochim = map(file, readRDS),
-         nochim.reads = map_int(nochim, sum),
-         nochim.ASV = map_int(nochim, ncol)) %>%
-  select(-seq.tab, -file, -nochim)
-         
-dada.counts
-```
-
-## ASV correspondences
-
-```{r eval = FALSE}
-s.pb.seqs <- readRDS(glue("{data.dir}/short-pacbio_pb_483.dada.nochim.rds")) %>%
-  colSums %>%
-  tibble(seq = names(.),
-         pb.reads = .)
-s.ion.seqs <- readRDS(glue("{data.dir}/short-ion_is_057.dada.nochim.rds")) %>%
-  colSums %>%
-  tibble(seq = names(.),
-         ion.reads = .)
-
-(crosstab <- full_join(s.pb.seqs, s.ion.seqs, by = "seq") %>%
-  mutate(len = str_length(seq)) %>%
-  replace_na(list(pb.reads = 0, ion.reads = 0))) %>%
-  ggplot(aes(x = ion.reads, y = pb.reads, color = len)) +
-  geom_point() +
-  scale_y_log10() +
-  scale_x_log10()
-```
-
-- IonTorrent reads which match a PacBio ASV: ` filter(crosstab, pb.reads > 0) %$% sum(ion.reads)`
-- IonTorrent reads which do NOT match PacBio: ` filter(crosstab, pb.reads == 0) %$% sum(ion.reads)`
-- PacBio reads which match an IonTorrent ASV: ` filter(crosstab, ion.reads > 0) %$% sum(pb.reads)`
-- PacBio reads which do NOT match IonTorrent: ` filter(crosstab, ion.reads == 0) %$% sum(pb.reads)`
-
-```{r eval = FALSE}
-crosstab %>% arrange(pb.reads, ion.reads) %>%
-  write.csv(file.path(data.dir, "pb_vs_ion_ASVs.csv"))
-```
-
-```{r eval = FALSE}
-demux.counts %>%
-  select(dataset, region) %>%
-  left_join(select(datasets, dataset = Dataset, Seq.Run)) %>%
-  mutate(file = glue("{data.dir}/{dataset}_{Seq.Run}.dada.taxonomy.rds"),
-         file = ifelse(is.na(region),
-                       file,
-                       str_replace(file, "\\.dada", glue(".{region}.dada")))) %>%
-  filter(file.exists(file)) %>%
-  mutate(tax = map(file, readRDS)) %>%
-  unnest %>%
-  filter(str_detect(Taxonomy, "Inocybe")) %>%
-  mutate(nreads = rowSums(select_if(., is.integer), na.rm = TRUE)) %>%
-  arrange(desc(nreads)) %>%
-  select(dataset, region, nreads, Taxonomy, seq) %>%
-  mutate(name = paste(dataset, region, substr(map_chr(seq, digest::digest, algo = "sha1"), 1, 8), sep = "_")) %$%
-  set_names(seq, name) %>%
-  DNAStringSet(use.names = TRUE) %>%
-  writeFasta(file.path(data.dir, "inocybe.fasta"))
-
-`short-ion_is_057.dada.nochim` %>%
-  colnames() %>%
-  set_names(paste0("seq", seq_along(.))) %>%
-  DNAStringSet(use.names = TRUE) %>%
-  writeFasta(file.path(data.dir, "short-ion.fasta"))
-```
-
