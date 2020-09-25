@@ -1737,7 +1737,10 @@ plan2 <- drake_plan(
     group_by(seq_run, region) %>%
     arrange(length) %>%
     mutate(reads = reads/sum(reads), ecdf = cumsum(reads)) %>%
-    dplyr::left_join(dplyr::select(datasets, seq_run, tech, amplicon)) %>%
+    dplyr::left_join(
+      dplyr::select(datasets, seq_run, tech, amplicon),
+      by = "seq_run"
+    ) %>%
     dplyr::mutate_at("amplicon", factor, levels = c("Short", "Long")) %>%
     dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
     arrange(tech, amplicon) %>%
