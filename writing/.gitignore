@@ -1,6 +1,7 @@
 *.tex
 !*_original.tex
 *.pdf
+!rDNA_amplicons.pdf
 *-blx.bib
 *.log
 *.nav
