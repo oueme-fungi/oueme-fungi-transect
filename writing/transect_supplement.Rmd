@@ -79,6 +79,7 @@ theme_set(theme_bw())
 
 datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccccccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
+if (!exists("percent", mode = "function")) source(here::here("scripts", "output_functions.R"))
 ```
 
 **Supplementary file 1**: Mapping between samples, indexed primers, and read accession numbers for short amplicons.
