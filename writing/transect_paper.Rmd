@@ -42,6 +42,7 @@ output:
       in_header: preamble.tex
     citation_package: biblatex
     suppress-bibliography: true
+    extra_dependencies: "subfig"
   bookdown::word_document2: 
     keep_md: yes
 fontsize: 12pt
@@ -207,10 +208,10 @@ After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit
 Samples preserved using LifeGuard were first centrifuged at 10000\ g for 1\ minute, after which the supernatant was removed and DNA was extracted from the remaining soil using the Soil/Fecal Prep kit as for the other samples.
 DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
 
-The DNA extracts were sequenced using four distinct strategies, with two different amplicon lengths (long and short; Figure\ \@ref(fig:rDNA)) and three different technologies (PacBio, Ion Torrent, and Illumina) for the short amplicon.
+The DNA extracts were sequenced using four distinct strategies, with two different amplicon lengths (long and short; Figure\ \@ref(fig:regions)a) and three different technologies (PacBio, Ion Torrent, and Illumina) for the short amplicon.
 Due to length restrictions for Ion Torrent and Illumina sequencing, long amplicons were only sequenced with PacBio.
 The short amplicon (approximately 300\ bp) targeted the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and a mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] as the reverse primer (hereafter, ITS4m).
-The long amplicon (approximately 1500\ bp) targeted the full ITS region including the 5.8S rDNA and approximately 950\ bp at the 5' end of the LSU, including the first three variable regions (Figure\ \@ref(fig:rDNA)), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
+The long amplicon (approximately 1500\ bp) targeted the full ITS region including the 5.8S rDNA and approximately 950\ bp at the 5' end of the LSU, including the first three variable regions (Figure\ \@ref(fig:regions)a), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
 Each PCR run also included a blank sample and a positive control consisting of freshly extracted DNA from a commercially purchased fruitbody of *Agaricus bisporus*.
 
 The forward primers for the short amplicon included sample-specific indexes and adapters for multiplexing (Supplementary File 1).
@@ -268,7 +269,7 @@ No attempt was made to remove the approximately 12\ bp fragment of the SSU from 
 A reference alignment including conserved RNA base pairing between and within the 5.8S and relevant portions of LSU was generated from the fungal 28S RNA seed alignment from RDP release 11.5 [@glockner2017; @cole2014] by truncating after the LR5 primer site and using the reference line to annotate the variable regions *sensu* @michot1984 and @raue1988.
 A CM was generated from the alignment using `cmbuild` from Infernal.
 The fragment of each read beginning with the 5.8S rDNA was then aligned to the CM using `cmalign` from Infernal.
-The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved domains as shown in Figure\ \@ref(fig:rDNA),
+The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved domains as shown in Figure\ \@ref(fig:regions),
 where LSU1-4 represent the conserved domains of LSU flanking the variable D1-3 domains [@michot1984].
 For short amplicons, only (partial) 5.8S, ITS2, and (partial) LSU1 were extracted.
 Code to extract the segments, including annotated seed alignments and CMs, is available in the new R package `LSUx`, available on Github at https://github.com/brendanf/LSUx.
@@ -282,7 +283,7 @@ Chimeras within each region were removed using `removeBimeraDenovoTable` from DA
 
 For each raw read, the ASV sequences of the different domains were concatenated to form a set of full-length sequences.
 For reads which were not assigned a denoised sequence for each domain, the raw read for the domain was used instead.
-Because ITS2 is the most variable of the amplified regions (Figure\ \@ref(fig:regions)), reads with identical ITS2 regions are expected to have highly similar sequences in the other regions, unless the amplicon was chimeric.
+Because ITS2 is the most variable of the amplified regions (Figure\ \@ref(fig:regions)b), reads with identical ITS2 regions are expected to have highly similar sequences in the other regions, unless the amplicon was chimeric.
 <!-- R3: please explain how figure S5 shows me that ITS2 is the most variable of the amplified regions. I don’t get it.-->
 Therefore, concatenated sequences with identical ITS2 were clustered, and each cluster was aligned in R using the `DECIPHER` package [@wright2015].
 Outlier sequences, as determined by mean pairwise distance from the rest of the alignment, were removed from each alignment using the `odseq` package [@jehl2015], using the default threshold of 0.025.
@@ -291,6 +292,28 @@ Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleot
 The count and sample distribution of reads assigned to each full-length ASV were calculated in order to form a sample × ASV community matrix.
 A similar process was used to generate a consensus ITS (ITS1--5.8S--ITS2) and LSU (LSU1--D1--LSU2--D2--LSU3--D3--LSU4) sequence for each ASV.
 The process of assigning consensus full-length ASVs was carried out using the new `tzara` package for R, available at https://github.com/brendanf/tzara.
+
+(ref:region-asv-s) rDNA regions
+
+(ref:region-asv) **(a)** Partial map of rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines).  D1-3 (grey) represent the first three variable regions in LSU, while LSU1-4 (black) represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces. **(b)** Total number of ASVs recovered vs. fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`. Some regions were formed by concatenation of extracted regions, as follows:
+LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4;
+ITS = ITS1--5.8S--ITS2;
+32S = 5.8S--ITS2--LSU;
+long = ITS--LSU.
+For this figure, subregions were concatenated prior to quality filtering and generating ASVs with DADA2.
+
+```{r regions, fig.cap="(ref:region-asv-s). (ref:region-asv)", fig.scap="(ref:region-asv-s)", fig.subcap=rep("", 2), fig.ncol = 1, fig.align = "center"}
+knitr::include_graphics("rDNA_amplicons", auto_pdf = TRUE)
+readd(region_table) %>%
+  dplyr::filter(seq_run == "pb_500") %>%
+  mutate(reads = reads / sum(filter(readd(readcounts), seq_run == "pb_500", step == "demux")$nreads)) %>%
+  dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
+  ggplot(aes(reads, ASVs, color = length_med, label = region)) +
+  geom_point() +
+  ggrepel::geom_text_repel() +
+  scale_color_gradientn(colors = c("blue", "red", "green1"), limits = c(30, 2000), breaks = c(50, 150, 400, 1000), trans = "log10", name = "median length") +
+  scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1))
+```
 
 Because the Illumina dataset consisted of paired-end reads, domains could not be extracted prior to denoising, and the ASVs generated according to the standard DADA2 workflow were used.
 The ITS2 region was extracted from the ASVs using `LSUx` for comparison to the results from the other technologies.

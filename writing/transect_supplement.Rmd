@@ -161,36 +161,6 @@ theme_set(oldtheme)
 
 ```
 
-(ref:rDNA-s) Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA, and internally transcribed spacer (ITS) regions
-
-(ref:rDNA) Portion of the rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines).  D1-3 (grey) represent the first three variable regions in LSU, while LSU1-4 (black) represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces.
-<!-- R3: Figure S4 is useful and should be in the main paper. -->
-
-```{tikz rDNA, fig.cap = "(ref:rDNA)", fig.scap = "(ref:rDNA-s)", code = readLines("rDNA_amplicons.pgf"), fig.ext = "pdf"}
-
-```
-
-(ref:region-asv-s) Plot of total number of ASVs recovered vs. fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from long PacBio amplicons using `LSUx`
-
-(ref:region-asv) Some regions were formed by concatenation of extracted regions, as follows:
-LSU = LSU1--D1--LSU2--D2--LSU3--D3--LSU4;
-ITS = ITS1--5.8S--ITS2;
-32S = 5.8S--ITS2--LSU;
-long = ITS--LSU.
-For this figure, subregions were concatenated prior to quality filtering and generating ASVs with DADA2.
-
-```{r regions, fig.cap="(ref:region-asv-s). (ref:region-asv)", fig.scap="(ref:region-asv-s)"}
-readd(region_table) %>%
-  dplyr::filter(seq_run == "pb_500") %>%
-  mutate(reads = reads / sum(filter(readd(readcounts), seq_run == "pb_500", step == "demux")$nreads)) %>%
-  dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
-  ggplot(aes(reads, ASVs, color = length_med, label = region)) +
-  geom_point() +
-  ggrepel::geom_text_repel() +
-  scale_color_gradientn(colors = c("blue", "red", "green1"), limits = c(30, 2000), breaks = c(50, 150, 400, 1000), trans = "log10", name = "median length") +
-  scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1))
-```
-
 (ref:phylotax-s) Phylogenetic refinement of taxonomic assignments (PHYLOTAX)
 
 (ref:phylotax) In the example, a clade includes  seven OTUs (A-F), which have been identified by two methods as belonging to taxa "Tax1" or "Tax2", or are unidentified ("unk"), as shown in the tip labels.
