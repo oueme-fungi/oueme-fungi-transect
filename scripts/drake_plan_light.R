@@ -646,6 +646,32 @@ plan2 <- drake_plan(
   # for making the tables, figures, and in-line results in the paper.          #
   ##############################################################################
   
+  amplicon_plot =
+    readr::read_csv(file_in("writing/rDNA_amplicons.csv")) %>%
+    dplyr::mutate(xmid = (x + xend) / 2,
+                  label = tidyr::replace_na(label, "")) %>%
+    ggplot(aes(x = x, y = y, xend = xend, yend = yend, color = color,
+               linetype = linetype, size = size)) +
+    geom_segment(data = ~dplyr::filter(., !arrow)) +
+    geom_segment(
+      data = ~dplyr::filter(., arrow),
+      arrow = arrow(length = unit(0.1, "inches"))
+    ) +
+    geom_text(aes(x = xmid, y = y_label, label = label, color = labelcolor,
+                  size = size_label)) +
+    scale_linetype_identity() +
+    scale_color_identity() +
+    scale_size_identity() +
+    ylim(c(-19, 24)) +
+    coord_equal(ratio = 10) +
+    theme(axis.line = element_blank(),
+          panel.grid = element_blank(),
+          panel.border = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          axis.title = element_blank()
+    ),
+  
   # list of all sequences by region and sequencing run, along with number of
   # reads and sequence length
   reads_table = target(
@@ -678,6 +704,28 @@ plan2 <- drake_plan(
       length_max = max(length),
       reads = sum(reads)
     ),
+  
+  # plot of ASV diversity vs. denoising success vs. length
+  length_diversity_plot = region_table %>%
+    dplyr::filter(seq_run == "pb_500") %>%
+    mutate_at(
+      "reads",
+      divide_by,
+      sum(filter(readcounts, seq_run == "pb_500", step == "demux")$nreads)
+    ) %>%
+    dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
+    ggplot(aes(reads, ASVs, color = length_med, label = region)) +
+    geom_point() +
+    ggrepel::geom_text_repel() +
+    scale_color_gradientn(
+      colors = c("blue", "red", "green1"),
+      limits = c(30, 2000),
+      breaks = c(50, 150, 400, 1000),
+      trans = "log10",
+      name = "median length"
+    ) +
+    scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1)) +
+    ylab("Unique ASVs"),
   
   # Table of reads per ASV for each sequencing run
   asv_table = big_seq_table_ITS2 %>%
@@ -2691,7 +2739,7 @@ plan2 <- drake_plan(
       name = "Expected error-rate",
       trans = reverselog_trans(10),
       limits = c(NA, 1e-5),
-      oob = squish
+      oob = scales::squish
     ) +
     scale_y_continuous(name = "Fraction passing") +
     scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
@@ -2717,7 +2765,7 @@ plan2 <- drake_plan(
       name = "Expected number of errors",
       trans = reverselog_trans(10),
       limits = c(NA, 0.1),
-      oob = squish
+      oob = scales::squish
     ) +
     scale_y_continuous(name = "Fraction passing") +
     scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +

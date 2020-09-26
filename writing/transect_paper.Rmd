@@ -42,7 +42,6 @@ output:
       in_header: preamble.tex
     citation_package: biblatex
     suppress-bibliography: true
-    extra_dependencies: "subfig"
   bookdown::word_document2: 
     keep_md: yes
 fontsize: 12pt
@@ -295,20 +294,16 @@ The process of assigning consensus full-length ASVs was carried out using the ne
 
 (ref:region-asv-s) rDNA regions
 
-(ref:region-asv) **(a)** Partial map of rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA (thick lines), and internally transcribed spacer (ITS) regions (thin black lines).  D1-3 (grey) represent the first three variable regions in LSU, while LSU1-4 (black) represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces. **(b)** Total number of DADA2 ASVs vs. fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from a set of long PacBio amplicon sequences using `LSUx`. Shorter and more conserved regions yield a greater fraction of successfully mapped reads<!-- This sentence is a result shown in the figure (although it is also theoretically expected)-->. At a given fraction of mapped reads, more variable regions yield a greater number of unique ASVs<!-- This sentence is how to interpret the figure -->.
+(ref:region-asv) **(a)** Partial map of rDNA showing the 5.8S rDNA, partial SSU and LSU rDNA, and internally transcribed spacer (ITS) regions.  D1-3 represent the first three variable regions in LSU, while LSU1-4 represent the conserved regions. Primer sites used in this study are indicated in red (forward primers) and blue (reverse primers), and the resulting amplicons are shown with green braces. **(b)** Total number of DADA2 ASVs vs. fraction of demultiplexed reads successfully mapped to ASVs for different rDNA regions extracted from a set of long PacBio amplicon sequences using `LSUx`. Shorter and more conserved regions yield a greater fraction of successfully mapped reads<!-- This sentence is a result shown in the figure (although it is also theoretically expected)-->. At a given fraction of mapped reads, more variable regions yield a greater number of unique ASVs<!-- This sentence is how to interpret the figure -->.
 
-```{r regions, fig.cap="(ref:region-asv-s). (ref:region-asv)", fig.scap="(ref:region-asv-s)", fig.subcap=rep("", 2), fig.ncol = 1, fig.align = "center"}
-knitr::include_graphics("rDNA_amplicons", auto_pdf = TRUE)
-readd(region_table) %>%
-  dplyr::filter(seq_run == "pb_500") %>%
-  mutate(reads = reads / sum(filter(readd(readcounts), seq_run == "pb_500", step == "demux")$nreads)) %>%
-  dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
-  ggplot(aes(reads, ASVs, color = length_med, label = region)) +
-  geom_point() +
-  ggrepel::geom_text_repel() +
-  scale_color_gradientn(colors = c("blue", "red", "green1"), limits = c(30, 2000), breaks = c(50, 150, 400, 1000), trans = "log10", name = "median length") +
-  scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1)) +
-  ylab("Unique ASVs")
+```{r regions, fig.cap="(ref:region-asv-s). (ref:region-asv)", fig.scap="(ref:region-asv-s)", fig.align = "center"}
+ggpubr::ggarrange(
+  readd(amplicon_plot),
+  readd(length_diversity_plot),
+  ncol = 1,
+  labels = "auto",
+  heights = c(0.6, 1)
+)
 ```
 
 Because the Illumina dataset consisted of paired-end reads, domains could not be extracted prior to denoising, and the ASVs generated according to the standard DADA2 workflow were used.
