@@ -903,7 +903,7 @@ plan2 <- drake_plan(
       dplyr::mutate(
         slope_label = sprintf("slope==%.2f(%.2f-%.2f)",
                              value_x, `lower 0.95`, `upper 0.95`),
-        r2_label = sprintf("r^2==%.2f", r_squared)
+        r2_label = sprintf("R^2==%.2f", r_squared)
       ),
     transform = map(rarefy_data, .id = cluster)
   ),
@@ -914,27 +914,24 @@ plan2 <- drake_plan(
                   color = "gray50") +
       geom_point(shape = 1, alpha = 0.8) +
       geom_abline(
-        aes(slope = value_x, intercept = X.Intercept.),
+        aes(slope = value_x, intercept = `(Intercept)`),
         color = "blue",
-        alpha = 0.8,
         size = 1,
         data = demingfits
       ) +
       geom_text(
         aes(x = 0, y = 60, label = slope_label),
         hjust = 0,
-        size = 3,
+        size = 2.5,
         color = "blue",
-        alpha = 0.8,
         parse = TRUE,
         data = demingfits
       ) +
       geom_text(
         aes(x = 0, y = 52, label = r2_label),
         hjust = 0,
-        size = 3,
+        size = 2.5,
         color = "blue",
-        alpha = 0.8,
         parse = TRUE,
         data = demingfits
       ) +

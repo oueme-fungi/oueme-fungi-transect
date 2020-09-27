@@ -562,12 +562,13 @@ for PacBio vs. Illumina, PacBio vs. Ion Torrent, and Illumina vs. Ion Torrent, r
 
 (ref:alpha-compare) for ASVs **(a)** and OTUs **(b)**.  Each point represents the richness of one or two pooled samples, as determined by two different sequencing strategies. All values represent the average of 100 replicate rarefactions with a sample depth of 100 reads.  Because samples in the same well on different plates could not be demultiplexed in the Ion Torent dataset, these samples were also bioinformatically pooled in the other datasets prior to rarefaction. Blue line is a total least squares fit, with the given slope (and 95% confidence interval) and R^2^ value. Dashed diagonal line indicates a slope of 1.
 
-```{r alpha-compare, fig.scap = "(ref:alpha-compare-s)", fig.cap = "(ref:alpha-compare-s) (ref:alpha-compare)"}
+```{r alpha-compare, fig.scap="(ref:alpha-compare-s)", fig.cap="(ref:alpha-compare-s) (ref:alpha-compare)", fig.height=8}
 ggpubr::ggarrange(
   remove_empty_facets(readd(alpha_plot_ASV)),
   remove_empty_facets(readd(alpha_plot_OTU)),
   ncol = 1,
-  labels = "auto"
+  labels = "auto",
+  label.x = 0.9
 )
 ```
 
