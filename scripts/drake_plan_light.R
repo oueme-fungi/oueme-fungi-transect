@@ -1948,9 +1948,7 @@ plan2 <- drake_plan(
       cols = val_cols,
       groups = val_cols %>%
         str_replace("reads_.+_(.+)_.+_.+", "\\1"),
-      func = function(abund1, abund2) {
-        list(read_ratio = log10(mean(abund1) / mean(abund2)))
-      }
+      func = log_read_ratio
     )
     taxdata2$data$diff_asv <- metacoder::compare_groups(
       taxdata2,
@@ -1959,9 +1957,7 @@ plan2 <- drake_plan(
       groups = names(taxdata2$data$tax_asv) %>%
         keep(startsWith, "ASVs_") %>%
         str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
-      func = function(abund1, abund2) {
-        list(asv_ratio = log10(mean(abund1) / mean(abund2)))
-      }
+      func = log_ASV_ratio
     )
     
     set.seed(3)
@@ -2026,9 +2022,7 @@ plan2 <- drake_plan(
       cols = val_cols,
       groups = val_cols %>%
         str_replace("reads_.+_(.+)_.+_Consensus", "\\1"),
-      func = function(abund1, abund2) {
-        list(read_ratio = log10(mean(abund1) / mean(abund2)))
-      }
+      func = log_read_ratio
     )
     taxdata2$data$diff_asv <- metacoder::compare_groups(
       taxdata2,
@@ -2037,9 +2031,7 @@ plan2 <- drake_plan(
       groups = names(taxdata2$data$tax_asv) %>%
         keep(startsWith, "ASVs_") %>%
         str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
-      func = function(abund1, abund2) {
-        list(ASV_ratio = log10(mean(abund1) / mean(abund2)))
-      }
+      func = log_ASV_ratio
     )
     
     taxdata2 <- taxdata2$filter_taxa(!is.nan(ASV_ratio), !is.nan(read_ratio))
@@ -2131,9 +2123,7 @@ plan2 <- drake_plan(
         str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
           paste(.[,3], .[,2])
         },
-      func = function(abund1, abund2) {
-        list(read_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
-      },
+      func = log_read_ratio,
       combinations = list(
         c("Xpedition 2016", "Xpedition 2015"),
         c("Xpedition 2016", "LifeGuard 2016"),
@@ -2180,9 +2170,7 @@ plan2 <- drake_plan(
         str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
           paste(.[,3], .[,2])
         },
-      func = function(abund1, abund2) {
-        list(read_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
-      },
+      func = log_read_ratio,
       combinations = list(
         c("Xpedition 2016", "Xpedition 2015"),
         c("Xpedition 2016", "LifeGuard 2016"),

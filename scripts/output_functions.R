@@ -476,3 +476,11 @@ reverselog_trans <- function(base = exp(1)) {
             scales::log_breaks(base = base), 
             domain = c(1e-100, Inf))
 }
+
+log_read_ratio <- function(abund1, abund2) {
+  list(read_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
+}
+
+log_ASV_ratio <- function(abund1, abund2) {
+  list(ASV_ratio = log10(mean(abund1) / mean(abund2)) %>% ifelse(is.nan(.), 0, .))
+}
