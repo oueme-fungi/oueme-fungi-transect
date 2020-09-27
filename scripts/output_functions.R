@@ -1,6 +1,6 @@
 #### Output helper functions ####
 # These functions format in-line results or help to generate figures and tables
-# directly in the Rmarkdown for the paper, or in drake_plan_light.R 
+# directly in the Rmarkdown for the paper, or in drake_plan_light.R
 
 # Format a number with "k" or "M" suffic for thousands or millions, as appropriate
 k_or_M <- function(x, ..., .sep = " ", .function = format) {
@@ -132,7 +132,7 @@ vennplot_data <- function(venndata, var) {
 # Present the results of venndata() as a table
 venn_table <- function(venndata, var, caption, caption.short) {
   var <- enquo(var)
-  
+
   linesep <- venndata %>%
     filter(!is.na(!!var)) %>%
     select(starts_with("reads")) %>%
@@ -145,9 +145,9 @@ venn_table <- function(venndata, var, caption, caption.short) {
     unlist() %>%
     head(length(.) - 2) %>%
     c("\\midrule")
-  
+
   empty_background <- if (options("knitr.table.format") == "html") "#777777" else "gray"
-  
+
   venndata %>%
     rownames_to_column(" ") %>%
     filter(!is.na(!!var)) %>%
@@ -177,7 +177,7 @@ venn_table <- function(venndata, var, caption, caption.short) {
     kableExtra::add_header_above(
       header = c(
         " " = 2,
-        names(venndata)[-(1)] %>% 
+        names(venndata)[-(1)] %>%
           gsub(pattern = paste0("(", as_label(var), "_)?(reads|frac)_"), replacement = "") %>%
           rle() %$%
           set_names(lengths, plyr::mapvalues(values, datasets$seq_run, datasets$amplicon, FALSE))
@@ -186,7 +186,7 @@ venn_table <- function(venndata, var, caption, caption.short) {
     kableExtra::add_header_above(
       header = c(
         " " = 2,
-        names(venndata)[-(1)] %>% 
+        names(venndata)[-(1)] %>%
           gsub(pattern = paste0("(", as_label(var), "_)?(reads|frac)_"), replacement = "") %>%
           plyr::mapvalues(datasets$seq_run, paste(datasets$tech, datasets$machine), FALSE) %>%
           rle() %$%
@@ -281,12 +281,15 @@ read_comparison <- function(multi_table, comparisons, type) {
       inherit.aes = FALSE
     ) +
     theme(strip.placement = "outside", strip.background = element_blank())
+  remove_empty_facets(p)
+}
+
+remove_empty_facets <- function(p) {
   g <- ggplotGrob(p)
   g$grobs[g$layout$name %in% c("panel-1-2", "panel-1-3", "panel-2-3")] <- NULL
   g$layout <- g$layout[!(g$layout$name %in% c("panel-1-2", "panel-1-3", "panel-2-3")),]
   g
 }
-
 
 # Plot distribution between different taxa
 taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm,
@@ -317,12 +320,12 @@ taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm,
     group_by_at(rlang::eval_tidy(facets), .add = TRUE) %>%
     summarize(reads = sum(reads), ASVs = n()/max(ASVs)) %>%
     ungroup()
-  
+
   if (!is.null(cutoff)) {
     prelevels <- levels(pull(.data, !!rank))
     .data <- group_by(.data, !!rank) %>%
       group_map(
-        
+
         ~ if (all(pull(.x, !!y) < cutoff)) {
           mutate(.x, !!rank := factor("other", levels = levels(!!rank)), exclude = NULL)
         } else {
@@ -337,15 +340,15 @@ taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm,
       ungroup() %>%
       mutate(!!rank := factor(!!rank, levels = prelevels, exclude = NULL))
   }
-  
+
   rank_label <- as_label(rank)
-  
+
   .data <- mutate(.data, !!rank := fct_drop(!!rank))
   vals <- levels(pull(.data, !!rank))
   # if ("other" %in% vals) vals <- c("other", vals) %>% magrittr::extract(!duplicated(.))
   # if (any(is.na(vals))) vals <- c(NA, vals) %>% magrittr::extract(!duplicated(.))
-  
-  
+
+
   if (rank_label == str_to_lower(rank_label)) rank_label <- str_to_title(rank_label)
   y_label <- as_label(y)
   if (y_label == str_to_lower(y_label)) y_label <- str_to_title(y_label)
@@ -371,7 +374,7 @@ taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm,
       name = rank_label
     ) +
     ylab(paste("Fraction of", y_label))
-  
+
 }
 
 # function to call inside group_map while making OTU/ASV read count comparison
@@ -387,7 +390,7 @@ choosevars <- function(d, g, .data) {
     ) %>%
     filter(x > 0 | y > 0) %>%
     mutate(
-      x_var = g$x_var, 
+      x_var = g$x_var,
       x_amplicon = g$x_amplicon,
       y_var = g$y_var,
       y_amplicon = g$y_amplicon
@@ -472,8 +475,8 @@ scale_color_read <- function(...) {
 reverselog_trans <- function(base = exp(1)) {
   trans <- function(x) -log(x, base)
   inv <- function(x) base^(-x)
-  scales::trans_new(paste0("reverselog-", format(base)), trans, inv, 
-            scales::log_breaks(base = base), 
+  scales::trans_new(paste0("reverselog-", format(base)), trans, inv,
+            scales::log_breaks(base = base),
             domain = c(1e-100, Inf))
 }
 
