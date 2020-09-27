@@ -2141,7 +2141,7 @@ plan2 <- drake_plan(
         node_size_range = c(0.002, .035),
         node_size_axis_label = "ASV richness",
 
-        node_color = asv_ratio,
+        node_color = ASV_ratio,
         node_color_range = metacoder::diverging_palette(),
         node_color_trans = "linear",
         node_color_axis_label = "Log richness ratio",
@@ -2160,7 +2160,7 @@ plan2 <- drake_plan(
 
         node_label = ifelse(
           pmax(abs(.$data$diff_read$read_ratio) > 0.5,
-               abs(.$data$diff_asv$asv_ratio) > 0.25),
+               abs(.$data$diff_asv$ASV_ratio) > 0.25),
           taxon_names,
           ""
         ),
