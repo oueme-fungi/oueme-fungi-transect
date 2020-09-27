@@ -793,51 +793,56 @@ plan2 <- drake_plan(
   # for all ASVs/OTUs with nonzero reads in that sample
   pre_iNEXT_ASV = target(
     big_seq_table_ITS2 %>%
-    tibble::as_tibble(rownames  = "file") %>%
-    tidyr::extract(
-      file,
-      c("seq_run", "plate", "well"),
-      regex = "([ipS][sbH][-_]\\d{3,4})_([0OT]{2}\\d)_([A-H]1?[0-9])_ITS2"
-    ) %>%
-    dplyr::semi_join(readd(platemap), by = c("plate", "well")) %>%
-    dplyr::select(-plate) %>%
-    dplyr::group_by(seq_run, well) %>%
-    dplyr::summarize_all(sum) %>%
-    tidyr::unite("sample", c(seq_run, well)) %>%
-    tidyr::pivot_longer(-sample, names_to = "ASV", values_to = "nread") %>%
-    dplyr::filter(nread > 0) %>%
-    dplyr::select(sample, nread) %>%
-    tibble::deframe() %>%
-    split(names(.)),
+      tibble::as_tibble(rownames  = "file") %>%
+      tidyr::extract(
+        file,
+        c("seq_run", "plate", "well"),
+        regex = "([ipS][sbH][-_]\\d{3,4})_([0OT]{2}\\d)_([A-H]1?[0-9])_ITS2"
+      ) %>%
+      dplyr::semi_join(readd(platemap), by = c("plate", "well")) %>%
+      dplyr::select(-plate) %>%
+      dplyr::group_by(seq_run, well) %>%
+      dplyr::summarize_all(sum) %>%
+      tidyr::unite("sample", c(seq_run, well)) %>%
+      tidyr::pivot_longer(-sample, names_to = "ASV", values_to = "nread") %>%
+      dplyr::filter(nread > 0) %>%
+      dplyr::group_by(sample) %>%
+      dplyr::filter(sum(nread) >= 100) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(sample, nread) %>%
+      tibble::deframe() %>%
+      split(names(.)),
     transform = map(cluster = "ASV", .tag_out = pre_iNEXT, .id = FALSE)
   ),
 
   pre_iNEXT_OTU = target(
-  read_tsv(
-    file_in(here::here("data/clusters/ITS2.table")),
-    col_types =
-      cols(
-        .default = col_integer(),
-        `#OTU ID` = col_character()
-      )
-  ) %>%
-    dplyr::rename(OTU = `#OTU ID`) %>%
-    tidyr::pivot_longer(-OTU, names_to = "sample", values_to = "nread") %>%
-    dplyr::filter(nread > 0) %>%
-    tidyr::extract(
-      col = sample,
-      into = c("seq_run", "plate", "well"),
-      regex = "([piS][bsH][-_]\\d{3,4})_(\\d{3})([A-H]1?[0-9])"
+    read_tsv(
+      file_in(here::here("data/clusters/ITS2.table")),
+      col_types =
+        cols(
+          .default = col_integer(),
+          `#OTU ID` = col_character()
+        )
     ) %>%
-    dplyr::semi_join(readd(platemap), by = c("plate", "well")) %>%
-    tidyr::unite("sample", seq_run, well) %>%
-    dplyr::group_by(sample, OTU) %>%
-    dplyr::summarize_at("nread", sum) %>%
-    dplyr::ungroup() %>%
-    dplyr::select(sample, nread) %>%
-    tibble::deframe() %>%
-    split(names(.)),
-  transform = map(cluster = "OTU", .tag_out = pre_iNEXT, .id = FALSE)
+      dplyr::rename(OTU = `#OTU ID`) %>%
+      tidyr::pivot_longer(-OTU, names_to = "sample", values_to = "nread") %>%
+      dplyr::filter(nread > 0) %>%
+      tidyr::extract(
+        col = sample,
+        into = c("seq_run", "plate", "well"),
+        regex = "([piS][bsH][-_]\\d{3,4})_(\\d{3})([A-H]1?[0-9])"
+      ) %>%
+      dplyr::semi_join(readd(platemap), by = c("plate", "well")) %>%
+      tidyr::unite("sample", seq_run, well) %>%
+      dplyr::group_by(sample, OTU) %>%
+      dplyr::summarize_at("nread", sum) %>%
+      dplyr::group_by(sample) %>%
+      dplyr::filter(sum(nread) >= 100) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(sample, nread) %>%
+      tibble::deframe() %>%
+      split(names(.)),
+    transform = map(cluster = "OTU", .tag_out = pre_iNEXT, .id = FALSE)
   ),
 
   sample_iNEXT = target(
@@ -855,6 +860,95 @@ plan2 <- drake_plan(
     transform = map(pre_iNEXT, .id = cluster),
     dynamic = map(pre_iNEXT)
   ),
+
+  rarefy_data = target(
+    readd(sample_rarefy) %>%
+    purrr::map_dfr(tibble::enframe) %>%
+    tidyr::extract(
+      name,
+      c("seq_run", "well"),
+      regex = "([iSp][sHb][-_][0-9]+)_([A-H]1?[0-9])"
+    ) %>%
+    dplyr::left_join(datasets, by = "seq_run") %>%
+    dplyr::mutate(strategy = paste(tech, amplicon)) %>%
+    dplyr::mutate_at(
+      "strategy",
+      factor,
+      ordered = TRUE,
+      levels = c("Ion Torrent Short", "Illumina Short", "PacBio Short",
+                 "PacBio Long")
+    ) %>%
+      dplyr::select(well, strategy, value) %>%
+      dplyr::left_join(., ., by = "well", suffix = c("_x", "_y")) %>%
+      dplyr::filter(strategy_x < strategy_y),
+    transform = map(sample_rarefy, .id = cluster)
+  ),
+
+  demingfits = target(
+    rarefy_data %>%
+      dplyr::group_nest(strategy_x, strategy_y, .key = "deming") %>%
+      dplyr::mutate(
+        deming = purrr::map(
+          deming,
+          ~ deming::deming(value_y ~ value_x, data = .) %$%
+            c(
+              as.list(coefficients),
+              as.list(ci['value_x',]),
+              list(r_squared = cor(model)[1,2])
+            ) %>%
+            tibble::as_tibble()
+        )
+      ) %>%
+      tidyr::unnest(deming) %>%
+      dplyr::mutate(
+        slope_label = sprintf("slope==%.2f(%.2f-%.2f)",
+                             value_x, `lower 0.95`, `upper 0.95`),
+        r2_label = sprintf("r^2==%.2f", r_squared)
+      ),
+    transform = map(rarefy_data, .id = cluster)
+  ),
+
+  alpha_plot = target(
+    ggplot(rarefy_data, aes(x = value_x, y = value_y)) +
+      geom_abline(slope = 1, intercept = 0, linetype = "dashed",
+                  color = "gray50") +
+      geom_point(shape = 1, alpha = 0.8) +
+      geom_abline(
+        aes(slope = value_x, intercept = X.Intercept.),
+        color = "blue",
+        alpha = 0.8,
+        size = 1,
+        data = demingfits
+      ) +
+      geom_text(
+        aes(x = 0, y = 60, label = slope_label),
+        hjust = 0,
+        size = 3,
+        color = "blue",
+        alpha = 0.8,
+        parse = TRUE,
+        data = demingfits
+      ) +
+      geom_text(
+        aes(x = 0, y = 52, label = r2_label),
+        hjust = 0,
+        size = 3,
+        color = "blue",
+        alpha = 0.8,
+        parse = TRUE,
+        data = demingfits
+      ) +
+      facet_grid(strategy_y ~ strategy_x, switch = "both") +
+      theme_bw() +
+      coord_equal() +
+      theme(strip.background = element_blank(),
+            strip.placement = "outside") +
+      xlab(paste(cluster, "richness")) +
+      ylab(paste(cluster, "richness")),
+    transform = map(demingfits, rarefy_data, cluster, .id = cluster)
+  ),
+
+  ## Quality stats ----
 
   parsed_qstat = parse_qstat(qstats),
 
