@@ -104,7 +104,7 @@ plan2 <- drake_plan(
     trigger = trigger(mode = "blacklist")
   ),
   qstats = target(trigger = trigger(mode = "blacklist")),
-  
+
   # big_fasta ----
   # write the big_seq_table as a fasta files so that they can be clustered by
   # VSEARCH.
@@ -113,24 +113,25 @@ plan2 <- drake_plan(
                     file_out(big_fasta_file)),
     transform = map(.data = !!region_meta, .tag_in = step, .id = region)
   ),
-  
+
   # Create labels for the tree(s) which show the assigned taxonomy.
   taxon_labels = make_taxon_labels(taxon_table),
-  
+
   # funguild_db ----
   # Download the FUNGuild database
   funguild_db = FUNGuildR::get_funguild_db(),
-  
+
   # platemap ----
   # Read the map between plate locations and samples
   platemap = target(
     read_platemap(file_in(!!config$platemap), !!config$platemap_sheet),
     format = "fst"),
-  
+
+  # Output Supplementary tables ----
   # write out tables
   tagmap_long = platemap %>%
     filter(primer_pair == "ITS1_LR5") %>%
-    select(year, site, buffer, x, sample_type, primer_pair, plate, well) %>% 
+    select(year, site, buffer, x, sample_type, primer_pair, plate, well) %>%
     left_join(
       read_rds(file_in(!!file.path("config", "tags", "long.rds"))),
       by = "well"
@@ -152,10 +153,10 @@ plan2 <- drake_plan(
     dplyr::left_join(read_accnos) %>%
     dplyr::select(-"Illumina-f", -"Illumina-r", -"IonTorrent") %T>%
     write_tsv(file_out(!!file.path("output", "supp_file_2.tsv")), na = ""),
-  
+
   tagmap_short = platemap %>%
     filter(primer_pair == "gITS7_ITS4") %>%
-    select(year, site, buffer, x, sample_type, primer_pair, plate, well) %>% 
+    select(year, site, buffer, x, sample_type, primer_pair, plate, well) %>%
     left_join(
       read_rds(file_in(!!file.path("config", "tags", "short.rds"))),
       by = "well"
@@ -182,7 +183,7 @@ plan2 <- drake_plan(
     } %>%
     select(sample_alias, year, site, buffer, x, sample_type, amplicon, everything()) %T>%
     write_tsv(file_out(!!file.path("output", "supp_file_1.tsv")), na = ""),
-  
+
   # tree_decipher_LSU = target(
   #   raxml_decipher_LSU$bipartitions,
   #   transform = map(
@@ -190,7 +191,7 @@ plan2 <- drake_plan(
   #     group = "euk",
   #     .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
   # ),
-  # 
+  #
   # tree_decipher_LSU_long = target(
   #   raxml_decipher_long$bipartitions,
   #   transform = map(
@@ -198,7 +199,8 @@ plan2 <- drake_plan(
   #     group = "euk",
   #     .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
   # ),
-  
+
+  # Trees ----
   tree_decipher_unconst_long = target(
     raxml_decipher_unconst_long$bipartitions,
     transform = map(
@@ -206,7 +208,7 @@ plan2 <- drake_plan(
       group = "euk",
       .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
   ),
-  
+
   # tree_infernal_32S = target(
   #   raxml_infernal_32S$bipartitions,
   #   transform = map(
@@ -214,12 +216,12 @@ plan2 <- drake_plan(
   #     group = "euk",
   #     .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
   # ),
-  
+
   # tree_epa_mafft_full = target(
   #   raxml_epa_mafft_full$bestTree,
   #   transform = map(treename = "epa_mafft_full", .tag_out = tree)
   # ),
-  
+
   labeled_tree = target(
     relabel_tree(
       tree = tree,
@@ -234,7 +236,7 @@ plan2 <- drake_plan(
       ))),
     transform = map(tree, tree, group, .tag_in = step, .id = c(treename, group))
   ),
-  
+
   phylo_labeled_tree = target(
     relabel_tree(
       tree = tree,
@@ -249,7 +251,7 @@ plan2 <- drake_plan(
       ))),
     transform = map(tree, phylotaxon_labels, treename, group, .tag_in = step, .id = c(treename, group))
   ),
-  
+
   # find the most abundant sequence which we are confident is not a fungus
   best_nonfungus =
     taxon_table %>%
@@ -260,7 +262,7 @@ plan2 <- drake_plan(
                   n_diff == 1) %>%
     dplyr::filter(n_reads == max(n_reads)) %$%
     label[1],
-  
+
   # root the tree outside the fungi.  This is almost certainly not the correct
   # root for Eukaryotes (inside Chlorophyta), but it ensures that
   # the fungi can be indentified.
@@ -268,7 +270,7 @@ plan2 <- drake_plan(
     ape::root.phylo(euktree, best_nonfungus),
     transform = map(euktree, .tag_in = step, .id = treename)
   ),
-  
+
   # Tulasnella is on a long branch because of a high divergence rate.
   # it ends up with Metazoa in the tree.  Exclude it.
   tulasnella =
@@ -279,7 +281,7 @@ plan2 <- drake_plan(
     ) %$%
     label %>%
     unique(),
-  
+
   # find the sequences that were confidently identified as fungi
   # (and placed in a phylum).  We extract the common ancestor of these
   surefungi =
@@ -294,7 +296,7 @@ plan2 <- drake_plan(
     label %>%
     unique() %>%
     setdiff(tulasnella),
-  
+
   # Extract the minimally inclusive clade including all confidently identified
   # fungi (except Tulasnella).
   fungi_tree = target(
@@ -303,7 +305,8 @@ plan2 <- drake_plan(
       ape::drop.tip(phy = ., intersect(.$tip.label, allchimeras_ITS2)),
     transform = map(rooted_tree, group = "fungi", .tag_in = step, .tag_out = tree, .id = treename)
   ),
-  
+
+  # Taxonomy ----
   phylotaxon = target(
     phylotax(tree = tree, taxa = taxon_table),
     transform = map(tree, .tag_in = step,
@@ -311,12 +314,12 @@ plan2 <- drake_plan(
                     algorithm = "PHYLOTAX",
                     .tag_out = consensus_taxa, .id = c(treename, group))
   ),
-  
+
   phylotaxon_labels = target(
     make_taxon_labels(phylotaxon$tip_taxa),
     transform = map(phylotaxon, .tag_in = step, .id = c(treename, group))
   ),
-  
+
   strict_taxon_short_euk = target(
     taxon_table %>%
       group_by(label, method, region, reference) %>%
@@ -333,7 +336,7 @@ plan2 <- drake_plan(
       ) %>%
       unique() %>%
       list(tip_taxa = .),
-    
+
     transform = map(
       taxname = "short",
       group = "euk",
@@ -342,7 +345,7 @@ plan2 <- drake_plan(
       .id = FALSE
     )
   ),
-  
+
   strict_taxon_short_fungi = target(
     group_by(strict_taxon_short_euk$tip_taxa, label) %>%
       filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
@@ -355,7 +358,7 @@ plan2 <- drake_plan(
       .id = FALSE
     )
   ),
-  
+
   best_taxon_short_euk = target(
     strict_taxon_short_euk$tip_taxa %>%
       filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
@@ -370,7 +373,7 @@ plan2 <- drake_plan(
                     algorithm = "PHYLOTAX+Cons",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
-  
+
   best_taxon_short_fungi = target(
     strict_taxon_short_fungi$tip_taxa %>%
       filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
@@ -412,7 +415,7 @@ plan2 <- drake_plan(
       .id = FALSE
     )
   ),
-  
+
   strict_taxon_ITS_fungi = target(
     group_by(strict_taxon_ITS_euk$tip_taxa, label) %>%
       filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
@@ -425,7 +428,7 @@ plan2 <- drake_plan(
       .id = FALSE
     )
   ),
-  
+
   best_taxon_ITS_euk = target(
     strict_taxon_ITS_euk$tip_taxa %>%
       filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
@@ -440,7 +443,7 @@ plan2 <- drake_plan(
                     algorithm = "PHYLOTAX+Cons",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
-  
+
   best_taxon_ITS_fungi = target(
     strict_taxon_ITS_fungi$tip_taxa %>%
       filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
@@ -455,7 +458,8 @@ plan2 <- drake_plan(
                     algorithm = "PHYLOTAX+Cons",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
-  
+
+  # Guild assignment ----
   preguild_taxa = target(
     consensus_taxa$tip_taxa %>%
       dplyr::group_by(label, rank) %>%
@@ -492,32 +496,33 @@ plan2 <- drake_plan(
       ),
     transform = map(consensus_taxa, .tag_in = step, .id = c(taxname, group, algorithm))
   ),
-  
+
   guilds = target(
       FUNGuildR::funguild_assign(preguild_taxa, funguild_db),
     transform = map(.data = !!guilds_meta, .tag_in = step, .id = algorithm)
   ),
-  
+
   fungi = target(
     dplyr::filter(guilds, kingdom == "Fungi"),
     transform = map(guilds, .tag_in = step, .id = algorithm)
   ),
-  
+
   ecm = target(
     dplyr::filter(guilds, grepl("Ectomycorrhizal", guild)),
     transform = map(guilds, .tag_in = step, .id = algorithm)
   ),
-  
+
   ecm2 = target(
     dplyr::filter(ecm, !taxon %in% c("Peziza", "Pezizaceae", "Pyronemataceae")),
     transform = map(ecm, .tag_in = step, .id = algorithm)
   ),
-  
+
   ecm3 = target(
     dplyr::filter(ecm, confidenceRanking != "Possible"),
     transform = map(ecm, .tag_in = step, .id = algorithm)
   ),
-  
+
+  # Phyloseq objects ----
   proto_physeq = assemble_physeq(
     platemap = platemap,
     datasets = datasets,
@@ -525,7 +530,7 @@ plan2 <- drake_plan(
     tree = NULL,
     chimeras = allchimeras_ITS2
   ),
-  
+
   physeq = target(
     {
       physeq <- proto_physeq %>%
@@ -540,19 +545,19 @@ plan2 <- drake_plan(
         phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
         phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["tech"]] == tech) %>%
         phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["amplicon"]] == amplicon)
-      
+
       if (guild == "ecm") {
         physeq <- phyloseq::prune_taxa(ecm$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
-        
+
       } else if (guild == "ecm2") {
         physeq <- phyloseq::prune_taxa(ecm2$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
-        
+
       } else if (guild == "ecm3") {
         physeq <- phyloseq::prune_taxa(ecm3$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
-        
+
       } else if (guild == "fungi") {
         physeq <- phyloseq::prune_taxa(fungi$label, physeq) %>%
           phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
@@ -561,20 +566,20 @@ plan2 <- drake_plan(
     },
     transform = map(.data = !!physeq_meta, .tag_in = step, .id = c(guild, tech, amplicon, algorithm))
   ),
-  
+
   correlog = target(
     correlog(physeq, metric, timelag),
     transform = cross(physeq, metric = c("bray", "wunifrac"), timelag = c(0, 1),
                       .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm, timelag))
   ),
-  
+
   variog = target(
     variog(physeq, metric, breaks = c(1:25 - 0.5, 31000)),
     transform = cross(physeq, metric = c("bray", "wunifrac"),
                       .tag_in = step,
                       .id = c(guild, metric, tech, amplicon, algorithm))
   ),
-  
+
   variofit2 = target(
     variog %>%
       as_variogram() %>%
@@ -603,14 +608,14 @@ plan2 <- drake_plan(
       },
     transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
   ),
-  
+
   variogST = target(
     variogST(physeq, metric, breaks = c(1:25 - 0.5, 30000)),
     transform = cross(physeq, metric = c("bray", "wunifrac"),
                       .tag_in = step,
                       .id = c(guild, metric, tech, amplicon, algorithm))
   ),
-  
+
   variofitST2 = target(
     as_variogramST(variogST) %>%
       stats::nls(
@@ -640,12 +645,12 @@ plan2 <- drake_plan(
       },
     transform = map(variogST, variofit2, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
   ),
-  
+
   ##### Tables and Figures #####################################################
   # Targets below this point are intended to compile data in useful formats    #
   # for making the tables, figures, and in-line results in the paper.          #
   ##############################################################################
-  
+
   amplicon_plot =
     readr::read_csv(file_in("writing/rDNA_amplicons.csv")) %>%
     dplyr::mutate(xmid = (x + xend) / 2,
@@ -671,7 +676,7 @@ plan2 <- drake_plan(
           axis.ticks = element_blank(),
           axis.title = element_blank()
     ),
-  
+
   # list of all sequences by region and sequencing run, along with number of
   # reads and sequence length
   reads_table = target(
@@ -690,7 +695,7 @@ plan2 <- drake_plan(
       dplyr::ungroup(),
     transform = combine(big_seq_table)
   ),
-  
+
   # Summary information for each region
   region_table = reads_table %>%
     dplyr::group_by(seq_run, region) %>%
@@ -704,7 +709,7 @@ plan2 <- drake_plan(
       length_max = max(length),
       reads = sum(reads)
     ),
-  
+
   # plot of ASV diversity vs. denoising success vs. length
   length_diversity_plot = region_table %>%
     dplyr::filter(seq_run == "pb_500") %>%
@@ -726,7 +731,7 @@ plan2 <- drake_plan(
     ) +
     scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1)) +
     ylab("Unique ASVs"),
-  
+
   # Table of reads per ASV for each sequencing run
   asv_table = big_seq_table_ITS2 %>%
     tibble::as_tibble(rownames = "filename") %>%
@@ -737,12 +742,12 @@ plan2 <- drake_plan(
                    regex = "([a-zA-Z]+[-_]\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
     dplyr::group_by(seq.run, seq) %>%
     dplyr::summarize(reads = sum(reads)) %>%
-    tidyr::spread(key = seq.run, value = reads, fill = 0) %>% 
+    tidyr::spread(key = seq.run, value = reads, fill = 0) %>%
     dplyr::ungroup(),
-  
+
   # Table of reads per OTU for each sequencing run
   otu_table = {
-    
+
     big_fasta_ITS2
     read_tsv(
       file_in("data/clusters/ITS2.table"),
@@ -766,7 +771,7 @@ plan2 <- drake_plan(
       dplyr::summarize(reads = sum(reads)) %>%
       tidyr::spread(key = seq_run, value = reads, fill = 0)
   },
-  
+
   # Find the central sequence for each 97% OTU
   otu_map =
     read_tsv(
@@ -779,25 +784,25 @@ plan2 <- drake_plan(
     select(identity = V4, ASVseq = V9, OTUseq = V10) %>%
     mutate_all(str_replace, ";.*", "") %>%
     unique(),
-  
+
   parsed_qstat = parse_qstat(qstats),
-  
+
   demuxlength =  parsed_qstat %>%
     filter(is.na(read) | read != "_R2", stat == "length") %>%
     filter(is.na(step) | step == "demux", !is.na(well), ) %>%
     group_by(seq_run) %>%
     summarize(value = reldist::wtd.quantile(value, weight = nreads)) %>%
     deframe(),
-  
+
   demuxqual = parsed_qstat %>%
     filter(is.na(read) | read != "_R2", stat == "erate") %>%
     filter(is.na(step) | step == "demux", !is.na(well)) %>%
     group_by(seq_run) %>%
     summarize(value = round(weighted.mean(value, w = nreads, na.rm = TRUE), 4)) %>%
     deframe(),
-  
+
   readcounts = parsed_qstat %>% filter(is.na(read) | read != "_R2", stat == "n"),
-  
+
   rawcounts = readcounts %>%
     filter(is.na(step) | step == "raw", is.na(well)) %>%
     group_by(seq_run) %>%
@@ -806,7 +811,7 @@ plan2 <- drake_plan(
       nreads = sum(nreads)
     ) %>%
     deframe(),
-  
+
   demuxcounts = readcounts %>%
     filter(is.na(step) | step == "demux", !is.na(well)) %>%
     group_by(seq_run) %>%
@@ -815,7 +820,7 @@ plan2 <- drake_plan(
       nreads = sum(nreads)
     ) %>%
     deframe(),
-  
+
   filtercounts_full = readcounts %>%
     filter(step == "filter", is.na(region) | region %in% c("long", "short")) %>%
     group_by(seq_run, region) %>%
@@ -824,8 +829,8 @@ plan2 <- drake_plan(
       nreads = sum(nreads)
     ) %>%
     select(seq_run, nreads) %>%
-    deframe(), 
-  
+    deframe(),
+
   filtercounts_ITS2 = readcounts %>%
     filter(step == "filter", region == "ITS2") %>%
     group_by(seq_run, region) %>%
@@ -835,7 +840,7 @@ plan2 <- drake_plan(
     ) %>%
     select(seq_run, nreads) %>%
     deframe(),
-    
+
   regioncounts = readcounts %>%
     filter(step == "lsux", region == "5_8S") %>%
     group_by(seq_run) %>%
@@ -844,7 +849,7 @@ plan2 <- drake_plan(
       nreads = sum(nreads)
     ) %>%
     deframe(),
-  
+
   asvcounts =
     pivot_longer(asv_table, -1, names_to = "seq_run", values_to = "reads") %>%
     filter(reads > 0) %>%
@@ -862,7 +867,7 @@ plan2 <- drake_plan(
     group_by(seq_run, region) %>%
     summarize(reads = sum(reads, na.rm = TRUE), ASVs = n()) %>%
     select(seq_run, reads, step = region, ASVs),
-  
+
   bioinf_table = bind_rows(
     enframe(rawcounts, name = "seq_run", value = "reads") %>%
       mutate(
@@ -940,22 +945,22 @@ plan2 <- drake_plan(
     ) %>%
     arrange(step) %>%
     column_to_rownames("step"),
-  
+
   bioinf_header =
     tibble(name = names(bioinf_table)) %>%
     separate(name, into = c("tech", "amplicon", "type"), sep = "_") %>%
     mutate(
       tech = paste(tech, plyr::mapvalues(tech, datasets$tech, datasets$machine, FALSE))
     ),
-  
+
   venn_ASV = venndata(asv_table, ASVs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
-  
+
   vennplot_ASV = vennplot_data(venn_ASV, ASVs),
-  
+
   venn_OTU = venndata(otu_table, OTUs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
-  
+
   vennplot_OTU = vennplot_data(venn_OTU, OTUs),
-  
+
   big_table = {
     out <- bind_rows(
       mutate(asv_table, type = "ASV"),
@@ -963,18 +968,18 @@ plan2 <- drake_plan(
     ) %>%
       select(-seq) %>%
       select(type, everything())
-    
+
     names(out)[-1] <-
       tibble(seq_run = names(out)[-1]) %>%
       left_join(datasets, by = "seq_run") %>%
       glue::glue_data("{tech} {machine} - {amplicon}")
     out
   },
-  
-  multi_table = 
+
+  multi_table =
     datasets %>%
     mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent"), ordered = TRUE) %>%
-    mutate_at("amplicon", factor, levels = c("Long", "Short"), ordered = TRUE) %>% 
+    mutate_at("amplicon", factor, levels = c("Long", "Short"), ordered = TRUE) %>%
     arrange(tech, amplicon) %>%
     mutate(var = paste(tech, machine) %>%
              factor(ordered = TRUE, levels = unique(.))) %>% {
@@ -982,7 +987,7 @@ plan2 <- drake_plan(
                  select(., x_var = var, x_amplicon = amplicon),
                  select(., y_var = var, y_amplicon = amplicon),
                  type = c("ASV", "OTU")
-               ) 
+               )
              } %>%
     filter(
       x_var < y_var | (x_var == y_var & x_amplicon < y_amplicon),
@@ -993,7 +998,7 @@ plan2 <- drake_plan(
     group_map(choosevars, .data = big_table) %>%
     bind_rows() %>%
     group_by(x_var, x_amplicon, y_var, y_amplicon, type),
-  
+
   comparisons = multi_table %>%
     group_modify(
       function(d, g) {
@@ -1012,9 +1017,9 @@ plan2 <- drake_plan(
     mutate(
       label = paste("R^2 ==", formatC(r.squared, format = "f", digits = 2))
     ),
-  
+
   taxon_reads = {
-    out <- 
+    out <-
       # Get the number of reads per sequencing run for each ASV
       proto_physeq %>%
       phyloseq::merge_samples(group = "seq_run") %>%
@@ -1068,7 +1073,7 @@ plan2 <- drake_plan(
       mutate(
         kingdom = ifelse(!is.na(phylum) & reference == "warcup", "Fungi", kingdom)
       )
-    
+
     # Add strict consensus and PHYLOTAX identifications
     bind_rows(
       out,
@@ -1189,7 +1194,7 @@ plan2 <- drake_plan(
       select(-Taxonomy) %>%
       left_join(select(otu_map, label = ASVseq, OTU = OTUseq), by = "label")
   },
-  
+
   tax_chart =
     taxon_reads %>%
     pivot_longer(
@@ -1222,7 +1227,7 @@ plan2 <- drake_plan(
     unnest(reference) %>%
     mutate_at("reference", factor, levels = c("Unite", "Warcup", "RDP")) %>%
     pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac"),
-  
+
   tax_chart_plot =
     tax_chart %>%
     ggplot(aes(x = rank, y = frac, ymax = frac, group = Algorithm, fill = Algorithm)) +
@@ -1242,37 +1247,37 @@ plan2 <- drake_plan(
           legend.direction = "horizontal",
           legend.position = "bottom",
           strip.background = element_blank()),
-  
+
   agaricus =
     taxon_table %>%
     filter(rank == "genus", taxon == "Agaricus", n_diff == 1) %$%
     unique(label),
-  
+
   agaricus_reads =
     pos_control_physeq %>%
     phyloseq::prune_taxa(taxa = agaricus) %>%
     phyloseq::prune_taxa(taxa = colSums(phyloseq::otu_table(.)) > 0) %>%
     phyloseq::otu_table(),
-  
-  pos_control_physeq = 
+
+  pos_control_physeq =
     phyloseq::subset_samples(
       proto_physeq,
       sample_type == "Pos" |
         (seq_run == "is_057" & well == "E7")
     ),
-  
+
   neg_control_physeq = phyloseq::subset_samples(
     proto_physeq,
     sample_type == "Blank"
   ),
-  
-  nonpos_control_physeq = 
+
+  nonpos_control_physeq =
     phyloseq::subset_samples(
       proto_physeq,
       sample_type != "Pos" &
         !(seq_run == "is_057" & well == "E7")
     ),
-  
+
   pos_control =
     agaricus_reads %>%
     as("matrix") %>%
@@ -1286,20 +1291,20 @@ plan2 <- drake_plan(
     ) %>%
     filter(seq_run != "is_057") %$%
     unique(seq),
-  
+
   pos_control_reads =
     nonpos_control_physeq %>%
     phyloseq::prune_taxa(taxa = pos_control) %>%
     phyloseq::otu_table() %>%
     as.matrix() %>%
     rowSums(),
-  
+
   all_reads =
     nonpos_control_physeq %>%
     phyloseq::otu_table() %>%
     as.matrix() %>%
     rowSums(),
-  
+
   pos_control_data =
     nonpos_control_physeq %>%
     phyloseq::sample_data() %>%
@@ -1310,20 +1315,20 @@ plan2 <- drake_plan(
       pc_frac = pc_reads/all_reads
     ) %>%
     select(seq_run, well, plate, pc_frac, pc_reads, all_reads),
-  
-  pc_pc_reads = 
+
+  pc_pc_reads =
     pos_control_physeq %>%
     phyloseq::prune_taxa(taxa = pos_control) %>%
     phyloseq::otu_table() %>%
     as.matrix() %>%
     rowSums(),
-  
-  pc_all_reads = 
+
+  pc_all_reads =
     pos_control_physeq %>%
     phyloseq::otu_table() %>%
     as.matrix() %>%
     rowSums(),
-  
+
   pc_pos_control_data =
     pos_control_physeq %>%
     phyloseq::sample_data() %>%
@@ -1335,13 +1340,13 @@ plan2 <- drake_plan(
       nonpc_frac = nonpc_reads/all_reads
     ) %>%
     select(seq_run, well, plate, nonpc_frac, nonpc_reads, all_reads),
-  
-  neg_control_reads = 
+
+  neg_control_reads =
     neg_control_physeq %>%
     phyloseq::otu_table() %>%
     as.matrix() %>%
     rowSums(),
-  
+
   neg_control_data =
     neg_control_physeq %>%
     phyloseq::sample_data() %>%
@@ -1350,7 +1355,7 @@ plan2 <- drake_plan(
       all_reads = neg_control_reads
     ) %>%
     select(seq_run, well, plate, all_reads),
-  
+
   agaricus_fasta =
     allseqs %>%
     filter(hash %in% phyloseq::taxa_names(agaricus_reads)) %$%
@@ -1358,13 +1363,13 @@ plan2 <- drake_plan(
     discard(is.na) %>%
     Biostrings::RNAStringSet() %>%
     Biostrings::writeXStringSet(file_out("temp/agaricus.fasta")),
-  
+
   agaricus_order =
     phyloseq::merge_samples(proto_physeq, "seq_run") %>%
     phyloseq::otu_table() %>%
     apply(MARGIN = 1, order, decreasing = TRUE) %>%
     apply(MARGIN = 2, match, x = 1),
-  
+
   variog_data = target({
     rlang::quo(list(correlog, variog, variogST, variofit2, variofitST2))
     ignore(plan2) %>%
@@ -1422,12 +1427,12 @@ plan2 <- drake_plan(
   },
   transform = combine(correlog, variog, variogST, variofit2, variofitST2)
   ),
-  
+
   variog_points = unnest(variog_data, "variogST") %>%
     mutate_at("timelag", replace_na, "0") %>%
     filter(dist <= 25) %>%
     mutate_at("timelag", factor),
-  
+
   variog_empir = variog_points %>%
     # mutate(bin = cut(dist, c(1:13 - 0.5, 14.5, 16.5, 19.5, 24.5))) %>%
     group_by(guild, metric, tech, amplicon, algorithm, dist, timelag) %>%
@@ -1436,7 +1441,7 @@ plan2 <- drake_plan(
       # dist = mean(dist),
       n = n()
     ),
-  
+
   variog_confint =
     variog_points %>%
     group_by(guild, metric, tech, amplicon, algorithm, dist, timelag) %>%
@@ -1444,13 +1449,13 @@ plan2 <- drake_plan(
       lower = quantile(gamma, 0.025),
       upper = quantile(gamma, 0.975)
     ),
-  
+
   variog_fit = variog_data %>%
     mutate_at("variofit", purrr::map, "predict") %>%
     unnest("variofit") %>%
     filter(mantel_1 | timelag == "0", mantel_0) %>%
     mutate_at("timelag", factor),
-  
+
   variofit_table =
     variog_data %>%
     select(mantel_0, mantel_1, variofit_0 = variofit2, variofit_1 = variofitST2,
@@ -1459,7 +1464,7 @@ plan2 <- drake_plan(
     mutate(params = map(variofit, "summary")) %>%
     unnest(params) %>%
     filter(term %in% c("range", "timerange")),
-  
+
   taxdata = {
     ranks <- c("domain", "kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
@@ -1512,7 +1517,7 @@ plan2 <- drake_plan(
         values_from = c("reads", "ASVs"),
         values_fill = list(reads = 0, ASVs = 0),
         names_repair = "universal"
-      ) %>% 
+      ) %>%
       taxa::parse_tax_data(
         class_cols = ranks
       ) %>%
@@ -1522,15 +1527,15 @@ plan2 <- drake_plan(
         reassign_obs = FALSE,
         reassign_taxa = TRUE
       )
-    
+
     read_cols <- keep(names(out$data$tax_data), startsWith, "reads_")
     asv_cols <- keep(names(out$data$tax_data), startsWith, "ASVs_")
-    
+
     out$data$asv_table <- metacoder::calc_obs_props(out, "tax_data", cols = asv_cols)
     out$data$read_table <- metacoder::calc_obs_props(out, "tax_data", cols = read_cols)
     out$data$tax_asv <- metacoder::calc_taxon_abund(out, "asv_table", cols = asv_cols)
     out$data$tax_read <- metacoder::calc_taxon_abund(out, "read_table", cols = read_cols)
-    
+
     child_of_unknown <-  unlist(
       out$supertaxa(
         recursive = FALSE,
@@ -1551,7 +1556,7 @@ plan2 <- drake_plan(
       !dangling_taxa | taxon_names == "Root",
       reassign_obs = FALSE
     )
-    
+
     retaxa_table <- tibble::tibble(
       classification = out$classifications(),
       id = out$taxon_ids()
@@ -1575,12 +1580,12 @@ plan2 <- drake_plan(
     }
     out <- out$filter_taxa(!taxon_ids %in% retaxa_table$id, drop_obs = TRUE,
                            reassign_obs = FALSE, reassign_taxa = FALSE)
-    
+
     out$data$tax_read$mean = rowMeans(out$data$tax_read[,-1])
     out$data$tax_read$max = do.call(pmax, out$data$tax_read[,-1])
     out$data$tax_asv$mean = rowMeans(out$data$tax_asv[,-1])
     out$data$tax_asv$mean = do.call(pmax, out$data$tax_asv[,-1])
-    
+
     out$data$diff_read <- metacoder::compare_groups(
       out,
       data = "tax_read",
@@ -1649,7 +1654,7 @@ plan2 <- drake_plan(
         values_from = c("reads", "ASVs"),
         values_fill = list(reads = 0, ASVs = 0),
         names_repair = "universal"
-      ) %>% 
+      ) %>%
       taxa::parse_tax_data(
         class_cols = ranks
       ) %>%
@@ -1659,15 +1664,15 @@ plan2 <- drake_plan(
         reassign_obs = FALSE,
         reassign_taxa = TRUE
       )
-    
+
     read_cols <- keep(names(out$data$tax_data), startsWith, "reads_")
     asv_cols <- keep(names(out$data$tax_data), startsWith, "ASVs_")
-    
+
     out$data$asv_table <- metacoder::calc_obs_props(out, "tax_data", cols = asv_cols)
     out$data$read_table <- metacoder::calc_obs_props(out, "tax_data", cols = read_cols)
     out$data$tax_asv <- metacoder::calc_taxon_abund(out, "asv_table", cols = asv_cols)
     out$data$tax_read <- metacoder::calc_taxon_abund(out, "read_table", cols = read_cols)
-    
+
     child_of_unknown <-  unlist(
       out$supertaxa(
         recursive = FALSE,
@@ -1687,7 +1692,7 @@ plan2 <- drake_plan(
       !dangling_taxa | taxon_names == "Fungi",
       reassign_obs = FALSE
     )
-    
+
     retaxa_table <- tibble::tibble(
       classification = out$classifications(),
       id = out$taxon_ids()
@@ -1711,12 +1716,12 @@ plan2 <- drake_plan(
     }
     out <- out$filter_taxa(!taxon_ids %in% retaxa_table$id, drop_obs = TRUE,
                            reassign_obs = FALSE, reassign_taxa = FALSE)
-    
+
     out$data$tax_read$mean = rowMeans(out$data$tax_read[,-1])
     out$data$tax_read$max = do.call(pmax, out$data$tax_read[,-1])
     out$data$tax_asv$mean = rowMeans(out$data$tax_asv[,-1])
     out$data$tax_asv$mean = do.call(pmax, out$data$tax_asv[,-1])
-    
+
     out$data$diff_read <- metacoder::compare_groups(
       out,
       data = "tax_read",
@@ -1733,9 +1738,9 @@ plan2 <- drake_plan(
     )
     out
   },
-  
+
   # data for supplementary figures ####
-  phylotax_fig = 
+  phylotax_fig =
     treeio::as.treedata(
       ape::read.tree(text = "(A:1,((B:1,C:1):1,((E:1,F:1):1,D:1):1):1);")
     ) %>%
@@ -1766,8 +1771,8 @@ plan2 <- drake_plan(
       values = c(Tax1 = "steelblue", Tax2 = "tomato", unk = "grey50")
     ) +
     scale_y_reverse(),
-  
-  length_table = 
+
+  length_table =
     pivot_longer(asv_table, -1, names_to = "seq_run", values_to = "reads") %>%
     filter(reads > 0) %>%
     mutate_at("seq", chartr, old = "T", new = "U") %>%
@@ -1793,7 +1798,7 @@ plan2 <- drake_plan(
     dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
     arrange(tech, amplicon) %>%
     mutate(group = paste(tech, amplicon) %>% factor(levels = unique(.))),
-  
+
   full_dens_short = length_table %>%
     filter(amplicon == "Short", region == "short") %>%
     ggplot(aes(length, weight = reads, color = group, group = group)) +
@@ -1803,7 +1808,7 @@ plan2 <- drake_plan(
     scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
     ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
     theme(strip.background = element_blank()),
-  
+
   full_dens_long = length_table %>%
     filter(amplicon == "Long", region == "long") %>%
     ggplot(aes(length, weight = reads, color = group, group = group)) +
@@ -1813,7 +1818,7 @@ plan2 <- drake_plan(
     scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
     ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
     theme(strip.background = element_blank()),
-  
+
   full_ecdf_short = length_table %>%
     filter(amplicon == "Short", region == "short") %>%
     ggplot(aes(x = length, y = ecdf, color = group, group = group)) +
@@ -1828,7 +1833,7 @@ plan2 <- drake_plan(
       legend.background = element_blank(),
       strip.background = element_blank()
     ),
-  
+
   full_ecdf_long = length_table %>%
     filter(amplicon == "Long", region == "long") %>%
     ggplot(aes(x = length, y = ecdf, color = group, group = group)) +
@@ -1843,7 +1848,7 @@ plan2 <- drake_plan(
       legend.background = element_blank(),
       strip.background = element_blank()
     ),
-  
+
   its2_dens = length_table %>%
     filter(region == "ITS2") %>%
     ggplot(aes(length, weight = reads, color = group, group = group)) +
@@ -1854,7 +1859,7 @@ plan2 <- drake_plan(
     ggnomics::facet_nested(rows = vars(tech, amplicon), scales = "free_y",
                            nest_line = TRUE) +
     theme(strip.background = element_blank()),
-  
+
   its2_ecdf = length_table %>%
     filter(region == "ITS2") %>%
     mutate(tech = "", amplicon = "") %>%
@@ -1870,12 +1875,12 @@ plan2 <- drake_plan(
       legend.justification = c(1, 0),
       legend.background = element_blank()
     ),
-    
-  
+
+
   region_length_fig = {
     baseregions <-
       c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")
-    
+
     region_limits <-
       dplyr::filter(regions, region %in% baseregions) %>%
       dplyr::mutate_at("region", factor, levels = baseregions) %>%
@@ -1886,7 +1891,7 @@ plan2 <- drake_plan(
         names_pattern = "(min|max)_length",
         values_to = "length"
       )
-    
+
     reads_table %>%
       dplyr::filter(region %in% baseregions, seq_run == "pb_500") %>%
       dplyr::mutate_at("region", factor, levels = baseregions) %>%
@@ -1900,7 +1905,7 @@ plan2 <- drake_plan(
       scale_y_continuous(breaks = NULL, labels = NULL, name = "Read density") +
       scale_x_continuous(limits = c(0, 500), name = "Length (bp)")
   },
-  
+
   heattree = {
     set.seed(3)
     theme_update(panel.border = element_blank())
@@ -1927,12 +1932,12 @@ plan2 <- drake_plan(
         output_file = file_out("temp/heattree.pdf")
       )
   },
-  
+
   heattree_length_compare = {
     taxdata2 <- taxdata
     val_cols = names(taxdata2$data$tax_read) %>%
       keep(str_detect, "reads_.+_.+_.+_Consensus")
-    
+
     taxdata2$filter_obs(
       "tax_read",
       rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
@@ -1941,7 +1946,7 @@ plan2 <- drake_plan(
       supertaxa = TRUE,
       reassign_obs = FALSE) %>%
       invisible()
-    
+
     taxdata2$data$diff_read <- metacoder::compare_groups(
       taxdata2,
       data = "tax_read",
@@ -1959,35 +1964,35 @@ plan2 <- drake_plan(
         str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
       func = log_ASV_ratio
     )
-    
+
     set.seed(3)
     theme_update(panel.border = element_blank())
     taxdata2 %>%
       metacoder::heat_tree(
         layout = "davidson-harel",
         # initial_layout = "reingold-tilford",
-        
+
         node_size = rowMeans(.$data$tax_asv[,-1]),
         node_size_range = c(0.002, .035),
         node_size_axis_label = "ASV richness",
-        
+
         node_color = asv_ratio,
         node_color_range = metacoder::diverging_palette(),
         node_color_trans = "linear",
         node_color_axis_label = "Log richness ratio",
         node_color_interval = c(-1.5, 1.5),
-        
+
         edge_size = rowMeans(.$data$tax_read[,-1]),
         edge_size_range = c(0.001, 0.03),
         edge_size_trans = "linear",
         edge_size_axis_label = "Read abundance",
-        
+
         edge_color = read_ratio,
         edge_color_range = metacoder::diverging_palette(),
         edge_color_trans = "linear",
         edge_color_axis_label = "Log abundance ratio",
         edge_color_interval = c(-3, 3),
-        
+
         node_label = ifelse(
           pmax(abs(.$data$diff_read$read_ratio) > 0.5,
                abs(.$data$diff_asv$asv_ratio) > 0.25),
@@ -2000,13 +2005,13 @@ plan2 <- drake_plan(
         # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
       )
   },
-  
+
   ecm_heattree = {
     taxdata2 <- taxdata_ECM
-    
+
     val_cols <- names(taxdata2$data$tax_read) %>%
       keep(str_detect, "reads_.+_.+_.+_Consensus")
-    
+
     taxdata2$filter_obs(
       "tax_read",
       rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
@@ -2015,7 +2020,7 @@ plan2 <- drake_plan(
       supertaxa = TRUE,
       reassign_obs = FALSE) %>%
       invisible()
-    
+
     taxdata2$data$diff_read <- metacoder::compare_groups(
       taxdata2,
       data = "tax_read",
@@ -2033,46 +2038,46 @@ plan2 <- drake_plan(
         str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
       func = log_ASV_ratio
     )
-    
+
     taxdata2 <- taxdata2$filter_taxa(!is.nan(ASV_ratio), !is.nan(read_ratio))
-    
+
     set.seed(3)
     theme_update(panel.border = element_blank())
     taxdata2 %>%
       metacoder::heat_tree(
         layout = "davidson-harel",
         initial_layout = "reingold-tilford",
-        
+
         node_size = rowMeans(.$data$tax_asv[,-1]),
         node_size_range = c(0.002, .035),
         node_size_axis_label = "ASV richness",
-        
+
         node_color = ASV_ratio,
         node_color_range = metacoder::diverging_palette(),
         node_color_trans = "linear",
         node_color_axis_label = "Log richness ratio",
         node_color_interval = c(-0.9, 0.9),
-        
+
         edge_size = rowMeans(.$data$tax_read[,-1]),
         edge_size_range = c(0.001, 0.03),
         edge_size_trans = "linear",
         edge_size_axis_label = "Read abundance",
-        
+
         edge_color = read_ratio,
         edge_color_range = metacoder::diverging_palette(),
         edge_color_trans = "linear",
         edge_color_axis_label = "Log abundance ratio",
         edge_color_interval = c(-1.8, 1.8),
-        
+
         node_label = taxon_names,
         node_label_size_range = c(0.02, 0.03),
         # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
         aspect_ratio = 3/2,
         output_file = file_out("temp/ecm_heattree.pdf")
-        
+
       )
   },
-  
+
   buffer_compare_physeq = {
     physeq <- proto_physeq %>%
       phyloseq::`sample_data<-`(inset2(
@@ -2085,7 +2090,7 @@ plan2 <- drake_plan(
         phyloseq::sample_data(.),
         "{year}_{buffer}_{tech}_{amplicon}"
       ))
-    
+
     ranks <- c("root", "kingdom", "phylum", "class", "order", "family", "genus")
     taxon_reads %>%
       mutate(root = "Root") %>%
@@ -2104,14 +2109,14 @@ plan2 <- drake_plan(
       phyloseq::`tax_table<-`(physeq, .) %>%
       phyloseq::tax_glom(taxrank = "family", NArm = FALSE)
   },
-  
+
   buffer_compare_taxmap = {
     taxmap <- metacoder::parse_phyloseq(buffer_compare_physeq)
     taxmap$data$otu_table <- metacoder::calc_obs_props(taxmap, "otu_table")
     taxmap$data$read_count <- metacoder::calc_taxon_abund(taxmap, "otu_table")
     taxmap
   },
-  
+
   buffer_compare_long = {
     taxmap <- buffer_compare_taxmap
     value_cols <- names(taxmap$data$read_count) %>% keep(endsWith, "Long")
@@ -2158,7 +2163,7 @@ plan2 <- drake_plan(
         output_file = file_out("temp/compare_long.pdf")
       )
   },
-  
+
   buffer_compare_short = {
     taxmap <- buffer_compare_taxmap
     value_cols <- names(taxmap$data$read_count) %>% keep(endsWith, "Short")
@@ -2205,9 +2210,9 @@ plan2 <- drake_plan(
         output_file = file_out("temp/compare_short.pdf")
       )
   },
-  
+
   # Generate ASV table for comparisons between buffer solutions
-  buffer_asv_table = 
+  buffer_asv_table =
     proto_physeq %>%
     # No Ion Torrent samples, because they are not completely demultiplexed
     phyloseq::subset_samples(tech != "Ion Torrent") %>%
@@ -2227,7 +2232,7 @@ plan2 <- drake_plan(
         pull(sample) %>%
         unique()
     ),
-  
+
   # Create distance matrix for the buffer solution comparison
   buffer_asv_bc_dist =
     buffer_asv_table %>%
@@ -2235,7 +2240,7 @@ plan2 <- drake_plan(
     phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
     # Bray-Curtis distance
     phyloseq::distance("bray"),
-  
+
   # Calculate PERMANOVA
   buffer_adonis = target(
     vegan::adonis2(
@@ -2248,14 +2253,14 @@ plan2 <- drake_plan(
       column_to_rownames("term"),
     seed = 12345
   ),
-  
+
   # Calculate PCoA for different buffer samples
   buffer_asv_pcoa =
     vegan::capscale(
       buffer_asv_bc_dist ~ 1,
       data = as(phyloseq::sample_data(buffer_asv_table), "data.frame")
     ),
-  
+
   # Generate ASV table for comparisons between sequencing methods
   tech_asv_table =
     proto_physeq %>%
@@ -2267,7 +2272,7 @@ plan2 <- drake_plan(
     phyloseq::subset_samples(sample_type == "Sample") %>%
     # Only fungi
     phyloseq::prune_taxa(taxa = fungi_PHYLOTAX.Cons$label),
-  
+
   # Add taxonomy to the ASV table and cluster at the class level
   tech_class_table =
     phyloseq::`tax_table<-`(
@@ -2304,14 +2309,14 @@ plan2 <- drake_plan(
           do.call(what = pmax)
       ) > 0.01
     ),
-  
+
   # Sample data for easy reference
   tech_class_sample_data =
     as(phyloseq::sample_data(tech_class_table), "data.frame"),
-  
+
   # Calculate Bray-Curtis distance for comparing technologies
   tech_class_bc_dist = phyloseq::distance(tech_class_table, "bray"),
-  
+
   # PERMANOVA test for technologies
   tech_class_adonis = target(
     vegan::adonis2(
@@ -2324,7 +2329,7 @@ plan2 <- drake_plan(
       column_to_rownames("term"),
     seed = 12345
   ),
-  
+
   # PCoA for technologies
   tech_class_pcoa =
     vegan::capscale(
@@ -2332,7 +2337,7 @@ plan2 <- drake_plan(
       data = tech_class_sample_data,
       distance = "bray"
     ),
-  
+
   # Species (actually class) scores for PCoA
   tech_class_pcoa_scores =
     vegan::scores(tech_class_pcoa, display = "species") %>%
@@ -2342,9 +2347,9 @@ plan2 <- drake_plan(
     filter(L >= max(L) / 10) %>%
     # Abbreviate using the first two letters
     mutate(abbrev = substr(class, start = 1, stop = 2)),
-  
+
   # PCoA plot
-  tech_class_pcoa_plot = 
+  tech_class_pcoa_plot =
     left_join(
       vegan::scores(tech_class_pcoa, display = "sites") %>%
         as_tibble(rownames = "sample"),
@@ -2371,13 +2376,13 @@ plan2 <- drake_plan(
     scale_color_discrete(name = NULL) +
     scale_discrete_manual(aesthetics = "pch", name = NULL, values = 1:3) +
     coord_equal(),
-  
+
   # Generate ASV table for comparisons between sequencing methods for ECM
   tech_ecm_asv_table =
     tech_asv_table %>%
     # Only ECM
     phyloseq::prune_taxa(taxa = ecm_PHYLOTAX.Cons$label),
-  
+
   # Add taxonomy to the ECM ASV table and cluster at the family level
   tech_ecm_fam_table =
     phyloseq::`tax_table<-`(
@@ -2414,14 +2419,14 @@ plan2 <- drake_plan(
           do.call(what = pmax)
       ) > 0.01
     ),
-  
+
   # Sample data for easy reference
   tech_ecm_fam_sample_data =
     as(phyloseq::sample_data(tech_ecm_fam_table), "data.frame"),
-  
+
   # Calculate Bray-Curtis distance for comparing technologies
   tech_ecm_fam_bc_dist = phyloseq::distance(tech_ecm_fam_table, "bray"),
-  
+
   # PERMANOVA test for technologies
   tech_ecm_fam_adonis = target(
     vegan::adonis2(
@@ -2434,7 +2439,7 @@ plan2 <- drake_plan(
       column_to_rownames("term"),
     seed = 12345
   ),
-  
+
   # PCoA for technologies
   tech_ecm_fam_pcoa =
     vegan::capscale(
@@ -2442,7 +2447,7 @@ plan2 <- drake_plan(
       data = tech_ecm_fam_sample_data,
       distance = "bray"
     ),
-  
+
   # Species (actually class) scores for PCoA
   tech_ecm_fam_pcoa_scores =
     vegan::scores(tech_ecm_fam_pcoa, display = "species") %>%
@@ -2452,7 +2457,7 @@ plan2 <- drake_plan(
     filter(L >= max(L) / 10) %>%
     # Abbreviate using the first two letters
     mutate(abbrev = substr(family, start = 1, stop = 2)),
-  
+
   # PCoA plot
   tech_ecm_fam_pcoa_plot =
     left_join(
@@ -2481,7 +2486,7 @@ plan2 <- drake_plan(
     scale_color_discrete(name = NULL) +
     scale_discrete_manual(aesthetics = "pch", name = NULL, values = 1:3) +
     coord_equal(),
-  
+
   length_kw =
     reads_table %>%
     filter(region == "short") %>%
@@ -2491,7 +2496,7 @@ plan2 <- drake_plan(
     slice(rep(1:n(), reads)) %>%
     mutate_at("seq_run", factor) %$%
     kruskal.test(length, g = seq_run),
-  
+
   fungi_read =
     taxdata %>%
     taxa::filter_taxa(
@@ -2503,7 +2508,7 @@ plan2 <- drake_plan(
     extract2("tax_read") %>%
     set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
     unlist(),
-  
+
   fungi_asv =
     taxdata %>%
     taxa::filter_taxa(
@@ -2515,7 +2520,7 @@ plan2 <- drake_plan(
     extract2("tax_asv") %>%
     set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
     unlist(),
-  
+
   ecm_counts =
     taxon_reads %>%
     filter(Algorithm == "PHYLOTAX") %>%
@@ -2523,10 +2528,10 @@ plan2 <- drake_plan(
     mutate(ASVs = 1/n()) %>%
     filter(ECM %in% c("Possible ECM", "Probable ECM", "Highly Probable ECM")) %>%
     summarize_at(c("ASVs", "reads"), sum),
-  
+
   ecm_read = select(ecm_counts, seq_run, reads) %>% deframe(),
   ecm_asv = select(ecm_counts, seq_run, ASVs) %>% deframe(),
-  
+
   short_otu_table = {
     big_fasta_short
     read_tsv(
@@ -2558,7 +2563,7 @@ plan2 <- drake_plan(
         by = "seq"
       )
   },
-  
+
   # Plot of reads along transect
   reads_plot = parsed_qstat %>%
     dplyr::filter(stat == "n") %>%
@@ -2631,14 +2636,14 @@ plan2 <- drake_plan(
       axis.text.x = element_text(angle = 90, vjust = 0.5)
     ) +
     geom_hline(yintercept = 100, linetype = 2, alpha = 0.5),
-  
+
   conc_plot =
-    proto_physeq %>% 
+    proto_physeq %>%
     phyloseq::sample_data(.) %>%
     as("data.frame") %>%
     select(plate, row, column, site, year, sample_type, x, buffer, amplicon, dna_conc, pcr_conc) %>%
-    arrange(plate, row, column, amplicon) %>% 
-    unique() %>% 
+    arrange(plate, row, column, amplicon) %>%
+    unique() %>%
     mutate_at("dna_conc", as.double) %>%
     pivot_longer(cols = c("dna_conc", "pcr_conc"), names_to = "step", values_to = "conc", names_pattern = "([[:alpha:]]+)_conc") %>%
     filter(!is.na(year)) %>%
@@ -2676,14 +2681,14 @@ plan2 <- drake_plan(
       plot.margin = margin(r = 0.5, unit = "mm"),
       axis.text.x = element_text(angle = 90, vjust = 0.5)
     ),
-  
+
   short_length_table =
     reads_table %>%
     filter(region == "short") %>%
     group_by(seq_run, length) %>%
     summarize(reads = sum(reads)) %>%
     tidyr::complete(seq_run, length, fill = list(reads = 0)),
-  
+
   # summary stats for quality check pdf, and supplementary plot
   parsed_qstat_raw = parsed_qstat %>%
     dplyr::group_by(seq_run, region, step, stat, value, region, read) %>%
@@ -2708,9 +2713,9 @@ plan2 <- drake_plan(
       `Read type` = paste(tech, amplicon, substr(read, 2, 3)) %>%
         trimws()
     ),
-  
+
   ## Error rate -- strategies
-  
+
   erate_plot = dplyr::filter(parsed_qstat_raw, stat == "erate", step == "raw") %>%
     dplyr::arrange(value) %>%
     dplyr::group_by(`Read type`) %>%
@@ -2733,9 +2738,9 @@ plan2 <- drake_plan(
     scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
     scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
     theme(legend.position = "bottom"),
-  
+
   ## Expected number of errors --strategies
-  
+
   eexp_plot = dplyr::filter(parsed_qstat_raw, stat == "eexp", step == "raw") %>%
     dplyr::arrange(value) %>%
     dplyr::group_by(`Read type`) %>%
@@ -2759,18 +2764,18 @@ plan2 <- drake_plan(
     scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
     scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
     theme(legend.position = "bottom"),
-  
-  # short_length_glm = 
+
+  # short_length_glm =
   #   short_length_table %>%
   #   glm(reads ~ seq_run + seq_run:length - 1, family = "poisson", data = .),
-  
+
   length_model_data =
     reads_table %>%
     filter(region == "short") %>%
     mutate_at("seq", tzara::seqhash) %>%
     mutate_at("seq", factor) %>%
     tidyr::complete(seq_run, nesting(seq, length), fill = list(reads = 0)),
-  
+
   # length_glmm =
   #   MASS::glmmPQL(
   #     fixed = reads ~ seq_run * length,
@@ -2778,27 +2783,27 @@ plan2 <- drake_plan(
   #     data = length_model_data,
   #     family = "poisson"
   #   ),
-  
+
   # length_glmer =
   #   lme4::glmer(
   #     formula = reads ~ seq_run * length + (1 | seq),
   #     data = length_model_data,
   #     family = "poisson"
   #   ),
-  
-  # confint_glmer = 
+
+  # confint_glmer =
   #   lme4::confint.merMod(length_glmer),
-  
+
   # length_glmernb =
   #   length_model_data %>%
   #   lme4::glmer.nb(
   #     formula = reads ~ seq_run * length + (1 | seq),
   #     data = .
   #   ),
-  
-  # confint_glmernb = 
+
+  # confint_glmernb =
   #   lme4::confint.merMod(length_glmernb),
-  
+
   # length_mcmcglmm =
   #   MCMCglmm::MCMCglmm(
   #     fixed = reads ~ trait:seq_run + trait:seq_run:length - 1,
@@ -2807,7 +2812,7 @@ plan2 <- drake_plan(
   #     family = "zipoisson",
   #     rcov = ~us(trait):units
   #   ),
-  # 
+  #
   # length_mcmcglmm2 =
   #   MCMCglmm::MCMCglmm(
   #     fixed = reads ~ seq + seq_run + seq_run:length - 1,
@@ -2817,7 +2822,8 @@ plan2 <- drake_plan(
   #     thin = 100,
   #     burnin = 3000
   #   ),
-  
+
+  ## Render paper ----
   # write *.aux and *.tex files.  Remove extra bibliographies from *.tex files
   supplement_tex =
     withr::with_dir(
@@ -2837,7 +2843,7 @@ plan2 <- drake_plan(
           writeLines("transect_supplement.tex")
       }
     ),
-  
+
   article_tex = withr::with_dir(
     "writing",
     {
@@ -2849,13 +2855,14 @@ plan2 <- drake_plan(
         clean = FALSE
       )
       file_out(!!file.path("writing", "transect_paper.tex"))
-      
+
       readLines("transect_paper.tex") %>%
         magrittr::extract(!grepl("\\\\printbibliography", .) | !duplicated(.)) %>%
         writeLines("transect_paper.tex")
     }
   ),
-  
+
+  # use difftex to mark changes from the original submission.
   supplement_diff_tex = withr::with_dir(
     "writing",
     {
@@ -2878,7 +2885,7 @@ plan2 <- drake_plan(
         writeLines("transect_supplement_diff.tex")
     }
   ),
-  
+
   article_diff_tex = withr::with_dir(
     "writing",
     {
@@ -2901,7 +2908,8 @@ plan2 <- drake_plan(
         writeLines("transect_paper_diff.tex")
     }
   ),
-  
+
+  # render the latex to PDFs
   supplement_pdf = withr::with_dir(
     "writing",
     {
@@ -2911,7 +2919,7 @@ plan2 <- drake_plan(
       tinytex::lualatex("transect_supplement.tex", bib_engine = "biber")
     }
   ),
-  
+
   supplement_diff_pdf = withr::with_dir(
     "writing",
     {
@@ -2921,9 +2929,9 @@ plan2 <- drake_plan(
       tinytex::lualatex("transect_supplement_diff.tex", bib_engine = "biber")
     }
   ),
-  
+
   article_pdf = withr::with_dir(
-    "writing", 
+    "writing",
     {
       file_in(!!file.path("writing", "transect_paper.tex"))
       file_in(!!file.path("writing", "transect_supplement.tex"))
@@ -2931,9 +2939,9 @@ plan2 <- drake_plan(
       tinytex::lualatex("transect_paper.tex", bib_engine = "biber")
     }
   ),
-  
+
   article_diff_pdf = withr::with_dir(
-    "writing", 
+    "writing",
     {
       file_in(!!file.path("writing", "transect_paper_diff.tex"))
       file_in(!!file.path("writing", "transect_supplement_diff.tex"))
@@ -2941,12 +2949,32 @@ plan2 <- drake_plan(
       tinytex::lualatex("transect_paper_diff.tex", bib_engine = "biber")
     }
   ),
-  
+
+  # zip up the latex source files for submission
+  latex_dir =
+    withr::with_dir(
+      "writing",
+      {
+        file_in(!!file.path("writing", c(latexfiles, latexdirs)))
+        file_out(!!file.path("output", "latex.tar.gz"))
+        tar(
+          tarfile = "latex.tar.gz",
+          files = c(
+            latexfiles,
+            list.files(path = latexdirs, full.names = TRUE)
+          ),
+          compression = "gzip",
+          tar = "tar"
+        )
+        file.rename("latex.tar.gz", file.path("..", "output", "latex.tar.gz"))
+      }
+    ),
+
+  ## Output tree ----
   tree_fig = {
-    
     charscale <- 0.015
     rankgap <- 0.015
-    tip_taxa <- 
+    tip_taxa <-
       phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
       filter(rank != "kingdom") %>%
       group_by(label, rank) %>%
@@ -3016,7 +3044,7 @@ plan2 <- drake_plan(
           lineend = "butt",
           linejoin = "mitre"
         ) %>%
-        reduce(clade_annot, `+`, .init = .) + 
+        reduce(clade_annot, `+`, .init = .) +
         scale_size_identity() +
         xlim(0, max(tip_taxa$offset + tip_taxa$width + tip_taxa$depth))) %T>%
       ggsave(
@@ -3028,26 +3056,7 @@ plan2 <- drake_plan(
         units = "in"
       )
   },
-  
-  latex_dir = 
-    withr::with_dir(
-      "writing",
-      {
-        file_in(!!file.path("writing", c(latexfiles, latexdirs)))
-        file_out(!!file.path("output", "latex.tar.gz"))
-        tar(
-          tarfile = "latex.tar.gz",
-          files = c(
-            latexfiles,
-            list.files(path = latexdirs, full.names = TRUE)
-          ),
-          compression = "gzip",
-          tar = "tar"
-        )
-        file.rename("latex.tar.gz", file.path("..", "output", "latex.tar.gz"))
-      }
-    ),
-  
+
   #### prepare submission materials for ENA ####
   soil_samples =
     readd(proto_physeq) %>%
@@ -3259,7 +3268,7 @@ plan2 <- drake_plan(
       select_at(template_names) %>%
       write_tsv(tsv_out, append = TRUE, col_names = FALSE)
   },
-  pacbio_ion_manifest = 
+  pacbio_ion_manifest =
     dplyr::inner_join(
       dplyr::bind_rows(
         soil_samples,
@@ -3291,8 +3300,8 @@ plan2 <- drake_plan(
         direction == "f" ~ "Reads originally in forward orientation",
         direction == "r" ~ "Reads originally in reverse orientation",
         TRUE ~ "")
-    ) %>% 
-    chop(cols = c(SAMPLE, NAME, LIBRARY_SOURCE)) %>% 
+    ) %>%
+    chop(cols = c(SAMPLE, NAME, LIBRARY_SOURCE)) %>%
     mutate_at("LIBRARY_SOURCE", map, unique) %>%
     rowwise() %>%
     group_split() %>%
@@ -3312,7 +3321,7 @@ plan2 <- drake_plan(
         sink()
       }
     ),
-  
+
   illumina_manifest = dplyr::inner_join(
     dplyr::bind_rows(
       soil_samples,
@@ -3322,7 +3331,7 @@ plan2 <- drake_plan(
       select(sample_alias, "project name", plate, well, amplicon, sample_type),
     illumina_group_SH.2257,
     by = c("plate", "well", "amplicon")
-  ) %>% 
+  ) %>%
     dplyr::transmute(
       STUDY = `project name`,
       SAMPLE = sample_alias,
@@ -3355,6 +3364,7 @@ plan2 <- drake_plan(
         sink()
       }
     ),
+
   read_accnos =
     list.files(path = file_in("output/ENA/reads"), pattern = "receipt.xml", recursive = TRUE) %>%
     stringr::str_split_fixed("/", 3) %>%
@@ -3399,7 +3409,7 @@ plan2 <- drake_plan(
     preguild_taxa_short_euk_PHYLOTAX.Cons %>%
     dplyr::select(kingdom:order, label) %>%
     dplyr::group_by_at(vars(kingdom:order)) %>%
-    dplyr::summarize(label = paste(label, collapse = ",")) %>% 
+    dplyr::summarize(label = paste(label, collapse = ",")) %>%
     tidyr::pivot_longer(cols = kingdom:order, names_to = "rank", values_to = "taxon") %>%
     dplyr::filter(complete.cases(.), !stringr::str_detect(taxon, "\\d")) %>%
     dplyr::group_by(label) %>%
