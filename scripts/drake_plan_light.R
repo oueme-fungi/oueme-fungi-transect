@@ -785,6 +785,77 @@ plan2 <- drake_plan(
     mutate_all(str_replace, ";.*", "") %>%
     unique(),
 
+  # alpha diversity ----
+
+  # for ASVs and OTUs, make inputs for iNEXT
+  # the format is a list, where names are the sample names,
+  # and values are integer vectors giving the number of reads
+  # for all ASVs/OTUs with nonzero reads in that sample
+  pre_iNEXT_ASV = target(
+    big_seq_table_ITS2 %>%
+    tibble::as_tibble(rownames  = "file") %>%
+    tidyr::extract(
+      file,
+      c("seq_run", "plate", "well"),
+      regex = "([ipS][sbH][-_]\\d{3,4})_([0OT]{2}\\d)_([A-H]1?[0-9])_ITS2"
+    ) %>%
+    dplyr::semi_join(readd(platemap), by = c("plate", "well")) %>%
+    dplyr::select(-plate) %>%
+    dplyr::group_by(seq_run, well) %>%
+    dplyr::summarize_all(sum) %>%
+    tidyr::unite("sample", c(seq_run, well)) %>%
+    tidyr::pivot_longer(-sample, names_to = "ASV", values_to = "nread") %>%
+    dplyr::filter(nread > 0) %>%
+    dplyr::select(sample, nread) %>%
+    tibble::deframe() %>%
+    split(names(.)),
+    transform = map(cluster = "ASV", .tag_out = pre_iNEXT, .id = FALSE)
+  ),
+
+  pre_iNEXT_OTU = target(
+  read_tsv(
+    file_in(here::here("data/clusters/ITS2.table")),
+    col_types =
+      cols(
+        .default = col_integer(),
+        `#OTU ID` = col_character()
+      )
+  ) %>%
+    dplyr::rename(OTU = `#OTU ID`) %>%
+    tidyr::pivot_longer(-OTU, names_to = "sample", values_to = "nread") %>%
+    dplyr::filter(nread > 0) %>%
+    tidyr::extract(
+      col = sample,
+      into = c("seq_run", "plate", "well"),
+      regex = "([piS][bsH][-_]\\d{3,4})_(\\d{3})([A-H]1?[0-9])"
+    ) %>%
+    dplyr::semi_join(readd(platemap), by = c("plate", "well")) %>%
+    tidyr::unite("sample", seq_run, well) %>%
+    dplyr::group_by(sample, OTU) %>%
+    dplyr::summarize_at("nread", sum) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(sample, nread) %>%
+    tibble::deframe() %>%
+    split(names(.)),
+  transform = map(cluster = "OTU", .tag_out = pre_iNEXT, .id = FALSE)
+  ),
+
+  sample_iNEXT = target(
+    lapply(pre_iNEXT, iNEXT::iNEXT, knots = 200),
+    transform = map(pre_iNEXT, .id = cluster),
+    dynamic = map(pre_iNEXT)
+  ),
+
+  # iNEXT::estimateD causes problems when there is only one species
+  # it also does more calculation than we actually need (i.e. Shannon and Simpson)
+  # iNEXT:::iNEXT.Ind causes problem when there is only one value of m
+  sample_rarefy = target(
+    lapply(pre_iNEXT, iNEXT:::iNEXT.Ind, m = c(1,100), q = 0) %>%
+      vapply(magrittr::extract, 0, 2, "qD"),
+    transform = map(pre_iNEXT, .id = cluster),
+    dynamic = map(pre_iNEXT)
+  ),
+
   parsed_qstat = parse_qstat(qstats),
 
   demuxlength =  parsed_qstat %>%
