@@ -572,7 +572,13 @@ ggpubr::ggarrange(
 )
 ```
 
+```{r accum-ASV, fig.cap="ASV accumulation curves"}
+readd(accum_plot_ASV)
+```
 
+```{r accum-OTU, fig.cap="OTU accumulation curves"}
+readd(accum_plot_OTU)
+```
 
 ## Taxonomic assignment
 

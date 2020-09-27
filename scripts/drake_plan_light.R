@@ -945,6 +945,34 @@ plan2 <- drake_plan(
     transform = map(demingfits, rarefy_data, cluster, .id = cluster)
   ),
 
+  accum_plot = target(
+    readd(sample_iNEXT) %>%
+      purrr::flatten() %>%
+      purrr::map_dfr(fortify, .id = "sample") %>%
+      tidyr::extract(
+        sample,
+        into = c("seq_run", "well"),
+        regex = "([ipS][sbH][-_][0-9]{3,4})_([A-H]1?[0-9])",
+        remove = FALSE
+      ) %>%
+      dplyr::left_join(datasets, by = "seq_run") %>%
+      dplyr::mutate(strategy = paste(tech, amplicon)) %>%
+      dplyr::filter(method != "extrapolated") %>%
+      ggplot(aes(x = x, y = y, color = strategy)) +
+      # lines for each sample
+      geom_line(aes(group = sample), alpha = 0.08) +
+      # small points to represent the actual observed read depth and richness
+      geom_point(data = ~dplyr::filter(., method == "observed"),
+                 alpha = 0.8, size = 1, shape = 1) +
+      xlab("reads") +
+      ylab(paste(cluster, "richness")) +
+      scale_color_strategy(name = NULL) +
+      scale_x_log10() +
+      scale_y_log10() +
+      theme_bw(),
+    transform = map(sample_iNEXT, cluster, .id = cluster)
+  ),
+
   ## Quality stats ----
 
   parsed_qstat = parse_qstat(qstats),
