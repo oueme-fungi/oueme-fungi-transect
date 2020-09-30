@@ -225,6 +225,28 @@ ggpubr::ggarrange(
 readd(region_length_fig)
 ```
 
+(ref:read-compare-s) Comparison between read numbers for different sequencing strategies
+
+(ref:read-compare) by ASV (**a**) and 97% OTU (**b**). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
+
+```{r read-compare, fig.cap="(ref:read-compare-s), (ref:read-compare)", fig.scap="(ref:read-compare-s)", fig.height=8}
+ggpubr::ggarrange(
+  read_comparison(
+    readd(multi_table),
+    readd(comparisons),
+    type = "ASV"
+  ),
+  read_comparison(
+    readd(multi_table),
+    readd(comparisons),
+    type = "OTU"
+  ),
+  ncol = 1,
+  labels = "auto",
+  label.x = 0.9
+)
+```
+
 (ref:taxa-s) Heat tree summarizing taxonomic composition of soil community
 
 (ref:taxa) Color and size of nodes represent the fractional ASV richness of that taxonomic group.
