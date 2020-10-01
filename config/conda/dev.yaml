@@ -41,6 +41,7 @@ dependencies:
   - r-inext=2.0.19
   - r-ips=0.0.11
   - r-reldist=1.6
+  - r-deming=1.4
   # external tools
   - infernal=1.1.2
   - vsearch=2.9.1
