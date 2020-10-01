@@ -3668,7 +3668,7 @@ make(
   cache = cache,
   parallelism = parallelism,
   jobs = njobs,
-  # targets = "variofit2_ecm_bray_PacBio_Short_Consensus",
+  targets = c("article_pdf", "supplement_pdf"),
   lazy_load = FALSE,
   memory_strategy = "autoclean",
   garbage_collection = TRUE,
