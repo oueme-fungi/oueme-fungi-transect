@@ -307,6 +307,8 @@ plan2 <- drake_plan(
   ),
 
   # Taxonomy ----
+
+  # calculate phylogenetic consensus taxonomy for long sequences
   phylotaxon = target(
     phylotax(tree = tree, taxa = taxon_table),
     transform = map(tree, .tag_in = step,
@@ -315,11 +317,13 @@ plan2 <- drake_plan(
                     .tag_out = consensus_taxa, .id = c(treename, group))
   ),
 
+  # make labels for phylogenetic consensus taxa
   phylotaxon_labels = target(
     make_taxon_labels(phylotaxon$tip_taxa),
     transform = map(phylotaxon, .tag_in = step, .id = c(treename, group))
   ),
 
+  # calculate strict consensus taxonomy
   strict_taxon_short_euk = target(
     taxon_table %>%
       group_by(label, method, region, reference) %>%
@@ -336,7 +340,6 @@ plan2 <- drake_plan(
       ) %>%
       unique() %>%
       list(tip_taxa = .),
-
     transform = map(
       taxname = "short",
       group = "euk",
@@ -346,6 +349,7 @@ plan2 <- drake_plan(
     )
   ),
 
+  # take strict consensus taxonomy for only fungi
   strict_taxon_short_fungi = target(
     group_by(strict_taxon_short_euk$tip_taxa, label) %>%
       filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
@@ -359,6 +363,7 @@ plan2 <- drake_plan(
     )
   ),
 
+  # chose phylotax taxonomy if available, otherwise strict consensus
   best_taxon_short_euk = target(
     strict_taxon_short_euk$tip_taxa %>%
       filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
@@ -388,6 +393,8 @@ plan2 <- drake_plan(
                     algorithm = "PHYLOTAX+Cons",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
+
+  # calculate strict consensus taxonomy, taking only ITS into account.
   strict_taxon_ITS_euk = target(
     taxon_table %>%
       filter(ref_region == "ITS") %>%
@@ -747,7 +754,6 @@ plan2 <- drake_plan(
 
   # Table of reads per OTU for each sequencing run
   otu_table = {
-
     big_fasta_ITS2
     read_tsv(
       file_in("data/clusters/ITS2.table"),
@@ -1143,6 +1149,7 @@ plan2 <- drake_plan(
       tech = paste(tech, plyr::mapvalues(tech, datasets$tech, datasets$machine, FALSE))
     ),
 
+  ## Venn diagrams ----
   venn_ASV = venndata(asv_table, ASVs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
 
   vennplot_ASV = vennplot_data(venn_ASV, ASVs),
@@ -1267,6 +1274,7 @@ plan2 <- drake_plan(
     # Add strict consensus and PHYLOTAX identifications
     bind_rows(
       out,
+      # PHYLOTAX for long amplicon PacBio
       phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
         filter(method == "phylotax") %>%
         select(method, label, rank, taxon) %>%
@@ -1285,6 +1293,7 @@ plan2 <- drake_plan(
           reference = "All",
           kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
         ),
+      # Strict consensus
       strict_taxon_short_euk$tip_taxa %>%
         select(method, label, rank, taxon, region) %>%
         pivot_wider(names_from = "rank", values_from = "taxon") %>%
