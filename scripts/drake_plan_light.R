@@ -2107,7 +2107,7 @@ plan2 <- drake_plan(
   },
 
   heattree = {
-    set.seed(3)
+    set.seed(4)
     theme_update(panel.border = element_blank())
     taxdata %>%
       metacoder::heat_tree(
@@ -2165,7 +2165,7 @@ plan2 <- drake_plan(
       func = log_ASV_ratio
     )
 
-    set.seed(3)
+    set.seed(4)
     theme_update(panel.border = element_blank())
     taxdata2 %>%
       metacoder::heat_tree(
