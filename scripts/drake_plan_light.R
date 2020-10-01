@@ -1420,6 +1420,7 @@ plan2 <- drake_plan(
 
   tax_chart_plot =
     tax_chart %>%
+    dplyr::filter(!rank %in% c("phylum", "order")) %>%
     ggplot(aes(x = rank, y = frac, ymax = frac, group = Algorithm, fill = Algorithm)) +
     ggnomics::facet_nested(
       tech + amplicon ~ type + reference,

@@ -561,7 +561,7 @@ At most taxonomic ranks, the RDPC algorithm assigned the greatest fraction of re
 Consensus and PHYLOTAX assignments are based on the consensus of RDPC, SINTAX, and IDTAXA, using all available databases and, in the case of PHYLOTAX, phylogenetic information.
 These two methods are plotted in each column to compare with results for the individual databases.
 
-```{r tax-chart, fig.cap = "(ref:tax-chart)", fig.scap = "(ref:tax-chart-s)"}
+```{r tax-chart, fig.cap = "(ref:tax-chart)", fig.scap = "(ref:tax-chart-s)", out.width = "100%"}
 readd(tax_chart_plot)
 ```
 
