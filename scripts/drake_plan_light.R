@@ -2969,6 +2969,49 @@ plan2 <- drake_plan(
     scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
     theme(legend.position = "bottom"),
 
+  ## Expected number of errors - regions
+  eexp_plot = dplyr::filter(parsed_qstat_raw, stat == "eexp", step == "lsux", amplicon == "Long") %>%
+    dplyr::arrange(value) %>%
+    dplyr::group_by(region) %>%
+    dplyr::mutate(
+      ecdf = cumsum(nreads)/sum(nreads),
+      `ASV type` = dplyr::recode(
+        region,
+        ITS1 = "extracted",
+        ITS2 = "extracted",
+        `5_8S` = "extracted",
+        LSU1 = "extracted",
+        LSU2 = "extracted",
+        LSU3 = "extracted",
+        LSU4 = "extracted",
+        D1 = "extracted",
+        D2 = "extracted",
+        D3 = "extracted",
+        ITS = "concatenated",
+        LSU = "concatenated",
+        `32S` = "concatenated",
+        long = "full-length"
+      )
+    ) %>%
+    ggplot(aes(
+      x = value,
+      y = ecdf,
+      linetype = `ASV type`,
+      group = region,
+      color = region
+    )) +
+    geom_vline(xintercept = 3, linetype = "dashed", color = "gray50") +
+    geom_line() +
+    scale_x_continuous(
+      name = "Expected number of errors",
+      trans = reverselog_trans(10),
+      limits = c(NA, 0.1)
+    ) +
+    scale_y_continuous(name = "Fraction passing") +
+    # scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
+    # scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
+    theme(legend.position = "bottom", legend.direction = "horizontal"),
+
   # short_length_glm =
   #   short_length_table %>%
   #   glm(reads ~ seq_run + seq_run:length - 1, family = "poisson", data = .),
