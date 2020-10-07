@@ -190,7 +190,7 @@ ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend =
 
 (ref:qual-check-s) Read quality profiles for different sequencing strategies
 
-(ref:qual-check) **(a)** per-base error rate; **(b)** expected number of errors per read. Statistics are based on quality scores assigned by technology-specific basecallers. **THIS NEEDS TO BE MENTIONED IN THE TEXT (addresses reviewer comment)**
+(ref:qual-check) **(a)** per-base error rate; **(b)** expected number of errors per read, with threshold of 3 expected errors marked as a dashed vertical line. Statistics are based on quality scores assigned by technology-specific basecallers.
 
 ```{r qual-check, fig.cap = "(ref:qual-check-s). (ref:qual-check)", fig.scap = "(ref:qual-check-s)"}
 ggpubr::ggarrange(

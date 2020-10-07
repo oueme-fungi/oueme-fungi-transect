@@ -1158,6 +1158,7 @@ plan2 <- drake_plan(
 
   vennplot_OTU = vennplot_data(venn_OTU, OTUs),
 
+  ## read count comparisons ----
   big_table = {
     out <- bind_rows(
       mutate(asv_table, type = "ASV"),
@@ -1215,6 +1216,7 @@ plan2 <- drake_plan(
       label = paste("R^2 ==", formatC(r.squared, format = "f", digits = 2))
     ),
 
+  ## Taxonomy charts and heat trees ----
   taxon_reads = {
     out <-
       # Get the number of reads per sequencing run for each ASV
@@ -1448,6 +1450,7 @@ plan2 <- drake_plan(
           legend.position = "bottom",
           strip.background = element_blank()),
 
+  ## Stats for text about positive and negative controls ----
   agaricus =
     taxon_table %>%
     filter(rank == "genus", taxon == "Agaricus", n_diff == 1) %$%
@@ -1570,6 +1573,7 @@ plan2 <- drake_plan(
     apply(MARGIN = 1, order, decreasing = TRUE) %>%
     apply(MARGIN = 2, match, x = 1),
 
+  ## variogram plots ----
   variog_data = target({
     rlang::quo(list(correlog, variog, variogST, variofit2, variofitST2))
     ignore(plan2) %>%
@@ -3668,7 +3672,7 @@ make(
   cache = cache,
   parallelism = parallelism,
   jobs = njobs,
-  targets = c("article_pdf", "supplement_pdf"),
+  targets = c("article_pdf", "supplement_pdf", "article_diff_pdf", "supplement_diff_pdf"),
   lazy_load = FALSE,
   memory_strategy = "autoclean",
   garbage_collection = TRUE,
