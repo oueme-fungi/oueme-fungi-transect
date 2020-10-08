@@ -304,7 +304,7 @@ taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm,
   .data <- .data %>%
     group_by(!!x) %>%
     group_by_at(rlang::eval_tidy(facets), .add = TRUE) %>%
-    mutate(ASVs = n_distinct(ASV)) %>%
+    mutate(ASVs = n_distinct(label)) %>%
     ungroup() %>%
     filter(...) %>%
     arrange_at(ranks) %>%
@@ -318,7 +318,7 @@ taxon_plot <- function(.data, rank, ..., y = reads, x = Algorithm,
     ) %>%
     group_by(!!x, !!rank) %>%
     group_by_at(rlang::eval_tidy(facets), .add = TRUE) %>%
-    summarize(reads = sum(reads), ASVs = n_distinct(ASV)/max(ASVs)) %>%
+    summarize(reads = sum(reads), ASVs = n_distinct(label)/max(ASVs)) %>%
     ungroup()
 
   if (!is.null(cutoff)) {
