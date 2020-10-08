@@ -1,4 +1,4 @@
-name: dev
+name: oueme-dev
 channels:
   - conda-forge
   - bioconda
@@ -38,7 +38,7 @@ dependencies:
   - r-tzara=0.0.7.8
   - r-funguildr=0.1
   - r-tikzdevice=0.12
-  - r-inext=2.0.19
+  - r-inext=2.0.20
   - r-ips=0.0.11
   - r-reldist=1.6
   - r-deming=1.4
@@ -53,6 +53,9 @@ dependencies:
   - samtools
   - snakemake-minimal=5.5.4
   - pandas=0.25.1
+  - pip
+  - pip:
+      - latexdiffcite
   # Plotting
   - r-ggpubr
   - r-ggnomics
@@ -62,7 +65,7 @@ dependencies:
   - r-metacoder
   # Knitting
   - r-bookdown
-  - r-kableextra  
+  - r-kableextra
   # Rstudio and development tools
   - rstudio
   - defaults::qt
