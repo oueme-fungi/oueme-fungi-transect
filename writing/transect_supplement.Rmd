@@ -188,11 +188,11 @@ ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend =
   theme(panel.spacing = unit(0, "mm"))
 ```
 
-(ref:qual-check-s) Read quality profiles for different sequencing strategies
+(ref:qual-check-s) Read quality profiles
 
-(ref:qual-check) **(a)** per-base error rate; **(b)** expected number of errors per read, with threshold of 3 expected errors marked as a dashed vertical line. Statistics are based on quality scores assigned by technology-specific basecallers.
+(ref:qual-check) based on quality scores assigned by technology-specific basecallers. **(a)** per-base error rate for different sequencing strategies; **(b)** expected number of errors per read for different sequencing strategies; **(c)** expected number of errors per read for regions extracted from PacBio long amplicon reads. In **(a)** and **(b)**, R1 and R2 denote the forward and reverse reads, respectively, from Illumina paired-end sequencing.  PacBio short, Ion Torrent, and Illumina datasets were all sequenced from the same short amplicon library.  In **(b)** and **(c)**, quality filtering threshold of 3 expected errors marked as a dashed vertical line.
 
-```{r qual-check, fig.cap = "(ref:qual-check-s). (ref:qual-check)", fig.scap = "(ref:qual-check-s)",fig.height=6}
+```{r qual-check, fig.cap = "(ref:qual-check-s), (ref:qual-check)", fig.scap = "(ref:qual-check-s)",fig.height=7}
 ggpubr::ggarrange(
   readd(erate_plot),
   readd(eexp_plot),
