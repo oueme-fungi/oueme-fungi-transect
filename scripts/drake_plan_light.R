@@ -2579,7 +2579,9 @@ plan2 <- drake_plan(
     ) +
     scale_color_discrete(name = NULL) +
     scale_discrete_manual(aesthetics = "pch", name = NULL, values = 1:3) +
-    coord_equal(),
+    coord_equal() +
+    xlab("PCoA1") +
+    ylab("PCoA2"),
 
   # Generate ASV table for comparisons between sequencing methods for ECM
   tech_ecm_asv_table =
@@ -2678,18 +2680,20 @@ plan2 <- drake_plan(
           ordered = TRUE
         )
     ) %>%
-    ggplot(aes(x = MDS2, y = MDS1, color = group, pch = group)) +
+    ggplot(aes(x = MDS1, y = MDS2, color = group, pch = group)) +
     geom_vline(xintercept = 0, color = "gray80") +
     geom_hline(yintercept = 0, color = "gray80") +
     geom_point() +
     geom_text(
-      aes(x = MDS2 * 3, y = MDS1 * 3, label = abbrev),
+      aes(x = MDS1 * 3, y = MDS2 * 3, label = abbrev),
       data = tech_ecm_fam_pcoa_scores,
       inherit.aes = FALSE
     ) +
     scale_color_discrete(name = NULL) +
     scale_discrete_manual(aesthetics = "pch", name = NULL, values = 1:3) +
-    coord_equal(),
+    coord_equal() +
+    xlab("PCoA1") +
+    ylab("PCoA2"),
 
   length_kw =
     reads_table %>%

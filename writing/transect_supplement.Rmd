@@ -93,13 +93,13 @@ Taxon names in blue were not fully resolved with PHYLOTAX, and are given as a li
 Taxon names in red were reconstructed as polyphyletic.
 In some cases, this may be due to a poorly identified sequence "splitting" the group (e.g., the single *Aspergillus* sequence nested in *Monascus*, Aspergillaceae and Trichocomaceae sequences nested in Onygenales), but in other cases, the tree has clearly failed to reconstruct groups which are generally considered to be monophyletic based on multi-gene trees (e.g., Dothidiomycetes, Cantharellales).
 
-(ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis ordination of samples preserved with different buffers
+(ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis (PCoA) ordination of samples preserved with different buffers
 
-(ref:buffer-pcoa) For each sequencing strategy, only those sampling locations with more than 100 reads each for all three year/preservation buffer combinations were included.
-<!-- R3: your caption isn’t in line with your axes. Your axes say MDS1 and MDS2 – so it looks like a NMDS to me. But you caption says PCA. There is also insufficient information to jusdge this figure - No information on if reads were normalized or not, or what beta diversity metric this is based on, etc-->
+(ref:buffer-pcoa) based on Bray-Curtis dissimilarities of relative read abundances.
+For each sequencing strategy, only those sampling locations with more than 100 reads each for all three year/preservation buffer combinations were included.
 
-```{r buffer-pcoa, fig.cap="(ref:buffer-pcoa-s). (ref:buffer-pcoa)", fig.scap = "(ref:buffer-pcoa-s)"}
-plot(readd(buffer_asv_pcoa), type = "none")
+```{r buffer-pcoa, fig.cap="(ref:buffer-pcoa-s), (ref:buffer-pcoa)", fig.scap = "(ref:buffer-pcoa-s)"}
+plot(readd(buffer_asv_pcoa), type = "none", xlab = "PCoA1", ylab = "PCoA2")
 points(
   readd(buffer_asv_pcoa),
   select = with(
@@ -279,11 +279,11 @@ Results are shown for different sequencing technologies, amplicons (Long, Short)
   theme(legend.position = "bottom", legend.title = element_blank())
 ```
 
-(ref:ppcoa-short) Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding approaches
+(ref:ppcoa-short) Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding strategies
 
 (ref:ppcoa) for all fungi (**a**) and ECM fungi (**b**).
-Spatio-temporal variation (i.e., variation between different soil samples) has been partialled out.
-Only samples with at least 100 reads for all three approaches are included.
+Ordination based on the residual variation after spatio-temporal variation (i.e., variation between different soil samples) has been accounted for.
+Only samples with at least 100 reads for all three strategies are included.
 ASVs are clustered by taxonomic class for all fungi, and by family for ECM fungi.
 Abbreviations represent the approximate direction of increase for the classes and families with the highest scores: `r glue::glue_data(readd(tech_class_pcoa_scores), "**{abbrev}**: {class}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`; `r glue::glue_data(readd(tech_ecm_fam_pcoa_scores), "**{abbrev}**: {family}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`.
 
