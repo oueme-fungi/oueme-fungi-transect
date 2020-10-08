@@ -182,9 +182,8 @@ readd(phylotax_fig)
 Sequencing reads which were filtered out during quality control are colored dark grey.
 Dotted horizontal line at 100\ reads indicates cutoff for inclusion in community analysis.
 2016 samples were preserved using two different methods (LifeGuard, Xpedition), while 2015 samples were preserved only using Xpedition.
-<!-- R3: please enlarge. This is too small. -->
 
-```{r sample-depth, fig.cap = "(ref:sample-depth)", fig.scap = "(ref:sample-depth-s)", cache = TRUE, extra.cache = gethash("conc_plot", "reads_plot")}
+```{r sample-depth, fig.cap = "(ref:sample-depth)", fig.scap = "(ref:sample-depth-s)", fig.env = "sidewaysfigure", fig.width = 9, fig.height = 5, out.width = "100%", cache = TRUE, extra.cache = gethash("conc_plot", "reads_plot")}
 ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend = TRUE) +
   theme(panel.spacing = unit(0, "mm"))
 ```
@@ -258,7 +257,7 @@ ASV richness and read abundance are displayed as the mean across sequencing runs
 Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
 The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
 
-```{r taxa, fig.cap = "(ref:taxa-s). (ref:taxa)", fig.scap="(ref:taxa-s)", out.width="100%", fig.width = 8, cache=TRUE, extra.cache=gethash("heattree")}
+```{r taxa, fig.cap = "(ref:taxa-s). (ref:taxa)", fig.scap="(ref:taxa-s)", fig.width = 9, fig.height = 5, out.width="100%", fig.env = "sidewaysfigure", cache=TRUE, extra.cache=gethash("heattree")}
 theme <- theme_update(panel.border = element_blank())
 readd(heattree)
 theme_set(theme)

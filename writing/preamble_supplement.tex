@@ -10,8 +10,12 @@
 \externaldocument{transect_paper}
 
 % Figures and tables are prefixed with S for supplement
-\renewcommand{\thetable}{S\arabic{table}} 
+\renewcommand{\thetable}{S\arabic{table}}
 \renewcommand{\thefigure}{S\arabic{figure}}
 
 % put all tables and figures on their own pages
 \usepackage[nomarkers]{endfloat}
+
+% full page landscape figures
+\usepackage{rotating}
+\DeclareDelayedFloatFlavour{sidewaysfigure}{figure}

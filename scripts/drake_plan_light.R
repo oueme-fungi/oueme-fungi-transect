@@ -2130,7 +2130,7 @@ plan2 <- drake_plan(
         edge_size_range = c(0.001, 0.03),
         edge_color = rowMeans(.$data$tax_read[,-1]),
         edge_color_axis_label = "Read abundance",
-        # aspect_ratio = 3/2,
+        aspect_ratio = 9/5,
         make_node_legend = FALSE,
         make_edge_legend = FALSE,
         output_file = file_out("temp/heattree.pdf")
