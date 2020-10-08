@@ -2923,59 +2923,83 @@ plan2 <- drake_plan(
   erate_plot = dplyr::filter(parsed_qstat_raw, stat == "erate", step == "raw") %>%
     dplyr::arrange(value) %>%
     dplyr::group_by(`Read type`) %>%
-    dplyr::mutate(ecdf = cumsum(nreads)/sum(nreads)) %>%
+    dplyr::mutate(
+      ecdf = cumsum(nreads)/sum(nreads),
+      label = ifelse(cumsum(value >= 1e-5) == 1, as.character(`Read type`), ""),
+      label = gsub("(Illumina|Ion Torrent) Short", "\\1", label)
+    ) %>%
+    dplyr::filter(value >= 1e-5) %>%
     ggplot(aes(
       x = value,
       y = ecdf,
-      linetype = `Read type`,
       group = `Read type`,
-      color = `Read type`
+      color = `Read type`,
+      label = label
     )) +
     geom_line() +
+    ggrepel::geom_text_repel(
+      # nudge_x = 0.2,
+      # xlim = c(3, NA),
+      ylim = c(0.05, NA),
+      min.segment.length = 0,
+      size = 3,
+      segment.alpha = 0.3
+      # hjust = 0
+    ) +
     scale_x_continuous(
       name = "Expected error-rate",
       trans = reverselog_trans(10),
-      limits = c(NA, 1e-5),
-      oob = scales::squish
+      limits = c(NA, 3e-6)
     ) +
     scale_y_continuous(name = "Fraction passing") +
-    scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
-    scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
-    theme(legend.position = "bottom"),
+    scale_color_read(guide = "none"),
 
   ## Expected number of errors --strategies
 
   eexp_plot = dplyr::filter(parsed_qstat_raw, stat == "eexp", step == "raw") %>%
     dplyr::arrange(value) %>%
     dplyr::group_by(`Read type`) %>%
-    dplyr::mutate(ecdf = cumsum(nreads)/sum(nreads)) %>%
+    dplyr::mutate(
+      ecdf = cumsum(nreads)/sum(nreads),
+      label = ifelse(cumsum(value >= 0.1) == 1, as.character(`Read type`), ""),
+      label = gsub("(Illumina|Ion Torrent) Short", "\\1", label)
+    ) %>%
+    dplyr::filter(value >= 0.1) %>%
     ggplot(aes(
       x = value,
       y = ecdf,
-      linetype = `Read type`,
       group = `Read type`,
-      color = `Read type`
+      color = `Read type`,
+      label = label
     )) +
     geom_vline(xintercept = 3, linetype = "dashed", color = "gray50") +
     geom_line() +
+    ggrepel::geom_text_repel(
+      nudge_x = 0.2,
+      xlim = c(1, NA),
+      min.segment.length = 0,
+      size = 3,
+      segment.alpha = 0.3,
+      hjust = 0) +
     scale_x_continuous(
       name = "Expected number of errors",
       trans = reverselog_trans(10),
-      limits = c(NA, 0.1),
-      oob = scales::squish
+      limits = c(NA, 0.03)
     ) +
     scale_y_continuous(name = "Fraction passing") +
-    scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
-    scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
-    theme(legend.position = "bottom"),
+    scale_color_read(guide = "none"),
 
   ## Expected number of errors - regions
-  eexp_plot = dplyr::filter(parsed_qstat_raw, stat == "eexp", step == "lsux", amplicon == "Long") %>%
+  eexp_region_plot =
+    dplyr::filter(parsed_qstat_raw, stat == "eexp", step == "lsux", amplicon == "Long") %>%
     dplyr::arrange(value) %>%
+    dplyr::mutate_at("region", forcats::fct_relevel, "ITS", "ITS1", "32S", "5_8S",
+                     "ITS2", "LSU", "LSU1", "D1",
+                     "LSU2", "D2", "LSU3", "D3", "LSU4", "long") %>%
     dplyr::group_by(region) %>%
     dplyr::mutate(
       ecdf = cumsum(nreads)/sum(nreads),
-      `ASV type` = dplyr::recode(
+      `Region type` = dplyr::recode(
         region,
         ITS1 = "extracted",
         ITS2 = "extracted",
@@ -2990,27 +3014,47 @@ plan2 <- drake_plan(
         ITS = "concatenated",
         LSU = "concatenated",
         `32S` = "concatenated",
-        long = "full-length"
-      )
+        long = "full read"
+      ),
+      label = ifelse(cumsum(value >= 0.1) == 1, as.character(region), ""),
+      label = gsub("_", ".", label)
     ) %>%
+    dplyr::filter(value >= 0.1) %>%
     ggplot(aes(
       x = value,
       y = ecdf,
-      linetype = `ASV type`,
+      linetype = `Region type`,
       group = region,
-      color = region
+      color = region,
+      label = label
     )) +
     geom_vline(xintercept = 3, linetype = "dashed", color = "gray50") +
     geom_line() +
     scale_x_continuous(
       name = "Expected number of errors",
       trans = reverselog_trans(10),
-      limits = c(NA, 0.1)
+      limits = c(NA, 0.03)
     ) +
+    ggrepel::geom_text_repel(
+      nudge_x = 0.2,
+      xlim = c(1, NA),
+      size = 3,
+      min.segment.length = 0,
+      segment.alpha = 0.3,
+      hjust = 0
+    ) +
+    # directlabels::geom_dl(method = "last.qp", size = 1) +
     scale_y_continuous(name = "Fraction passing") +
-    # scale_color_read(guide = guide_legend(title = NULL, ncol = 2)) +
-    # scale_linetype_discrete(guide = guide_legend(title = NULL, ncol = 2)) +
-    theme(legend.position = "bottom", legend.direction = "horizontal"),
+    scale_color_discrete(guide = "none") +
+    scale_linetype_manual(
+      values = c(extracted = "dashed", concatenated = "dotdash", `full read` = "solid")
+    ) +
+    theme(
+      legend.position = c(0.01, 0.01),
+      legend.justification = c(0, 0),
+      legend.background = element_blank(),
+      legend.key = element_blank()
+    ),
 
   # short_length_glm =
   #   short_length_table %>%

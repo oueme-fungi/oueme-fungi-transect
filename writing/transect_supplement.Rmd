@@ -192,13 +192,14 @@ ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend =
 
 (ref:qual-check) **(a)** per-base error rate; **(b)** expected number of errors per read, with threshold of 3 expected errors marked as a dashed vertical line. Statistics are based on quality scores assigned by technology-specific basecallers.
 
-```{r qual-check, fig.cap = "(ref:qual-check-s). (ref:qual-check)", fig.scap = "(ref:qual-check-s)"}
+```{r qual-check, fig.cap = "(ref:qual-check-s). (ref:qual-check)", fig.scap = "(ref:qual-check-s)",fig.height=6}
 ggpubr::ggarrange(
   readd(erate_plot),
   readd(eexp_plot),
+  readd(eexp_region_plot),
   ncol = 1,
-  common.legend = TRUE,
-  legend = "bottom",
+  # common.legend = TRUE,
+  # legend = "bottom",
   labels = "auto"
 )
 ```

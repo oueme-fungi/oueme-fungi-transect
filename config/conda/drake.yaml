@@ -40,6 +40,7 @@ dependencies:
   - r-bookdown=0.17
   - r-ggplot2=3.2.1
   - r-ggpubr=0.2.4
+  - r-ggrepel=0.8.2
   - r-kableextra=1.1.0
   - r-eulerr=6.0.0
   - r-metacoder=0.3.3
