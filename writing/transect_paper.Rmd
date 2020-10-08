@@ -63,7 +63,7 @@ tryCatch(
   error = function(e) tinytex::install_tinytex()
   )
 
-tinytex::tlmgr_install("pdfcrop")
+tinytex::tlmgr_install(setdiff("pdfcrop", tinytex::tl_pkgs()))
 
 knitr::opts_chunk$set(
   dev = "cairo_pdf",

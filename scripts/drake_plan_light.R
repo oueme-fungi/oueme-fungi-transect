@@ -3167,7 +3167,7 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_supplement_original.tex"))
       file_in(!!file.path("writing", "transect_supplement.tex"))
       file_out(!!file.path("writing", "transect_supplement_diff.tex"))
-      tinytex::tlmgr_install("latexdiff")
+      tinytex::tlmgr_install(setdiff(c("latexdiff", "listings"), tinytex::tl_pkgs()))
       system2(
         command = "latexdiff",
         args = list(
@@ -3190,7 +3190,7 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_paper_original.tex"))
       file_in(!!file.path("writing", "transect_paper.tex"))
       file_out(!!file.path("writing", "transect_paper_diff.tex"))
-      tinytex::tlmgr_install("latexdiff")
+      tinytex::tlmgr_install(setdiff(c("latexdiff", "listings"), tinytex::tl_pkgs()))
       system2(
         command = "latexdiff",
         args = list(
