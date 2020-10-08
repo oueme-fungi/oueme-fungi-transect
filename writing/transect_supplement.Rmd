@@ -80,6 +80,8 @@ theme_set(theme_bw())
 datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccccccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 if (!exists("percent", mode = "function")) source(here::here("scripts", "output_functions.R"))
+
+gethash <- function(...) purrr::map_chr(list(...), drake_cache()$get_hash)
 ```
 
 **Supplementary file 1**: Mapping between samples, indexed primers, and read accession numbers for short amplicons.
@@ -99,7 +101,7 @@ In some cases, this may be due to a poorly identified sequence "splitting" the g
 For each sequencing strategy, only those sampling locations with more than 100 reads each for all three year/preservation buffer combinations were included.
 
 ```{r buffer-pcoa, fig.cap="(ref:buffer-pcoa-s), (ref:buffer-pcoa)", fig.scap = "(ref:buffer-pcoa-s)"}
-plot(readd(buffer_asv_pcoa), type = "none", xlab = "PCoA1", ylab = "PCoA2")
+plot(readd(buffer_asv_pcoa), type = "none", xlab = "PCoA1", ylab = "PCoA2", cache = TRUE, extra.cache = gethash("buffer_asv_pcoa", "buffer_asv_table"))
 points(
   readd(buffer_asv_pcoa),
   select = with(
@@ -148,7 +150,7 @@ legend(
 (ref:buffer-compare-long) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for long amplicon libraries.
 <!-- R3: I have no idea how to interpret these figures. More explanation is needed!-->
 
-```{r buffer-compare-long, fig.cap = "(ref:buffer-compare-long)"}
+```{r buffer-compare-long, fig.cap = "(ref:buffer-compare-long)", cache = TRUE, extra.cache = gethash("buffer_compare_long")}
 oldtheme <- theme_update(panel.border = element_blank())
 readd(buffer_compare_long)
 theme_set(oldtheme)
@@ -156,7 +158,7 @@ theme_set(oldtheme)
 
 (ref:buffer-compare-short) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for short amplicon libraries.
 
-```{r buffer-compare-short, fig.cap = "(ref:buffer-compare-short)"}
+```{r buffer-compare-short, fig.cap = "(ref:buffer-compare-short)", cache = TRUE, extra.cache = gethash("buffer_compare_short"), more.cache=oldtheme}
 readd(buffer_compare_short)
 theme_set(oldtheme)
 
@@ -170,7 +172,7 @@ No taxon is assigned at node\ 2, because the assignments at C and F are inconsis
 Node\ 3 is assigned to Tax2 because this is consistent with at least one of the assignments for both B and C.
 Node\ 4 (and thus also node\ 5) is assigned to Tax1 because this is consistent with at least one of the assignments for D and F, and because E is completely unassigned.
 
-```{r phylotax, fig.height = 2, fig.width = 3, fig.cap = "(ref:phylotax-s). (ref:phylotax)", fig.scap="(ref:phylotax-s)"}
+```{r phylotax, fig.height = 2, fig.width = 3, fig.cap = "(ref:phylotax-s). (ref:phylotax)", fig.scap="(ref:phylotax-s)", cache = TRUE, extra.cache = gethash("phylotax_fig")}
 readd(phylotax_fig)
 ```
 
@@ -182,7 +184,7 @@ Dotted horizontal line at 100\ reads indicates cutoff for inclusion in community
 2016 samples were preserved using two different methods (LifeGuard, Xpedition), while 2015 samples were preserved only using Xpedition.
 <!-- R3: please enlarge. This is too small. -->
 
-```{r sample-depth, fig.cap = "(ref:sample-depth)", fig.scap = "(ref:sample-depth-s)"}
+```{r sample-depth, fig.cap = "(ref:sample-depth)", fig.scap = "(ref:sample-depth-s)", cache = TRUE, extra.cache = gethash("conc_plot", "reads_plot")}
 ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend = TRUE) +
   theme(panel.spacing = unit(0, "mm"))
 ```
@@ -191,14 +193,12 @@ ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend =
 
 (ref:qual-check) based on quality scores assigned by technology-specific basecallers. **(a)** per-base error rate for different sequencing strategies; **(b)** expected number of errors per read for different sequencing strategies; **(c)** expected number of errors per read for regions extracted from PacBio long amplicon reads. In **(a)** and **(b)**, R1 and R2 denote the forward and reverse reads, respectively, from Illumina paired-end sequencing.  PacBio short, Ion Torrent, and Illumina datasets were all sequenced from the same short amplicon library.  In **(b)** and **(c)**, quality filtering threshold of 3 expected errors marked as a dashed vertical line.
 
-```{r qual-check, fig.cap = "(ref:qual-check-s), (ref:qual-check)", fig.scap = "(ref:qual-check-s)",fig.height=7}
+```{r qual-check, fig.cap = "(ref:qual-check-s), (ref:qual-check)", fig.scap = "(ref:qual-check-s)",fig.height=7, cache = TRUE, extra.cache = gethash("erate_plot", "eexp_plot", "eexp_region_plot")}
 ggpubr::ggarrange(
   readd(erate_plot),
   readd(eexp_plot),
   readd(eexp_region_plot),
   ncol = 1,
-  # common.legend = TRUE,
-  # legend = "bottom",
   labels = "auto"
 )
 ```
@@ -207,7 +207,7 @@ ggpubr::ggarrange(
 
 (ref:full-length) Length distribution (*a*, *c*) and empirical cumulative distribution function (ECDF; *b*, *d*) for short (*a*, *b*) and long (*c*, *d*) amplicons, respectively.
 
-```{r full-length, fig.cap = "(ref:full-length-s). (ref:full-length)", fig.scap = "(ref:full-length-s)", fig.height = 6}
+```{r full-length, fig.cap = "(ref:full-length-s). (ref:full-length)", fig.scap = "(ref:full-length-s)", fig.height = 6, cache = TRUE, extra.cache = gethash("full_dens_short", "full_ecdf_short", "full_ecdf_short", "full_ecdf_long")}
 ggpubr::ggarrange(
   readd(full_dens_short),
   readd(full_ecdf_short),
@@ -221,7 +221,7 @@ ggpubr::ggarrange(
 
 (ref:region-lengths) Filtering limits are shown as dashed vertical lines.
 
-```{r region-lengths, fig.cap = "(ref:region-lengths-s). (ref:region-lengths)", fig.scap = "(ref:region-lengths-s)", fig.height = 6}
+```{r region-lengths, fig.cap = "(ref:region-lengths-s). (ref:region-lengths)", fig.scap = "(ref:region-lengths-s)", fig.height = 6, cache = TRUE, extra.cache = gethash("region_length_fig")}
 readd(region_length_fig)
 ```
 
@@ -229,7 +229,7 @@ readd(region_length_fig)
 
 (ref:read-compare) by ASV (**a**) and 97% OTU (**b**). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
 
-```{r read-compare, fig.cap="(ref:read-compare-s), (ref:read-compare)", fig.scap="(ref:read-compare-s)", fig.height=8}
+```{r read-compare, fig.cap="(ref:read-compare-s), (ref:read-compare)", fig.scap="(ref:read-compare-s)", fig.height=8, cache=TRUE, extra.cache=gethash("multi_table","comparisons")}
 ggpubr::ggarrange(
   read_comparison(
     readd(multi_table),
@@ -258,7 +258,7 @@ ASV richness and read abundance are displayed as the mean across sequencing runs
 Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
 The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
 
-```{r taxa, fig.cap = "(ref:taxa-s). (ref:taxa)", fig.scap="(ref:taxa-s)", out.width="100%", fig.width = 8}
+```{r taxa, fig.cap = "(ref:taxa-s). (ref:taxa)", fig.scap="(ref:taxa-s)", out.width="100%", fig.width = 8, cache=TRUE, extra.cache=gethash("heattree")}
 theme <- theme_update(panel.border = element_blank())
 readd(heattree)
 theme_set(theme)
@@ -271,7 +271,7 @@ theme_set(theme)
 Height of each bar represents the fraction of reads represented by that bar.
 Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
 
-```{r ecm, fig.cap = "(ref:ecm-s). (ref:ecm)", fig.scap = "(ref:ecm-s)", fig.width = 7}
+```{r ecm, fig.cap = "(ref:ecm-s). (ref:ecm)", fig.scap = "(ref:ecm-s)", fig.width = 7, cache=TRUE, extra.cache=gethash("taxon_reads"), more.cache = datasets}
   readd(taxon_reads) %>%
   filter(ifelse(Algorithm == "Consensus", region == "All", TRUE)) %>%
   mutate_at("reference", replace_na, "All") %>%
@@ -287,7 +287,7 @@ Only samples with at least 100 reads for all three strategies are included.
 ASVs are clustered by taxonomic class for all fungi, and by family for ECM fungi.
 Abbreviations represent the approximate direction of increase for the classes and families with the highest scores: `r glue::glue_data(readd(tech_class_pcoa_scores), "**{abbrev}**: {class}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`; `r glue::glue_data(readd(tech_ecm_fam_pcoa_scores), "**{abbrev}**: {family}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`.
 
-```{r ppcoa, fig.cap = "(ref:ppcoa-short), (ref:ppcoa)", fig.scap = "(ref:ppcoa-short)"}
+```{r ppcoa, fig.cap = "(ref:ppcoa-short), (ref:ppcoa)", fig.scap = "(ref:ppcoa-short)", cache=TRUE, extra.cache=gethash("tech_class_pcoa_plot", "tech_ecm_fam_pcoa_plot")}
 ggpubr::ggarrange(
   readd(tech_class_pcoa_plot),
   readd(tech_ecm_fam_pcoa_plot),
@@ -301,7 +301,7 @@ ggpubr::ggarrange(
 
 (ref:correlog-cap) Community dissimilarities are Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
 
-```{r correlog, fig.cap="(ref:correlog-cap-s). (ref:correlog-cap)", fig.scap = "(ref:correlog-cap-s)"}
+```{r correlog, fig.cap="(ref:correlog-cap-s). (ref:correlog-cap)", fig.scap = "(ref:correlog-cap-s)", cache=TRUE, extra.cache=gethash(keep(light_plan$target, startsWith, "correlog"))}
 light_plan %>%
   filter(startsWith(target, "correlog")) %>%
   select(target) %>%
@@ -342,7 +342,7 @@ light_plan %>%
 
 (ref:ITS2-length) *a*) Length distribution.  *b*) Empirical cumulative distribution function.
 
-```{r ITS2-length, fig.cap = "(ref:ITS2-length-s). (ref:ITS2-length)", fig.scap = "(ref:ITS2-length-s)", fig.height = 6}
+```{r ITS2-length, fig.cap = "(ref:ITS2-length-s). (ref:ITS2-length)", fig.scap = "(ref:ITS2-length-s)", fig.height = 6, cache=TRUE, extra.cache=gethash("its2_dens", "its2_ecdf")}
 ggpubr::ggarrange(
   readd(its2_dens),
   readd(its2_ecdf),
@@ -362,7 +362,7 @@ ASVs which could not be further assigned are labelled "?".
 Only nodes with a log read abundance ratio greater than 0.5 (abundance ratio > 3.2) are labeled.
 Refer to Figure\ \@ref(fig:taxa) for complete taxon labeling.
 
-```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare-s). (ref:heattree-length-compare)", fig.scap = "(ref:heattree-length-compare-s)", out.width = "100%"}
+```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare-s). (ref:heattree-length-compare)", fig.scap = "(ref:heattree-length-compare-s)", out.width = "100%", cache=TRUE, extra.cache=gethash("heattree_length_compare")}
 oldtheme <- theme_update(panel.border = element_blank())
 readd(heattree_length_compare)
 theme_set(oldtheme)
@@ -372,7 +372,7 @@ theme_set(oldtheme)
 
 (ref:short-its) Vertical axis shows fraction of total reads $\le 140$ bp in each dataset.
 
-```{r short-its, fig.cap = "(ref:short-its-s). (ref:short-its)", fig.scap = "(ref:short-its-s)", fig.width=7}
+```{r short-its, fig.cap = "(ref:short-its-s). (ref:short-its)", fig.scap = "(ref:short-its-s)", fig.width=7, cache=TRUE, extra.cache=gethash("big_seq_table_ITS2", "taxon_reads"), more.cache = datasets}
 readd(big_seq_table_ITS2) %>%
   colSums() %>%
   enframe(name = "ITS2", value = "nreads") %>%
@@ -397,7 +397,7 @@ ASVs which could not be further assigned are labelled "?".
 Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
 The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
 
-```{r ecm-heattree, fig.cap = "(ref:ecm-heattree-s). (ref:ecm-heattree)", fig.scap = "(ref:ecm-heattree-s)", out.width = "100%"}
+```{r ecm-heattree, fig.cap = "(ref:ecm-heattree-s). (ref:ecm-heattree)", fig.scap = "(ref:ecm-heattree-s)", out.width = "100%", , cache=TRUE, extra.cache=gethash("ecm_heattree")}
 oldtheme <- theme_update(panel.border = element_blank())
 readd(ecm_heattree)
 theme_set(oldtheme)
@@ -427,7 +427,7 @@ regions %>%
 **ITS2**: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
 **short**, **ITS**, **LSU**, **long**: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"long\" denote the full-length short and long amplicons, respectively.
 
-```{r bioinfo}
+```{r bioinfo, cache=TRUE, extra.cache=gethash("bioinf_table", "bioinf_header")}
 options(knitr.kable.NA = '–')
 
 readd(bioinf_table) %>%
@@ -467,7 +467,7 @@ readd(bioinf_table) %>%
 
 (ref:venn-table-asv) Each row shows the number of ASVs (*ASVs*) shared uniquely by one or more datasets, including the fraction of total ASVs for each dataset (*ASVs frac*), the number of reads represented by those ASVs in each dataset (*reads*) and the fraction of total reads for the dataset (*reads frac*).
 
-```{r venn-table-asv}
+```{r venn-table-asv, cache=TRUE, extra.cache=gethash("venn_ASV"), more.cache=venn_table}
 readd(venn_ASV) %>%
 venn_table(ASVs, caption = "(ref:venn-table-asv-s). (ref:venn-table-asv)", caption.short = "(ref:venn-table-asv-s)")
 ```
@@ -476,14 +476,14 @@ venn_table(ASVs, caption = "(ref:venn-table-asv-s). (ref:venn-table-asv)", capti
 
 (ref:venn-table-otu) Each row shows the number of OTUs (*OTUs*) shared uniquely by one or more datasets, including the fraction of total OTUs for each dataset (*OTUs frac*), the number of reads represented by those OTUs in each dataset (*reads*) and the fraction of total reads for the dataset (*reads frac*).
 
-```{r venn-table-otu}
+```{r venn-table-otu, cache=TRUE, extra.cache=gethash("venn_OTU"), more.cache=venn_table}
 readd(venn_OTU) %>%
 venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", caption.short = "(ref:venn-table-otu-s)")
 ```
 
 (ref:variofit) Parameters for exponential distance-decay fits. Range: range at which exponential function is at 95% of its maximum value.
 
-```{r variofit, results="asis"}
+```{r variofit, results="asis", cache=TRUE, extra.cache=gethash("variofit_table")}
  readd(variofit_table) %>%
   mutate_at("conf.low", replace_na, 0) %>%
   mutate(value = ifelse(
