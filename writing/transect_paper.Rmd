@@ -37,7 +37,7 @@ output:
     fig_crop: true
     keep_tex: true
     toc: false
-    latex_engine: lualatex
+    latex_engine: xelatex
     includes:
       in_header: preamble.tex
     citation_package: biblatex

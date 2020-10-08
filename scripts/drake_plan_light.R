@@ -3207,7 +3207,7 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_supplement.tex"))
       file_in(!!file.path("writing", "transect_paper.tex"))
       file_out(!!file.path("writing", "transect_supplement.pdf"))
-      tinytex::lualatex("transect_supplement.tex", bib_engine = "biber")
+      tinytex::xelatex("transect_supplement.tex", bib_engine = "biber")
     }
   ),
 
@@ -3217,7 +3217,7 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_supplement_diff.tex"))
       file_in(!!file.path("writing", "transect_paper_diff.tex"))
       file_out(!!file.path("writing", "transect_supplement_diff.pdf"))
-      tinytex::lualatex("transect_supplement_diff.tex", bib_engine = "biber")
+      tinytex::xelatex("transect_supplement_diff.tex", bib_engine = "biber")
     }
   ),
 
@@ -3227,7 +3227,7 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_paper.tex"))
       file_in(!!file.path("writing", "transect_supplement.tex"))
       file_out(!!file.path("writing", "transect_paper.pdf"))
-      tinytex::lualatex("transect_paper.tex", bib_engine = "biber")
+      tinytex::xelatex("transect_paper.tex", bib_engine = "biber")
     }
   ),
 
@@ -3237,7 +3237,7 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_paper_diff.tex"))
       file_in(!!file.path("writing", "transect_supplement_diff.tex"))
       file_out(!!file.path("writing", "transect_paper_diff.pdf"))
-      tinytex::lualatex("transect_paper_diff.tex", bib_engine = "biber")
+      tinytex::xelatex("transect_paper_diff.tex", bib_engine = "biber")
     }
   ),
 
