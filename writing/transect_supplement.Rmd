@@ -147,18 +147,34 @@ legend(
 # )
 ```
 
-(ref:buffer-compare-long) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for long amplicon libraries.
-<!-- R3: I have no idea how to interpret these figures. More explanation is needed!-->
+(ref:buffer-compare-long-s) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for long amplicon libraries
 
-```{r buffer-compare-long, fig.cap = "(ref:buffer-compare-long)", cache = TRUE, extra.cache = gethash("buffer_compare_long")}
+(ref:buffer-compare-long) Reference heat tree (bottom left) shows labeled taxonomic tree.
+Nodes and branches are scaled to represent mean relative read abundance across samples.
+Colored comparison trees (top and right) illustrate variation in relative read abundance between samples preserved by different techniques or from different years.
+For each comparison tree, colors indicate the base 10 log relative abundance ratio for each taxon between two datasets, with orange colors indicate greater relative abundance in the dataset indicated above the tree (Xpedition 2015, LifeGuard 2016), and blue-green colors indicate greater relative abundance in the dataset indicated to the right of the tree (Xpedition 2016, Xpedition 2015).
+The two Xpedition datasets (blue-green colors, top right and center right) show consistently greater relative abundance of Basidiomycota, especially Russulales and Sebacinales, as well as Glomeromycota, Morteriellomycota, Geoglossomycetes, and Pezizomycetes,
+while the LifeGuard samples (orange colors, top right and center right) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, and also Geminibasidiomycetes.
+Differences between the two Xpedition datasets (top center) are less pronounced.
+
+```{r buffer-compare-long, fig.scap = "(ref:buffer-compare-long-s)", fig.cap = "(ref:buffer-compare-long-s). (ref:buffer-compare-long)", fig.width = 5, fig.height = 5, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_long")}
 oldtheme <- theme_update(panel.border = element_blank())
 readd(buffer_compare_long)
 theme_set(oldtheme)
 ```
 
-(ref:buffer-compare-short) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for short amplicon libraries.
+(ref:buffer-compare-short-s) Comparison of read counts by taxonomic groups for different preservation buffers (Xpedition vs. LifeGuard) and sampling year, for short amplicon libraries
 
-```{r buffer-compare-short, fig.cap = "(ref:buffer-compare-short)", cache = TRUE, extra.cache = gethash("buffer_compare_short"), more.cache=oldtheme}
+(ref:buffer-compare-short) Reference heat tree (bottom left) shows labeled taxonomic tree.
+Nodes and branches are scaled to represent mean relative read abundance across samples.
+Colored comparison trees (top and right) illustrate variation in relative read abundance between samples preserved by different techniques or from different years.
+For each comparison tree, colors indicate the base 10 log relative abundance ratio for each taxon between two datasets, with orange colors indicate greater relative abundance in the dataset indicated above the tree (Xpedition 2015, LifeGuard 2016), and blue-green colors indicate greater relative abundance in the dataset indicated to the right of the tree (Xpedition 2016, Xpedition 2015).
+The two Xpedition datasets (blue-green colors, top right and center right) show consistently greater relative abundance of Basidiomycota, especially Sebacinales, as well as Glomeromycota, Geoglossomycetes, and Pezizomycetes,
+while the LifeGuard samples (orange colors, top right and center right) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, as well as Geminibasidiomycetes.
+Differences between the two Xpedition datasets (top center) are less pronounced.
+
+```{r buffer-compare-short, fig.scap="(ref:buffer-compare-short-s)", fig.cap = "(ref:buffer-compare-short-s). (ref:buffer-compare-short)", fig.width = 5, fig.height = 5, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_short")}
+oldtheme <- theme_update(panel.border = element_blank())
 readd(buffer_compare_short)
 theme_set(oldtheme)
 
