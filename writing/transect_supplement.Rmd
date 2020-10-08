@@ -167,9 +167,8 @@ theme_set(oldtheme)
 (ref:phylotax) In the example, a clade includes  seven OTUs (A-F), which have been identified by two methods as belonging to taxa "Tax1" or "Tax2", or are unidentified ("unk"), as shown in the tip labels.
 No taxon is assigned at node\ 1, because one of the child branches (A) is completely unassigned.
 No taxon is assigned at node\ 2, because the assignments at C and F are inconsistent.
-Node\ 3 is assigned to Tax1 because this is consistent with at least one of the assignments for both B and C.
-Node\ 4 (and thus also node\ 5) is assigned to Tax2 because this is consistent with at least one of the assignments for D and F, and because E is completely unassigned.
-<!-- Is there an error in the legend? It appears that node 3 is assigned to Taxa 1 based on box color coding and node 4 to Taxon 2 based on different box color coding. In the legend, it states that node 3 is assigned to Taxa 1, but there are three matches to Taxon 2 at that node and Taxon 2 is presented in Salmon color consistent with the box color for node 3. As such, I think the authors meant to designate node 3 as being assigned to Taxon 2. If this is wrong, then more details in the legend explaining why the greater presence of matches to Tax2 yet assignment to Tax1 is needed. -->
+Node\ 3 is assigned to Tax2 because this is consistent with at least one of the assignments for both B and C.
+Node\ 4 (and thus also node\ 5) is assigned to Tax1 because this is consistent with at least one of the assignments for D and F, and because E is completely unassigned.
 
 ```{r phylotax, fig.height = 2, fig.width = 3, fig.cap = "(ref:phylotax-s). (ref:phylotax)", fig.scap="(ref:phylotax-s)"}
 readd(phylotax_fig)
