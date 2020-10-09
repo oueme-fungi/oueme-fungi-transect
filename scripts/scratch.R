@@ -144,14 +144,14 @@ unite_taxa %<>%
   unique() %>%
   assertr::assert(assertr::is_uniq, taxon)
 
-unite_taxa %<>% 
+unite_taxa %<>%
   dplyr::mutate(Index = seq_along(taxon)) %>%
   dplyr::rename(Name = taxon) %>%
   dplyr::left_join(dplyr::select(., parent = Name, Parent = Index)) %>%
   assertr::verify(!is.na(Parent) | Level == 0) %>%
   dplyr::mutate_at("Parent", tidyr::replace_na, 0)
 
-unite_taxa %<>% 
+unite_taxa %<>%
 
 filecombine <- left_join(select(rdp_train_taxa, Name, Parent = ParentName,
                                 Rank = Rank) %>%
@@ -236,7 +236,7 @@ testseq <- ape::as.DNAbin(Biostrings::DNAStringSet(silva_db[c(1291,
                                                               115896,
                                                               115972,
                                                               115990
-                                                              
+
 )]))
 testkmers <- kmer::kcount(testseq)
 testkmeans <- kmeans(testkmers, 10)
@@ -300,7 +300,7 @@ pbraw <- drake::cached() %>%
   map_dfr(function(name) {
     x = readd(name, character_only = TRUE)
     if (!is(x, "ShortReadQ")) return(tibble())
-    tibble(file = name, 
+    tibble(file = name,
            data = list(tibble(
              seq.id = as.character(x@id),
              seq = as.character(x@sread),
@@ -347,7 +347,7 @@ chimeras[["LSU"]] <- table(combined$LSU) %>%
   tibble::tibble(sequence = names(.), abundance = .) %>%
   dada2::isBimeraDenovo(multithread = 3)
 
-pen_testlist <- 
+pen_testlist <-
   combined %>% group_by(ITS2) %>%
   mutate(nreads = n()) %>%
   ungroup() %>%
@@ -412,12 +412,12 @@ calculate_consensus2 <- function(seq, names) {
   on.exit(tictoc::toc())
   seq <- Biostrings::DNAStringSet(seq) %>%
     Biostrings::RNAStringSet()
-  
+
   cat(" Aligning...\n")
   tictoc::tic("  alignment")
   aln <- DECIPHER::AlignSeqs(seq, processors = 3, verbose = FALSE)
   tictoc::toc()
-  
+
   cat(" Removing outliers...\n")
   tictoc::tic("  outliers")
   outliers <- odseq::odseq(Biostrings::RNAMultipleAlignment(aln))
@@ -425,7 +425,7 @@ calculate_consensus2 <- function(seq, names) {
       "sequences as outliers.\n")
   aln <- aln[!outliers]
   tictoc::toc()
-  
+
   cat(" Masking gaps...\n")
   tictoc::tic("  masking")
   aln <- aln %>%
@@ -433,7 +433,7 @@ calculate_consensus2 <- function(seq, names) {
     Biostrings::maskGaps(min.fraction = 0.5, min.block.width = 1) %>%
     as("RNAStringSet")
   tictoc::toc()
-  
+
   cat(" Calculating consensus...\n")
   tictoc::tic("  consensus")
   on.exit(tictoc::toc(), add = TRUE)
@@ -444,7 +444,7 @@ calculate_consensus2 <- function(seq, names) {
                               includeTerminalGaps = FALSE)
 }
 
-conseq <- 
+conseq <-
   combined %>%
   group_by(ITS2) %>%
   filter(!is.na(ITS2), n() >= 3) %>%
@@ -458,7 +458,7 @@ conseq_filt <- conseq %>%
                 qLSU = Biostrings::RNAStringSet(LSU) %>%
                   Biostrings::letterFrequency(., "MRWSYKVHDBN")) %>%
   dplyr::filter(qITS < 3, qLSU < 3)
-  
+
 
 taxITS2 <- readd("taxon_ITS2_unite")
 
@@ -503,7 +503,7 @@ cons_tax  <-
   dplyr::select(-name.LSU) %>%
   dplyr::rename(name.LSU = newname) %>%
   tidyr::unite("name", name.ITS, name.LSU, sep = "/")
-  
+
 cons_tax %>%
   filter(nreads >= 3) %$%
   rlang::set_names(ITS, name) %>%
@@ -520,7 +520,7 @@ lsualn <-  cons_tax %$%
 
 lsudist <- DECIPHER::DistanceMatrix(lsualn, includeTerminalGaps = FALSE,
                                     correction = "Jukes-Cantor")
-lsutree <- DECIPHER::IdClusters(lsudist, myXStringSet = lsualn, 
+lsutree <- DECIPHER::IdClusters(lsudist, myXStringSet = lsualn,
                              method = "ML", showPlot = TRUE,
                              type = "dendrogram", processors = 3)
 
@@ -643,7 +643,7 @@ aln <- group_cons %>%
   DECIPHER::AlignSeqs()
 
 dist <- DECIPHER::DistanceMatrix(aln, includeTerminalGaps = FALSE, correction = "Jukes-Cantor")
-tree <- DECIPHER::IdClusters(dist, myXStringSet = aln, 
+tree <- DECIPHER::IdClusters(dist, myXStringSet = aln,
                      method = "ML", showPlot = TRUE)
 library(DECIPHER)
 ij %>%
@@ -655,7 +655,7 @@ ij %>%
   filter(group == 14, region == "LSU") %>%
   select(seq, reads) %>%
   calculate_consensus()
-  
+
 
 ij %>% group_by(group) %>% summarize_at(c("ITS", "ITS1", "ITS2", "LSU", "long"), n_distinct, na.rm = TRUE) %>% View()
 
@@ -734,10 +734,10 @@ assemble_physeq <- function(platemap, datasets, seqtable, tree) {
 
   asvtab <- seqtable %>%
     phyloseq::otu_table(taxa_are_rows = FALSE)
-  
+
   phyloseq::phyloseq(samp, asvtab, tree)
 }
-      
+
 %>%
   phyloseq::prune_samples(samples = phyloseq::sample_data(.)$Dataset == "long-pacbio"
                           & phyloseq::sample_data(.)$Qual == ""
@@ -768,9 +768,9 @@ MRCA(p, outgroups$seq)
 reroot(longtree, MRCA(p, outgroups$seq))
 ggtree(groupOTU(longtree, split(treetax$seq, treetax$Kingdom))) + aes(color = group) + scale_color_brewer(type = "qual") +
 theme(legend.position = NULL)
-p + aes(color = Kingdom) 
+p + aes(color = Kingdom)
 
-reconstruct_ITS <- 
+reconstruct_ITS <-
   readd(dada_map_pb_500_001_ITS1) %>%
   select(seq.id, ITS1 = dada.seq) %>%
   inner_join(
@@ -795,7 +795,7 @@ is_bimera_ITS <- reconstruct_ITS %>%
   dplyr::rename(sequence = ITS) %>%
   dada2::isBimeraDenovo()
 
-reconstruct_LSU <- 
+reconstruct_LSU <-
   readd(dada_map_pb_500_001_LSU1) %>%
   select(seq.id, LSU1 = dada.seq) %>%
   inner_join(
@@ -891,7 +891,7 @@ reconstruct <- function(
                             assertthat::is.string(sample_regex),
                           is.null(sample_replace) || is.na(sample_replace) ||
                             assertthat::is.string(sample_replace))
-  
+
   if (is.null(raw_column) || is.na(raw_column)) raw_column <- NULL
   if (is.null(sample_column) || is.na(sample_column)) sample_column <- NULL
   if (is.null(sample_regex) || is.na(sample_regex)) sample_regex <- NULL
@@ -927,7 +927,7 @@ reconstruct <- function(
         sample_regex,
         sample_replace,
       )
-      
+
     }
   }
   out <- purrr::reduce(
@@ -942,7 +942,7 @@ reconstruct <- function(
   combos <- dplyr::group_by_at(out, regions) %>%
     dplyr::summarize(nreads = dplyr::n()) %>%
     dplyr::ungroup()
-  
+
   for (i in seq(1, max(1, length(order) - 2), 2)) {
     chimset <- order[i:min(length(order), i + 2)]
     seqs <- do.call(stringr::str_c, out[,chimset])
@@ -1051,7 +1051,7 @@ reconstruct_32S <-
   dplyr::filter(complete.cases(.)) %>%
   unique()
 
-reconstruct_32s_aln <- 
+reconstruct_32s_aln <-
   reconstruct_32S %$%
   magrittr::set_names(`32S`, tzara::seqhash(long)) %>%
   Biostrings::DNAStringSet() %>%
@@ -1127,7 +1127,7 @@ for (region in c("ITS1", "ITS2", "ITS", "LSU"))
         cat(region, database, method, "phylum: ", pcount, "/", lall, "genus: ", gcount, "/", lall,"\n")
       }
     }
-        
+
 seq <- Biostrings::DNAStringSet(
   Biostrings::readQualityScaledDNAStringSet(
     "sequences/trim/pb_500_001/pb_500_001-H6f.trim.fastq.gz"
@@ -1220,12 +1220,12 @@ plan <- drake_plan(
     dynamic = map(dataset),
     format = "fst"
   ),
-  
+
   all_data = target(
     combine_dynamic_diskframe(observations),
     format = "diskframe"
   ),
-  
+
   result = target(
     all_data %>%
       as.data.frame() %>%
@@ -1424,7 +1424,7 @@ epa_decipher_full_graft <- gappa_graft(epa_decipher_full, threads = 4)
 loadd(taxon_labels, cache = cache)
 relabel_tree(epa_decipher_full_graft, taxon_labels$label, paste0('"', taxon_labels$tip_label, '"'), chimeras = readd(allchimeras_ITS2, cache = cache)) %>%
   castor::write_tree("data/trees/labeled_epa_decipher.tree")
-  
+
 
 loadd(physeq_all, cache = cache)
 coph <- max_cophenetic(tree)[-seq_along(tree$tip.label),] %>%
@@ -1433,83 +1433,11 @@ coph <- max_cophenetic(tree)[-seq_along(tree$tip.label),] %>%
   dplyr::summarize(n = dplyr::n()) %>%
   dplyr::ungroup() %>%
   dplyr::mutate(ASVs = length(tree$tip.label) - cumsum(n))
-ggplot(coph, aes(max_coph, ASVs)) + 
+ggplot(coph, aes(max_coph, ASVs)) +
   geom_vline(xintercept = 0.0042, linetype = 2, color = "gray") +
-  geom_step() + 
+  geom_step() +
   xlim(c(0, 0.05)) +
   xlab("cophenetic distance threshold")
-
-
-eco_dist <- readd(dist_unifrac_long.pacbio, cache = cache)
-sp_dist <- readd(dist_spatial_0_long.pacbio, cache = cache)
-
-vg <- variogram_dist(
-  eco_dist = eco_dist,
-  sp_dist = sp_dist,
-  breaks = c(0:25 - 0.5, 30100)
-)
-vg$gamma[25]
-vgfit <- gstat::fit.variogram(
-  vg[-25,],
-  gstat::vgm(vg$gamma[25], "Exp", 3, 0.5),
-  fit.method = 2
-)
-
-library(ggplot2)
-tibble::tibble(
-  distance = unclass(sp_dist),
-  unifrac = unclass(eco_dist)
-) %>%
-  dplyr::filter(distance < 60000) %>%
-  ggplot(aes(distance, unifrac)) +
-  geom_hline(yintercept = cumsum(vgfit$psill), linetype = "dashed", color = "gray50") +
-  geom_vline(xintercept = vgfit$range[2], linetype = "dashed", color = "gray50") +
-  geom_smooth(fill = "blue") +
-  geom_point(shape = 1, alpha = 0.3, color = "blue") +
-  geom_line(data = gstat::variogramLine(vgfit, min = 1, maxdist = 30000, n = 1000, dist_vector = exp(seq(0, log(30000), length.out = 30))),
-            aes(dist, gamma), inherit.aes = FALSE, color = "red") +
-  scale_x_log10(expand = expand_scale(0, 0))
-vgfit
-sum(vgfit$psill)
-vg$gamma[25]
-tibble::tibble(
-  distance = unclass(sp_dist),
-  unifrac = unclass(eco_dist)
-) %>%
-  dplyr::filter(distance < 100) %>%
-  ggplot(aes(distance, unifrac)) +
-  geom_hline(yintercept = cumsum(vgfit$psill), linetype = "dashed", color = "gray50") +
-  geom_vline(xintercept = vgfit$range[2], linetype = "dashed", color = "gray50") +
-  geom_smooth(fill = "blue") +
-  geom_point(shape = 1, alpha = 0.3, color = "blue") +
-  geom_line(data = gstat::variogramLine(vgfit, maxdist = 25, n = 1000),
-            aes(dist, gamma), inherit.aes = FALSE, color = "red") +
-  scale_x_continuous(expand = expand_scale(0, 0))
-
-vgst <- 
-  tibble::tibble(
-  sp_dist = unclass(dist_spatial_0_long.pacbio),
-  eco_dist = unclass(dist_unifrac_long.pacbio),
-  timelag = sp_dist %/% 100000
-) %>%
-  dplyr::mutate(
-    sp_dist = sp_dist %% 100000
-  ) %>%
-  as.list() %>%
-  c(list(breaks = 0:25 - 0.5)) %>%
-  do.call(variogramST_dist, .)
-
-gstat::fit.StVariogram(
-  vgst,
-  gstat::vgmST(
-    "separable",
-    method = "Nelder-Mead",
-    space = gstat::vgm("Exp"),
-    time = gstat::vgm("Sph"),
-    sill = 0.8
-  )
-)
-plot(vgst)
 
 readd(taxon_table, cache = cache)
 readd(taxon_phy_long, cache = cache)$tip_taxa %>%
@@ -1619,7 +1547,7 @@ paraphy_groups <- node_taxa %>%
     tips = phangorn::Descendants(tree, mrca),
     n3 = tips %>%
       purrr::map_int(length)
-    
+
   ) %>%
   tidyr::unnest(tips) %>%
   dplyr::mutate(
@@ -1767,8 +1695,8 @@ dplyr::inner_join(
       direction == "f" ~ "Reads originally in forward orientation",
       direction == "r" ~ "Reads originally in reverse orientation",
       TRUE ~ "")
-  ) %>% 
-  chop(cols = c(SAMPLE, NAME, LIBRARY_SOURCE)) %>% 
+  ) %>%
+  chop(cols = c(SAMPLE, NAME, LIBRARY_SOURCE)) %>%
   mutate_at("LIBRARY_SOURCE", map, unique) %>%
   rowwise() %>%
   group_split() %>%
@@ -1796,7 +1724,7 @@ dplyr::inner_join(
   ) %>% select(sample_alias, "project name", plate, well, amplicon, sample_type),
   readd(illumina_group_SH.2257),
   by = c("plate", "well", "amplicon")
-) %>% 
+) %>%
   dplyr::transmute(
     STUDY = `project name`,
     SAMPLE = sample_alias,
@@ -1875,7 +1803,7 @@ pooled_inext <- asv_table %>%
   pmax(0) %>%
   iNEXT::iNEXT()
 
-sample_inext <- 
+sample_inext <-
   readd(big_seq_table_ITS2) %>%
   magrittr::extract(rowSums(.) > 100,) %>%
   t() %>%

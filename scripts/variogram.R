@@ -25,8 +25,7 @@ as_variogram <- function(vario) {
       dir.ver = 0,
       id = "var1"
     ) %>%
-    as.data.frame() %>%
-    `class<-`(c("gstatVariogram", class(.)))
+    as.data.frame()
 }
 
 # Make a variogram from two distance matrices
@@ -76,7 +75,7 @@ as_variogramST <- function(vario) {
 }
 
 # Make a variogram from two distance matrices
-variogramST_dist <- function(eco_dist, sp_dist, timelag, breaks) { 
+variogramST_dist <- function(eco_dist, sp_dist, timelag, breaks) {
   variogramST_table(eco_dist, sp_dist, timelag, breaks) %>%
     as_variogramST()
 }
