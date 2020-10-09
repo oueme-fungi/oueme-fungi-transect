@@ -3120,6 +3120,10 @@ plan2 <- drake_plan(
       system2(
         command = "latexdiff",
         args = list(
+          "--type=CFONT",
+          "--add-to-config",
+          '"FLOATENV=sidewaysfigure"',
+          "--graphics-markup=2",
           "transect_supplement_original.tex",
           "transect_supplement.tex"
         ),
@@ -3143,6 +3147,7 @@ plan2 <- drake_plan(
       system2(
         command = "latexdiff",
         args = list(
+          "--type=CFONT",
           "transect_paper_original.tex",
           "transect_paper.tex"
         ),
