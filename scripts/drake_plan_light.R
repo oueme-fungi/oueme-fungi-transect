@@ -852,7 +852,10 @@ plan2 <- drake_plan(
   ),
 
   sample_iNEXT = target(
-    lapply(pre_iNEXT, iNEXT::iNEXT, knots = 200),
+    lapply(pre_iNEXT, function(x) iNEXT:::iNEXT.Ind(
+      x,
+      m = unique(c(round(10^seq(0, log10(sum(x)), 0.1)), sum(x))),
+      q = 0)),
     transform = map(pre_iNEXT, .id = cluster),
     dynamic = map(pre_iNEXT)
   ),
@@ -954,7 +957,7 @@ plan2 <- drake_plan(
   accum_plot = target(
     readd(sample_iNEXT) %>%
       purrr::flatten() %>%
-      purrr::map_dfr(fortify, .id = "sample") %>%
+      dplyr::bind_rows(.id = "sample") %>%
       tidyr::extract(
         sample,
         into = c("seq_run", "well"),
@@ -964,13 +967,13 @@ plan2 <- drake_plan(
       dplyr::left_join(datasets, by = "seq_run") %>%
       dplyr::mutate(strategy = paste(tech, amplicon)) %>%
       dplyr::filter(method != "extrapolated") %>%
-      ggplot(aes(x = x, y = y, color = strategy)) +
+      ggplot(aes(x = m, y = qD, color = strategy)) +
       # lines for each sample
       geom_line(aes(group = sample), alpha = 0.08) +
       # small points to represent the actual observed read depth and richness
       geom_point(data = ~dplyr::filter(., method == "observed"),
                  alpha = 0.8, size = 1, shape = 1) +
-      xlab("reads") +
+      xlab("Number of rarefied reads") +
       ylab(paste(cluster, "richness")) +
       scale_color_strategy(name = NULL) +
       scale_x_log10() +

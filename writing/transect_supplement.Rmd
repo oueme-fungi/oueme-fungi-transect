@@ -262,6 +262,10 @@ ggpubr::ggarrange(
 )
 ```
 
+```{r accum-OTU, fig.cap="OTU accumulation curves"}
+readd(accum_plot_OTU)
+```
+
 (ref:taxa-s) Heat tree summarizing taxonomic composition of soil community
 
 (ref:taxa) Color and size of nodes represent the fractional ASV richness of that taxonomic group.

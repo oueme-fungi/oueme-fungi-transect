@@ -547,10 +547,6 @@ ggpubr::ggarrange(
 readd(accum_plot_ASV)
 ```
 
-```{r accum-OTU, fig.cap="OTU accumulation curves"}
-readd(accum_plot_OTU)
-```
-
 ## Taxonomic assignment
 
 For all sequencing datasets and taxonomic assignment protocols, a higher proportion of reads was assigned than of ASVs, indicating that common ASVs were more likely to be taxonomically identified than rare ASVs (Figure\ \@ref(fig:tax-chart)).
