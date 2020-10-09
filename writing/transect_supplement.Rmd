@@ -500,7 +500,7 @@ readd(venn_OTU) %>%
 venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", caption.short = "(ref:venn-table-otu-s)")
 ```
 
-(ref:variofit) Parameters for exponential distance-decay fits. Range: range at which exponential function is at 95% of its maximum value.
+(ref:variofit) Parameters for exponential distance-decay fits. Range: range at which exponential function is at 95% of its asymptotic value.
 
 ```{r variofit, results="asis", cache=TRUE, extra.cache=gethash("variofit_table")}
  readd(variofit_table) %>%
