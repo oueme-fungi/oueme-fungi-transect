@@ -786,9 +786,11 @@ plan2 <- drake_plan(
       col_types = "ciidfccccc",
       na = c("", "NA", "*")
       ) %>%
-    filter(V1 == "H") %>%
+    #filter(V1 == "H") %>%
     select(identity = V4, ASVseq = V9, OTUseq = V10) %>%
     mutate_all(str_replace, ";.*", "") %>%
+    mutate(OTUseq = coalesce(OTUseq, ASVseq),
+           identity = tidyr::replace_na(identity, 100)) %>%
     unique(),
 
   # alpha diversity ----

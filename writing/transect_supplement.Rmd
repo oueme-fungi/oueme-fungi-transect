@@ -157,7 +157,7 @@ The two Xpedition datasets (blue-green colors, top right and center right) show 
 while the LifeGuard samples (orange colors, top right and center right) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, and also Geminibasidiomycetes.
 Differences between the two Xpedition datasets (top center) are less pronounced.
 
-```{r buffer-compare-long, fig.scap = "(ref:buffer-compare-long-s)", fig.cap = "(ref:buffer-compare-long-s). (ref:buffer-compare-long)", fig.width = 5, fig.height = 5, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_long")}
+```{r buffer-compare-long, fig.scap = "(ref:buffer-compare-long-s)", fig.cap = "(ref:buffer-compare-long-s). (ref:buffer-compare-long)", fig.width = 10, fig.height = 10, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_long"), dev = "pdf"}
 oldtheme <- theme_update(panel.border = element_blank())
 readd(buffer_compare_long)
 theme_set(oldtheme)
@@ -173,7 +173,7 @@ The two Xpedition datasets (blue-green colors, top right and center right) show 
 while the LifeGuard samples (orange colors, top right and center right) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, as well as Geminibasidiomycetes.
 Differences between the two Xpedition datasets (top center) are less pronounced.
 
-```{r buffer-compare-short, fig.scap="(ref:buffer-compare-short-s)", fig.cap = "(ref:buffer-compare-short-s). (ref:buffer-compare-short)", fig.width = 5, fig.height = 5, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_short")}
+```{r buffer-compare-short, fig.scap="(ref:buffer-compare-short-s)", fig.cap = "(ref:buffer-compare-short-s). (ref:buffer-compare-short)", fig.width = 10, fig.height = 10, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_short"), dev = "pdf"}
 oldtheme <- theme_update(panel.border = element_blank())
 readd(buffer_compare_short)
 theme_set(oldtheme)
@@ -320,7 +320,7 @@ ggpubr::ggarrange(
 
 (ref:correlog-cap) Community dissimilarities are Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
 
-```{r correlog, fig.cap="(ref:correlog-cap-s). (ref:correlog-cap)", fig.scap = "(ref:correlog-cap-s)", cache=TRUE, extra.cache=gethash(as.list(keep(light_plan$target, startsWith, "correlog")))}
+```{r correlog, fig.cap="(ref:correlog-cap-s). (ref:correlog-cap)", fig.scap = "(ref:correlog-cap-s)", cache=TRUE, extra.cache=gethash(as.list(purrr::keep(light_plan$target, stringr::str_detect, "^correlog.+_PHYLOTAX_")))}
 light_plan %>%
   filter(startsWith(target, "correlog")) %>%
   select(target) %>%
