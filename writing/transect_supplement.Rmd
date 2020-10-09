@@ -81,7 +81,7 @@ datasets <- read_csv(here("config/datasets.csv"), col_types = "ccccccciccccccccc
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
 if (!exists("percent", mode = "function")) source(here::here("scripts", "output_functions.R"))
 
-gethash <- function(...) purrr::map_chr(list(...), drake_cache()$get_hash)
+gethash <- function(...) purrr::map_chr(purrr::flatten(list(...)), drake_cache()$get_hash)
 ```
 
 **Supplementary file 1**: Mapping between samples, indexed primers, and read accession numbers for short amplicons.
@@ -100,8 +100,8 @@ In some cases, this may be due to a poorly identified sequence "splitting" the g
 (ref:buffer-pcoa) based on Bray-Curtis dissimilarities of relative read abundances.
 For each sequencing strategy, only those sampling locations with more than 100 reads each for all three year/preservation buffer combinations were included.
 
-```{r buffer-pcoa, fig.cap="(ref:buffer-pcoa-s), (ref:buffer-pcoa)", fig.scap = "(ref:buffer-pcoa-s)"}
-plot(readd(buffer_asv_pcoa), type = "none", xlab = "PCoA1", ylab = "PCoA2", cache = TRUE, extra.cache = gethash("buffer_asv_pcoa", "buffer_asv_table"))
+```{r buffer-pcoa, fig.cap="(ref:buffer-pcoa-s), (ref:buffer-pcoa)", fig.scap = "(ref:buffer-pcoa-s)", cache = TRUE, extra.cache = gethash("buffer_asv_pcoa", "buffer_asv_table")}
+plot(readd(buffer_asv_pcoa), type = "none", xlab = "PCoA1", ylab = "PCoA2")
 points(
   readd(buffer_asv_pcoa),
   select = with(
@@ -316,7 +316,7 @@ ggpubr::ggarrange(
 
 (ref:correlog-cap) Community dissimilarities are Bray-Curtis (top three rows) or weighted Unifrac (bottom row) dissimilarities and spatial distance, for short (top two rows) and long (bottom two rows) amplicons, and for the entire soil fungal community (left) or only ECM taxa (right).  Unifrac distance was not calculated for short amplicons because it requires that the sequences are placed on a phylogenetic tree.
 
-```{r correlog, fig.cap="(ref:correlog-cap-s). (ref:correlog-cap)", fig.scap = "(ref:correlog-cap-s)", cache=TRUE, extra.cache=gethash(keep(light_plan$target, startsWith, "correlog"))}
+```{r correlog, fig.cap="(ref:correlog-cap-s). (ref:correlog-cap)", fig.scap = "(ref:correlog-cap-s)", cache=TRUE, extra.cache=gethash(as.list(keep(light_plan$target, startsWith, "correlog")))}
 light_plan %>%
   filter(startsWith(target, "correlog")) %>%
   select(target) %>%
