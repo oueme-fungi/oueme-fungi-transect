@@ -3063,63 +3063,12 @@ plan2 <- drake_plan(
       legend.key = element_blank()
     ),
 
-  # short_length_glm =
-  #   short_length_table %>%
-  #   glm(reads ~ seq_run + seq_run:length - 1, family = "poisson", data = .),
-
   length_model_data =
     reads_table %>%
     filter(region == "short") %>%
     mutate_at("seq", tzara::seqhash) %>%
     mutate_at("seq", factor) %>%
     tidyr::complete(seq_run, nesting(seq, length), fill = list(reads = 0)),
-
-  # length_glmm =
-  #   MASS::glmmPQL(
-  #     fixed = reads ~ seq_run * length,
-  #     random = ~ 1 | seq,
-  #     data = length_model_data,
-  #     family = "poisson"
-  #   ),
-
-  # length_glmer =
-  #   lme4::glmer(
-  #     formula = reads ~ seq_run * length + (1 | seq),
-  #     data = length_model_data,
-  #     family = "poisson"
-  #   ),
-
-  # confint_glmer =
-  #   lme4::confint.merMod(length_glmer),
-
-  # length_glmernb =
-  #   length_model_data %>%
-  #   lme4::glmer.nb(
-  #     formula = reads ~ seq_run * length + (1 | seq),
-  #     data = .
-  #   ),
-
-  # confint_glmernb =
-  #   lme4::confint.merMod(length_glmernb),
-
-  # length_mcmcglmm =
-  #   MCMCglmm::MCMCglmm(
-  #     fixed = reads ~ trait:seq_run + trait:seq_run:length - 1,
-  #     random = ~ idh(trait):seq,
-  #     data = length_model_data,
-  #     family = "zipoisson",
-  #     rcov = ~us(trait):units
-  #   ),
-  #
-  # length_mcmcglmm2 =
-  #   MCMCglmm::MCMCglmm(
-  #     fixed = reads ~ seq + seq_run + seq_run:length - 1,
-  #     data = short_otu_table,
-  #     family = "poisson",
-  #     nitt = 103000,
-  #     thin = 100,
-  #     burnin = 3000
-  #   ),
 
   ## Render paper ----
   # write *.aux and *.tex files.  Remove extra bibliographies from *.tex files
