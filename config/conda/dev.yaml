@@ -53,9 +53,6 @@ dependencies:
   - samtools
   - snakemake-minimal=5.5.4
   - pandas=0.25.1
-  - pip
-  - pip:
-      - latexdiffcite
   # Plotting
   - r-ggpubr
   - r-ggnomics
