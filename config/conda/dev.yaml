@@ -15,8 +15,8 @@ dependencies:
   - r-assertr=2.6
   # Drake and friends
   - r-drake=7.8.0
-  - r-fst
-  - r-disk.frame
+  - r-fst=0.9.0
+  - r-disk.frame=0.3.5
   - r-clustermq=0.8.8
   - r-visnetwork=2.0.9
   - r-networkd3=0.4
@@ -35,7 +35,6 @@ dependencies:
   - r-dada2=1.12.1
   - r-tzara=0.0.7.8
   - r-funguildr=0.1
-  - r-tikzdevice=0.12
   - r-inext=2.0.20
   - r-ips=0.0.11
   - r-reldist=1.6
@@ -48,19 +47,21 @@ dependencies:
   - epa-ng=0.3.6
   - gappa=0.5.1
   - mafft=7.453
-  - samtools
+  - samtools=1.10
   - snakemake-minimal=5.5.4
   - pandas=0.25.1
   # Plotting
-  - r-ggpubr
-  - r-ggnomics
+  - r-ggplot2=3.2.1
+  - r-ggpubr=0.2.5
+  - r-ggnomics=0.1.1
   - r-ggrepel=0.8.2
-  - bioconductor-ggtree
-  - r-eulerr
-  - r-metacoder
+  - bioconductor-ggtree=1.16.0
+  - r-eulerr=6.1.0
+  - r-metacoder=0.3.4
+  - r-tikzdevice=0.12
   # Knitting
-  - r-bookdown
-  - r-kableextra
+  - r-bookdown=0.18
+  - r-kableextra=1.1.0
   # development tools
   - r-pdftools
   - r-lintr
