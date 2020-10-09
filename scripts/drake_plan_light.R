@@ -910,7 +910,7 @@ plan2 <- drake_plan(
       ) %>%
       tidyr::unnest(deming) %>%
       dplyr::mutate(
-        slope_label = sprintf("slope==%.2f(%.2f-%.2f)",
+        slope_label = sprintf("m==%.2f(%.2f-%.2f)",
                              value_x, `lower 0.95`, `upper 0.95`),
         r2_label = sprintf("R^2==%.2f", r_squared)
       ),
@@ -925,22 +925,23 @@ plan2 <- drake_plan(
       geom_abline(
         aes(slope = value_x, intercept = `(Intercept)`),
         color = "blue",
+        alpha = 0.7,
         size = 1,
         data = demingfits
       ) +
       geom_text(
         aes(x = 0, y = 60, label = slope_label),
         hjust = 0,
-        size = 2.5,
-        color = "blue",
+        # color = "blue",
+        size = 1.5,
         parse = TRUE,
         data = demingfits
       ) +
       geom_text(
         aes(x = 0, y = 52, label = r2_label),
         hjust = 0,
-        size = 2.5,
-        color = "blue",
+        # color = "blue",
+        size = 1.5,
         parse = TRUE,
         data = demingfits
       ) +
