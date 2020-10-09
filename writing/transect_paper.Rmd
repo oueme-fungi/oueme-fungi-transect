@@ -675,16 +675,16 @@ It may also be adaptable to Oxford Nanopore sequencing, which has hitherto posed
 
 The three sequencing technologies gave similar results for the short amplicon library, the major difference being in sequencing depth.
 Although a greater fraction of PacBio raw reads were ultimately mapped to ASVs (`r percent(readd(bioinf_table)["ITS2","PacBio_Short_reads"]/readd(rawcounts)["pb_483"], format = "f", digits = 0)`) compared to Illumina (`r percent(readd(bioinf_table)["ITS2","Illumina_Short_reads"]/readd(rawcounts)["SH-2257"], format = "f", digits = 0)`) or Ion Torrent (`r percent(readd(bioinf_table)["ITS2","Ion Torrent_Short_reads"]/readd(rawcounts)["is_057"], format = "f", digits = 0)`),
-the latter two technologies provided much greater sequencing depth for a similar cost, allowing a greater diversity of rare ASVs to be recovered, and were much closer to saturation of their respective species accumulation curves (Figure \ref(fig:accum-ASV)).
+the latter two technologies provided much greater sequencing depth for a similar cost, allowing a greater diversity of rare ASVs to be recovered, and were much closer to saturation of their respective species accumulation curves (Figure \@ref(fig:accum-ASV)).
 OTU read counts were strongly correlated between technologies (R^2^ = `r readd(comparisons) %>% filter(type == "OTU") %>% filter(x_amplicon == y_amplicon) %$% paste(format(range(r.squared), format = "f", digits = 2), collapse = "--")`),
 and even between primer pairs (R^2^ = `r readd(comparisons) %>% filter(type == "OTU") %>% filter(x_amplicon != y_amplicon) %$% paste(format(range(r.squared), format = "f", digits = 2), collapse = "--")`),
 which we interpret as supporting the validity of abundance-based beta diversity measures in soil fungi (Figure \@ref(fig:read-compare)b).
 
 DADA2 denoising may perform differently on different technologies (or perhaps sequencing runs), indicated by the fact that clustering ASVs at 97% led to substantially higher correspondence between both the set of sequences recovered from the same library by different technologies  and the read counts for each sequence (Figure\ \@ref(fig:read-compare)).
 Ion Torrent generated more ASV richness than PacBio or Illumina from the common short amplicon library (Figure\ \@ref(fig:venn)), even after rarefication to equal sampling depth ().
-In contrast PacBio and Illumina generated very similar ASV diversity estimates after rarefication (Figure \ref(fig:alpha-compare)), even though the original sequencing depth for Illumina was two orders of magnitude higher than that for PacBio.
+In contrast PacBio and Illumina generated very similar ASV diversity estimates after rarefication (Figure \@ref(fig:alpha-compare)), even though the original sequencing depth for Illumina was two orders of magnitude higher than that for PacBio.
 This suggests that the ASV diversity is artificially inflated in the Ion Torrent dataset.
-This may be a result of the lower fraction of very high quality reads (Figure \ref(fig:qual-check)).
+This may be a result of the lower fraction of very high quality reads (Figure \@ref(fig:qual-check)).
 Although we used options for DADA2 intended to improve performance on technologies with high rates of homopolymer indel errors [@callahan2020b], it is possible that this still does not result in performance comparable to that which DADA2 achieves on Illumina sequences, for which it was developed [@callahan2016].
 
 Although the longer read length capabilities of PacBio would allow recovery of longer ITS2 sequences than the other two technologies, PacBio did not recover any ITS2 fragments longer than those recovered by Illumina and Ion Torrent.
@@ -697,13 +697,13 @@ Taxonomic assignments revealed that the majority of these non-shared sequences f
 Within Fungi, the short amplicon datasets recovered more Sordariomycetes (Figures\ \@ref(fig:fungi-comm), \@ref(fig:ppcoa), and \@ref(fig:heattree-length-compare)).
 Additionally, several lower-rank taxonomic groups showed increased detection in either the long or short datasets, such as Tulasnellaceae and Pyronemataceae in the long amplicon dataset, and *Myerozyma* in the short amplicon datasets (Figures\ \@ref(fig:heattree-length-compare) and \@ref(fig:ecm-heattree)).
 These discrepancies are probably due to primer mismatches to the relevant groups.
-The ITS4 primer used in the short amplicon dataset has known mismatches to Tulasnellaceae and Alveolata, while gITS7 also has mismatches for Tulasnellaceae (@tedersoo2015).
-ITS1 and LR5 match a much broader range of fungal and other eukaryote groups (@tedersoo2015). The alternate LR5-F primer (@tedersoo2008) would select against the non-target Alveolata, at the expense of also having mismatches for the Tulasnellaceae.
+The ITS4 primer used in the short amplicon dataset has known mismatches to Tulasnellaceae and Alveolata, while gITS7 also has mismatches for Tulasnellaceae [@tedersoo2015].
+ITS1 and LR5 match a much broader range of fungal and other eukaryote groups [@tedersoo2015]. The alternate LR5-F primer [@tedersoo2008] would select against the non-target Alveolata, at the expense of also having mismatches for the Tulasnellaceae.
 We assert that more complete coverage of ECM fungal groups with high rDNA variability such as *Tulasnella* (and ideally other *Cantharellales*) is worth the read-depth spent on non-target groups.
 
 ## Taxonomic identification
 
-Assignment of ecological function to environmental fungal sequences is dependent on accurate taxonomic identification, especially at the genus level or below (@nguyen2016funguild).
+Assignment of ecological function to environmental fungal sequences is dependent on accurate taxonomic identification, especially at the genus level or below [@nguyen2016funguild].
 However, different combinations of algortihms and reference datasets vary in their performance at confidently assigning taxonomy to sequences.
 Although the RDP fungal training set and Unite performed comparably at taxonomic placement of long amplicon sequences, the Warcup database placed notably fewer sequences at all taxonomic levels for all datasets (Figure \@ref(fig:tax-chart)).
 This is probably due to two factors.
