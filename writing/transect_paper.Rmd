@@ -514,12 +514,11 @@ We compared the unique ASVs and OTUs shared between datasets from different sequ
 The majority of abundant ASVs and OTUs were captured by all sequencing strategies used (Tables\ \@ref(tab:venn-table-asv) and \@ref(tab:venn-table-otu)).
 The  short amplicon ASVs shared between all sequencing technologies represented `r text_list(percent(colSums(mutate_all(readd(venn_ASV)[c("0111", "1111"), c("reads_frac_pb_483", "reads_frac_SH-2257", "reads_frac_is_057")], as.numeric), na.rm = TRUE)))`% <!-- make this match--> of the reads for PacBio, Illumina, and Ion Torrent, respectively (Figure\ \@ref(fig:venn)a).
 When differences at the intra-species scale were removed by clustering the ASVs into 97% OTUs, the number of OTUs shared between all three technologies increased to `r sum(readd(venn_OTU)[c("0111", "1111"),"OTUs"])`, representing `r text_list(percent(colSums(mutate_all(readd(venn_OTU)[c("0111", "1111"), c("reads_frac_pb_483", "reads_frac_SH-2257", "reads_frac_is_057")], as.numeric), na.rm = TRUE)))`% of reads, respectively (Figure\ \@ref(fig:venn)b).
-In particular, the majority of the `r sum(readd(venn_ASV)[c("1001","0001"),"ASVs"])` unique Ion Torrent ASVs, were found to be shared with other sequencing technologies upon OTU clustering.
-ASVs unique to the Ion Torrent dataset made up `r percent(sum(as.numeric(readd(venn_ASV)[c("1001","0001"),"reads_frac_is_057"])))` of reads in that dataset, but only `r percent(sum(as.numeric(readd(venn_OTU)[c("1001","0001"),"reads_frac_is_057"])))` of belonged to a unique OTU after clustering.
+In particular, the majority of the `r sum(readd(venn_ASV)[c("1001","0001"),"ASVs"])` unique Ion Torrent ASVs were found to be shared with other sequencing technologies upon OTU clustering.
+ASVs unique to the Ion Torrent dataset made up `r percent(sum(as.numeric(readd(venn_ASV)[c("1001","0001"),"reads_frac_is_057"])))` of reads in that dataset, but only `r percent(sum(as.numeric(readd(venn_OTU)[c("1001","0001"),"reads_frac_is_057"])))` belonged to a unique OTU after clustering.
 In contrast, `r percent(readd(venn_ASV)["1000", "reads_frac_pb_500"])` of reads in the long PacBio dataset belonged to ASVs whose ITS2 region was unique to that dataset (Figure\ \@ref(fig:venn)c), and the fraction only reduced to `r percent(readd(venn_OTU)["1000", "reads_frac_pb_500"])` after clustering the ITS2 regions into OTUs (Figure\ \@ref(fig:venn)d).
 
-Figure\ \@ref(fig:read-compare) shows the correspondence between the read count for different ASVs (\@ref(fig:read-compare)a) and OTUs(\@ref(fig:read-compare)b) in the different technologies, where shared ASVs/OTUs are plotted as circles, and unshared OTUs are plotted as lines along the axes.
-In all cases, the read counts for shared ASVs and OTUs were correlated, with a minimum $R^2$ value of `r compR2("pb_500", "is_057", "ASV")`.
+Read counts for shared ASVs and OTUs were highly correlated between strategies, with a minimum $R^2$ value of `r compR2("pb_500", "is_057", "ASV")` (Figure\ \@ref(fig:read-compare)).
 Correlations between read counts for the three technologies using the short amplicon library were increased by OTU clustering
 (`r compR2("pb_483", "SH-2257", "ASV")` to `r compR2("pb_483", "SH-2257", "OTU")`,
 `r compR2("pb_483", "is_057", "ASV")` to `r compR2("pb_483", "is_057", "OTU")`, and
@@ -528,6 +527,8 @@ for PacBio vs. Illumina, PacBio vs. Ion Torrent, and Illumina vs. Ion Torrent, r
 (`r compR2("pb_500", "pb_483", "ASV")` to `r compR2("pb_500", "pb_483", "OTU")`,
 `r compR2("pb_500", "SH-2257", "ASV")` to `r compR2("pb_500", "SH-2257", "OTU")`, and
 `r compR2("pb_500", "is_057", "ASV")` to `r compR2("pb_500", "is_057", "OTU")`, for PacBio long amplicon reads vs. PacBio, Illumina, and Ion Torrent short amplicon reads, respectively).
+
+<!-- ADD HERE results about the alpha diversity comparison -->
 
 (ref:alpha-compare-s) Comparison of alpha diversity between sequencing technologies
 
