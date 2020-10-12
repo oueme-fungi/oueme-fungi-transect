@@ -3244,6 +3244,21 @@ plan2 <- drake_plan(
       }
     ),
 
+  # word count
+  wordcount = {
+    if (!"texcount" %in% tinytex::tl_pkgs()) tinytex::tlmgr_install("texcount")
+    system2(
+      list.files(
+        file.path(tinytex::tinytex_root(), "bin"),
+        pattern = "texcount",
+        recursive = TRUE,
+        full.names = TRUE
+      ),
+      args = file_in(!!file.path("writing", "transect_paper.tex")),
+      stdout = file_out(!!file.path("writing", "transect_paper.wc"))
+    )
+  },
+
   ## Output tree ----
   tree_fig = {
     charscale <- 0.015
@@ -3742,7 +3757,7 @@ make(
   cache = cache,
   parallelism = parallelism,
   jobs = njobs,
-  targets = c("article_pdf", "supplement_pdf", "article_diff_pdf", "supplement_diff_pdf"),
+  targets = c("article_pdf", "supplement_pdf", "article_diff_pdf", "supplement_diff_pdf", "wordcount"),
   lazy_load = FALSE,
   memory_strategy = "autoclean",
   garbage_collection = TRUE,
