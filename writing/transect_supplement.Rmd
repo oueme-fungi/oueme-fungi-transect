@@ -26,6 +26,10 @@ author:
     LEB,
   - University of Parakou,
     Parakou, Benin
+bibliography:
+  - "all.bib"
+  - "R.bib"
+biblio-style: apa
 always_allow_html: true
 output:
   bookdown::pdf_document2:
@@ -36,7 +40,7 @@ output:
     includes:
       in_header: preamble_supplement.tex
     citation_package: biblatex
-    suppress-bibliography: true
+    suppress-bibliography: false
     fontsize: 12pt
     geometry: left=2.5cm, right=2.5cm, top=3cm, bottom=3cm
 ---
@@ -95,6 +99,58 @@ Taxon names in blue were not fully resolved with PHYLOTAX, and are given as a li
 Taxon names in red were reconstructed as polyphyletic.
 In some cases, this may be due to a poorly identified sequence "splitting" the group (e.g., the single *Aspergillus* sequence nested in *Monascus*, Aspergillaceae and Trichocomaceae sequences nested in Onygenales), but in other cases, the tree has clearly failed to reconstruct groups which are generally considered to be monophyletic based on multi-gene trees (e.g., Dothidiomycetes, Cantharellales).
 
+# Supplementary methods
+
+The DADA2 algorithm requires that the seed sequence of each ASV be represented by at least two error-free reads [@callahan2016].
+If sequencing errors are uniformly distributed, then the probability that a given read will be error-free is $(1-\epsilon)^L$, where $\epsilon$ is the sequencing error rate and $L$ is the read length in base pairs.
+Then the number of reads of a given sequence that would be required to obtain two error-free reads in expectation is $2/(1-\epsilon)^L$.
+For the combination of long reads (median $L=`r readd(demuxlength)['pb_500']` \text{ bp}$ after trimming) and moderate error rate (mean $\epsilon= `r format(readd(demuxqual)['pb_500'], digits = 4)`$ based on ccs quality scores) for the long amplicon in this study, the expected number of reads required to achieve two error-free reads is `r format(as.integer(round(2/(1 - readd(demuxqual)['pb_500'])^readd(demuxlength)['pb_500'])), big.mark = ",")`.
+Given the high diversity relative to sequencing depth in this study (`r readd(region_table)$ASVs[readd(region_table)$seq_run == "pb_483" & readd(region_table)$region == "short"]` ASVs based on PacBio short amplicons, `r format(readd(demuxcounts)["pb_500"], format = "d", big.mark = ",")` trimmed long amplicon reads), this requirement could not have been met for the long amplicons except by the most abundant sequences.
+In comparison, the equivalent requirement for the short amplicon ($L=`r readd(demuxlength)['pb_483']` \text{ bp}$, $\epsilon=`r readd(demuxqual)['pb_483']`$) is only `r round(2/(1 - readd(demuxqual)['pb_483'])^readd(demuxlength)['pb_483'], 1)` reads.
+
+In order to bypass this limitation, we implemented a workflow which divides the long rDNA amplicon into homologous domains (R package `LSUx`), denoises the domains individually using DADA2, and then recombines the denoised domains to form full-length denoised amplicons (R package `tzara`).
+The steps of this workflow are detailed below.
+
+## Splitting the rDNA into regions with covariance models: `LSUx`
+
+Raw reads were divided into shorter regions by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure [@eddy1994].
+First, the 5.8S rDNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013], and all bases before the 5.8S were assigned to ITS1.
+No attempt was made to remove the approximately 12\ bp fragment of the SSU from the 5' end of ITS1 in the long amplicons; it was too short to be reliably detected by a CM or the HMMs employed by ITSx [@bengtsson-palme2013].
+<!--This approach was able to identify both the 5' and 3' ends of the 5.8S rDNA more consistently and quickly than ITSx [@bengtsson-palme2013, data not shown].-->
+A reference alignment including conserved RNA base pairing between and within the 5.8S and relevant portions of LSU was generated from the fungal 28S RNA seed alignment from RDP release 11.5 [@glockner2017; @cole2014] by truncating after the LR5 primer site and using the reference line to annotate the variable regions *sensu* @michot1984 and @raue1988.
+A CM was generated from the alignment using `cmbuild` from Infernal.
+The fragment of each read beginning with the 5.8S rDNA was then aligned to the CM using `cmalign` from Infernal.
+The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved domains as shown in Figure\ \@ref(fig:regions),
+where LSU1-4 represent the conserved domains of LSU flanking the variable D1-3 domains [@michot1984].
+For short amplicons, only (partial) 5.8S, ITS2, and (partial) LSU1 were extracted.
+Code to extract the segments, including annotated seed alignments and CMs, is available in the new R package `LSUx`, available and documented at https://github.com/brendanf/LSUx.
+
+## Denoising each domain independently with `DADA2`
+
+Each of the extracted domains was independently filtered for length (Table\ \@ref(tab:region-limits)) and a maximum of three expected errors, and denoised using DADA2.
+To test the performance of DADA2 on intermediate-length amplicons, adjacent domains from each read were concatenated to form full ITS (ITS1 + 5.8S + ITS2), partial LSU (LSU1 + D1 + LSU2 + D2 + LSU3 + D3 + LSU4), and partial 32S (5.8S + ITS2 + LSU) datasets, and these were also denoised. 
+The DADA2 error model was fit using the 5.8S region for long amplicons, and using the entire read for short amplicons.
+Independent error models were fit for each sequencing strategy (i.e., long *vs.* short amplicons, different sequencing technologies).
+DADA2 was run with complete pooling for PacBio libraries, and pseudo-pooling
+for Ion Torrent libraries.
+Chimeras within each region were removed using `removeBimeraDenovoTable` from DADA2.
+
+## Generation of full-length denoised ASVs: `tzara`
+
+For each raw read, the denoised sequences of the different domains were concatenated to form a set of full-length sequences.
+For reads which were not assigned a denoised sequence for each domain, the raw read for the domain was used instead.
+Because ITS2 is the most variable of the amplified domains as indicated by the greatest number of unique ASVs (Figure\ \@ref(fig:regions)b), reads with identical ITS2 regions are expected to have highly similar sequences in the other regions, unless the amplicon was chimeric.
+Therefore, concatenated sequences with identical ITS2 were clustered, and each cluster was aligned in R using the `DECIPHER` package [@wright2015].
+Outlier sequences, as determined by mean pairwise distance from the rest of the alignment, were removed from each alignment using the `odseq` package [@jehl2015], using the default threshold of 0.025.
+The consensus of the remaining aligned sequences was assigned as the full-length ASV sequence for the entire cluster.
+Full-length ASV sequences with more than three ambiguous bases (i.e., no nucleotide >50% at a given position) were removed.
+The count and sample distribution of reads assigned to each full-length ASV were calculated in order to form a sample × ASV community matrix.
+A similar process was used to generate a consensus ITS (ITS1--5.8S--ITS2) and LSU (LSU1--D1--LSU2--D2--LSU3--D3--LSU4) sequence for each ASV.
+The process of assigning consensus full-length ASVs was carried out using the new `tzara` package for R, available and documented at https://github.com/brendanf/tzara.
+
+The two packages are modular; `LSUx` can be used to extract domains from LSU for any purpose, and `tzara` can also be used to recombine denoised sequences which were originally separated using other approaches, most notably using the popular and well-established ITSx [@bengtsson-palme2013].
+However, for our dataset, the single LSU region which would be extracted by ITSx was still too long to be effectively denoised by DADA2 (Figure\ \@ref(fig:regions)b in main text).
+
 (ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis (PCoA) ordination of samples preserved with different buffers
 
 (ref:buffer-pcoa) based on Bray-Curtis dissimilarities of relative read abundances.
@@ -152,10 +208,10 @@ legend(
 (ref:buffer-compare-long) Reference heat tree (bottom left) shows labeled taxonomic tree.
 Nodes and branches are scaled to represent mean relative read abundance across samples.
 Colored comparison trees (top and right) illustrate variation in relative read abundance between samples preserved by different techniques or from different years.
-For each comparison tree, colors indicate the base 10 log relative abundance ratio for each taxon between two datasets, with orange colors indicate greater relative abundance in the dataset indicated above the tree (Xpedition 2015, LifeGuard 2016), and blue-green colors indicate greater relative abundance in the dataset indicated to the right of the tree (Xpedition 2016, Xpedition 2015).
-The two Xpedition datasets (blue-green colors, top right and center right) show consistently greater relative abundance of Basidiomycota, especially Russulales and Sebacinales, as well as Glomeromycota, Morteriellomycota, Geoglossomycetes, and Pezizomycetes,
-while the LifeGuard samples (orange colors, top right and center right) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, and also Geminibasidiomycetes.
-Differences between the two Xpedition datasets (top center) are less pronounced.
+For each comparison tree, colors indicate the base 10 log relative abundance ratio for each taxon between two datasets, with red-orange colors indicating greater relative abundance in the dataset indicated above the tree (Xpedition 2015, LifeGuard 2016), and blue-green colors indicating greater relative abundance in the dataset indicated to the right of the tree (Xpedition 2016, Xpedition 2015).
+The two Xpedition datasets (blue-green colors in top right and center right trees) show consistently greater relative abundance of Basidiomycota, especially Russulales and Sebacinales, as well as Glomeromycota, Morteriellomycota, Geoglossomycetes, and Pezizomycetes,
+while the LifeGuard samples (red-orange colors in top right and center right trees) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, and also Geminibasidiomycetes.
+Differences between the two Xpedition datasets (top center tree) are less pronounced.
 
 ```{r buffer-compare-long, fig.scap = "(ref:buffer-compare-long-s)", fig.cap = "(ref:buffer-compare-long-s). (ref:buffer-compare-long)", fig.width = 10, fig.height = 10, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_long"), dev = "pdf"}
 oldtheme <- theme_update(panel.border = element_blank())
@@ -168,10 +224,10 @@ theme_set(oldtheme)
 (ref:buffer-compare-short) Reference heat tree (bottom left) shows labeled taxonomic tree.
 Nodes and branches are scaled to represent mean relative read abundance across samples.
 Colored comparison trees (top and right) illustrate variation in relative read abundance between samples preserved by different techniques or from different years.
-For each comparison tree, colors indicate the base 10 log relative abundance ratio for each taxon between two datasets, with orange colors indicate greater relative abundance in the dataset indicated above the tree (Xpedition 2015, LifeGuard 2016), and blue-green colors indicate greater relative abundance in the dataset indicated to the right of the tree (Xpedition 2016, Xpedition 2015).
-The two Xpedition datasets (blue-green colors, top right and center right) show consistently greater relative abundance of Basidiomycota, especially Sebacinales, as well as Glomeromycota, Geoglossomycetes, and Pezizomycetes,
-while the LifeGuard samples (orange colors, top right and center right) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, as well as Geminibasidiomycetes.
-Differences between the two Xpedition datasets (top center) are less pronounced.
+For each comparison tree, colors indicate the base 10 log relative abundance ratio for each taxon between two datasets, with red-orange colors indicating greater relative abundance in the dataset indicated above the tree (Xpedition 2015, LifeGuard 2016), and blue-green colors indicating greater relative abundance in the dataset indicated to the right of the tree (Xpedition 2016, Xpedition 2015).
+The two Xpedition datasets (blue-green colors in top right and center right trees) show consistently greater relative abundance of Basidiomycota, especially Sebacinales, as well as Glomeromycota, Geoglossomycetes, and Pezizomycetes,
+while the LifeGuard samples (red-orange colors in top right and center right trees) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, as well as Geminibasidiomycetes.
+Differences between the two Xpedition datasets (top center tree) are less pronounced.
 
 ```{r buffer-compare-short, fig.scap="(ref:buffer-compare-short-s)", fig.cap = "(ref:buffer-compare-short-s). (ref:buffer-compare-short)", fig.width = 10, fig.height = 10, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_short"), dev = "pdf"}
 oldtheme <- theme_update(panel.border = element_blank())
@@ -240,6 +296,20 @@ ggpubr::ggarrange(
 readd(region_length_fig)
 ```
 
+(ref:ITS2-length-s) Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies
+
+(ref:ITS2-length) *a*) Length distribution.  *b*) Empirical cumulative distribution function.
+
+```{r ITS2-length, fig.cap = "(ref:ITS2-length-s). (ref:ITS2-length)", fig.scap = "(ref:ITS2-length-s)", fig.height = 6, cache=TRUE, extra.cache=gethash("its2_dens", "its2_ecdf")}
+ggpubr::ggarrange(
+  readd(its2_dens),
+  readd(its2_ecdf),
+  ncol = 1,
+  labels = "auto",
+  heights = c(4, 2)
+)
+```
+
 (ref:read-compare-s) Comparison between read numbers for different sequencing strategies
 
 (ref:read-compare) by ASV (**a**) and 97% OTU (**b**). ASVs/OTUs which were detected by one sequencing strategy but not the other are plotted as tick marks along the axes. Dashed line represents a constant ratio of read numbers. The blue line is a LOESS smooth of the data, with associated uncertainty in grey shading. $R^2$ value displayed is for log-transformed non-zero read numbers.
@@ -283,6 +353,42 @@ readd(heattree)
 theme_set(theme)
 ```
 
+(ref:heattree-length-compare-s) Variation in read abundance and diversity for different amplicons across the taxonomic tree
+
+(ref:heattree-length-compare) Color of nodes indicates variation in read abundance, while color of edges represents variation in ASV richness.
+In both cases red-orange represents increased prevalence in the short amplicon library, while blue-green represents increased prevalence in the long amplicon library.
+Values are log~10~ of the ratio of mean values across sequencing runs for each amplicon.
+Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
+ASVs which could not be further assigned are labelled "?".
+Only nodes with a log read abundance ratio greater than 0.5 (abundance ratio > 3.2) are labeled.
+Refer to Figure\ \@ref(fig:taxa) for complete taxon labeling.
+
+```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare-s). (ref:heattree-length-compare)", fig.scap = "(ref:heattree-length-compare-s)", out.width = "100%", cache=TRUE, extra.cache=gethash("heattree_length_compare")}
+oldtheme <- theme_update(panel.border = element_blank())
+readd(heattree_length_compare)
+theme_set(oldtheme)
+```
+
+(ref:short-its-s) Kingdom-level taxonomic composition of ITS2 ASVs $\le 140$ bp
+
+(ref:short-its) Vertical axis shows fraction of total reads $\le 140$ bp in each dataset.
+
+```{r short-its, fig.cap = "(ref:short-its-s). (ref:short-its)", fig.scap = "(ref:short-its-s)", fig.width=7, cache=TRUE, extra.cache=gethash("big_seq_table_ITS2", "taxon_reads"), more.cache = datasets}
+readd(big_seq_table_ITS2) %>%
+  colSums() %>%
+  enframe(name = "ITS2", value = "nreads") %>%
+  mutate(length = nchar(ITS2)) %>%
+  filter(length <= 140) %>%
+  mutate_at("ITS2", ~tzara::seqhash(chartr("T", "U", .))) %>%
+  semi_join(readd(taxon_reads), ., by = c("label" = "ITS2")) %>%
+  group_by(tech, amplicon, Algorithm, reference) %>%
+  mutate(reads = reads/sum(reads)) %>%
+  ungroup() %>%
+  # group_by(ITS2) %>%
+  # filter(!"Short" %in% amplicon) %>%
+  taxon_plot(kingdom, y = reads, datasets = datasets)
+```
+
 (ref:ecm-s) Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic assignments
 
 (ref:ecm) Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
@@ -296,6 +402,21 @@ Results are shown for different sequencing technologies, amplicons (Long, Short)
   mutate_at("reference", replace_na, "All") %>%
   taxon_plot(ECM, kingdom == "Fungi", datasets = datasets) +
   theme(legend.position = "bottom", legend.title = element_blank())
+```
+
+(ref:ecm-heattree-s) Heat tree showing variation in read abundance and diversity for different amplicons, for ECM taxa only
+
+(ref:ecm-heattree) Red-orange edges (nodes) represent increased read (ASV) count for the short amplicon library, while blue-green edges (nodes) represent increased read (ASV) count for the long amplicon library.
+Values are log~10~ of the ratio of mean values across all sequencing technologies for each amplicon.
+Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
+ASVs which could not be further assigned are labelled "?".
+Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
+The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
+
+```{r ecm-heattree, fig.cap = "(ref:ecm-heattree-s). (ref:ecm-heattree)", fig.scap = "(ref:ecm-heattree-s)", out.width = "100%", , cache=TRUE, extra.cache=gethash("ecm_heattree")}
+oldtheme <- theme_update(panel.border = element_blank())
+readd(ecm_heattree)
+theme_set(oldtheme)
 ```
 
 (ref:ppcoa-short) Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding strategies
@@ -355,71 +476,6 @@ light_plan %>%
   ggnomics::facet_nested(amplicon + tech + metric ~ guild, scales = "fixed", nest_line = TRUE) +
   scale_shape_manual(values = c("TRUE" = 16, "FALSE" = 1)) +
   theme(strip.background = element_blank())
-```
-
-(ref:ITS2-length-s) Comparison of the length of denoised ITS2 sequences extracted from different length amplicons and sequencing technologies
-
-(ref:ITS2-length) *a*) Length distribution.  *b*) Empirical cumulative distribution function.
-
-```{r ITS2-length, fig.cap = "(ref:ITS2-length-s). (ref:ITS2-length)", fig.scap = "(ref:ITS2-length-s)", fig.height = 6, cache=TRUE, extra.cache=gethash("its2_dens", "its2_ecdf")}
-ggpubr::ggarrange(
-  readd(its2_dens),
-  readd(its2_ecdf),
-  ncol = 1,
-  labels = "auto",
-  heights = c(4, 2)
-)
-```
-
-(ref:heattree-length-compare-s) Variation in read abundance and diversity for different amplicons across the taxonomic tree
-
-(ref:heattree-length-compare) Color of nodes indicates variation in read abundance, while color of edges represents variation in ASV richness.
-In both cases red represents increased prevalence in the short amplicon library, while blue-green represents increased prevalence in the long amplicon library.
-Values are log~10~ of the ratio of mean values across sequencing runs for each amplicon.
-Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
-ASVs which could not be further assigned are labelled "?".
-Only nodes with a log read abundance ratio greater than 0.5 (abundance ratio > 3.2) are labeled.
-Refer to Figure\ \@ref(fig:taxa) for complete taxon labeling.
-
-```{r heattree-length-compare, fig.cap = "(ref:heattree-length-compare-s). (ref:heattree-length-compare)", fig.scap = "(ref:heattree-length-compare-s)", out.width = "100%", cache=TRUE, extra.cache=gethash("heattree_length_compare")}
-oldtheme <- theme_update(panel.border = element_blank())
-readd(heattree_length_compare)
-theme_set(oldtheme)
-```
-
-(ref:short-its-s) Kingdom-level taxonomic composition of ITS2 ASVs $\le 140$ bp
-
-(ref:short-its) Vertical axis shows fraction of total reads $\le 140$ bp in each dataset.
-
-```{r short-its, fig.cap = "(ref:short-its-s). (ref:short-its)", fig.scap = "(ref:short-its-s)", fig.width=7, cache=TRUE, extra.cache=gethash("big_seq_table_ITS2", "taxon_reads"), more.cache = datasets}
-readd(big_seq_table_ITS2) %>%
-  colSums() %>%
-  enframe(name = "ITS2", value = "nreads") %>%
-  mutate(length = nchar(ITS2)) %>%
-  filter(length <= 140) %>%
-  mutate_at("ITS2", ~tzara::seqhash(chartr("T", "U", .))) %>%
-  semi_join(readd(taxon_reads), ., by = c("label" = "ITS2")) %>%
-  group_by(tech, amplicon, Algorithm, reference) %>%
-  mutate(reads = reads/sum(reads)) %>%
-  ungroup() %>%
-  # group_by(ITS2) %>%
-  # filter(!"Short" %in% amplicon) %>%
-  taxon_plot(kingdom, y = reads, datasets = datasets)
-```
-
-(ref:ecm-heattree-s) Heat tree showing variation in read abundance and diversity for different amplicons, for ECM taxa only
-
-(ref:ecm-heattree) Red edges (nodes) represent increased read (ASV) count for the short amplicon library, while blue-green edges (nodes) represent increased read (ASV) count for the long amplicon library.
-Values are log~10~ of the ratio of mean values across all sequencing technologies for each amplicon.
-Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
-ASVs which could not be further assigned are labelled "?".
-Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
-The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
-
-```{r ecm-heattree, fig.cap = "(ref:ecm-heattree-s). (ref:ecm-heattree)", fig.scap = "(ref:ecm-heattree-s)", out.width = "100%", , cache=TRUE, extra.cache=gethash("ecm_heattree")}
-oldtheme <- theme_update(panel.border = element_blank())
-readd(ecm_heattree)
-theme_set(oldtheme)
 ```
 
 ```{r region-limits}
