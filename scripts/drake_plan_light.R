@@ -3136,8 +3136,8 @@ plan2 <- drake_plan(
         stdout = TRUE
       ) %>%
         stringr::str_replace_all(
-          "transect_paper.tex",
-          "transect_paper_diff.tex"
+          "transect_paper",
+          "transect_paper_diff"
         ) %>%
         writeLines("transect_supplement_diff.tex")
     }
@@ -3160,8 +3160,8 @@ plan2 <- drake_plan(
         stdout = TRUE
       ) %>%
         stringr::str_replace_all(
-          "transect_supplement.tex",
-          "transect_supplement_diff.tex"
+          "transect_supplement",
+          "transect_supplement_diff"
         ) %>%
         writeLines("transect_paper_diff.tex")
     }
@@ -3174,7 +3174,11 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_supplement.tex"))
       file_in(!!file.path("writing", "transect_paper.tex"))
       file_out(!!file.path("writing", "transect_supplement.pdf"))
-      tinytex::xelatex("transect_supplement.tex", bib_engine = "biber")
+      tinytex::xelatex(
+        "transect_supplement.tex",
+        bib_engine = "biber",
+        clean = FALSE
+      )
     }
   ),
 
@@ -3184,7 +3188,11 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_supplement_diff.tex"))
       file_in(!!file.path("writing", "transect_paper_diff.tex"))
       file_out(!!file.path("writing", "transect_supplement_diff.pdf"))
-      tinytex::xelatex("transect_supplement_diff.tex", bib_engine = "biber")
+      tinytex::xelatex(
+        "transect_supplement_diff.tex",
+        bib_engine = "biber",
+        clean = FALSE
+      )
     }
   ),
 
@@ -3194,7 +3202,11 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_paper.tex"))
       file_in(!!file.path("writing", "transect_supplement.tex"))
       file_out(!!file.path("writing", "transect_paper.pdf"))
-      tinytex::xelatex("transect_paper.tex", bib_engine = "biber")
+      tinytex::xelatex(
+        "transect_paper.tex",
+        bib_engine = "biber",
+        clean = FALSE
+      )
     }
   ),
 
@@ -3204,7 +3216,11 @@ plan2 <- drake_plan(
       file_in(!!file.path("writing", "transect_paper_diff.tex"))
       file_in(!!file.path("writing", "transect_supplement_diff.tex"))
       file_out(!!file.path("writing", "transect_paper_diff.pdf"))
-      tinytex::xelatex("transect_paper_diff.tex", bib_engine = "biber")
+      tinytex::xelatex(
+        "transect_paper_diff.tex",
+        bib_engine = "biber",
+        clean = FALSE
+      )
     }
   ),
 
@@ -3731,6 +3747,7 @@ make(
   memory_strategy = "autoclean",
   garbage_collection = TRUE,
   cache_log_file = "drake_light_cache.csv",
-  console_log_file = file.path(normalizePath("logs"), "drake_light.log")
+  console_log_file = file.path(normalizePath("logs"), "drake_light.log"),
+  keep_going = TRUE
 )
 #}
