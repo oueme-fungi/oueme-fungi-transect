@@ -101,6 +101,45 @@ In some cases, this may be due to a poorly identified sequence "splitting" the g
 
 # Supplementary methods
 
+## Sampling
+
+Sampling was conducted at two sites (Ang: N 9.75456° E 2.14064°; Gan: N 9.75678° E 2.31058°) approximately 30\ km apart in the _Forêt Classée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
+Both sites were located in Soudanian savannah woodlands [@olson2001;@yorou2014] dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
+At each site, 25\ soil samples were collected along a single 24 m linear transect at intervals of 1\ m in May 2015.
+One third of the sample locations (3\ m spacing) were resampled one year later in June 2016, for a total of 67 samples.
+For each sample, any coarse organic debris <!--Do you have any definition? Wider than 5 mm? MR-->was removed from the soil surface and a sample of approximately 5cm×5cm×5cm was extracted with a sterilized knife blade.
+Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
+Approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0\ mL microtube containing 750\ mL of field lysis/preservation buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA).
+Due to the inavailability of refrigeration, extraction was initiated in the field according to the manufacturers instructions by lysis using a handheld bead-beater (TerraLyser^TM^; Zymo Research Corporation).
+
+An additional sample was collected at every sampling location (1-m spacing) in 2016 using LifeGuard^TM^ Soil Preservation Solution (MO BIO, Carlsbad, CA; USA) for preservation, without field lysis.
+Sequencing results for these 50 samples differed significantly (PERMANOVA with 9999 permutations, $p < `r readd(buffer_adonis)["buffer","p.value"] %>% formatC(format = "f")`$, $R^2 = `r readd(buffer_adonis)["buffer","R2"] %>% formatC(format = "f", digits = 2)`$) from samples preserved using the Xpedition^TM^ lysis buffer (Figures \@ref(fig:buffer-pcoa), \@ref(fig:buffer-compare-long), and \@ref(fig:buffer-compare-short)); as such the LifeGuard preserved samples were excluded from our spatial analyses.
+However, reads from these samples were included in the full bioinformatics workflow, including ASV calling, OTU clustering, and phylogenetic trees.
+
+## DNA extraction, amplification, and sequencing
+
+After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit (see above).
+Samples preserved using LifeGuard were first centrifuged at 10000\ g for 1\ minute, after which the supernatant was removed and DNA was extracted from the remaining soil using the Soil/Fecal Prep kit as for the other samples.
+DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
+
+The forward primers for the short amplicon included sample-specific indexes and adapters for multiplexing (Supplementary File 1).
+Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200\ µM dNTP mix, 250\ µM indexed gITS7 primer,
+150µM ITS4m, 2mM MgCl~2~, 0.1\ U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7\ ng purified DNA in Dream *Taq* buffer.
+The reaction conditions were 10\ min at 95°, followed by 35\ cycles of 60\ s at 95°, 45\ s at 56°, and 50\ s at 72°, and finally 3\ min at 72°.
+Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity.
+
+Both forward and reverse primers for the long amplicon included indexes for combinatorical multiplexing (Supplementary File 2).
+PCR was performed as for the short amplicons, but with 500\ µM of each of the two primers.
+Reaction conditions were 10\ min at 95°, 30\ cycles of 45\ s at 95°, 45\ s at 59°, and 90\ s at 72°, and finally 10\ min at 72°.
+Each reaction was performed in three technical replicates as for short amplicons.
+
+After pooling of technical replicates, amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically as above.
+An aliquot of 100\ ng of DNA from each sample (or the total PCR product if less than 100\ ng) was pooled into two libraries each for long and short amplicons.
+
+## Denoising and clustering
+
+### Denoising long-reads: the numbers are against us
+
 The DADA2 algorithm requires that the seed sequence of each ASV be represented by at least two error-free reads [@callahan2016].
 If sequencing errors are uniformly distributed, then the probability that a given read will be error-free is $(1-\epsilon)^L$, where $\epsilon$ is the sequencing error rate and $L$ is the read length in base pairs.
 Then the number of reads of a given sequence that would be required to obtain two error-free reads in expectation is $2/(1-\epsilon)^L$.
@@ -111,7 +150,7 @@ In comparison, the equivalent requirement for the short amplicon ($L=`r readd(de
 In order to bypass this limitation, we implemented a workflow which divides the long rDNA amplicon into homologous domains (R package `LSUx`), denoises the domains individually using DADA2, and then recombines the denoised domains to form full-length denoised amplicons (R package `tzara`).
 The steps of this workflow are detailed below.
 
-## Splitting the rDNA into regions with covariance models: `LSUx`
+### Splitting the rDNA into regions with covariance models: `LSUx`
 
 Raw reads were divided into shorter regions by matching to covariance models (CM), which are similar to stochastic hidden markov models (HMM), but account for both nucleotide sequence and RNA secondary structure [@eddy1994].
 First, the 5.8S rDNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013], and all bases before the 5.8S were assigned to ITS1.
@@ -125,7 +164,7 @@ where LSU1-4 represent the conserved domains of LSU flanking the variable D1-3 d
 For short amplicons, only (partial) 5.8S, ITS2, and (partial) LSU1 were extracted.
 Code to extract the segments, including annotated seed alignments and CMs, is available in the new R package `LSUx`, available and documented at https://github.com/brendanf/LSUx.
 
-## Denoising each domain independently with `DADA2`
+### Denoising each domain independently with `DADA2`
 
 Each of the extracted domains was independently filtered for length (Table\ \@ref(tab:region-limits)) and a maximum of three expected errors, and denoised using DADA2.
 To test the performance of DADA2 on intermediate-length amplicons, adjacent domains from each read were concatenated to form full ITS (ITS1 + 5.8S + ITS2), partial LSU (LSU1 + D1 + LSU2 + D2 + LSU3 + D3 + LSU4), and partial 32S (5.8S + ITS2 + LSU) datasets, and these were also denoised. 
@@ -135,7 +174,7 @@ DADA2 was run with complete pooling for PacBio libraries, and pseudo-pooling
 for Ion Torrent libraries.
 Chimeras within each region were removed using `removeBimeraDenovoTable` from DADA2.
 
-## Generation of full-length denoised ASVs: `tzara`
+### Generation of full-length denoised ASVs: `tzara`
 
 For each raw read, the denoised sequences of the different domains were concatenated to form a set of full-length sequences.
 For reads which were not assigned a denoised sequence for each domain, the raw read for the domain was used instead.
@@ -150,6 +189,69 @@ The process of assigning consensus full-length ASVs was carried out using the ne
 
 The two packages are modular; `LSUx` can be used to extract domains from LSU for any purpose, and `tzara` can also be used to recombine denoised sequences which were originally separated using other approaches, most notably using the popular and well-established ITSx [@bengtsson-palme2013].
 However, for our dataset, the single LSU region which would be extracted by ITSx was still too long to be effectively denoised by DADA2 (Figure\ \@ref(fig:regions)b in main text).
+
+## Phylogenetic inference and taxonomy assignment
+
+### Rooting the fungal tree
+
+The phylogenetic tree was rooted outside the kingdom Fungi by using the most abundant ASV which was confidently assigned to a non-fungal kingdom by all 6 applicable taxonomic assignment methods.
+Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset.
+The kingdom Fungi was identified as the minimal clade containing all ASVs which were confidently identified (consensus of at least 6 of 9 assignments) to a fungal phylum.
+ASVs falling outside this clade were not included in downstream fungal community analysis.
+
+### Uniform taxonomic classification for Unite, Warcup, and RDP
+
+The taxonomic classification system is based on the Unite database version 8 [@nilsson2019a].
+In particular, the classification for fungi was according to @tedersoo2018, and for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c as described in [@tedersoodata2017].
+Although the latter system is not formally published, it is consistent with the annotations for non-fungal eukaryotes in the Unite database.
+Additionally, it is a system with both purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as that of the International Society of Protistologists [@adl2019], which utilizes hierarchical nameless ranks.
+FASTA-format files for the RDP, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate.
+
+### Refining taxonomic assignments with a phylogenetic tree: PHYLOTAX
+
+PHYLOTAX refinements are based on (1) taxonomic assignments from other, primary assignment algorithms, and (2) a phylogenetic tree.
+Taxa at each rank are assigned to a node and all its descendants if that taxon is consistent with the reference-based taxonomic assignments for each of the descendants (Figure\ \@ref(fig:phylotax)).
+A taxon assignment is considered to be consistent if at least one primary algorithm assigned that taxon at greater than 50% confidence, or if no primary algorithm successfully classified the sequence at greater than 50% confidence.
+The result of this process is twofold.
+First, it gives a taxonomic assignment to ASVs which were previously unassigned if they are nested within a clade with consistent preliminary assignments.
+Second, it resolves conflicts between the different reference-based algorithms, but only if one of the alternatives is consistent with the assignments of other ASVs in the same clade.
+PHYLOTAX is implemented in the new R package `phylotax` at https://github.com/brendanf/phylotax.
+
+## Effect of sequencing strategy on recovered community
+
+ASV and OTU accumulation curves were generated using the `iNEXT` package [@hsieh2016].
+Additionally, ASV and OTU richness was estimated for each sample by rarefying to 100 sequences per sample and taking the average of 100 repetitions.
+ASV and OTU richness were then compared for each biological sample as sequenced by the different strategies.
+For each pair of strategies, the best fit slope for the ASV richness recovered by each strategy was calculated by total least squares using the `deming` package [@R-deming], with the intercept constrained to be 0.
+For this analysis, samples in the PacBio and Illumina datasets were combined bioinformatically to match the corresponding samples from the incompletely demultiplexed Ion Torrent dataset.
+
+The effect of sequencing technology and amplicon length on the recovered fungal community
+composition, as assessed by the Bray-Curtis dissimilarity was determined by PERMANOVA [@anderson2003] using the `adonis2` function in the `vegan` package [@R-vegan].
+Comparisons were made between the fungal communities recovered by the three sequencing strategies that were successfully demultiplexed (Illumina short, PacBio short, PacBio long).
+
+In order to detect potential biases at larger taxonomic scales, ASVs were clustered according to the assigned taxonomic class.
+Only samples where all three strategies yielded at least 100\ fungal reads (`r phyloseq::nsamples(readd(tech_class_table))/3` samples), and classes which represented at least 1% of reads in at least one sample (`r phyloseq::ntaxa(readd(tech_class_table))` classes), were included.
+The community matrix was normalized to proportional abundance by dividing the counts for each class in each sample by the total number of reads for that sample, but were not rarefied to even sampling depth [@mcmurdie2014].
+PERMANOVA included three terms: an indicator for soil sample, comprising all spatiotemporal effects; amplicon length (long vs. short); and sequencing technology (Illumina vs. PacBio).
+Partial Principal Coordinates Analysis (PPCoA) was applied to the same dissimilarity matrix using the `capscale` function in `vegan` [@R-vegan].
+Spatiotemporal effects, i.e. differences between different samples, were partialed out using a `Condition()` term in the `capscale` model in order to visualize effects due to sequencing technology and amplicon length.
+
+A similar analysis was also applied to only fungi classified as ECM, clustered at the family level.
+Sequences were assigned as ECM based on taxonomic assignments using the FUNGuild database [@nguyen2016funguild] via the R package `FUNGuildR` (https://github.com/brendanf/FUNGuildR).
+All taxa which included "Ectomycorrhiza" in the guild assignment at any level of confidence were included.
+
+Overall community composition, and differences in composition between amplicon libraries, were visualized as heat trees using the `metacoder` package [@R-metacoder].
+
+## Spatiotemporal analysis
+
+Empirical distance-decay curves were generated by plotting mean community dissimilarity as a function of spatial distance, and fit to an exponential model of the form given by Legendre and Legendre (2012) using the nls function in R.
+Points in the empirical distance-decay curve were weighted by the number of comparisons within the distance class and the inverse of the distance for the purposes of model fitting.
+For datasets where the Mantel correlogram indicated spatial correlation between samples taken in separate years, the model was re-fit with an additional term to represent temporal correlation:
+$$D = C_0 + C_1\left[1 - \exp\left(-3  \left(\frac{d}{a_d} + \frac{t}{a_t}\right)\right)\right]$$
+where $D$, $d$, and $t$ represent the community dissimilarity, spatial distance, and time lag between samples, respectively, and the parameters are $C_0$, the community dissimilarity between replicate samples ("nugget"); $C_0 + C_1$, the community dissimilarity at long distances ("sill"); $a_d$ the spatial range at which the community dissimilarity has moved 95% of the way from "nugget" to "sill"; and $a_t$, the equivalent temporal range.
+The 95% confidence intervals were calculated for the spatial and temporal range parameters by profiling using the `MASS` package.
+
+# Supplementary Figures and Tables
 
 (ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis (PCoA) ordination of samples preserved with different buffers
 
@@ -334,6 +436,16 @@ ggpubr::ggarrange(
 
 ```{r accum-OTU, fig.cap="OTU accumulation curves"}
 readd(accum_plot_OTU)
+```
+
+
+(ref:alpha-compare-otu-s) Comparison of OTU richness between sequencing technologies
+
+(ref:alpha-compare-OTU) Each point represents the richness of one or two pooled samples, as determined by two different sequencing strategies. All values represent the average of 100 replicate rarefactions with a sample depth of 100 reads.  Because samples in the same well on different plates could not be demultiplexed in the Ion Torent dataset, these samples were also bioinformatically pooled in the other datasets prior to rarefaction. Blue line is a total least squares fit, with the given slope (and 95% confidence interval) and R^2^ value. Dashed diagonal line indicates a slope of 1.
+
+```{r alpha-compare-otu, fig.scap="(ref:alpha-compare-otu-s)", fig.cap="(ref:alpha-compare-otu-s) (ref:alpha-compare)"}
+grid::grid.newpage()
+grid::grid.draw(remove_empty_facets(readd(alpha_plot_OTU)))
 ```
 
 (ref:taxa-s) Heat tree summarizing taxonomic composition of soil community

@@ -907,10 +907,10 @@ plan2 <- drake_plan(
       dplyr::mutate(
         deming = purrr::map(
           deming,
-          ~ deming::deming(value_y ~ value_x, data = .) %$%
+          ~ deming::deming(value_y ~ value_x - 1, data = .) %$%
             c(
-              as.list(coefficients),
-              as.list(ci['value_x',]),
+              list(slope = coefficients[2]),
+              as.list(ci[2,]),
               list(r_squared = cor(model)[1,2])
             ) %>%
             tibble::as_tibble()
@@ -919,7 +919,7 @@ plan2 <- drake_plan(
       tidyr::unnest(deming) %>%
       dplyr::mutate(
         slope_label = sprintf("m==%.2f(%.2f-%.2f)",
-                             value_x, `lower 0.95`, `upper 0.95`),
+                             slope, `lower 0.95`, `upper 0.95`),
         r2_label = sprintf("R^2==%.2f", r_squared)
       ),
     transform = map(rarefy_data, .id = cluster)
@@ -931,7 +931,7 @@ plan2 <- drake_plan(
                   color = "gray50") +
       geom_point(shape = 1, alpha = 0.8) +
       geom_abline(
-        aes(slope = value_x, intercept = `(Intercept)`),
+        aes(slope = slope, intercept = 0),
         color = "blue",
         alpha = 0.7,
         size = 1,
@@ -941,7 +941,7 @@ plan2 <- drake_plan(
         aes(x = 0, y = 60, label = slope_label),
         hjust = 0,
         # color = "blue",
-        size = 1.5,
+        size = 2,
         parse = TRUE,
         data = demingfits
       ) +
@@ -949,7 +949,7 @@ plan2 <- drake_plan(
         aes(x = 0, y = 52, label = r2_label),
         hjust = 0,
         # color = "blue",
-        size = 1.5,
+        size = 2,
         parse = TRUE,
         data = demingfits
       ) +
@@ -1289,6 +1289,7 @@ plan2 <- drake_plan(
     bind_rows(
       out,
       # PHYLOTAX for long amplicon PacBio
+      # region = NA, reference = NA, ref_region = NA; method = "phylotax"
       phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
         filter(method == "phylotax") %>%
         select(method, label, rank, taxon) %>%
@@ -1307,13 +1308,15 @@ plan2 <- drake_plan(
           reference = "All",
           kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
         ),
-      # Strict consensus
+      # Strict consensus;
+      # region = "All", reference = "All", ref_region = "All"; method = "consensus"
+      # Short and long amplicons;
       strict_taxon_short_euk$tip_taxa %>%
         select(method, label, rank, taxon, region) %>%
         pivot_wider(names_from = "rank", values_from = "taxon") %>%
         inner_join(
           out %>%
-            filter(amplicon == "Short") %>%
+            # filter(amplicon == "Short") %>%
             select(seq_run, label, reads, amplicon, tech) %>%
             unique(),
           .,
@@ -1323,12 +1326,16 @@ plan2 <- drake_plan(
         mutate(
           kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
         ),
+      # Strict consensus calculated only on ITS2;
+      # Apply only to Short amplicons
+      # region = "ITS", reference = "All", ref_region = "ITS"; method = "consensus"
       strict_taxon_ITS_euk$tip_taxa %>%
         select(method, label, rank, taxon, region) %>%
         pivot_wider(names_from = "rank", values_from = "taxon") %>%
         inner_join(
           out %>%
             select(seq_run, label, reads, amplicon, tech) %>%
+            filter(amplicon == "Short") %>%
             unique(),
           .,
           by = "label"
@@ -1337,6 +1344,9 @@ plan2 <- drake_plan(
         mutate(
           kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
         ),
+      # Phylotax if available; otherwise strict ITS consensus
+      # Apply only to Short amplicons
+      # region = "All"/NA, reference = "All"/NA, ref_region = "All"/NA, method = "phylotax+c"
       best_taxon_short_euk$tip_taxa %>%
         select(method, label, rank, taxon) %>%
         pivot_wider(names_from = "rank", values_from = "taxon") %>%
@@ -1416,6 +1426,8 @@ plan2 <- drake_plan(
       values_to = "taxon"
     ) %>%
     filter(ifelse(Algorithm == "Consensus", region == "All", TRUE)) %>%
+    select(label, amplicon, tech, Algorithm, reference, rank, taxon, reads) %>%
+    unique() %>%
     group_by(amplicon, tech, Algorithm, reference, rank, ID = !is.na(taxon)) %>%
     summarize(reads = sum(reads), ASVs = n()) %>%
     group_by(amplicon, tech, Algorithm, reference, rank) %>%
