@@ -591,6 +591,9 @@ plan2 <- drake_plan(
     variog %>%
       as_variogram() %>%
       stats::nls(
+        # this it reparameterized to give better convergence
+        # sill = 1 - (C0 + C1)
+        # nugget = C1 / (C0 + C1)
         gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp(dist/range*log(0.05)),
         data = .,
         start = list(
@@ -626,6 +629,9 @@ plan2 <- drake_plan(
   variofitST2 = target(
     as_variogramST(variogST) %>%
       stats::nls(
+        # this it reparameterized to give better convergence
+        # sill = 1 - (C0 + C1)
+        # nugget = C1 / (C0 + C1)
         gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp((dist/range + timelag/timerange)*log(0.05)),
         # add the parameters from the spatial-only fit.
         data = .,
