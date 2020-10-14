@@ -414,7 +414,7 @@ checkpoint demux_illumina:
         untrim_R2 = lambda wildcards: ("{seq_run}_{plate}_untrim_R2.fastq.gz"
                                         .format(seq_run = wildcards.seq_run,
                                                 plate = wildcards.plate))
-                                              
+
     resources:
         walltime=5
     conda: "config/conda/demultiplex.yaml"
@@ -460,7 +460,7 @@ def illumina_find(seq_run, plate):
     return subfind
 
 #### Reference databases ####
-  
+
 # download taxonomy translation files
 localrules: taxon_references
 rule taxon_references:
@@ -523,8 +523,6 @@ checkpoint drake_plan:
                method = ['sintax', 'dada2']),
         "{rdir}/dada.R".format_map(config),
         "{rdir}/qstats.R".format_map(config),
-        "{rdir}/inferrnal.R".format_map(config),
-        "{rdir}/locarrna.R".format_map(config),
         "{rdir}/lsux.R".format_map(config),
         "{rdir}/mantel.R".format_map(config),
         "{rdir}/parallel_helpers.R".format_map(config),
@@ -532,9 +530,6 @@ checkpoint drake_plan:
         "{rdir}/raxml.R".format_map(config),
         "{rdir}/taxonomy.R".format_map(config),
         "{rdir}/utils.R".format_map(config),
-        "{rdir}/epa-ng.R".format_map(config),
-        "{rdir}/epa_iterate.R".format_map(config),
-        "{rdir}/mafft.R".format_map(config),
         demux = rules.hash_demux.output,
         dataset  = config['dataset'],
         regions  = config['regions'],
@@ -720,13 +715,13 @@ rule raxml:
     input:
         flag = rules.consensus.output.flag,
         drakedata = "{plandir}/drake.Rdata".format_map(config),
-        script = "{rdir}/drake-09-raxml.R".format_map(config)
+        script = "{rdir}/drake-08-raxml.R".format_map(config)
     log: "{logdir}/raxml.log".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: maxthreads
     resources:
         walltime=60*96
-    script: "{rdir}/drake-09-raxml.R".format_map(config)
+    script: "{rdir}/drake-08-raxml.R".format_map(config)
 
 
 # do all remaining actions in the drake plan:  at the moment, this means making reports.
@@ -736,13 +731,13 @@ rule heavy:
     input:
         drakedata = rules.drake_plan.output.drakedata,
         flag      = rules.raxml.output.flag,
-        script    = "{rdir}/drake-10-finish.R".format_map(config)
+        script    = "{rdir}/drake-09-finish.R".format_map(config)
     conda: "config/conda/drake.yaml"
     threads: 1
     resources:
         walltime = 60
     log: "{logdir}/drake_finish.log".format_map(config)
-    script: "{rdir}/drake-10-finish.R".format_map(config)
+    script: "{rdir}/drake-09-finish.R".format_map(config)
 
 localrules: lightplan
 rule lightplan:

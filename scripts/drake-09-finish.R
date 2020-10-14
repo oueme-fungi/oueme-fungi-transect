@@ -14,10 +14,7 @@ setup_log("finish")
 #### Finish ####
 # For now the later steps are not very intensive, so they can be done
 # using the resources of the master computer.
-targets <- purrr::discard(od, grepl, pattern = "iterate") %>%
-  purrr::discard(grepl, pattern = "epa") %>%
-  purrr::discard(grepl, pattern = "mafft") %>%
-  purrr::discard(endsWith, "_full")
+targets <- od
 
 jobs <- local_cpus()
 ncpus <- 1
@@ -65,12 +62,7 @@ exports <- intersect(
     "allseqs",
     "taxon_table",
     dplyr::filter(plan, step == "taxon")$target,
-    "raxml_decipher_32S",
-    "raxml_decipher_LSU",
-    "raxml_decipher_long",
-    "raxml_epa_full",
     "raxml_decipher_unconst_long",
-    "raxml_epa_decipher_unconst_full",
     dplyr::filter(plan, step == "big_seq_table")$target,
     dplyr::filter(plan, step == "err")$target,
     dplyr::filter(plan, step == "chimeras")$target,

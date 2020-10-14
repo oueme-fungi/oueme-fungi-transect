@@ -54,7 +54,6 @@ dependencies:
   - curl=7.68.0=hf8cf82a_0
   - datrie=0.8.2=py37h8f50634_0
   - docutils=0.16=py37hc8dfbb8_1
-  - epa-ng=0.3.6=he513fc3_0
   - expat=2.2.9=he1b5a44_2
   - ffmpeg=4.3.1=h167e202_0
   - fftw=3.3.8=nompi_h7f3a6c3_1111
@@ -67,7 +66,6 @@ dependencies:
   - fonts-conda-forge=1=0
   - freetype=2.10.2=he06d7ca_0
   - fribidi=1.0.10=h516909a_0
-  - gappa=0.5.1=he513fc3_0
   - gcc_impl_linux-64=7.5.0=hda68d29_13
   - gcc_linux-64=7.5.0=he2a3fca_29
   - gdk-pixbuf=2.38.2=h3f25603_4
@@ -129,9 +127,7 @@ dependencies:
   - libwebp-base=1.1.0=h516909a_3
   - libxcb=1.13=h14c3975_1002
   - libxml2=2.9.10=hee79883_0
-  - locarna=2.0.0RC8=hc9558a2_0
   - lz4-c=1.9.2=he1b5a44_3
-  - mafft=7.453=h516909a_1
   - make=4.3=h516909a_0
   - ncurses=6.2=he1b5a44_1
   - nettle=3.4.1=h1bed415_1002

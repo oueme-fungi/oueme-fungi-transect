@@ -27,8 +27,6 @@ if (interactive()) {
 
 source(file.path(config$rdir, "dada.R"))
 source(file.path(config$rdir, "qstats.R"))
-source(file.path(config$rdir, "inferrnal.R"))
-source(file.path(config$rdir, "locarrna.R"))
 source(file.path(config$rdir, "lsux.R"))
 source(file.path(config$rdir, "mantel.R"))
 source(file.path(config$rdir, "parallel_helpers.R"))
@@ -36,11 +34,8 @@ source(file.path(config$rdir, "plate_check.R"))
 source(file.path(config$rdir, "raxml.R"))
 source(file.path(config$rdir, "taxonomy.R"))
 source(file.path(config$rdir, "utils.R"))
-source(file.path(config$rdir, "epa-ng.R"))
 source(file.path(config$rdir, "AlignSeqs.R"))
 source(file.path(config$rdir, "DECIPHER-utils.R"))
-source(file.path(config$rdir, "epa_iterate.R"))
-source(file.path(config$rdir, "mafft.R"))
 
 setup_log("drakeplan")
 
@@ -163,7 +158,7 @@ illumina_err_meta <- illumina_meta %>%
     derep_illumina = glue::glue("derep_illumina_{seq_run}"),
     illumina_id = glue::glue("illumina_id_{seq_run}")
   ) %>%
-  mutate_at(c("derep_illumina", "illumina_id"), purrr::compose(syms, make.names)) %>% 
+  mutate_at(c("derep_illumina", "illumina_id"), purrr::compose(syms, make.names)) %>%
   unique() %>%
   expand_grid(read = c("R1", "R2"))
 
@@ -190,7 +185,7 @@ illumina_region_meta <- datasets %>%
     lsux_illumina = glue::glue("lsux_illumina_{seq_run}")
   ) %>%
   mutate_at(c("seq_table_illumina", "lsux_illumina"), purrr::compose(syms, make.names))
-  
+
 flog.info("Making err_meta.")
 err_meta <- dada_meta %>%
   filter(region == err_region) %>%
@@ -259,7 +254,7 @@ ref_meta <- select(taxonomy_meta, "reference", "refregion", "method", "reference
 flog.info("Assembling plan...")
 tictoc::tic()
 plan <- drake_plan(
-  
+
   #### Plan section 1: Split reads into regions ####
   shard = 1L:!!config$bigsplit,
   file_meta = target(
@@ -286,7 +281,7 @@ plan <- drake_plan(
     get_trace(paste0("file_meta_", primer_ID), derep1),
     transform = map(derep1, .id = primer_ID)
   ),
-  
+
   join_derep = target(
     tzara::combine_derep(
       readd(derep1, cache = ignore(drake::drake_cache(cache_dir))),
@@ -295,20 +290,20 @@ plan <- drake_plan(
     ),
     transform = map(derep1, trace1, .id = primer_ID)
   ),
-  
+
   derep_map = target(
     join_derep$map,
     transform = map(join_derep, .id = primer_ID)
   ),
-  
+
   derep_submap = target(
     dplyr::filter(derep_map, .data[["seq_run"]] == seq_run),
     transform = map(.data = !!positions_meta, .id = seq_run)
   ),
-  
+
   lsux = target(
     drake_slice(join_derep$fasta, index = shard, slices = !!config$bigsplit) %>%
-    LSUx(
+    LSUx::lsux(
       cm_5.8S = file_in(!!config$cm_5_8S),
       cm_32S = file_in(!!config$cm_32S),
       glocal = TRUE,
@@ -321,27 +316,27 @@ plan <- drake_plan(
     dynamic = map(shard),
     format = "fst"
   ),
-  
+
   lsux_pos = target(
     combine_dynamic_diskframe(lsux, cache = ignore(cache_dir)),
     transform = map(lsux, .id = primer_ID),
     format = "diskframe"
   ),
-  
+
   derep_by = target(
     derep_submap %>%
       dplyr::group_by_at(c("seq_run", "plate", "well")) %>%
       dplyr::group_indices(),
     transform = map(derep_submap, .id = seq_run)
   ),
-  
+
   derep_groups = target(
     derep_submap %>%
       dplyr::group_by_at(c("seq_run", "plate", "well", "trim_file")) %>%
       dplyr::group_keys(),
     transform = map(derep_submap, .id = seq_run)
   ),
-  
+
   positions = target({
     ids <- unique(derep_submap$map)
     lsux_pos %>%
@@ -356,14 +351,14 @@ plan <- drake_plan(
     transform = map(lsux_pos, derep_submap, derep_by, .id = seq_run),
     dynamic = group(derep_submap, .by = derep_by, .trace = derep_by)
   ),
-  
+
   position_map = target(
     dplyr::select(positions, "seq_run", "plate", "well") %>%
       unique(),
     transform = map(positions, .id = seq_run),
     dynamic = map(positions)
   ),
-  
+
   # extract regions, do quality filtering, and dereplicate
   # this is all one step because the extraction and filtering are fast,
   # but saving the outputs would be large.
@@ -392,7 +387,7 @@ plan <- drake_plan(
     transform = map(derep2, primer_ID, .tag_in = step, .id = c(seq_run, region)),
     dynamic = map(derep2)
   ),
-  
+
   illumina_group = target(
     dplyr::filter(
       illumina_meta,
@@ -404,13 +399,13 @@ plan <- drake_plan(
       .id = seq_run
     )
   ),
-  
+
   illumina_id = target(
     illumina_group,
     transform = map(illumina_group, .id = seq_run),
     dynamic = map(illumina_group)
   ),
-  
+
   derep_illumina = target(
     filter_and_derep_pairs(
       trim_file_1 = illumina_group$trim_file_R1,
@@ -430,7 +425,7 @@ plan <- drake_plan(
     ),
     dynamic = map(illumina_group)
   ),
-  
+
   #### Plan section 2: Denoise using DADA ####
 
   # Calibrate dada error models on 5.8S
@@ -458,7 +453,7 @@ plan <- drake_plan(
       .id = c(seq_run, region)
     )
   ),
-  
+
   err_illumina = target({
     dereps <- readd(derep_illumina, cache = ignore(drake::drake_cache(cache_dir))) %>%
       purrr::map(read) %>%
@@ -482,7 +477,7 @@ plan <- drake_plan(
       .id = c(seq_run, read)
     )
   ),
-  
+
   # Run dada denoising algorithm (on different regions)
   dada = target(
     readd(derep2, cache = ignore(drake::drake_cache(cache_dir))) %>%
@@ -507,7 +502,7 @@ plan <- drake_plan(
       .id = c(seq_run, region)
     )
   ),
-  
+
   dada_illumina = target({
     derep <- readd(derep_illumina, cache = ignore(drake::drake_cache(cache_dir))) %>%
       purrr::map(read) %>%
@@ -538,7 +533,7 @@ plan <- drake_plan(
       .id = c(seq_run, read)
     )
   ),
-  
+
   merge = target(
     dada2::mergePairs(
       dadaF = purrr::compact(dada_R1),
@@ -558,7 +553,7 @@ plan <- drake_plan(
                         drop = FALSE),
     transform = map(dada, .tag_in = step, .tag_out = seq_table, .id = c(seq_run, region))
   ),
-  
+
   seq_table_illumina = target({
     tab <- dada2::makeSequenceTable(merge)
     tabF <- tab[endsWith(rownames(tab), "_f"),]
@@ -583,9 +578,9 @@ plan <- drake_plan(
   },
   transform = map(merge, .id = seq_run)
   ),
-  
+
   lsux_illumina = target(
-    LSUx(
+    LSUx::lsux(
       colnames(seq_table_illumina) %>% set_names(seq_along(.)),
       cm_5.8S = file_in(!!config$cm_5_8S),
       cm_32S = file_in(!!config$cm_32S),
@@ -597,7 +592,7 @@ plan <- drake_plan(
       gather_regions(),
     transform = map(seq_table_illumina, .id = seq_run)
   ),
-  
+
   region_illumina = target(
     colnames(seq_table_illumina) %>%
       Biostrings::DNAStringSet() %>%
@@ -609,7 +604,7 @@ plan <- drake_plan(
       ),
     transform = map(.data = !!illumina_region_meta, .id = c(seq_run, region))
   ),
-  
+
   region_table_illumina = target(
     dplyr::left_join(
       seq_table_illumina %>%
@@ -631,7 +626,7 @@ plan <- drake_plan(
       as.matrix,
     transform = map(seq_table_illumina, region_illumina, region, .tag_out = seq_table, .id = c(seq_run, region))
   ),
-  
+
   preconseq_illumina = target(
     drake_combine(region_illumina) %>%
       purrr::map(~tibble::tibble(value = as.character(.@sread), seq = as.character(.@id))) %>%
@@ -718,10 +713,10 @@ plan <- drake_plan(
     dadalist <- do.call(c, c(dadalist, use.names = FALSE))
     dereplist <- do.call(c, c(dereplist, use.names = FALSE))
     lengthlist <- do.call(c, c(lengthlist, use.names = FALSE))
-    
+
     dereplist[lengthlist == 0] <- list(NULL)
     names(dereplist) <- names(dadalist)
-    
+
     # Combine into a master list
     dada_key <- tibble::tibble(dadalist, dereplist, lengthlist, name = names(dadalist)) %>%
       tidyr::extract(
@@ -733,12 +728,12 @@ plan <- drake_plan(
       dplyr::filter(lengthlist > 0) %>%
       dplyr::select(-lengthlist)
     dada_regions <- unique(dada_key[["region"]])
-    
+
     # Remove references to the original lists so the memory can be freed.
     remove(dadalist)
     remove(dereplist)
     remove(lengthlist)
-    
+
     # process each sample seperately, removing data as it gets processed
     dadakey <- dada_key %>%
       dplyr::group_by(seq_run, plate, well) %>%
@@ -866,11 +861,13 @@ plan <- drake_plan(
       dplyr::filter(complete.cases(.)) %>%
       unique() %>%
       {set_names(.[[region]], .$hash)}
-    taxonomy(seq = seqs,
-             reference = refdb,
-             method = method,
-             multithread = ignore(ncpus)) %>%
-      taxtable(names = names(seqs))
+    phylotax::taxonomy(
+      seq = seqs,
+      reference = refdb,
+      method = method,
+      multithread = ignore(ncpus)
+    ) %>%
+      phylotax::taxtable(names = names(seqs))
     },
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID)
   ),
@@ -882,63 +879,8 @@ plan <- drake_plan(
   ),
 
   #### Plan Section 5: Build phylogenetic trees. ####
-  
-  # Get the LSU sequences ready to align.
-  prealn_decipher_LSU = 
-    allseqs %>%
-    dplyr::select(hash, long, LSU, ITS1, ITS2) %>%
-    dplyr::filter(
-      complete.cases(.),
-      startsWith(long, ITS1),
-      endsWith(long, LSU),
-      stringi::stri_detect_fixed(long, chartr("T", "U", ITS2)),
-      !hash %in% allchimeras_ITS2
-    ) %>%
-    unique() %>%
-    dplyr::arrange(hash) %>%
-    dplyr::filter(!duplicated(long)) %>%
-    dplyr::filter(!duplicated(LSU)) %$%
-    set_names(LSU, hash) %>%
-    chartr("T", "U", .) %>%
-    Biostrings::RNAStringSet(),
-  
-  # Align the consensus LSU sequences
-  aln_decipher_LSU = DECIPHER::AlignSeqs(
-    prealn_decipher_LSU,
-    iterations = 10,
-    refinements = 10,
-    processors = ignore(ncpus)
-  ),
-  
-  # Trim the intron-containing regions
-  aln_decipher_LSU_trim = trim_LSU_intron(aln_decipher_LSU),
 
-  # Build a tree based on LSU
-  raxml_decipher_LSU = {
-    if (!dir.exists(!!config$raxml_dir))
-      dir.create(!!config$raxml_dir, recursive = TRUE)
-    wd <- setwd(!!config$raxml_dir)
-    result <-
-      aln_decipher_LSU_trim %>%
-      Biostrings::DNAStringSet() %>%
-      ape::as.DNAbin() %>%
-      as.matrix() %>%
-      ips::raxml(
-        DNAbin = .,
-        m = "GTRGAMMA",
-        f = "a",
-        N = "autoMRE_IGN",
-        p = 12345,
-        x = 827,
-        k = TRUE,
-        file = "decipher_LSU",
-        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(ncpus))
-    setwd(wd)
-    result
-  },
-  
-  # Get the LSU sequences ready to align.
+  # Get the long sequences ready to align.
   prealn_decipher_long = allseqs %>%
     dplyr::select(hash, long, ITS1, ITS2) %>%
     dplyr::filter(
@@ -953,7 +895,7 @@ plan <- drake_plan(
     set_names(long, hash) %>%
     chartr("T", "U", .) %>%
     Biostrings::RNAStringSet(),
-  
+
   # Align the consensus long reads
   aln_decipher_long =
     DECIPHER::AlignSeqs(
@@ -962,154 +904,10 @@ plan <- drake_plan(
       refinements = 10,
       processors = ignore(ncpus)
     ),
-  
+
   # Trim the intron-containing region
   aln_decipher_long_trim = trim_LSU_intron(aln_decipher_long),
-  
-  # Build a tree based on the long reads, constrained by the LSU tree
-  raxml_decipher_long = {
-    if (!dir.exists(!!config$raxml_dir))
-      dir.create(!!config$raxml_dir, recursive = TRUE)
-    wd <- setwd(!!config$raxml_dir)
-    result <-
-      aln_decipher_long_trim %>%
-      Biostrings::DNAStringSet() %>%
-      ape::as.DNAbin() %>%
-      as.matrix() %>%
-      ips::raxml(
-        DNAbin = .,
-        m = "GTRGAMMA",
-        f = "a",
-        N = "autoMRE_IGN",
-        p = 12345,
-        x = 827,
-        k = TRUE,
-        backbone = raxml_decipher_LSU$bestTree,
-        file = "decipher_long",
-        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(ncpus))
-    setwd(wd)
-    result
-  },
-  
-  # Align the long reads to the CM
-  # Don't include any positions which are in the variable regions or which
-  # are insertions with respect to the CM.
-  aln_infernal_32S = 
-    allseqs %>%
-    dplyr::select(hash, `32S`, long, ITS1, ITS2) %>%
-    dplyr::filter(
-      complete.cases(.),
-      startsWith(long, ITS1),
-      stringi::stri_detect_fixed(`32S`, ITS2),
-      !hash %in% allchimeras_ITS2
-    ) %>%
-    unique() %>%
-    dplyr::arrange(hash) %$%
-    set_names(`32S`, hash) %>%
-    chartr("T", "U", .) %>%
-    Biostrings::RNAStringSet() %>%
-    cmalign(cmfile = "reference/fungi_32S_LR5.cm") %>%
-    remove_nonconsensus_nongaps(noncons_chars = c(".", "v", "p")),
-  
-  # Make a tree based on the conserved parts of the long reads
-  raxml_infernal_32S = {
-    if (!dir.exists(!!config$raxml_dir))
-      dir.create(!!config$raxml_dir, recursive = TRUE)
-    wd <- setwd(!!config$raxml_dir)
-    result <-
-      aln_infernal_32S %>%
-      Biostrings::DNAStringSet() %>%
-      ape::as.DNAbin() %>%
-      as.matrix() %>%
-      ips::raxml(
-        DNAbin = .,
-        m = "GTRGAMMA",
-        f = "a",
-        N = "autoMRE_IGN",
-        p = 12345,
-        x = 827,
-        k = TRUE,
-        file = "decipher_32S",
-        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(ncpus))
-    setwd(wd)
-    result
-  },
-  
-  # Get the short and long reads ready to align with MAFFT.
-  prealn_mafft_full =
-    allseqs %>%
-    dplyr::select(hash, full) %>%
-    dplyr::filter(complete.cases(.)) %>%
-    dplyr::arrange(dplyr::desc(nchar(full))) %>%
-    dplyr::filter(!duplicated(full)) %>%
-    dplyr::filter(!duplicated(hash)) %>%
-    dplyr::filter(!hash %in% names(aln_decipher_long_trim)) %$%
-    set_names(full, hash) %>%
-    chartr("U", "T", .) %>%
-    Biostrings::DNAStringSet(),
-  
-  # Add the short reads to the long reads alignment using MAFFT
-  aln_mafft_full =
-    mafft_add(
-      x = Biostrings::DNAStringSet(aln_decipher_long_trim),
-      y = prealn_mafft_full,
-      add = "add",
-      method = "10merpair",
-      maxiterate = "2",
-      thread = ignore(ncpus),
-      quiet = FALSE,
-      exec = Sys.which("mafft")
-    ),
-  
-  # Place the short reads on the long-read tree using EPA
-  epa_full = 
-    epa_ng(
-      ref_msa = aln_mafft_full[names(aln_mafft_full) %in% names(aln_decipher_long)],
-      tree = raxml_decipher_long$bestTree,
-      query = aln_mafft_full[!names(aln_mafft_full) %in% names(aln_decipher_long)],
-      model = raxml_decipher_long$info,
-      threads = ignore(ncpus),
-      exec = Sys.which("epa-ng"),
-      redo = TRUE
-    ),
-  
-  # Graft the EPA tree
-  graft_full =
-    gappa_graft(
-      jplace = epa_full,
-      threads = ignore(ncpus),
-      verbose = TRUE
-    ),
-  
-  # Convert the grafted tree to a guide tree
-  guidetree_full =
-    grafts_to_polytomies(graft_full, raxml_decipher_long$bestTree),
-  
-  # Resolve the EPA tree
-  raxml_epa_full = {
-    if (!dir.exists(!!config$raxml_dir))
-      dir.create(!!config$raxml_dir, recursive = TRUE)
-    wd <- setwd(!!config$raxml_dir)
-    result <-
-      aln_mafft_full %>%
-      ape::as.DNAbin() %>%
-      as.matrix() %>%
-      ips::raxml(
-        DNAbin = .,
-        m = "GTRGAMMA",
-        f = "d",
-        N = 1,
-        p = 12345,
-        backbone = guidetree_full,
-        file = "epa_long",
-        exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-        threads = ignore(ncpus))
-    setwd(wd)
-    result
-  },
-  
+
   # Build a tree based on the long alignment, unconstrained by the LSU tree
   raxml_decipher_unconst_long = {
     if (!dir.exists(!!config$raxml_dir))
@@ -1134,149 +932,9 @@ plan <- drake_plan(
     setwd(wd)
     result
   },
-  
-  prealn_decipher_short =
-    allseqs %>%
-    dplyr::select(hash, short, ITS2) %>%
-    dplyr::filter(
-      complete.cases(.),
-      stringi::stri_detect_fixed(short, chartr("T", "U", ITS2)),
-      !hash %in% allchimeras_ITS2
-    ) %>%
-    unique() %>%
-    dplyr::arrange(hash) %>%
-    dplyr::filter(
-      !duplicated(short),
-      !hash %in% names(aln_decipher_long_trim)
-    ) %$%
-    set_names(short, hash) %>%
-    chartr("T", "U", .) %>%
-    Biostrings::RNAStringSet(),
-  
-  # align the short reads
-  aln_decipher_short =
-    DECIPHER::AlignSeqs(
-      prealn_decipher_short,
-      iterations = 20, # give extra iterations here
-      refinements = 10,
-      processors = ignore(ncpus)
-    ),
-  
-  # merge the short read alignment with the long read alignment
-  aln_decipher_full =
-    DECIPHER::AlignProfiles(
-      pattern = aln_decipher_long_trim,
-      subject = aln_decipher_short,
-      terminalGap = 0,
-      processors = ignore(ncpus)
-    ),
-  
-  # Place short reads on the unconstrained long tree using the DECIPHER alignment
-  epa_decipher_unconst_full = 
-    epa_ng(
-      ref_msa = aln_decipher_full[names(aln_decipher_full) %in% names(aln_decipher_long_trim)],
-      tree = raxml_decipher_unconst_long$bestTree,
-      query = aln_decipher_full[!names(aln_decipher_full) %in% names(aln_decipher_long_trim)],
-      model = raxml_decipher_unconst_long$info,
-      threads = ignore(ncpus),
-      exec = Sys.which("epa-ng"),
-      redo = TRUE,
-    ),
-  
-  # Graft the EPA tree
-  graft_decipher_unconst_full =
-    gappa_graft(
-      jplace = epa_decipher_unconst_full,
-      threads = ignore(ncpus),
-      verbose = TRUE
-    ),
-  
-  # Convert the grafted tree to a guide tree
-  guidetree_decipher_unconst_full =
-    grafts_to_polytomies(
-      graft_decipher_unconst_full,
-      raxml_decipher_unconst_long$bestTree
-    ),
-  
-  # Resolve the EPA tree
-  raxml_decipher_unconst_full = {
-    if (!dir.exists(!!config$raxml_dir))
-      dir.create(!!config$raxml_dir, recursive = TRUE)
-    withr::with_dir(
-      !!config$raxml_dir,
-      aln_decipher_full %>%
-        Biostrings::DNAStringSet() %>%
-        ape::as.DNAbin() %>%
-        as.matrix() %>%
-        ips::raxml(
-          DNAbin = .,
-          m = "GTRGAMMA",
-          f = "d",
-          N = 1,
-          p = 12345,
-          backbone = guidetree_decipher_unconst_full,
-          file = "epa_unconst_long",
-          exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-          threads = ignore(ncpus)
-        )
-    )
-  },
-  
-  epa_iterate_full = target(
-    epa_iterate(
-      subject = aln_decipher_full[names(aln_decipher_full) %in% names(aln_decipher_long_trim)],
-      query = aln_decipher_full[!names(aln_decipher_full) %in% names(aln_decipher_long_trim)],
-      subject_tree = raxml_decipher_long$bestTree,
-      subject_model = raxml_decipher_long$info,
-      iterations = 50,
-      threads = ignore(ncpus)
-    )
-  ),
-  
-  # Graft the EPA tree
-  graft_decipher_iterate_full =
-    gappa_graft(
-      jplace = epa_iterate_full$jplace,
-      threads = ignore(ncpus),
-      verbose = TRUE
-    ),
-  
-  # Convert the grafted tree to a guide tree
-  guidetree_decipher_iterate_full =
-    grafts_to_polytomies(
-      graft_decipher_iterate_full,
-      raxml_decipher_unconst_long$bestTree
-    ),
-  
-  # Resolve the iterated EPA tree
-  raxml_decipher_iterate_full = {
-    if (!dir.exists(!!config$raxml_dir))
-      dir.create(!!config$raxml_dir, recursive = TRUE)
-    withr::with_dir(
-      !!config$raxml_dir,
-      c(
-        epa_iterate_full$subject,
-        epa_iterate_full$query
-      ) %>%
-        Biostrings::DNAStringSet() %>%
-        ape::as.DNAbin() %>%
-        as.matrix() %>%
-        ips::raxml(
-          DNAbin = .,
-          m = "GTRGAMMA",
-          f = "d",
-          N = 1,
-          p = 12345,
-          backbone = guidetree_decipher_unconst_full,
-          file = "epa_iter_long",
-          exec = Sys.which("raxmlHPC-PTHREADS-SSE3"),
-          threads = ignore(ncpus)
-        )
-    )
-  },
-  
+
   #### Plan section 6: Gather stats ####
-  
+
   qstats_derep2 = target(
     attr(derep2, "qstats") %>%
       mutate(region = region) %>%
@@ -1285,14 +943,14 @@ plan <- drake_plan(
     dynamic = map(derep2),
     format = "fst"
   ),
-  
+
   qstats_illumina = target(
     attr(derep_illumina, "qstats") %>% as.data.frame(),
     transform = map(derep_illumina, .id = FALSE),
     dynamic = map(derep_illumina),
     format = "fst"
   ),
-  
+
   raw_fastq = c(
     list.files(
       file_in(!!config$fastqdir),
@@ -1312,7 +970,7 @@ plan <- drake_plan(
       recursive = TRUE
     )
   ),
-    
+
   qstats_raw = target(
     q_stats(raw_fastq, step = "raw") %>%
       dplyr::mutate(
@@ -1322,14 +980,14 @@ plan <- drake_plan(
     dynamic = map(raw_fastq),
     format = "fst"
   ),
-  
+
   qstats_demux = target(
     q_stats(file_meta$trim_file, step = "demux") %>% as.data.frame(),
     transform = map(file_meta, .id = FALSE),
     dynamic = map(file_meta),
     format = "fst"
   ),
-  
+
   qstats_demux_illumina = target(
     dplyr::bind_rows(
       q_stats(illumina_group$trim_file_R1),
@@ -1340,7 +998,7 @@ plan <- drake_plan(
     dynamic = map(illumina_group),
     format = "fst"
   ),
-  
+
   qstats = target(
     combine_dynamic_diskframe(
       c(
@@ -1361,7 +1019,7 @@ plan <- drake_plan(
       qstats_demux_illumina
     )
   ),
-  
+
   trace = TRUE
 )
 tictoc::toc()

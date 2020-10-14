@@ -14,10 +14,7 @@ library(futile.logger)
 setup_log("raxml")
 
 
-targets <- purrr::keep(od, startsWith, "raxml_") %>%
-  purrr::discard(grepl, pattern = "iterate") %>%
-  purrr::discard(grepl, pattern = "epa") %>%
-  purrr::discard(grepl, pattern = "full")
+targets <- purrr::keep(od, startsWith, "raxml_")
 
 #### RaxML targets ####
 # Raxml is parallel,

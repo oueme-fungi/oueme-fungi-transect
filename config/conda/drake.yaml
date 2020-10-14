@@ -33,7 +33,10 @@ dependencies:
   - bioconductor-decipher=2.10.0=r351h14c3975_0
   - bioconductor-phyloseq=1.26.0=r351_0
   - r-dada2=1.12.1=r351hf484d3e_0
+  - r-inferrnal=0.99.4
+  - r-lsux=0.99.5
   - r-tzara=0.0.7.8=r35_1
+  - r-phylotax=0.0.2
   - r-funguildr=0.1=r351_0
   - r-inext=2.0.20=r35h6115d3f_0
   - r-ips=0.0.11=r35h6115d3f_0
@@ -42,11 +45,7 @@ dependencies:
   # external tools
   - infernal=1.1.2=h516909a_3
   - vsearch=2.9.1=h96824bc_0
-  - locarna=2.0.0RC8=hc9558a2_0
   - raxml=8.2.12=h516909a_2
-  - epa-ng=0.3.6=he513fc3_0
-  - gappa=0.5.1=he513fc3_0
-  - mafft=7.453=h516909a_1
   - samtools=1.10=h2e538c0_3
   - snakemake-minimal=5.5.4
   - pandas=0.25.1=py37hb3f55d8_0

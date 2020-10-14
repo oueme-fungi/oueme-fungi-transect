@@ -86,11 +86,7 @@ plan2 <- drake_plan(
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
     trigger = trigger(mode = "blacklist")
   ),
-  # raxml_decipher_LSU = target(trigger = trigger(mode = "blacklist")),
-  # raxml_decipher_long = target(trigger = trigger(mode = "blacklist")),
   raxml_decipher_unconst_long = target(trigger = trigger(mode = "blacklist")),
-  # raxml_epa_full = target(trigger = trigger(mode = "blacklist")),
-  # raxml_infernal_32S = target(trigger = trigger(mode = "blacklist")),
   big_seq_table = target(
     transform = map(region = !!(region_meta$region), .tag_in = step, .id = region),
     trigger = trigger(mode = "blacklist")
@@ -184,22 +180,6 @@ plan2 <- drake_plan(
     select(sample_alias, year, site, buffer, x, sample_type, amplicon, everything()) %T>%
     write_tsv(file_out(!!file.path("output", "supp_file_1.tsv")), na = ""),
 
-  # tree_decipher_LSU = target(
-  #   raxml_decipher_LSU$bipartitions,
-  #   transform = map(
-  #     treename = "decipher_LSU",
-  #     group = "euk",
-  #     .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
-  # ),
-  #
-  # tree_decipher_LSU_long = target(
-  #   raxml_decipher_long$bipartitions,
-  #   transform = map(
-  #     treename = "decipher_LSU_long",
-  #     group = "euk",
-  #     .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
-  # ),
-
   # Trees ----
   tree_decipher_unconst_long = target(
     raxml_decipher_unconst_long$bipartitions,
@@ -208,19 +188,6 @@ plan2 <- drake_plan(
       group = "euk",
       .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
   ),
-
-  # tree_infernal_32S = target(
-  #   raxml_infernal_32S$bipartitions,
-  #   transform = map(
-  #     treename = "infernal_32S",
-  #     group = "euk",
-  #     .tag_in = step, .tag_out = c(euktree, tree), .id = FALSE)
-  # ),
-
-  # tree_epa_mafft_full = target(
-  #   raxml_epa_mafft_full$bestTree,
-  #   transform = map(treename = "epa_mafft_full", .tag_out = tree)
-  # ),
 
   labeled_tree = target(
     relabel_tree(
