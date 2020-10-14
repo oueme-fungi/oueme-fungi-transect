@@ -1697,7 +1697,7 @@ plan2 <- drake_plan(
   taxdata = {
     ranks <- c("domain", "kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
-      filter(region == "ITS", Algorithm == "Consensus") %>%
+      filter(region == "short", Algorithm == "Consensus") %>%
       mutate(domain = "Root", ASVs = 1) %>%
       select(-region, -seq_run, -label, -OTU) %>%
       mutate_at(
@@ -1834,7 +1834,7 @@ plan2 <- drake_plan(
   taxdata_ECM = {
     ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
-      filter(region == "ITS", Algorithm == "Consensus") %>%
+      filter(region == "short", Algorithm == "Consensus") %>%
       filter(!is.na(as.character(ECM)), ECM != "non-ECM") %>%
       mutate(ASVs = 1) %>%
       select(-region, -seq_run, -label, -OTU) %>%
