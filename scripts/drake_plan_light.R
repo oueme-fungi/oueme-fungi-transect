@@ -35,8 +35,8 @@ regions <- read_csv(config$regions, col_types = "cccciiiiic")
 guilds_meta <- tibble(
   preguild_taxa = c(
     "preguild_taxa_long_fungi_PHYLOTAX",
-    "preguild_taxa_short_fungi_Consensus",
-    "preguild_taxa_short_fungi_PHYLOTAX.Cons"
+    "preguild_taxa_all_fungi_Consensus",
+    "preguild_taxa_all_fungi_PHYLOTAX.Cons"
   ),
   amplicon = c("Long", "Short", "Short"),
   algorithm = c("PHYLOTAX", "Consensus", "PHYLOTAX+Cons")
@@ -310,7 +310,7 @@ plan2 <- drake_plan(
 
   # calculate phylogenetic consensus taxonomy for long sequences
   phylotaxon = target(
-    phylotax(tree = tree, taxa = taxon_table),
+    phylotax(tree = tree, taxa = filter(taxon_table, region != "short")),
     transform = map(tree, .tag_in = step,
                     taxname = "long",
                     algorithm = "PHYLOTAX",
@@ -324,8 +324,11 @@ plan2 <- drake_plan(
   ),
 
   # calculate strict consensus taxonomy
-  strict_taxon_short_euk = target(
+  strict_taxon_all_euk = target(
     taxon_table %>%
+      filter(region != "short") %>%
+      group_by(label, rank) %>%
+      mutate(n_diff = n_distinct(taxon)) %>%
       group_by(label, method, region, reference) %>%
       arrange(rank) %>%
       filter(cumall(n_diff == 1)) %>%
@@ -341,7 +344,7 @@ plan2 <- drake_plan(
       unique() %>%
       list(tip_taxa = .),
     transform = map(
-      taxname = "short",
+      taxname = "all",
       group = "euk",
       algorithm = "Consensus",
       .tag_out = c(consensus_taxa, strict_taxon),
@@ -350,6 +353,80 @@ plan2 <- drake_plan(
   ),
 
   # take strict consensus taxonomy for only fungi
+  strict_taxon_all_fungi = target(
+    group_by(strict_taxon_short_euk$tip_taxa, label) %>%
+      filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
+      list(tip_taxa = .),
+    transform = map(
+      taxname = "all",
+      group = "fungi",
+      algorithm = "Consensus",
+      .tag_out = c(consensus_taxa, strict_taxon),
+      .id = FALSE
+    )
+  ),
+
+  # chose phylotax taxonomy if available, otherwise strict consensus
+  best_taxon_all_euk = target(
+    strict_taxon_all_euk$tip_taxa %>%
+      filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
+      bind_rows(
+        phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
+          filter(method == "phylotax")
+      ) %>%
+      mutate(method = "phylotax+c") %>%
+      list(tip_taxa = .),
+    transform = map(group = "euk",
+                    taxname = "all",
+                    algorithm = "PHYLOTAX+Cons",
+                    .tag_out = consensus_taxa, .id = FALSE)
+  ),
+
+  best_taxon_all_fungi = target(
+    strict_taxon_all_fungi$tip_taxa %>%
+      filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
+      bind_rows(
+        phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
+          filter(method == "phylotax")
+      ) %>%
+      mutate(method = "phylotax+c") %>%
+      list(tip_taxa = .),
+    transform = map(group = "fungi",
+                    taxname = "all",
+                    algorithm = "PHYLOTAX+Cons",
+                    .tag_out = consensus_taxa, .id = FALSE)
+  ),
+
+  # calculate strict consensus taxonomy, taking only short reads into account.
+  strict_taxon_short_euk = target(
+    taxon_table %>%
+      filter(region == "short") %>%
+      group_by(label, rank) %>%
+      mutate(n_diff = n_distinct(taxon)) %>%
+      group_by(label, method, region, reference) %>%
+      arrange(rank) %>%
+      filter(cumall(n_diff == 1)) %>%
+      ungroup() %>%
+      mutate(
+        name = "consensus",
+        region = "short",
+        reference = "All",
+        ref_region = "ITS",
+        method = "consensus",
+        confidence = NA
+      ) %>%
+      unique() %>%
+      list(tip_taxa = .),
+    transform = map(
+      taxname = "short",
+      group = "euk",
+      algorithm = "Consensus",
+      .tag_out = c(consensus_taxa, strict_taxon),
+      .id = FALSE
+    )
+  ),
+
+  # strict consensus based on short reads, fungi only
   strict_taxon_short_fungi = target(
     group_by(strict_taxon_short_euk$tip_taxa, label) %>%
       filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
@@ -363,7 +440,7 @@ plan2 <- drake_plan(
     )
   ),
 
-  # chose phylotax taxonomy if available, otherwise strict consensus
+  # Phylotax when available, otherwise strict consensus based on short reads
   best_taxon_short_euk = target(
     strict_taxon_short_euk$tip_taxa %>%
       filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
@@ -379,6 +456,8 @@ plan2 <- drake_plan(
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
 
+  # Phylotax when available, otherwise strict consensus based on short reads
+  # fungi only
   best_taxon_short_fungi = target(
     strict_taxon_short_fungi$tip_taxa %>%
       filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
@@ -390,78 +469,6 @@ plan2 <- drake_plan(
       list(tip_taxa = .),
     transform = map(group = "fungi",
                     taxname = "short",
-                    algorithm = "PHYLOTAX+Cons",
-                    .tag_out = consensus_taxa, .id = FALSE)
-  ),
-
-  # calculate strict consensus taxonomy, taking only ITS into account.
-  strict_taxon_ITS_euk = target(
-    taxon_table %>%
-      filter(ref_region == "ITS") %>%
-      group_by(label, rank) %>%
-      mutate(n_diff = n_distinct(taxon)) %>%
-      group_by(label, method, region, reference) %>%
-      arrange(rank) %>%
-      filter(cumall(n_diff == 1)) %>%
-      ungroup() %>%
-      mutate(
-        name = "consensus",
-        region = "ITS",
-        reference = "All",
-        ref_region = "ITS",
-        method = "consensus",
-        confidence = NA
-      ) %>%
-      unique() %>%
-      list(tip_taxa = .),
-    transform = map(
-      taxname = "ITS",
-      group = "euk",
-      algorithm = "Consensus",
-      .tag_out = c(consensus_taxa, strict_taxon),
-      .id = FALSE
-    )
-  ),
-
-  strict_taxon_ITS_fungi = target(
-    group_by(strict_taxon_ITS_euk$tip_taxa, label) %>%
-      filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
-      list(tip_taxa = .),
-    transform = map(
-      taxname = "ITS",
-      group = "fungi",
-      algorithm = "Consensus",
-      .tag_out = c(consensus_taxa, strict_taxon),
-      .id = FALSE
-    )
-  ),
-
-  best_taxon_ITS_euk = target(
-    strict_taxon_ITS_euk$tip_taxa %>%
-      filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
-      bind_rows(
-        phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
-          filter(method == "phylotax")
-      ) %>%
-      mutate(method = "phylotax+c") %>%
-      list(tip_taxa = .),
-    transform = map(group = "euk",
-                    taxname = "ITS",
-                    algorithm = "PHYLOTAX+Cons",
-                    .tag_out = consensus_taxa, .id = FALSE)
-  ),
-
-  best_taxon_ITS_fungi = target(
-    strict_taxon_ITS_fungi$tip_taxa %>%
-      filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
-      bind_rows(
-        phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
-          filter(method == "phylotax")
-      ) %>%
-      mutate(method = "phylotax+c") %>%
-      list(tip_taxa = .),
-    transform = map(group = "fungi",
-                    taxname = "ITS",
                     algorithm = "PHYLOTAX+Cons",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
@@ -1229,139 +1236,135 @@ plan2 <- drake_plan(
     ),
 
   ## Taxonomy charts and heat trees ----
-  taxon_reads = {
-    out <-
-      # Get the number of reads per sequencing run for each ASV
-      proto_physeq %>%
-      phyloseq::merge_samples(group = "seq_run") %>%
-      phyloseq::otu_table() %>%
-      t() %>%
-      as("matrix") %>%
-      as_tibble(rownames = "label") %>%
-      # Normalize reads to a fraction of the sequencing run.
-      mutate_if(is.numeric, ~./sum(.)) %>%
-      # Pivot so that each ASV/sequencing run combination is its own line, and remove 0's
-      pivot_longer(-1, names_to = "seq_run", values_to = "reads") %>%
-      filter(reads > 0) %>%
-      # Add the amplicon and technology used for each sequencing run
-      left_join(select(datasets, seq_run, amplicon, tech), by = "seq_run") %>%
-      # put the amplicon in title case for display
-      mutate_at("amplicon", stringr::str_to_title) %>%
-      # Make all valid combinations of reference, region, and method
-      expand_grid(
-        tibble(
-          reference = c("unite", "warcup", "rdp_train"),
-          region = c("ITS", "ITS", "LSU")
-        ),
-        method = c("dada2", "idtaxa", "sintax")
-      ) %>%
-      filter(
-        ifelse(amplicon == "Short", region == "ITS", TRUE),
-        ifelse(amplicon == "Long", region %in% c("ITS", "LSU"), TRUE)
-      ) %>%
-      # Add the identifications from the taxon table.
-      # This will leave NAs where a method did not make an identification at a rank,
-      # Including full NA rows where no identification was made at all.
-      left_join(
-        taxon_table %>%
-          mutate(region = ifelse(region == "short", "ITS", region)) %>%
-          mutate_at("taxon", na_if, "NA") %>%
-          select(label, method, reference, rank, taxon, region) %>%
-          pivot_wider(
-            names_from = "rank",
-            values_from = "taxon"
-          ) %>%
-          mutate(
-            family = ifelse(is.na(genus), family, coalesce(family, "incertae_sedis")),
-            order = ifelse(is.na(family), order, coalesce(order, "incertae_sedis")),
-            class = ifelse(is.na(order), class, coalesce(class, "incertae_sedis")),
-            phylum = ifelse(class == "Leotiomycetes", "Ascomycota", phylum)
-          )
-        ,
-        by = c("label", "reference", "region", "method")
-      ) %>%
-      # Warcup doesn't explicitly identify fungi.
-      mutate(
-        kingdom = ifelse(!is.na(phylum) & reference == "warcup", "Fungi", kingdom)
-      )
 
-    # Add strict consensus and PHYLOTAX identifications
+  # fraction of reads for each ASV in each sequencing run
+  taxon_reads_proto =
+    # Get the number of reads per sequencing run for each ASV
+    proto_physeq %>%
+    phyloseq::merge_samples(group = "seq_run") %>%
+    phyloseq::otu_table() %>%
+    t() %>%
+    as("matrix") %>%
+    as_tibble(rownames = "label") %>%
+    # Normalize reads to a fraction of the sequencing run.
+    mutate_if(is.numeric, ~./sum(.)) %>%
+    # Pivot so that each ASV/sequencing run combination is its own line, and remove 0's
+    pivot_longer(-1, names_to = "seq_run", values_to = "reads") %>%
+    filter(reads > 0) %>%
+    # Add the amplicon and technology used for each sequencing run
+    left_join(select(datasets, seq_run, amplicon, tech), by = "seq_run") %>%
+    # put the amplicon in title case for display
+    mutate_at("amplicon", stringr::str_to_title) ,
+
+  taxon_reads_primary =
+    taxon_reads_proto %>%
+    # Make all valid combinations of reference, region, and method
+    expand_grid(
+      tibble(
+        reference = c("unite", "warcup", "rdp_train"),
+        region = c("ITS", "ITS", "LSU")
+      ),
+      method = c("dada2", "idtaxa", "sintax")
+    ) %>%
+    filter(
+      ifelse(amplicon == "Short", region == "ITS", TRUE),
+      ifelse(amplicon == "Long", region %in% c("ITS", "LSU"), TRUE)
+    ) %>%
+    # Add the identifications from the taxon table.
+    # This will leave NAs where a method did not make an identification at a rank,
+    # Including full NA rows where no identification was made at all.
+    left_join(
+      taxon_table %>%
+        mutate(region = ifelse(region == "short", "ITS", region)) %>%
+        mutate_at("taxon", na_if, "NA") %>%
+        select(label, method, reference, rank, taxon, region) %>%
+        pivot_wider(
+          names_from = "rank",
+          values_from = "taxon"
+        ) %>%
+        mutate(
+          family = ifelse(is.na(genus), family, coalesce(family, "incertae_sedis")),
+          order = ifelse(is.na(family), order, coalesce(order, "incertae_sedis")),
+          class = ifelse(is.na(order), class, coalesce(class, "incertae_sedis")),
+          phylum = ifelse(class == "Leotiomycetes", "Ascomycota", phylum)
+        ),
+      by = c("label", "reference", "region", "method")
+    ) %>%
+    # Warcup doesn't explicitly identify fungi.
+    mutate(
+      kingdom = ifelse(!is.na(phylum) & reference == "warcup", "Fungi", kingdom)
+    ),
+
+  # PHYLOTAX for long amplicon PacBio
+  # region = NA, reference = NA, ref_region = NA; method = "phylotax"
+  taxon_reads_phylotax =
+    phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
+    filter(method == "phylotax") %>%
+    select(method, label, rank, taxon) %>%
+    pivot_wider(names_from = "rank", values_from = "taxon") %>%
+    right_join(filter(taxon_reads_proto, seq_run == "pb_500"), by = "label") %>%
+    mutate_at("kingdom", na_if, "NA") %>%
+    mutate(
+      method = "PHYLO",
+      reference = "All",
+      region = "All",
+      kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
+    ),
+
+  # Strict consensus;
+  # region = "All", reference = "All", ref_region = "All"; method = "consensus"
+  # Short and long amplicons;
+  taxon_reads_full_consensus =
+    strict_taxon_all_euk$tip_taxa %>%
+    select(method, label, rank, taxon, region) %>%
+    pivot_wider(names_from = "rank", values_from = "taxon") %>%
+    right_join(taxon_reads_proto, by = "label") %>%
+    mutate_at("kingdom", na_if, "NA") %>%
+    mutate(
+      kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom),
+      method = "consensus",
+      region = "All"
+    ),
+
+  # Strict consensus calculated only on ITS2;
+  # Apply only to Short amplicons
+  # region = "short", reference = "All", ref_region = "ITS"; method = "consensus"
+  taxon_reads_short_consensus =
+    strict_taxon_short_euk$tip_taxa %>%
+    select(method, label, rank, taxon, region) %>%
+    pivot_wider(names_from = "rank", values_from = "taxon") %>%
+    right_join(filter(taxon_reads_proto, amplicon == "Short"), by = "label") %>%
+    mutate_at("kingdom", na_if, "NA") %>%
+    mutate(
+      kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom),
+      method = "consensus",
+      region = "short"
+    ),
+
+  # Phylotax if available; otherwise strict consensus
+  # Apply only to Short amplicons
+  # region = "short", reference = "All", ref_region = "All", method = "phylotax+c"
+  taxon_reads_best_consensus =
+    best_taxon_all_euk$tip_taxa %>%
+    select(method, label, rank, taxon) %>%
+    pivot_wider(names_from = "rank", values_from = "taxon") %>%
+    right_join(filter(taxon_reads_proto, amplicon == "Short"), by = "label") %>%
+    mutate_at("kingdom", na_if, "NA") %>%
+    mutate(
+      kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom),
+      region = "short",
+      reference = "All",
+      ref_region = "All",
+      method = "phylotax+c"
+    ),
+
+  taxon_reads = {
     bind_rows(
-      out,
-      # PHYLOTAX for long amplicon PacBio
-      # region = NA, reference = NA, ref_region = NA; method = "phylotax"
-      phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
-        filter(method == "phylotax") %>%
-        select(method, label, rank, taxon) %>%
-        pivot_wider(names_from = "rank", values_from = "taxon") %>%
-        left_join(
-          out %>%
-            filter(seq_run == "pb_500") %>%
-            select(seq_run, label, reads, amplicon, tech) %>%
-            unique(),
-          .,
-          by = "label"
-        ) %>%
-        mutate_at("kingdom", na_if, "NA") %>%
-        mutate(
-          method = "PHYLO",
-          reference = "All",
-          kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
-        ),
-      # Strict consensus;
-      # region = "All", reference = "All", ref_region = "All"; method = "consensus"
-      # Short and long amplicons;
-      strict_taxon_short_euk$tip_taxa %>%
-        select(method, label, rank, taxon, region) %>%
-        pivot_wider(names_from = "rank", values_from = "taxon") %>%
-        inner_join(
-          out %>%
-            # filter(amplicon == "Short") %>%
-            select(seq_run, label, reads, amplicon, tech) %>%
-            unique(),
-          .,
-          by = "label"
-        ) %>%
-        mutate_at("kingdom", na_if, "NA") %>%
-        mutate(
-          kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
-        ),
-      # Strict consensus calculated only on ITS2;
-      # Apply only to Short amplicons
-      # region = "ITS", reference = "All", ref_region = "ITS"; method = "consensus"
-      strict_taxon_ITS_euk$tip_taxa %>%
-        select(method, label, rank, taxon, region) %>%
-        pivot_wider(names_from = "rank", values_from = "taxon") %>%
-        inner_join(
-          out %>%
-            select(seq_run, label, reads, amplicon, tech) %>%
-            filter(amplicon == "Short") %>%
-            unique(),
-          .,
-          by = "label"
-        ) %>%
-        mutate_at("kingdom", na_if, "NA") %>%
-        mutate(
-          kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
-        ),
-      # Phylotax if available; otherwise strict ITS consensus
-      # Apply only to Short amplicons
-      # region = "All"/NA, reference = "All"/NA, ref_region = "All"/NA, method = "phylotax+c"
-      best_taxon_short_euk$tip_taxa %>%
-        select(method, label, rank, taxon) %>%
-        pivot_wider(names_from = "rank", values_from = "taxon") %>%
-        inner_join(
-          out %>%
-            filter(amplicon == "Short") %>%
-            select(seq_run, label, reads, amplicon, tech) %>%
-            unique(),
-          .,
-          by = "label"
-        ) %>%
-        mutate_at("kingdom", na_if, "NA") %>%
-        mutate(
-          kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom)
-        )
+      taxon_reads_primary,
+      taxon_reads_phylotax,
+      taxon_reads_full_consensus,
+      taxon_reads_short_consensus,
+      taxon_reads_best_consensus
     ) %>%
       mutate(
         family = ifelse(is.na(genus), family, coalesce(family, "incertae_sedis")),
@@ -1425,7 +1428,14 @@ plan2 <- drake_plan(
       cols = c("kingdom", "phylum", "class", "order", "family", "genus"),
       values_to = "taxon"
     ) %>%
-    filter(ifelse(Algorithm == "Consensus", region == "All", TRUE)) %>%
+    filter(
+      ifelse(
+        Algorithm == "Consensus",
+        xor(amplicon == "Short" & region == "short",
+            amplicon == "Long" & region == "All"),
+        TRUE
+      )
+    ) %>%
     select(label, amplicon, tech, Algorithm, reference, rank, taxon, reads) %>%
     unique() %>%
     group_by(amplicon, tech, Algorithm, reference, rank, ID = !is.na(taxon)) %>%
@@ -3775,7 +3785,8 @@ make(
   cache = cache,
   parallelism = parallelism,
   jobs = njobs,
-  targets = c("article_pdf", "supplement_pdf", "article_diff_pdf", "supplement_diff_pdf", "wordcount"),
+  # targets = c("article_pdf", "supplement_pdf", "article_diff_pdf", "supplement_diff_pdf", "wordcount"),
+  targets = "tax_chart_plot",
   lazy_load = FALSE,
   memory_strategy = "autoclean",
   garbage_collection = TRUE,
