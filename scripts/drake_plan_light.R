@@ -1416,34 +1416,25 @@ plan2 <- drake_plan(
     ) %>%
     rename(Reads = reads) %>%
     mutate_at("reference", as.character) %>%
-    mutate_at("reference", replace_na, "All") %>%
-    mutate(
-      reference = map2(
-        reference,
-        amplicon,
-        ~ if (.x == "All") {
-          c("Unite", "Warcup", if (.y == "Long") "RDP" else NULL)
-          } else {.}
-      )
-    ) %>%
-    unnest(reference) %>%
-    mutate_at("reference", factor, levels = c("Unite", "Warcup", "RDP")) %>%
+    mutate_at("reference", factor, levels = c("All", "Unite", "Warcup", "RDP")) %>%
     pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac"),
 
   tax_chart_plot =
     tax_chart %>%
-    dplyr::filter(!rank %in% c("phylum", "order")) %>%
-    ggplot(aes(x = rank, y = frac, ymax = frac, group = Algorithm, fill = Algorithm)) +
+    dplyr::arrange(rank) %>%
+    ggplot(aes(x = Algorithm, y = frac, ymax = frac, group = rank, fill = rank)) +
     ggnomics::facet_nested(
       tech + amplicon ~ type + reference,
       resect = unit(1, "mm"),
       nest_line = TRUE,
-      bleed = FALSE
+      bleed = FALSE,
+      scales = "free_x",
+      space = "free_x"
     ) +
     # geom_ribbon(ymin = 0, alpha = 0.5) +
     # geom_line(aes(color = Algorithm)) +
-    geom_col(position = "dodge") +
-    # scale_fill_brewer(type = "qual", palette = 2) +
+    geom_col(position = "identity") +
+    scale_fill_brewer(type = "qual", palette = 2, direction = -1, guide = guide_legend(nrow = 1)) +
     ylab("Fraction of reads assigned") +
     xlab(NULL) +
     theme(axis.text.x = element_text(vjust = 0.5, angle = 90),
@@ -1673,7 +1664,7 @@ plan2 <- drake_plan(
   taxdata = {
     ranks <- c("domain", "kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
-      filter(region == "ITS", Algorithm == "Consensus") %>%
+      filter(region == "short", Algorithm == "Consensus") %>%
       mutate(domain = "Root", ASVs = 1) %>%
       select(-region, -seq_run, -label, -OTU) %>%
       mutate_at(
@@ -1810,7 +1801,7 @@ plan2 <- drake_plan(
   taxdata_ECM = {
     ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
-      filter(region == "ITS", Algorithm == "Consensus") %>%
+      filter(region == "short", Algorithm == "Consensus") %>%
       filter(!is.na(as.character(ECM)), ECM != "non-ECM") %>%
       mutate(ASVs = 1) %>%
       select(-region, -seq_run, -label, -OTU) %>%
