@@ -282,7 +282,11 @@ plan2 <- drake_plan(
 
   # calculate phylogenetic consensus taxonomy for long sequences
   phylotaxon = target(
-    phylotax(tree = tree, taxa = filter(taxon_table, region != "short")),
+    phylotax::phylotax(
+      tree = tree,
+      taxa = filter(taxon_table, region != "short"),
+      method = c(region = "All", reference = "All", method = "phylotax")
+    ),
     transform = map(tree, .tag_in = step,
                     taxname = "long",
                     algorithm = "PHYLOTAX",

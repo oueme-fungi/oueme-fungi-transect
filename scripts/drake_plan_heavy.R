@@ -848,7 +848,7 @@ plan <- drake_plan(
                     .id = ref_ID)),
 
   refdb_idtaxa = target(
-    fit_idtaxa(file_in(reference_file)),
+    phylotax::train_idtaxa(file_in(reference_file)),
     transform = map(.data = !!filter(ref_meta, method == "idtaxa"),
                     .tag_out = refdb,
                     .id = ref_ID)),
