@@ -310,7 +310,7 @@ plan <- drake_plan(
       ITS1 = TRUE,
       cpu = ignore(ncpus)
     ) %>%
-      dplyr::mutate_at("seq_name", as.integer) %>%
+      dplyr::mutate_at("seq_id", as.integer) %>%
       as.data.frame(),
     transform = map(join_derep, .id = primer_ID),
     dynamic = map(shard),
@@ -340,13 +340,12 @@ plan <- drake_plan(
   positions = target({
     ids <- unique(derep_submap$map)
     lsux_pos %>%
-      dplyr::filter(seq_name %in% ids) %>%
+      dplyr::filter(seq_id %in% ids) %>%
       as.data.frame(row.names = NULL) %>%
       dplyr::left_join(
         derep_submap,
         .,
         by = c("map" = "seq_name")) %>%
-      dplyr::rename(seq = seq.id) %>%
       gather_regions()},
     transform = map(lsux_pos, derep_submap, derep_by, .id = seq_run),
     dynamic = group(derep_submap, .by = derep_by, .trace = derep_by)
@@ -588,7 +587,6 @@ plan <- drake_plan(
       ITS1 = FALSE,
       cpu = ignore(ncpus)
     ) %>%
-      dplyr::rename(seq = seq_name) %>%
       gather_regions(),
     transform = map(seq_table_illumina, .id = seq_run)
   ),
