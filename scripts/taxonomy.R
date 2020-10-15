@@ -29,15 +29,6 @@ combine_taxon_tables <- function(tables, allseqs) {
       reference != "warcup" | rank != "kingdom"
     ) %>%
     dplyr::mutate_at("rank", rank_factor) %>%
-    dplyr::group_by(label, rank) %>%
-    dplyr::filter((!"ITS" %in% region) | region != "short") %>%
-    dplyr::mutate(
-      n_tot = dplyr::n(),
-      n_diff = dplyr::n_distinct(taxon, na.rm = TRUE),
-      n_method = dplyr::n_distinct(method, na.rm = TRUE),
-      n_reference = dplyr::n_distinct(reference, na.rm = TRUE)
-    ) %>%
-    dplyr::ungroup() %>%
     dplyr::left_join(
       dplyr::select(allseqs, label = "hash", n_reads = "nread") %>%
         dplyr::group_by(label) %>%
