@@ -35,11 +35,11 @@ regions <- read_csv(config$regions, col_types = "cccciiiiic")
 guilds_meta <- tibble(
   preguild_taxa = c(
     "preguild_taxa_long_fungi_PHYLOTAX",
-    "preguild_taxa_all_fungi_Consensus",
-    "preguild_taxa_all_fungi_PHYLOTAX.Cons"
+    "preguild_taxa_hybrid_fungi_Consensus",
+    "preguild_taxa_hybrid_fungi_combined"
   ),
   amplicon = c("Long", "Short", "Short"),
-  algorithm = c("PHYLOTAX", "Consensus", "PHYLOTAX+Cons")
+  algorithm = c("PHYLOTAX", "Consensus", "combined")
 ) %>%
   mutate_at("preguild_taxa", syms)
 
@@ -108,15 +108,6 @@ plan2 <- drake_plan(
                     file_out(big_fasta_file)),
     transform = map(.data = !!region_meta, .tag_in = step, .id = region)
   ),
-
-  taxon_table = target(
-    drake_combine(taxon) %>%
-      combine_taxon_tables(allseqs),
-    transform = combine(taxon)
-  ),
-
-  # Create labels for the tree(s) which show the assigned taxonomy.
-  taxon_labels = make_taxon_labels(taxon_table),
 
   # funguild_db ----
   # Download the FUNGuild database
@@ -280,12 +271,43 @@ plan2 <- drake_plan(
 
   # Taxonomy ----
 
+  # put together all the primary taxonomy assignments
+  taxon_table = target(
+    drake_combine(taxon) %>%
+      combine_taxon_tables(allseqs),
+    transform = combine(taxon)
+  ),
+
+  # only assignments which came from the long amplicons
+  taxon_table_long =
+    dplyr::filter(taxon_table, region %in% c("LSU", "ITS")),
+
+  # only assignments which came from the short amplicons
+  taxon_table_long =
+    dplyr::filter(taxon_table, region == "short"),
+
+  # ASVs which were found in both long and short amplicon datasets were
+  # identified twice by each of the ITS algorithm/reference combinations:
+  # once as the full short amplicon, and once as the ITS region extracted
+  # from the long amplicon.
+  # Take the full-length ITS as likely to be the more accurate one
+  # This version of the taxon table is used to make the best possible
+  # assignments for the short reads.
+  taxon_table_hybrid =
+    dplyr::group_by(taxon_table, label) %>%
+    dplyr::filter(!any(region == "ITS") | region != "short") %>%
+    dplyr::ungroup(),
+
+  # Create labels for the tree(s) which show the assigned taxonomy before
+  # refinement
+  taxon_labels = make_taxon_labels(taxon_table_long),
+
   # calculate phylogenetic consensus taxonomy for long sequences
   phylotaxon = target(
     phylotax::phylotax(
       tree = tree,
-      taxa = filter(taxon_table, region != "short"),
-      method = c(region = "All", reference = "All", method = "phylotax")
+      taxa = taxon_table_long,
+      method = c(region = "All", reference = "All", method = "PHYLOTAX")
     ),
     transform = map(tree, .tag_in = step,
                     taxname = "long",
@@ -300,27 +322,13 @@ plan2 <- drake_plan(
   ),
 
   # calculate strict consensus taxonomy
-  strict_taxon_all_euk = target(
-    taxon_table %>%
-      filter(region != "short") %>%
-      group_by(label, rank) %>%
-      mutate(n_diff = n_distinct(taxon)) %>%
-      group_by(label, method, region, reference) %>%
-      arrange(rank) %>%
-      filter(cumall(n_diff == 1)) %>%
-      ungroup() %>%
-      mutate(
-        name = "consensus",
-        region = "All",
-        reference = "All",
-        ref_region = "All",
-        method = "consensus",
-        confidence = NA
-      ) %>%
-      unique() %>%
-      list(tip_taxa = .),
+  strict_taxon_hybrid_euk = target(
+    phylotax::phylotax(
+      taxa = taxon_table_hybrid,
+      method = c(region = "All", reference = "All", method = "Consensus")
+    ),
     transform = map(
-      taxname = "all",
+      taxname = "hybrid",
       group = "euk",
       algorithm = "Consensus",
       .tag_out = c(consensus_taxa, strict_taxon),
@@ -329,12 +337,12 @@ plan2 <- drake_plan(
   ),
 
   # take strict consensus taxonomy for only fungi
-  strict_taxon_all_fungi = target(
-    group_by(strict_taxon_short_euk$tip_taxa, label) %>%
+  strict_taxon_hybrid_fungi = target(
+    group_by(strict_taxon_hybrid_euk$tip_taxa, label) %>%
       filter("Fungi" %in% taxon | any(endsWith(taxon, "mycota"))) %>%
       list(tip_taxa = .),
     transform = map(
-      taxname = "all",
+      taxname = "hybrid",
       group = "fungi",
       algorithm = "Consensus",
       .tag_out = c(consensus_taxa, strict_taxon),
@@ -343,33 +351,33 @@ plan2 <- drake_plan(
   ),
 
   # chose phylotax taxonomy if available, otherwise strict consensus
-  best_taxon_all_euk = target(
-    strict_taxon_all_euk$tip_taxa %>%
+  best_taxon_hybrid_euk = target(
+    strict_taxon_hybrid_euk$tip_taxa %>%
       filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
       bind_rows(
         phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
-          filter(method == "phylotax")
+          filter(method == "PHYLOTAX")
       ) %>%
-      mutate(method = "phylotax+c") %>%
+      mutate(method = "combined") %>%
       list(tip_taxa = .),
     transform = map(group = "euk",
-                    taxname = "all",
-                    algorithm = "PHYLOTAX+Cons",
+                    taxname = "hybrid",
+                    algorithm = "combined",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
 
-  best_taxon_all_fungi = target(
-    strict_taxon_all_fungi$tip_taxa %>%
+  best_taxon_hybrid_fungi = target(
+    strict_taxon_hybrid_fungi$tip_taxa %>%
       filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
       bind_rows(
         phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
-          filter(method == "phylotax")
+          filter(method == "PHYLOTAX")
       ) %>%
-      mutate(method = "phylotax+c") %>%
+      mutate(method = "combined") %>%
       list(tip_taxa = .),
     transform = map(group = "fungi",
-                    taxname = "all",
-                    algorithm = "PHYLOTAX+Cons",
+                    taxname = "hybrid",
+                    algorithm = "combined",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
 
@@ -422,13 +430,13 @@ plan2 <- drake_plan(
       filter(!label %in% tree_decipher_unconst_long$tip.label) %>%
       bind_rows(
         phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
-          filter(method == "phylotax")
+          filter(method == "PHYLOTAX")
       ) %>%
-      mutate(method = "phylotax+c") %>%
+      mutate(method = "combined") %>%
       list(tip_taxa = .),
     transform = map(group = "euk",
                     taxname = "short",
-                    algorithm = "PHYLOTAX+Cons",
+                    algorithm = "combined",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
 
@@ -439,13 +447,13 @@ plan2 <- drake_plan(
       filter(!label %in% fungi_tree_decipher_unconst_long$tip.label) %>%
       bind_rows(
         phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
-          filter(method == "phylotax")
+          filter(method == "PHYLOTAX")
       ) %>%
-      mutate(method = "phylotax+c") %>%
+      mutate(method = "combined") %>%
       list(tip_taxa = .),
     transform = map(group = "fungi",
                     taxname = "short",
-                    algorithm = "PHYLOTAX+Cons",
+                    algorithm = "combined",
                     .tag_out = consensus_taxa, .id = FALSE)
   ),
 
@@ -1237,13 +1245,13 @@ plan2 <- drake_plan(
     # Make all valid combinations of reference, region, and method
     expand_grid(
       tibble(
-        reference = c("unite", "warcup", "rdp_train"),
-        region = c("ITS", "ITS", "LSU")
+        reference = c("unite", "unite", "warcup", "warcup", "rdp_train"),
+        region = c("ITS", "short", "ITS", "short", "LSU")
       ),
       method = c("dada2", "idtaxa", "sintax")
     ) %>%
     filter(
-      ifelse(amplicon == "Short", region == "ITS", TRUE),
+      ifelse(amplicon == "Short", region == "short", TRUE),
       ifelse(amplicon == "Long", region %in% c("ITS", "LSU"), TRUE)
     ) %>%
     # Add the identifications from the taxon table.
@@ -1251,7 +1259,6 @@ plan2 <- drake_plan(
     # Including full NA rows where no identification was made at all.
     left_join(
       taxon_table %>%
-        mutate(region = ifelse(region == "short", "ITS", region)) %>%
         mutate_at("taxon", na_if, "NA") %>%
         select(label, method, reference, rank, taxon, region) %>%
         pivot_wider(
@@ -1272,10 +1279,10 @@ plan2 <- drake_plan(
     ),
 
   # PHYLOTAX for long amplicon PacBio
-  # region = NA, reference = NA, ref_region = NA; method = "phylotax"
+  # region = NA, reference = NA, ref_region = NA; method = "PHYLOTAX"
   taxon_reads_phylotax =
     phylotaxon_decipher_unconst_long_euk$tip_taxa %>%
-    filter(method == "phylotax") %>%
+    filter(method == "PHYLOTAX") %>%
     select(method, label, rank, taxon) %>%
     pivot_wider(names_from = "rank", values_from = "taxon") %>%
     right_join(filter(taxon_reads_proto, seq_run == "pb_500"), by = "label") %>%
@@ -1291,7 +1298,7 @@ plan2 <- drake_plan(
   # region = "All", reference = "All", ref_region = "All"; method = "consensus"
   # Short and long amplicons;
   taxon_reads_full_consensus =
-    strict_taxon_all_euk$tip_taxa %>%
+    strict_taxon_hybrid_euk$tip_taxa %>%
     select(method, label, rank, taxon, region) %>%
     pivot_wider(names_from = "rank", values_from = "taxon") %>%
     right_join(taxon_reads_proto, by = "label") %>%
@@ -1302,7 +1309,7 @@ plan2 <- drake_plan(
       region = "All"
     ),
 
-  # Strict consensus calculated only on ITS2;
+  # Strict consensus calculated only on short amplicon region;
   # Apply only to Short amplicons
   # region = "short", reference = "All", ref_region = "ITS"; method = "consensus"
   taxon_reads_short_consensus =
@@ -1319,9 +1326,9 @@ plan2 <- drake_plan(
 
   # Phylotax if available; otherwise strict consensus
   # Apply only to Short amplicons
-  # region = "short", reference = "All", ref_region = "All", method = "phylotax+c"
+  # region = "short", reference = "All", ref_region = "All", method = "combined"
   taxon_reads_best_consensus =
-    best_taxon_all_euk$tip_taxa %>%
+    best_taxon_hybrid_euk$tip_taxa %>%
     select(method, label, rank, taxon) %>%
     pivot_wider(names_from = "rank", values_from = "taxon") %>%
     right_join(filter(taxon_reads_proto, amplicon == "Short"), by = "label") %>%
@@ -1331,7 +1338,7 @@ plan2 <- drake_plan(
       region = "short",
       reference = "All",
       ref_region = "All",
-      method = "phylotax+c"
+      method = "combined"
     ),
 
   taxon_reads = {
@@ -1351,7 +1358,7 @@ plan2 <- drake_plan(
       mutate_at(
         "method",
         factor,
-        levels = c("PHYLO", "phylotax+c", "consensus", "dada2", "sintax", "idtaxa"),
+        levels = c("PHYLO", "combined", "consensus", "dada2", "sintax", "idtaxa"),
         labels = c("PHYLOTAX", "PHYLOTAX", "Consensus", "RDPC", "SINTAX", "IDTAXA")
       ) %>%
       mutate_at(
@@ -1393,8 +1400,7 @@ plan2 <- drake_plan(
           ) %>%
           select(ECM)
       ) %>%
-      select(-Taxonomy) %>%
-      left_join(select(otu_map, label = ASVseq, OTU = OTUseq), by = "label")
+      select(-Taxonomy)
   },
 
   tax_chart =
@@ -1625,7 +1631,7 @@ plan2 <- drake_plan(
         ),
         algorithm = factor(
           algorithm,
-          levels = c("Consensus", "PHYLOTAX", "PHYLOTAX+Cons"),
+          levels = c("Consensus", "PHYLOTAX", "combined"),
           labels = c("Cons", "PHYLO", "PHYLO")
         )
       )
@@ -1673,7 +1679,7 @@ plan2 <- drake_plan(
   taxdata = {
     ranks <- c("domain", "kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
-      filter(region == "short", Algorithm == "Consensus") %>%
+      filter(region == "ITS", Algorithm == "Consensus") %>%
       mutate(domain = "Root", ASVs = 1) %>%
       select(-region, -seq_run, -label, -OTU) %>%
       mutate_at(
@@ -1810,7 +1816,7 @@ plan2 <- drake_plan(
   taxdata_ECM = {
     ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
     out <- taxon_reads %>%
-      filter(region == "short", Algorithm == "Consensus") %>%
+      filter(region == "ITS", Algorithm == "Consensus") %>%
       filter(!is.na(as.character(ECM)), ECM != "non-ECM") %>%
       mutate(ASVs = 1) %>%
       select(-region, -seq_run, -label, -OTU) %>%
@@ -2427,7 +2433,7 @@ plan2 <- drake_plan(
     # Don't use QC samples
     phyloseq::subset_samples(sample_type == "Sample") %>%
     # Only include fungi
-    phyloseq::prune_taxa(taxa = fungi_PHYLOTAX.Cons$label) %>%
+    phyloseq::prune_taxa(taxa = fungi_combined$label) %>%
     # Only use samples with more than 100 reads
     phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
     # Only use samples where there reads from all three tech×amplicon combinations
@@ -2479,14 +2485,14 @@ plan2 <- drake_plan(
     # Don't use QC sample
     phyloseq::subset_samples(sample_type == "Sample") %>%
     # Only fungi
-    phyloseq::prune_taxa(taxa = fungi_PHYLOTAX.Cons$label),
+    phyloseq::prune_taxa(taxa = fungi_combined$label),
 
   # Add taxonomy to the ASV table and cluster at the class level
   tech_class_table =
     phyloseq::`tax_table<-`(
       tech_asv_table,
       phyloseq::tax_table(
-        fungi_PHYLOTAX.Cons %>%
+        fungi_combined %>%
           select(label, kingdom:genus) %>%
           column_to_rownames("label") %>%
           as.matrix()
@@ -2591,14 +2597,14 @@ plan2 <- drake_plan(
   tech_ecm_asv_table =
     tech_asv_table %>%
     # Only ECM
-    phyloseq::prune_taxa(taxa = ecm_PHYLOTAX.Cons$label),
+    phyloseq::prune_taxa(taxa = ecm_combined$label),
 
   # Add taxonomy to the ECM ASV table and cluster at the family level
   tech_ecm_fam_table =
     phyloseq::`tax_table<-`(
       tech_asv_table,
       phyloseq::tax_table(
-        ecm_PHYLOTAX.Cons %>%
+        ecm_combined %>%
           select(label, kingdom:genus) %>%
           column_to_rownames("label") %>%
           as.matrix()
@@ -3262,7 +3268,7 @@ plan2 <- drake_plan(
       phylotaxon_decipher_unconst_long_fungi$tip_taxa %>%
       filter(rank != "kingdom") %>%
       group_by(label, rank) %>%
-      filter(if (any("phylotax" == method)) method == "phylotax" else TRUE) %>%
+      filter(if (any("PHYLOTAX" == method)) method == "PHYLOTAX" else TRUE) %>%
       group_by(label, rank) %>%
       summarize(
         taxon =  table(taxon) %>%
@@ -3663,7 +3669,7 @@ plan2 <- drake_plan(
     ) %>%
     tidyr::pivot_wider(names_from = "tech", values_from = "accno"),
   pretaxid =
-    preguild_taxa_short_euk_PHYLOTAX.Cons %>%
+    preguild_taxa_short_euk_combined %>%
     dplyr::select(kingdom:genus, Taxonomy, label) %>%
     dplyr::mutate_at("Taxonomy", stringi::stri_replace_all_fixed, ";NA", "") %>%
     dplyr::mutate_at("Taxonomy", stringi::stri_replace_first_regex, ";[A-Za-z]+\\d+$", "") %>%
@@ -3690,7 +3696,7 @@ plan2 <- drake_plan(
         write_csv(file_out("output/taxa_ncbi.csv"))
     },
   pretaxid_env =
-    preguild_taxa_short_euk_PHYLOTAX.Cons %>%
+    preguild_taxa_short_euk_combined %>%
     dplyr::select(kingdom:order, label) %>%
     dplyr::group_by_at(vars(kingdom:order)) %>%
     dplyr::summarize(label = paste(label, collapse = ",")) %>%
