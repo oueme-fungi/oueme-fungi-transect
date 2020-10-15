@@ -81,7 +81,6 @@ plan2 <- drake_plan(
     trigger = trigger(mode = "blacklist")
   ),
   allseqs = target(trigger = trigger(mode = "blacklist")),
-  taxon_table = target(trigger = trigger(mode = "blacklist")),
   taxon = target(
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID),
     trigger = trigger(mode = "blacklist")
@@ -108,6 +107,12 @@ plan2 <- drake_plan(
     write_big_fasta(big_seq_table,
                     file_out(big_fasta_file)),
     transform = map(.data = !!region_meta, .tag_in = step, .id = region)
+  ),
+
+  taxon_table = target(
+    drake_combine(taxon) %>%
+      combine_taxon_tables(allseqs),
+    transform = combine(taxon)
   ),
 
   # Create labels for the tree(s) which show the assigned taxonomy.

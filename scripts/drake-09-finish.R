@@ -60,7 +60,6 @@ if (is.null(cache2)) cache2 <- drake::new_cache(".drake")
 exports <- intersect(
   c(
     "allseqs",
-    "taxon_table",
     dplyr::filter(plan, step == "taxon")$target,
     "raxml_decipher_unconst_long",
     dplyr::filter(plan, step == "big_seq_table")$target,

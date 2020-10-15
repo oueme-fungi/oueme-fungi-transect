@@ -872,12 +872,6 @@ plan <- drake_plan(
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID)
   ),
 
-  taxon_table = target(
-    drake_combine(taxon) %>%
-     combine_taxon_tables(allseqs),
-    transform = combine(taxon)
-  ),
-
   #### Plan Section 5: Build phylogenetic trees. ####
 
   # Get the long sequences ready to align.
