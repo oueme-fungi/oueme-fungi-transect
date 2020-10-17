@@ -1,10 +1,10 @@
 #' Combine consensus sequences and ASVs for different regions
 #'
-#' @param conseqs (list of \code{\link[tibble]{tibble}}) ASVs for one region 
+#' @param conseqs (list of \code{\link[tibble]{tibble}}) ASVs for one region
 #'   (in the column named by \code{conseq_key}) and the corresponding consensus
-#'   sequences for a linked region, as well as the number of reads for the ASV 
+#'   sequences for a linked region, as well as the number of reads for the ASV
 #'   (in column \code{nread}).
-#' @param seq_tables (named list of character matrix, as returned by 
+#' @param seq_tables (named list of character matrix, as returned by
 #'   \code{\link[dada2]{makeSequenceTable}}) ASV matrices for the same (and
 #'   optionally additional) regions as given in \code{conseqs}.  The list names
 #'   should be the same as the column names for the regions in \code{conseq},
@@ -18,7 +18,7 @@
 #'   ASV.
 #'
 #' @return A tibble with columns for each of the regions in \code{conseqs} and
-#'  \code{seq_tables}, where each row corresponds to sequences which match the 
+#'  \code{seq_tables}, where each row corresponds to sequences which match the
 #'  same ASV for the region given by \code{conseq_key}.  ASVs which are not
 #'  represented in the consensus sequences are given on their own rows, where all
 #'  other sequences are \code{NA}.  A column named \code{hash} is also created,
@@ -31,28 +31,28 @@ make_allseq_table <- function(conseqs, seq_tables,
   conseqs <- purrr::reduce(conseqs,
                            dplyr::full_join,
                            by = c(conseq_key, "nread"))
-  
+
   names(seq_tables) <- stringr::str_replace(names(seq_tables),
                                             seq_table_prefix,
                                             "")
-  
+
   # make sure all the names are present in the consensus table, so that the
   # join will work
   for (n in names(seq_tables)) {
     if (!n %in% names(conseqs)) seq_tables[[n]] <- NULL
   }
-  
+
   seq_tables <- purrr::compact(seq_tables)
-  
+
   seq_tables <- purrr::imap(seq_tables,
                             ~ tibble::tibble(x = colnames(.x)) %>%
                               set_colnames(.y))
-  
+
   conseqs <-
     purrr::reduce(seq_tables,
                   dplyr::full_join,
                   .init = conseqs)
-  
+
   dplyr::mutate(conseqs,
                 hash = tzara::seqhash(.data[[conseq_key]]) %>%
                     unname())
@@ -77,7 +77,7 @@ write_big_fasta <- function(big_seq_table, filename) {
       by = c("seq_run", "plate", "well")) %>%
     dplyr::group_by(seq_run, plate, well, seq, total) %>%
     dplyr::summarize(size = sum(size)) %>%
-    
+
     dplyr::mutate(
       f = size/total,
       hash = tzara::seqhash(chartr("T", "U", seq)),
@@ -147,13 +147,13 @@ filterReadPairs <- function(reads1, reads2, trimR = 0, truncQ = 0, maxLen = Inf,
     is.numeric(maxEE),
     length(maxEE) %in% 1L:2L
   )
-  
+
   if (!missing(trimR)) {
     if (length(trimR == 1)) trimR <- c(trimR, trimR)
     reads1 <- ShortRead::narrow(reads1, end = pmax(ShortRead::width(reads1) - trimR[1], 0))
     reads2 <- ShortRead::narrow(reads2, end = pmax(ShortRead::width(reads2) - trimR[1], 0))
   }
-  
+
   if (!missing(truncQ)) {
     if (length(truncQ == 1)) truncQ <- c(truncQ, truncQ)
     w1 <- apply(methods::as(reads1@quality, "matrix") <= truncQ[1],
@@ -163,27 +163,27 @@ filterReadPairs <- function(reads1, reads2, trimR = 0, truncQ = 0, maxLen = Inf,
                 MARGIN = 1, match, x = TRUE)
     reads2 <- ShortRead::narrow(reads2, end = w2 - 1)
   }
-  
+
   if (length(maxLen == 1)) maxLen <- c(maxLen, maxLen)
   shortenough <- ShortRead::width(reads1) <= maxLen[1] &
     ShortRead::width(reads2) <= maxLen[2]
   reads1 <- reads1[shortenough]
   reads2 <- reads2[shortenough]
   if (length(reads1) == 0) return(list(R1 = reads1, R2 = reads2))
-  
+
   if (length(minLen == 1)) minLen <- c(minLen, minLen)
   longenough <- ShortRead::width(reads1) >= minLen[1] &
     ShortRead::width(reads2) >= minLen[1]
   reads1 <- reads1[longenough]
   reads2 <- reads2[longenough]
   if (length(reads1) == 0) return(list(R1 = reads1, R2 = reads2))
-  
+
   noN <- !grepl("N", as.character(reads1@sread)) &
     !grepl("N", as.character(reads2@sread))
   reads1 <- reads1[noN]
   reads2 <- reads2[noN]
   if (length(reads1) == 0) return(list(R1 = reads1, R2 = reads2))
-  
+
   if (length(maxEE == 1)) maxEE <- c(maxEE, maxEE)
   ee1 <- rowSums(10 ^ (-1 * (methods::as(reads1@quality, "matrix") / 10)),
                 na.rm = TRUE)
@@ -198,21 +198,24 @@ extract_and_derep <- function(positions, trim_file, region, region_start, region
                               max_length, min_length, max_ee) {
   if (nrow(positions) == 0) return(NULL)
   pos <- dplyr::group_by(positions, trim_file)
-  filekey <- dplyr::select(positions, "trim_file", "seq") %>%
+  filekey <- dplyr::select(positions, "trim_file", "seq_id") %>%
     unique()
-  regions <- 
-    tzara::extract_region(
-      seq = dplyr::group_keys(pos)$trim_file,
+  regions <-
+    purrr::map2(
+      dplyr::group_keys(pos)$trim_file,
+      dplyr::group_split(pos),
+      tzara::extract_region,
       region = region_start,
-      region2 = region_end,
-      positions = dplyr::group_split(pos)
-    )
+      region2 = region_end
+    ) %>%
+    do.call(c,.) %>%
+    as("ShortReadQ")
   qstats_region <- q_stats(
     regions,
     step = "lsux",
     file = plyr::mapvalues(
       as.character(regions@id),
-      filekey$seq,
+      filekey$seq_id,
       filekey$trim_file,
       warn_missing = FALSE
     ),
@@ -229,7 +232,7 @@ extract_and_derep <- function(positions, trim_file, region, region_start, region
     step = "filter",
     file = plyr::mapvalues(
       as.character(filter@id),
-      filekey$seq,
+      filekey$seq_id,
       filekey$trim_file,
       warn_missing = FALSE
     ),
@@ -247,14 +250,14 @@ extract_and_derep <- function(positions, trim_file, region, region_start, region
     )
   }
   if (length(filter) == 0) return(structure(list(), qstats = qstats))
-  out <- 
+  out <-
     derepShortReadQ(
     reads = filter,
     n = 1e4,
     qualityType = "FastqQuality",
     verbose = TRUE
   )
-  
+
   out[["names"]] <- as.character(filter@id)
   attr(out, "qstats") <- qstats
   out
@@ -264,12 +267,12 @@ filter_and_derep_pairs <- function(trim_file_1, trim_file_2, trimR, truncQ, max_
                                    min_length, max_ee, ID, ...) {
   reads1 <- ShortRead::readFastq(trim_file_1)
   reads2 <- ShortRead::readFastq(trim_file_2)
-  
+
   filter_reads <- filterReadPairs(reads1, reads2, trimR, truncQ, max_length, min_length, max_ee)
   reads1 <- filter_reads$R1
   reads2 <- filter_reads$R2
-  
-  qstats <- 
+
+  qstats <-
     dplyr::bind_rows(
       q_stats(reads1, step = "filter", file = trim_file_1, read = "R1", ...),
       q_stats(reads2, step = "filter", file = trim_file_2, read = "R2", ...)
@@ -342,9 +345,9 @@ multidada <- function(dereplist, dadalist, region, ..., keyvars = NULL) {
   if (nrow(dadamap) == 0) return(dadamap)
   regions <- unique(dadamap$region)
   dadamap %>%
-    dplyr::select(-name, -derep.idx, -derep.seq, -dada.idx) %>%
-    dplyr::mutate_at("dada.seq", chartr, old = "T", new = "U") %>%
-    tidyr::spread(key = "region", value = "dada.seq") %>%
+    dplyr::select(-name, -derep_idx, -derep_seq, -dada_idx) %>%
+    dplyr::mutate_at("dada_seq", chartr, old = "T", new = "U") %>%
+    tidyr::spread(key = "region", value = "dada_seq") %>%
     dplyr::group_by_at(regions) %>%
     dplyr::summarize(nread = dplyr::n()) %>%
     dplyr::ungroup()
