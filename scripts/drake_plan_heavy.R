@@ -363,7 +363,7 @@ plan <- drake_plan(
       dplyr::left_join(
         derep_submap,
         .,
-        by = c("map" = "seq_name")) %>%
+        by = c("map" = "seq_id")) %>%
       gather_regions()},
     transform = map(lsux_pos, derep_submap, derep_by, .id = seq_run),
     dynamic = group(derep_submap, .by = derep_by, .trace = derep_by),
