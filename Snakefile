@@ -719,6 +719,29 @@ rule consensus:
     log: "{logdir}/consensus.log".format_map(config)
     script: "{rdir}/drake-07-consensus.R".format_map(config)
 
+# the previous rule assigns taxonomy, but this one does a dirty version which
+# does care if any targets earlier in the plan have changed.
+rule just_taxonomy:
+    input:
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['warcup', 'unite'],
+               region = ['ITS'],
+               method = ['sintax', 'dada2']),
+        expand("{ref_root}/{db}.{region}.{method}.fasta.gz",
+               ref_root = config['ref_root'],
+               db = ['rdp_train'],
+               region = ['LSU'],
+               method = ['sintax', 'dada2']),
+        drakedata = rules.drake_plan.output.drakedata,
+        script = "{rdir}/drake-XX-just_taxonomy.R".format_map(config)
+    conda: "config/conda/drake.yaml"
+    threads: maxthreads
+    resources:
+        walltime = 240
+    log: "{logdir}/just_taxonomy.log".format_map(config)
+    script: "{rdir}/drake-XX-just_taxonomy".format_map(config)
+
 rule raxml:
     output:
         flag = ".raxml"

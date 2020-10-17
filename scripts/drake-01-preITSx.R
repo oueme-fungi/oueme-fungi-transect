@@ -20,6 +20,7 @@ ncpus <- max(local_cpus() %/% njobs, 1)
 # run them locally with 2 cores (worth of memory) each
 preitsx_targets <- c(stringr::str_subset(od, "^split_derep_"),
                      stringr::str_subset(od, "^derep_submap_"),
+                     stringr::str_subset(od, "^derep_illumina_"),
                      stringr::str_subset(od, "^qstats_(raw|demux)"))
 if (length(preitsx_targets)) {
   flog.info("Making targets to prepare for ITSx...")
@@ -40,11 +41,11 @@ if (length(preitsx_targets)) {
     console_log_file = get_logfile("preITSx"),
     cache = cache
   )
-  
+
   dod <- drake::outdated(dconfig)
-  
+
   drake::make(config = dconfig)
-  
+
   tictoc::toc()
   if (any(dod %in% drake::failed())) {
     if (interactive()) stop() else quit(status = 1)

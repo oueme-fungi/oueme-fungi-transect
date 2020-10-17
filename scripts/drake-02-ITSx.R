@@ -14,7 +14,7 @@ setup_log("ITSx")
 #### ITSx ####
 # itsx (actually hmmer) does have an internal parallel option, but it isn't
 # very efficient at using all the cores.
-# Instead, we divide the work into a large number of 
+# Instead, we divide the work into a large number of
 # shards and submit them all as seperate jobs on SLURM.
 # failing that, do all the shards locally on the cores we have.
 
@@ -34,7 +34,7 @@ if (length(itsx_targets)) {
   njobs <- max(ceiling(length(itsx_targets) / 2), njobs)
   # in any case never send more jobs than there are targets
   njobs <- min(njobs, length(itsx_targets))
-  
+
   # do it as SLURM jobs if possible and
   # - we don't have enough local cores to run 1 job locally
   #   -or-
@@ -75,7 +75,7 @@ if (length(itsx_targets)) {
        memory_strategy = "preclean",
        cache = cache
   )
-  
+
   dod <- drake::outdated(dconfig)
   drake::make(config = dconfig)
   tictoc::toc()

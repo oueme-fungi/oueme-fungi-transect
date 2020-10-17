@@ -256,11 +256,20 @@ tictoc::tic()
 plan <- drake_plan(
 
   #### Plan section 1: Split reads into regions ####
-  shard = 1L:!!config$bigsplit,
+  shard = target(
+    1L:!!config$bigsplit,
+    # by setting skip_allseqs = TRUE before make(),
+    # we can bypass early stages of the pipeline.
+    # this is usually a bad idea, but is sometimes useful if everything
+    # has been invalidated for a trivial reason, like a new version of
+    # LSUx.
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
+  ),
   file_meta = target(
     dplyr::filter(itsx_meta, .data[["primer_ID"]] == primer_ID) %>%
       dplyr::sample_n(nrow(.)),
-    transform = map(primer_ID = !!unique(itsx_meta$primer_ID))
+    transform = map(primer_ID = !!unique(itsx_meta$primer_ID)),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
   derep1 = target(
     dada2::derepFastq(
@@ -275,11 +284,13 @@ plan <- drake_plan(
       # information.  Removing it drastically reduces the size in memory.
       magrittr::inset2("quals", NULL),
     transform = map(file_meta, .id = primer_ID),
-    dynamic = map(file_meta, .trace = file_meta)
+    dynamic = map(file_meta, .trace = file_meta),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
   trace1 = target(
     get_trace(paste0("file_meta_", primer_ID), derep1),
-    transform = map(derep1, .id = primer_ID)
+    transform = map(derep1, .id = primer_ID),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   join_derep = target(
@@ -288,17 +299,20 @@ plan <- drake_plan(
       .data = dplyr::bind_rows(trace1)[ , c("seq_run", "plate", "well",
                                             "direction", "trim_file")]
     ),
-    transform = map(derep1, trace1, .id = primer_ID)
+    transform = map(derep1, trace1, .id = primer_ID),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   derep_map = target(
     join_derep$map,
-    transform = map(join_derep, .id = primer_ID)
+    transform = map(join_derep, .id = primer_ID),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   derep_submap = target(
     dplyr::filter(derep_map, .data[["seq_run"]] == seq_run),
-    transform = map(.data = !!positions_meta, .id = seq_run)
+    transform = map(.data = !!positions_meta, .id = seq_run),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   lsux = target(
@@ -314,27 +328,31 @@ plan <- drake_plan(
       as.data.frame(),
     transform = map(join_derep, .id = primer_ID),
     dynamic = map(shard),
-    format = "fst"
+    format = "fst",
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   lsux_pos = target(
     combine_dynamic_diskframe(lsux, cache = ignore(cache_dir)),
     transform = map(lsux, .id = primer_ID),
-    format = "diskframe"
+    format = "diskframe",
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   derep_by = target(
     derep_submap %>%
       dplyr::group_by_at(c("seq_run", "plate", "well")) %>%
       dplyr::group_indices(),
-    transform = map(derep_submap, .id = seq_run)
+    transform = map(derep_submap, .id = seq_run),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   derep_groups = target(
     derep_submap %>%
       dplyr::group_by_at(c("seq_run", "plate", "well", "trim_file")) %>%
       dplyr::group_keys(),
-    transform = map(derep_submap, .id = seq_run)
+    transform = map(derep_submap, .id = seq_run),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   positions = target({
@@ -348,14 +366,16 @@ plan <- drake_plan(
         by = c("map" = "seq_name")) %>%
       gather_regions()},
     transform = map(lsux_pos, derep_submap, derep_by, .id = seq_run),
-    dynamic = group(derep_submap, .by = derep_by, .trace = derep_by)
+    dynamic = group(derep_submap, .by = derep_by, .trace = derep_by),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   position_map = target(
     dplyr::select(positions, "seq_run", "plate", "well") %>%
       unique(),
     transform = map(positions, .id = seq_run),
-    dynamic = map(positions)
+    dynamic = map(positions),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   # extract regions, do quality filtering, and dereplicate
@@ -378,13 +398,15 @@ plan <- drake_plan(
       .tag_in = step,
       .id = c(seq_run, region)
     ),
-    dynamic = map(positions)
+    dynamic = map(positions),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   derep2_length = target(
     length(derep2),
     transform = map(derep2, primer_ID, .tag_in = step, .id = c(seq_run, region)),
-    dynamic = map(derep2)
+    dynamic = map(derep2),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   illumina_group = target(
@@ -396,13 +418,15 @@ plan <- drake_plan(
       seq_run = !!unique(illumina_meta$seq_run),
       .tag_in = step,
       .id = seq_run
-    )
+    ),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   illumina_id = target(
     illumina_group,
     transform = map(illumina_group, .id = seq_run),
-    dynamic = map(illumina_group)
+    dynamic = map(illumina_group),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   derep_illumina = target(
@@ -422,7 +446,8 @@ plan <- drake_plan(
       .tag_out = derep_all,
       .id = seq_run
     ),
-    dynamic = map(illumina_group)
+    dynamic = map(illumina_group),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   #### Plan section 2: Denoise using DADA ####
@@ -450,7 +475,8 @@ plan <- drake_plan(
       .data = !!err_meta,
       .tag_in = step,
       .id = c(seq_run, region)
-    )
+    ),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   err_illumina = target({
@@ -474,7 +500,8 @@ plan <- drake_plan(
       .data = !!illumina_err_meta,
       .tag_in = step,
       .id = c(seq_run, read)
-    )
+    ),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   # Run dada denoising algorithm (on different regions)
@@ -499,7 +526,8 @@ plan <- drake_plan(
                        max_length_post),
       .tag_in = step,
       .id = c(seq_run, region)
-    )
+    ),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   dada_illumina = target({
@@ -530,7 +558,8 @@ plan <- drake_plan(
       read,
       .tag_in = step,
       .id = c(seq_run, read)
-    )
+    ),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   merge = target(
@@ -540,7 +569,8 @@ plan <- drake_plan(
       dadaR = purrr::compact(dada_R2),
       derepR = set_names(purrr::map(readd(derep, cache = ignore(drake::drake_cache(cache_dir))), "R2"), names(dada_R2)) %>% purrr::compact()
     ),
-    transform = map(.data = !!merge_meta, .id = seq_run)
+    transform = map(.data = !!merge_meta, .id = seq_run),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   # Make a sample x ASV abundance matrix
@@ -550,7 +580,8 @@ plan <- drake_plan(
       magrittr::extract(,nchar(colnames(.)) >= min_length_post &
                           nchar(colnames(.)) <= max_length_post,
                         drop = FALSE),
-    transform = map(dada, .tag_in = step, .tag_out = seq_table, .id = c(seq_run, region))
+    transform = map(dada, .tag_in = step, .tag_out = seq_table, .id = c(seq_run, region)),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   seq_table_illumina = target({
@@ -575,7 +606,8 @@ plan <- drake_plan(
       tibble::column_to_rownames("name") %>%
       as.matrix()
   },
-  transform = map(merge, .id = seq_run)
+  transform = map(merge, .id = seq_run),
+  trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   lsux_illumina = target(
@@ -588,7 +620,8 @@ plan <- drake_plan(
       cpu = ignore(ncpus)
     ) %>%
       gather_regions(),
-    transform = map(seq_table_illumina, .id = seq_run)
+    transform = map(seq_table_illumina, .id = seq_run),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   region_illumina = target(
@@ -600,7 +633,8 @@ plan <- drake_plan(
         region = region_start,
         region2 = region_end
       ),
-    transform = map(.data = !!illumina_region_meta, .id = c(seq_run, region))
+    transform = map(.data = !!illumina_region_meta, .id = c(seq_run, region)),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   region_table_illumina = target(
@@ -622,7 +656,8 @@ plan <- drake_plan(
       dplyr::mutate_at("name", paste, region, sep = "_") %>%
       tibble::column_to_rownames("name") %>%
       as.matrix,
-    transform = map(seq_table_illumina, region_illumina, region, .tag_out = seq_table, .id = c(seq_run, region))
+    transform = map(seq_table_illumina, region_illumina, region, .tag_out = seq_table, .id = c(seq_run, region)),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   preconseq_illumina = target(
@@ -647,7 +682,8 @@ plan <- drake_plan(
       dplyr::summarize(nread = sum(nread)) %>%
       dplyr::mutate(primer_ID = symbols_to_values(primer_ID)) %>%
       dplyr::group_by(ITS2),
-    transform = combine(region_illumina, seq_table_illumina, seq_run, primer_ID, .by = seq_run)
+    transform = combine(region_illumina, seq_table_illumina, seq_run, primer_ID, .by = seq_run),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   # Find likely bimeras
@@ -665,7 +701,8 @@ plan <- drake_plan(
         multithread = ignore(ncpus)
       )
     },
-    transform = map(seq_table, .tag_in = step, .id = c(seq_run, region))
+    transform = map(seq_table, .tag_in = step, .id = c(seq_run, region)),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   allchimeras = target(
@@ -673,14 +710,17 @@ plan <- drake_plan(
       chartr("T", "U", .) %>%
       tzara::seqhash() %>%
       unname(),
-    transform = combine(chimeras, .tag_in = step, .by = region)
+    transform = combine(chimeras, .tag_in = step, .by = region),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   # big_seq_table
   # Join all the sequence tables for each region
   big_seq_table = target(
     dada2::mergeSequenceTables(tables = list(seq_table)),
-    transform = combine(seq_table, .tag_in = step, .by = region)),
+    transform = combine(seq_table, .tag_in = step, .by = region),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
+  ),
 
   # big_fasta
   # write the big_seq_table as a fasta files so that they can be clustered by
@@ -688,7 +728,8 @@ plan <- drake_plan(
   big_fasta = target(
     write_big_fasta(big_seq_table,
                     file_out(big_fasta_file)),
-    transform = map(.data = !!region_meta, .id = region)
+    transform = map(.data = !!region_meta, .id = region),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   #### Plan section 3: Generate consensus sequences ####
@@ -775,7 +816,8 @@ plan <- drake_plan(
     .tag_in = step,
     .by = primer_ID
   ),
-  memory_strategy = "unload"
+  memory_strategy = "unload",
+  trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   conseq = target(
@@ -817,7 +859,8 @@ plan <- drake_plan(
       .data = !!conseq_meta,
       .id = c(primer_ID, region)
     ),
-    format = "fst"
+    format = "fst",
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   # make a data frame of all consensus sequences and ASVs; each row is an ITS2 ASV
@@ -826,7 +869,8 @@ plan <- drake_plan(
                       drake_combine(big_seq_table)) %>%
       dplyr::filter(!is.na(ITS2)) %>%
       dplyr::mutate(full = dplyr::coalesce(long, short)),
-    transform = combine(conseq, big_seq_table)
+    transform = combine(conseq, big_seq_table),
+    trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),
 
   #### Plan section 4: Assign taxonomy to consensus sequences ####
@@ -1019,7 +1063,7 @@ tictoc::toc()
 cache_dir <- ".drake_heavy"
 cache <- drake::drake_cache(cache_dir)
 if (is.null(cache)) cache <- drake::new_cache(".drake_heavy")
-
+skip_allseqs <- FALSE
 
 tictoc::tic()
 flog.info("Configuring plan...")
