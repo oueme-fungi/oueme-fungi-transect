@@ -462,6 +462,10 @@ def illumina_find(seq_run, plate):
 #### Reference databases ####
 
 # download taxonomy translation files
+# the sed magic is because there are some reference sequences which cannot be
+# placed even to a real kingdom (i.e., they are annotated as "Protista")
+# These have been reannotated as NA, which is not helpful for taxonomic annotation
+# at all, so this removes them.
 localrules: taxon_references
 rule taxon_references:
   output: "{ref_root}/{{reference}}.fasta.gz".format_map(config)
@@ -470,7 +474,13 @@ rule taxon_references:
   resources:
     connection=1
 #  log: "{logdir}/references_{{reference}}.log".format_map(config)
-  shell: "cd {config[ref_root]} && wget {params.url}"
+  shell:
+    """
+    wget -O - {params.url} |\
+    zcat |\
+    sed ' /^>/!{{H; $!d}}; /^>/ x; $x; /^>[tax=k:]*NA/ d; 1 d' |\
+    gzip -c >{output}
+    """
 
 #### Drake pipeline ####
 # The R-heavy parts of the analysis are organized using the Drake package in R.
