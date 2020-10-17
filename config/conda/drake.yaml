@@ -1,4 +1,4 @@
-name: drake
+name: oueme-drake
 channels:
   - conda-forge
   - bioconda
