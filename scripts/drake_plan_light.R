@@ -230,7 +230,7 @@ plan2 <- drake_plan(
 
   # label the tree
   labeled_tree = target(
-    relabel_tree(
+    phylotax::relabel_tree(
       tree = rooted_tree,
       old = taxon_labels$label,
       new = taxon_labels$tip_label,
@@ -243,7 +243,7 @@ plan2 <- drake_plan(
   ),
 
   phylo_labeled_tree = target(
-    relabel_tree(
+    phylotax::relabel_tree(
       tree = rooted_tree,
       old = phylotax_labels$label,
       new = phylotax_labels$tip_label,
@@ -299,7 +299,7 @@ plan2 <- drake_plan(
 
   # Create labels for the tree(s) which show the assigned taxonomy before
   # refinement
-  taxon_labels = make_taxon_labels(taxon_table_long),
+  taxon_labels = phylotax::make_taxon_labels(taxon_table_long),
 
   # calculate phylogenetic consensus taxonomy for long sequences
   phylotax = target(
@@ -315,7 +315,7 @@ plan2 <- drake_plan(
   # make labels for phylogenetic consensus taxa
   phylotax_labels =
     bind_rows(phylotax_euk$tip_taxa, phylotax_euk$retained) %>%
-    make_taxon_labels(),
+    phylotax::make_taxon_labels(),
 
   # calculate strict consensus taxonomy
   lcatax_euk = target(
@@ -345,7 +345,7 @@ plan2 <- drake_plan(
   ),
 
   lcatax_fungi = target(
-    select_taxon(lcatax_euk, "kingdom", "Fungi"),
+    phylotax::keep_tips(lcatax_euk, sure_fungi, mrca = TRUE),
     transform = map(lcatax_euk, group = "fungi",
                     .tag_out = taxa,
                     .tag_in = step, .id = taxset)

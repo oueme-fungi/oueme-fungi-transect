@@ -39,39 +39,6 @@ combine_taxon_tables <- function(tables, allseqs) {
     )
 }
 
-#### taxon_labels ####
-# make labels summarizing the taxonomy of each sequence
-make_taxon_labels <- function(t) {
-    dplyr::group_by(t, label, rank, n_reads) %>%
-    dplyr::summarize(
-      taxon =
-        table(taxon) %>%
-        paste0(names(.), collapse = "/") %>%
-        gsub(pattern = "(.+/.+)", replacement = "<\\1>") %>%
-        gsub(pattern = "(mycota|mycetes|ales|aceae)", replacement = "") %>%
-        gsub(pattern = "incertae_sedis", replacement = "i_s") %>%
-        gsub(pattern = "Fungi\\b", replacement = "F") %>%
-        gsub(pattern = "Basidio\\b", replacement = "B") %>%
-        gsub(pattern = "Asco\\b", replacement = "A") %>%
-        gsub(pattern = "Chytridio\\b", replacement = "Chy") %>%
-        gsub(pattern = "Zygo\\b", replacement = "Z")
-    ) %>%
-    dplyr::group_by(label, n_reads) %>%
-    dplyr::arrange(rank) %>%
-    dplyr::summarize(tip_label = paste(label[1],
-                                       format(n_reads[1], width = 5),
-                                       paste0(taxon, collapse = "-")))
-}
-
-#### relabel_tree ####
-# replaces tree tip labels from old with labels from new
-relabel_tree <- function(tree, old, new, chimeras = character(0)) {
-  tree <- ape::drop.tip(tree, intersect(chimeras, tree$tip.label))
-  tree$tip.label <-
-    plyr::mapvalues(tree$tip.label, old, paste0('"', new, '"'), warn_missing = FALSE)
-  tree
-}
-
 #### Find ASVs with consistent kingdom-level assignments
 # i.e., at least min_n assignments with greater than min_confidence
 # confidence, and also no conflicting assignments at any confidence level
@@ -201,15 +168,4 @@ select_taxon_reads <- function(taxa, reads, ..., method = first(taxa$tip_taxa$me
     mutate_at("kingdom", na_if, "NA") %>%
     mutate(kingdom = ifelse(endsWith(phylum, "mycota"), "Fungi", kingdom),
            method = !!method)
-}
-
-# take only a particular taxon from a phylotax object
-select_taxon <- function(phylotax, rank, taxon) {
-  purrr::modify_if(
-    phylotax,
-    ~ utils::hasName(c("rank", "taxon", "label")),
-    ~ dplyr::group_by(., label) %>%
-      dplyr::filter(any(rank == !!rank), all(taxon == !!taxon | rank != !!rank)) %>%
-      dplyr::ungroup()
-  )
 }
