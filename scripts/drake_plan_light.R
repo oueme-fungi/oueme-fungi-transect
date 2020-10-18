@@ -203,7 +203,7 @@ plan2 <- drake_plan(
       unrooted_tree,
       sure_bikonts,
       resolve.root = TRUE,
-      edgelabel = TRUE
+      edgelabel = FALSE
     ),
     transform = map(
       group = "euk",
@@ -213,7 +213,7 @@ plan2 <- drake_plan(
   ),
 
   # find the sequences that were confidently identified as fungi
-  sure_fungi = dplyr::filter(sure_kingdoms, taxon == "fungi")$label,
+  sure_fungi = dplyr::filter(sure_kingdoms, taxon == "Fungi")$label,
 
   # Extract the minimally inclusive clade including all confidently identified
   # fungi (except Tulasnella).
@@ -302,15 +302,20 @@ plan2 <- drake_plan(
   taxon_labels = make_taxon_labels(taxon_table_long),
 
   # calculate phylogenetic consensus taxonomy for long sequences
-  phylotax =
+  phylotax = target(
     phylotax::phylotax(
-      tree = rooted_tree_euk,
+      tree = rooted_tree,
       taxa = taxon_table_long,
-      method = c(region = "All", reference = "All", ref_region = "All", method = "PHYLOTAX")
+      method = c(region = "All", reference = "All",
+                 ref_region = "All", method = "PHYLOTAX")
     ),
+    transform = map(rooted_tree, .tag_in = step, .id = group)
+  ),
 
   # make labels for phylogenetic consensus taxa
-  phylotax_labels = make_taxon_labels(phylotax$tip_taxa),
+  phylotax_labels =
+    bind_rows(phylotax_euk$tip_taxa, phylotax_euk$retained) %>%
+    make_taxon_labels(),
 
   # calculate strict consensus taxonomy
   lcatax_euk = target(
@@ -324,33 +329,35 @@ plan2 <- drake_plan(
       group = "euk",
       algorithm = "LCA",
       .tag_in = step,
-      .tag_out = c(euktax, taxa),
+      .tag_out = taxa,
       .id = taxset
     )
   ),
 
   # PHYLOTAX plus LCA.
-  phylotax_euk = target(
-    combotax(phylotax, lcatax_euk,
+  phylotaxlca_euk = target(
+    combotax(phylotax_euk, lcatax_euk,
              method = c(region = "All", reference = "All", ref_region = taxset,
                         method = "PHYLOTAX")),
     transform = map(lcatax_euk, algorithm = "PHYLOTAX",
-                    .tag_in = step, .tag_out = c(euktax, taxa),
+                    .tag_in = step, .tag_out = taxa,
                     .id = taxset)
   ),
 
   lcatax_fungi = target(
     select_taxon(lcatax_euk, "kingdom", "Fungi"),
     transform = map(lcatax_euk, group = "fungi",
-                    .tag_out = c(fungi_tax, taxa),
+                    .tag_out = taxa,
                     .tag_in = step, .id = taxset)
   ),
 
-  phylotax_fungi = target(
-    select_taxon(phylotax_euk, "kingdom", "Fungi"),
-    transform = map(phylotax_euk, group = "fungi",
-                    .tag_out = c(fungi_tax, taxa),
-                    .tag_in = step, .id = taxset)
+  phylotaxlca_fungi =  target(
+    combotax(phylotax_fungi, lcatax_fungi,
+             method = c(region = "All", reference = "All", ref_region = taxset,
+                        method = "PHYLOTAX")),
+    transform = map(lcatax_fungi, algorithm = "PHYLOTAX",
+                    .tag_in = step, .tag_out = taxa,
+                    .id = taxset)
   ),
 
   # Guild assignment ----
@@ -1154,7 +1161,7 @@ plan2 <- drake_plan(
   # PHYLOTAX for long amplicon PacBio
   # region = NA, reference = NA, ref_region = NA; method = "PHYLOTAX"
   taxon_reads_long_phylotax =
-    select_taxon_reads(phylotax_euk_long, taxon_reads_proto, seq_run == "pb_500") %>%
+    select_taxon_reads(phylotaxlca_euk_long, taxon_reads_proto, seq_run == "pb_500") %>%
     mutate(method = "PHYLOTAX", region = "All"),
 
   # LCA consensus;
@@ -1175,7 +1182,7 @@ plan2 <- drake_plan(
   # Apply only to Short amplicons
   # region = "short", reference = "All", ref_region = "All", method = "combined"
   taxon_reads_hybrid_phylotax =
-    select_taxon_reads(phylotax_euk_hybrid, taxon_reads_proto, amplicon == "Short") %>%
+    select_taxon_reads(phylotaxlca_euk_hybrid, taxon_reads_proto, amplicon == "Short") %>%
     mutate(method = "PHYLOTAX", region = "hybrid"),
 
   # LCA consensus using only ITS references
@@ -3105,7 +3112,10 @@ plan2 <- drake_plan(
     charscale <- 0.015
     rankgap <- 0.015
     tip_taxa <-
-      phylotaxon_fungi$tip_taxa %>%
+      bind_rows(
+      phylotax_fungi$tip_taxa,
+      phylotax_fungi$retained
+      ) %>%
       filter(rank != "kingdom") %>%
       group_by(label, rank) %>%
       filter(if (any("PHYLOTAX" == method)) method == "PHYLOTAX" else TRUE) %>%
@@ -3133,8 +3143,10 @@ plan2 <- drake_plan(
     clade_annot <- list()
     ranks <- c("genus", "family", "order", "class", "phylum")
     for (i in seq_along(ranks)) {
-      rank_nodes <- phylotaxon_fungi$node_taxa %>%
+      rank_nodes <- phylotax_fungi$node_taxa %>%
         filter(rank == ranks[i]) %>%
+        select(node, rank, taxon) %>%
+        unique() %>%
         group_by(taxon) %>%
         mutate(color = ifelse(n() > 1, "tomato", "black")) %>%
         ungroup() %>%
