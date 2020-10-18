@@ -92,7 +92,7 @@ gethash <- function(...) purrr::map_chr(purrr::flatten(list(...)), drake_cache()
 
 **Supplementary file 2**: Mapping between samples, indexed primers, and read accession numbers for long amplicons.
 
-**Supplementary file 3**: ML tree of all long metabarcoding ASVs (5.8S--ITS2--LSU) assigned to kingdom Fungi.
+**Supplementary file 3**: ML tree of all long metabarcoding ASVs (ITS1--5.8S--ITS2--LSU) assigned to kingdom Fungi.
 Thick branches represent rapid bootstrap values >90%.
 Taxonomic assignment by PHYLOTAX, based on assignments using RDPC, SINTAX, and IDTAXA, and Unite, Warcup, and RDP reference databases. 
 Taxon names in blue were not fully resolved with PHYLOTAX, and are given as a list of alternative assignments, along with the number of methods which gave each assignment (max 9).
