@@ -265,7 +265,7 @@ rule pacbio_singledemux:
             sample=${{sample%[fr].trim.fastq.gz}} &&
             echo $sample &&
             zcat $file |
-            sed '/@/ s/@.*/&;sample:'${{sample}}'/' |I made an LSU alignment in MUSCLE
+            sed '/@/ s/@.*/&;sample:'${{sample}}'/' |
             gzip - >>{output.fastq}
         done &&
         zcat {output.fastq} | sed -nr '/^@/s/^@([^;]+;sample:(.+))/\1\t\2/ p' >{output.key}
