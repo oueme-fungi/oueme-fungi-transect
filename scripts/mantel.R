@@ -25,7 +25,7 @@ relabel_seqtable <- function(seqtable) {
     dplyr::ungroup() %>%
     # convert back to a matrix
     tibble::column_to_rownames("ID") %>%
-    as.matrix
+    as.matrix()
 }
 
 assemble_sample_data <- function(platemap, datasets) {
@@ -49,11 +49,10 @@ assemble_sample_data <- function(platemap, datasets) {
 }
 
 assemble_otu_table <- function(samp, seqtable, drop) {
-  colnames(seqtable) <- tzara::seqhash(chartr("Tt", "Uu", colnames(seqtable)))
   asvs <- colnames(seqtable)
   asvs <- setdiff(asvs, drop)
   miss_samples <- setdiff(row.names(samp), row.names(seqtable))
-  asvtab <- rbind(
+  rbind(
     seqtable[,asvs, drop = FALSE],
     matrix(0, nrow = length(miss_samples), ncol = length(asvs),
            dimnames = list(miss_samples, asvs))

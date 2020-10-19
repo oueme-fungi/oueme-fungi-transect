@@ -425,7 +425,7 @@ plan2 <- drake_plan(
   sample_data = assemble_sample_data(platemap, datasets),
 
   physeq_otu_table =
-    assemble_otu_table(sample_data, big_seq_table_ITS2, allchimeras_ITS2),
+    assemble_otu_table(sample_data, relabel_seqtable(big_seq_table_ITS2), allchimeras_ITS2),
 
   proto_physeq = phyloseq::phyloseq(sample_data, physeq_otu_table),
 
