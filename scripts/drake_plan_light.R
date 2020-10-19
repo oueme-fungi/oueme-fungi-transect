@@ -31,29 +31,47 @@ source(file.path(config$rdir, "output_functions.R"))
 datasets <- read_csv(config$dataset, col_types = "cccccccicccccccccccicc")
 regions <- read_csv(config$regions, col_types = "cccciiiiic")
 
+# we will calculate five sets of consensus taxonomy:
+# taxa_meta <- tribble(
+#   ~algorithm,  ~taxset,   ~region, ~ref_region,
+# # PHYLOTAX hybrid is the best taxonomy we can do; it uses all the available
+# # sequences plus the phylogeny.
+#   "PHYLOTAX",  "hybrid",  "All",   "All",
+# # Consensus hybrid is the same thing, but without using the phylogeny
+#   "Consensus", "hybrid",  "All",   "All",
+# # Consensus ITS does not use LSU-based assignments or the tree.  This is used
+# # for comparing the taxa recovered by long and short reads
+#   "Consensus", "ITS",     "All",   "ITS",
+# # Consensus short uses only the short amplicons; this is the best we would be
+# # able to do if we had only sequences short amplicons.
+#   "Consensus", "short",   "short", "ITS"
+# ) %>%
+#   mutate(
+#     tree = ifelse(algorithm == "Consensus", "null_tree", "rooted_tree"),
+#     taxon_table = glue::glue("taxon_table_{taxset}")
+#   ) %>%
+#   dplyr::mutate_at(c("tree", "taxon_table"), rlang::syms)
+
 # Data frame for mapping between targets for guild assignment
-guilds_meta <- tibble(
-  wide_taxa = c(
-    "wide_taxa_PHYLOTAX_fungi_long",
-    "wide_taxa_LCA_fungi_hybrid",
-    "wide_taxa_PHYLOTAX_fungi_hybrid"
-  ),
-  amplicon = c("Long", "Short", "Short"),
-  algorithm = c("PHYLOTAX", "LCA", "PHYLOTAX")
-) %>%
-  mutate_at("wide_taxa", syms)
+# guilds_meta <- tibble::tibble(
+#   taxa = rlang::syms(c("phylotax_hybrid", "consensus_short")),
+#   consensus = list(NULL, rlang::sym("consensus_short"))
+# )
 
 # Data frame for mapping between targets for building phyloseq experiment objects
 physeq_meta <-
   tidyr::crossing(
-    dplyr::select(datasets, "seq_run", "tech", "dataset", "amplicon"),
-    guild = c("fungi", "ecm") #, "ecm2", "ecm3")
+    dplyr::select(datasets, "seq_run", "tech", "amplicon"),
+    guild = c("fungi", "ecm"), #, "ecm2", "ecm3"),
+    tibble::tibble(
+      algorithm = c("PHYLOTAX", "Consensus"),
+      taxset = c("hybrid", "short")
+    )
   ) %>%
   dplyr::filter(
     seq_run != "is_057", # couldn't be demultiplexed
+    amplicon == "Short" | taxset == "hybrid" # short consensus only on Short
   ) %>%
-  dplyr::select(-dataset) %>%
-  left_join(select(guilds_meta, amplicon, algorithm), by = "amplicon") %>%
   mutate(
     fungi = glue::glue("fungi_{algorithm}"),
     ecm = glue::glue("ecm_{algorithm}"),
@@ -114,7 +132,8 @@ plan2 <- drake_plan(
   # Read the map between plate locations and samples
   platemap = target(
     read_platemap(file_in(!!config$platemap), !!config$platemap_sheet),
-    format = "fst"),
+    format = "fst"
+  ),
 
   # Output Supplementary tables
   # write out tables
@@ -187,7 +206,7 @@ plan2 <- drake_plan(
   # find ASVs for which we can be confident of the kingdom assignment
   # at least 5 assignments with a confidence > 0.5
   sure_kingdoms =
-    identify_taxa(taxon_table_long, unrooted_tree,
+    identify_taxa(taxon_table_hybrid, unrooted_tree,
                   rank = "kingdom", confidence = 0.5, n = 5,
                   ignore = tulasnella),
 
@@ -198,62 +217,49 @@ plan2 <- drake_plan(
   sure_bikonts = extract_bikonta(sure_kingdoms, unrooted_tree),
 
   # root the tree with the bikonts
-  rooted_tree_euk = target(
+  rooted_tree = target(
     ape::root.phylo(
       unrooted_tree,
       sure_bikonts,
       resolve.root = TRUE,
-      edgelabel = TRUE
+      edgelabel = FALSE
     ),
-    transform = map(
-      group = "euk",
-      .tag_out = rooted_tree,
-      .id = FALSE
-    )
+    transform = map(amplicon = "Long", .tag_out = tree, .id = FALSE)
   ),
 
   # find the sequences that were confidently identified as fungi
-  sure_fungi = dplyr::filter(sure_kingdoms, taxon == "fungi")$label,
+  sure_fungi = dplyr::filter(sure_kingdoms, taxon == "Fungi")$label,
 
-  # Extract the minimally inclusive clade including all confidently identified
-  # fungi (except Tulasnella).
-  rooted_tree_fungi = target(
-    ape::getMRCA(rooted_tree_euk, tip = sure_fungi) %>%
-      ape::extract.clade(phy = rooted_tree_euk) %>%
-      ape::drop.tip(phy = ., intersect(.$tip.label, allchimeras_ITS2)),
-    transform = map(
-      group = "fungi",
-      .tag_out = rooted_tree,
-      .id = FALSE
-    )
+  # Make a null tree; using this will cause phylotax to just calculate
+  # strict LCA consensus.
+  null_tree = target(
+    NULL,
+    transform = map(amplicon = "Short", .tag_out = tree, .id = FALSE)
   ),
 
   # label the tree
-  labeled_tree = target(
-    relabel_tree(
+  labeled_tree =
+    phylotax::relabel_tree(
       tree = rooted_tree,
       old = taxon_labels$label,
       new = taxon_labels$tip_label,
       chimeras = allchimeras_ITS2
     ) %T>%
-      castor::write_tree(file_out(
-        !!glue::glue("data/trees/{group}_labeled.tree", group = group)
-      )),
-    transform = map(rooted_tree, group, .tag_in = step, .id = group)
-  ),
+    castor::write_tree(file_out(
+      !!glue::glue("data/trees/labeled.tree", group = group)
+    )),
 
-  phylo_labeled_tree = target(
-    relabel_tree(
+  phylo_labeled_tree =
+    phylotax::relabel_tree(
       tree = rooted_tree,
       old = phylotax_labels$label,
       new = phylotax_labels$tip_label,
-      chimeras = allchimeras_ITS2
+      drop = allchimeras_ITS2,
+      quote = TRUE
     ) %T>%
     castor::write_tree(file_out(
-      !!glue::glue("data/trees/{group}_labeled_phylotax.tree", group = group)
+      !!glue::glue("data/trees/labeled_phylotax.tree", group = group)
     )),
-    transform = map(rooted_tree, group, .tag_in = step, .id = group)
-  ),
 
   #### Taxonomy ####
 
@@ -266,15 +272,16 @@ plan2 <- drake_plan(
   ),
 
   # only assignments which came from the long amplicons
-  taxon_table_long = target(
-    dplyr::filter(taxon_table_primary, region %in% c("LSU", "ITS")),
-    transform = map(taxset = "long", .tag_out = taxon_table, .id = FALSE)
-  ),
+  # taxon_table_long = target(
+  #   dplyr::filter(taxon_table_primary, region %in% c("LSU", "ITS")),
+  #   transform = map(taxset = "long", .tag_out = taxon_table, .id = FALSE)
+  # ),
 
   # only assignments which came from the short amplicons
   taxon_table_short = target(
     dplyr::filter(taxon_table_primary, region == "short"),
-    transform = map(taxset = "short", .tag_out = taxon_table, .id = FALSE)
+    transform = map(taxset = "short", region = "short", ref_region = "ITS",
+                    .tag_out = taxon_table, .id = FALSE)
   ),
 
   # ASVs which were found in both long and short amplicon datasets were
@@ -286,97 +293,113 @@ plan2 <- drake_plan(
   # assignments for the short reads.
   taxon_table_hybrid = target(
     dplyr::group_by(taxon_table_primary, label) %>%
-    dplyr::filter(!any(region == "ITS") | region != "short") %>%
-    dplyr::ungroup(),
-    transform = map(taxset = "hybrid", .tag_out = taxon_table, .id = FALSE)
+      dplyr::filter(!any(region == "ITS") | region != "short") %>%
+      dplyr::ungroup(),
+    transform = map(taxset = "hybrid", region = "All", ref_region = "All",
+                    .tag_out = taxon_table, .id = FALSE)
   ),
 
   # Only ITS-based assignments. These are used for the metacoder trees
   taxon_table_ITS = target(
     dplyr::filter(taxon_table_hybrid, region %in% c("ITS", "short")),
-    transform = map(taxset = "ITS", .tag_out = taxon_table, .id = FALSE)
+    transform = map(taxset = "ITS", region = "All", ref_region = "ITS",
+                    .tag_out = taxon_table, .id = FALSE)
   ),
 
   # Create labels for the tree(s) which show the assigned taxonomy before
   # refinement
-  taxon_labels = make_taxon_labels(taxon_table_long),
+  taxon_labels =
+    phylotax::make_taxon_labels(taxon_table_hybrid, "n_reads", TRUE),
 
-  # calculate phylogenetic consensus taxonomy for long sequences
-  phylotax =
+  # calculate (phylogenetic) consensus taxonomy
+  phylotax_hybrid = target(
     phylotax::phylotax(
-      tree = rooted_tree_euk,
-      taxa = taxon_table_long,
-      method = c(region = "All", reference = "All", ref_region = "All", method = "PHYLOTAX")
+      tree = rooted_tree,
+      taxa = taxon_table_hybrid,
+      method = c(region = "All", reference = "All",
+                 ref_region = "All", method = algorithm)
     ),
+    transform = map(taxset = "hybrid", algorithm = "PHYLOTAX",
+                    .tag_in = step, .tag_out = taxa, .id = FALSE)
+  ),
+
+  consensus = target(
+    phylotax::phylotax(
+      taxa = taxon_table,
+      method = c(region = "All", reference = "All",
+                 ref_region = "All", method = algorithm)
+    ),
+    transform = map(taxon_table, region, ref_region, algorithm = "Consensus",
+                    .tag_in = step, .tag_out = taxa, .id = taxset)
+  ),
 
   # make labels for phylogenetic consensus taxa
-  phylotax_labels = make_taxon_labels(phylotax$tip_taxa),
+  phylotax_labels =
+    taxa_PHYLOTAX_hybrid %$%
+    bind_rows(assigned, retained) %>%
+    phylotax::make_taxon_labels(),
 
   # calculate strict consensus taxonomy
-  lcatax_euk = target(
-    lca_consensus(
-      taxa = taxon_table,
-      method = c(region = taxset, reference = "All", ref_region = taxset,
-                 method = "LCA")
-    ),
-    transform = map(
-      taxon_table,
-      group = "euk",
-      algorithm = "LCA",
-      .tag_in = step,
-      .tag_out = c(euktax, taxa),
-      .id = taxset
-    )
-  ),
-
-  # PHYLOTAX plus LCA.
-  phylotax_euk = target(
-    combotax(phylotax, lcatax_euk,
-             method = c(region = "All", reference = "All", ref_region = taxset,
-                        method = "PHYLOTAX")),
-    transform = map(lcatax_euk, algorithm = "PHYLOTAX",
-                    .tag_in = step, .tag_out = c(euktax, taxa),
-                    .id = taxset)
-  ),
-
-  lcatax_fungi = target(
-    select_taxon(lcatax_euk, "kingdom", "Fungi"),
-    transform = map(lcatax_euk, group = "fungi",
-                    .tag_out = c(fungi_tax, taxa),
-                    .tag_in = step, .id = taxset)
-  ),
-
-  phylotax_fungi = target(
-    select_taxon(phylotax_euk, "kingdom", "Fungi"),
-    transform = map(phylotax_euk, group = "fungi",
-                    .tag_out = c(fungi_tax, taxa),
-                    .tag_in = step, .id = taxset)
-  ),
+  # lcatax_euk = target(
+  #   lca_consensus(
+  #     taxa = taxon_table,
+  #     method = c(region = taxset, reference = "All", ref_region = taxset,
+  #                method = "Consensus")
+  #   ),
+  #   transform = map(
+  #     taxon_table,
+  #     group = "euk",
+  #     algorithm = "Consensus",
+  #     .tag_in = step,
+  #     .tag_out = taxa,
+  #     .id = taxset
+  #   )
+  # ),
+  #
+  # # PHYLOTAX plus LCA.
+  # phylotaxlca_euk = target(
+  #   combotax(phylotax_euk, lcatax_euk,
+  #            method = c(region = "All", reference = "All", ref_region = taxset,
+  #                       method = "PHYLOTAX")),
+  #   transform = map(lcatax_euk, algorithm = "PHYLOTAX",
+  #                   .tag_in = step, .tag_out = taxa,
+  #                   .id = taxset)
+  # ),
+  #
+  # lcatax_fungi = target(
+  #   phylotax::keep_tips(lcatax_euk, sure_fungi, mrca = TRUE),
+  #   transform = map(lcatax_euk, group = "fungi",
+  #                   .tag_out = taxa,
+  #                   .tag_in = step, .id = taxset)
+  # ),
+  #
+  # phylotaxlca_fungi =  target(
+  #   combotax(phylotax_fungi, lcatax_fungi,
+  #            method = c(region = "All", reference = "All", ref_region = taxset,
+  #                       method = "PHYLOTAX")),
+  #   transform = map(lcatax_fungi, algorithm = "PHYLOTAX",
+  #                   .tag_in = step, .tag_out = taxa,
+  #                   .id = taxset)
+  # ),
 
   # Guild assignment ----
 
   # Download the FUNGuild database
   funguild_db = FUNGuildR::get_funguild_db(),
 
-  wide_taxa = target(
-    taxa$tip_taxa %>%
-      tidyr::spread(., key = rank, value = taxon) %>%
-      dplyr::left_join(
-        .,
-        tidyr::gather(., key = "rank", value = "taxon", kingdom:genus) %>%
-          dplyr::group_by(label) %>%
-          dplyr::filter(!is.na(taxon)) %>%
-          dplyr::summarize(Taxonomy = paste(taxon, collapse = ";")),
-        by = "label"
-      ),
-    transform = map(taxa, .tag_in = step, .id = c(algorithm, taxname, taxset))
+  guilds_PHYLOTAX = target(
+    phylotax::extract_taxon(phylotax_hybrid, "Fungi", true_members = sure_fungi) %$%
+      FUNGuildR::funguild_assign(widen_taxonomy(assigned), funguild_db),
+    transform = map(algorithm = "PHYLOTAX", .tag_out = guilds, .id = FALSE)
   ),
 
-  guilds = target(
-      FUNGuildR::funguild_assign(wide_taxa, funguild_db),
-    transform = map(.data = !!guilds_meta, .tag_in = step, .id = algorithm)
+  guilds_Consensus = target(
+    phylotax::extract_taxon(consensus_short, "Fungi") %$%
+      FUNGuildR::funguild_assign(widen_taxonomy(assigned), funguild_db),
+    transform = map(algorithm = "Consensus", .tag_out = guilds, .id = FALSE)
   ),
 
+  #should be a no-op
   fungi = target(
     dplyr::filter(guilds, kingdom == "Fungi"),
     transform = map(guilds, .tag_in = step, .id = algorithm)
@@ -397,29 +420,36 @@ plan2 <- drake_plan(
     transform = map(ecm, .tag_in = step, .id = algorithm)
   ),
 
-  # Phyloseq objects ----
-  proto_physeq = assemble_physeq(
-    platemap = platemap,
-    datasets = datasets,
-    seqtable = relabel_seqtable(big_seq_table_ITS2),
-    tree = NULL,
-    chimeras = allchimeras_ITS2
-  ),
+  #### Phyloseq objects ####
+
+  sample_data = assemble_sample_data(platemap, datasets),
+
+  physeq_otu_table =
+    assemble_otu_table(sample_data, big_seq_table_ITS2, allchimeras_ITS2),
+
+  proto_physeq = phyloseq::phyloseq(sample_data, physeq_otu_table),
 
   physeq = target(
     {
-      physeq <- proto_physeq %>%
-        phyloseq::prune_taxa(taxa = !phyloseq::taxa_names(.) %in% pos_control)
-      if (amplicon == "Long") {
-        phyloseq::phy_tree(physeq) <- fungi_tree
-      }
-      physeq <- physeq %>%
+      physeq <-
+        phylotax::phylotax_to_phyloseq(
+          phylotax = taxa,
+          otu_table = phyloseq_otu_table,
+          sample_data,
+          use_tree = !is.null(taxa$tree) && amplicon == "Long"
+        ) %>%
         phyloseq::subset_samples(sample_type == "Sample") %>%
         phyloseq::subset_samples(buffer == "Xpedition") %>%
         phyloseq::subset_samples(site == "Gan") %>%
-        phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
-        phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["tech"]] == tech) %>%
-        phyloseq::prune_samples(samples = phyloseq::sample_data(.)[["amplicon"]] == amplicon)
+        phyloseq::prune_samples(
+          samples = rowSums(phyloseq::otu_table(.)) > 100
+        ) %>%
+        phyloseq::prune_samples(
+          samples = phyloseq::sample_data(.)[["tech"]] == tech
+        ) %>%
+        phyloseq::prune_samples(
+          samples = phyloseq::sample_data(.)[["amplicon"]] == amplicon
+        )
 
       if (guild == "ecm") {
         physeq <- phyloseq::prune_taxa(ecm$label, physeq) %>%
@@ -439,8 +469,16 @@ plan2 <- drake_plan(
       }
       phyloseq::transform_sample_counts(physeq, function(x) x / sum(x))
     },
-    transform = map(.data = !!physeq_meta, .tag_in = step, .id = c(guild, tech, amplicon, algorithm))
+    transform = map(.data = !!physeq_meta, .tag_in = step,
+                    .id = c(guild, tech, amplicon, algorithm))
   ),
+  #   trace = TRUE
+  # )
+  #
+  # # later targets mess up these earlier transforms, so transform them now,
+  # # then do the rest.
+  #
+  # plan2 <- drake_plan(
 
   correlog = target(
     correlog(physeq, metric, timelag),
@@ -659,7 +697,7 @@ plan2 <- drake_plan(
       col_names = paste0("V", 1:10),
       col_types = "ciidfccccc",
       na = c("", "NA", "*")
-      ) %>%
+    ) %>%
     #filter(V1 == "H") %>%
     select(identity = V4, ASVseq = V9, OTUseq = V10) %>%
     mutate_all(str_replace, ";.*", "") %>%
@@ -748,21 +786,21 @@ plan2 <- drake_plan(
 
   rarefy_data = target(
     readd(sample_rarefy) %>%
-    purrr::map_dfr(tibble::enframe) %>%
-    tidyr::extract(
-      name,
-      c("seq_run", "well"),
-      regex = "([iSp][sHb][-_][0-9]+)_([A-H]1?[0-9])"
-    ) %>%
-    dplyr::left_join(datasets, by = "seq_run") %>%
-    dplyr::mutate(strategy = paste(tech, amplicon)) %>%
-    dplyr::mutate_at(
-      "strategy",
-      factor,
-      ordered = TRUE,
-      levels = c("Ion Torrent Short", "Illumina Short", "PacBio Short",
-                 "PacBio Long")
-    ) %>%
+      purrr::map_dfr(tibble::enframe) %>%
+      tidyr::extract(
+        name,
+        c("seq_run", "well"),
+        regex = "([iSp][sHb][-_][0-9]+)_([A-H]1?[0-9])"
+      ) %>%
+      dplyr::left_join(datasets, by = "seq_run") %>%
+      dplyr::mutate(strategy = paste(tech, amplicon)) %>%
+      dplyr::mutate_at(
+        "strategy",
+        factor,
+        ordered = TRUE,
+        levels = c("Ion Torrent Short", "Illumina Short", "PacBio Short",
+                   "PacBio Long")
+      ) %>%
       dplyr::select(well, strategy, value) %>%
       dplyr::left_join(., ., by = "well", suffix = c("_x", "_y")) %>%
       dplyr::filter(strategy_x < strategy_y),
@@ -787,7 +825,7 @@ plan2 <- drake_plan(
       tidyr::unnest(deming) %>%
       dplyr::mutate(
         slope_label = sprintf("m==%.2f(%.2f-%.2f)",
-                             slope, `lower 0.95`, `upper 0.95`),
+                              slope, `lower 0.95`, `upper 0.95`),
         r2_label = sprintf("R^2==%.2f", r_squared)
       ),
     transform = map(rarefy_data, .id = cluster)
@@ -1154,35 +1192,35 @@ plan2 <- drake_plan(
   # PHYLOTAX for long amplicon PacBio
   # region = NA, reference = NA, ref_region = NA; method = "PHYLOTAX"
   taxon_reads_long_phylotax =
-    select_taxon_reads(phylotax_euk_long, taxon_reads_proto, seq_run == "pb_500") %>%
+    select_taxon_reads(phylotax_hybrid, taxon_reads_proto, seq_run == "pb_500") %>%
     mutate(method = "PHYLOTAX", region = "All"),
 
   # LCA consensus;
-  # region = "All", reference = "All", ref_region = "All"; method = "consensus"
+  # region = "All", reference = "All", ref_region = "All"; method = "Consensus"
   # Short and long amplicons;
   taxon_reads_hybrid_consensus =
-    select_taxon_reads(lcatax_euk_hybrid, taxon_reads_proto) %>%
-    mutate(method = "LCA", region = "hybrid"),
+    select_taxon_reads(consensus_hybrid, taxon_reads_proto) %>%
+    mutate(method = "Consensus", region = "hybrid"),
 
   # LCA consensus calculated only on short amplicon region;
   # Apply only to Short amplicons
-  # region = "short", reference = "All", ref_region = "ITS"; method = "consensus"
+  # region = "short", reference = "All", ref_region = "ITS"; method = "Consensus"
   taxon_reads_short_consensus =
-    select_taxon_reads(lcatax_euk_short, taxon_reads_proto, amplicon == "Short") %>%
-    mutate(method = "LCA", region = "short"),
+    select_taxon_reads(consensus_short, taxon_reads_proto, amplicon == "Short") %>%
+    mutate(method = "Consensus", region = "short"),
 
   # Phylotax if available; otherwise LCA consensus
   # Apply only to Short amplicons
   # region = "short", reference = "All", ref_region = "All", method = "combined"
   taxon_reads_hybrid_phylotax =
-    select_taxon_reads(phylotax_euk_hybrid, taxon_reads_proto, amplicon == "Short") %>%
+    select_taxon_reads(phylotax_hybrid, taxon_reads_proto, amplicon == "Short") %>%
     mutate(method = "PHYLOTAX", region = "hybrid"),
 
   # LCA consensus using only ITS references
-  # region = "All", reference = "All", ref_region = "ITS", method = "consensus"
+  # region = "All", reference = "All", ref_region = "ITS", method = "Consensus"
   taxon_reads_ITS_consensus =
-    select_taxon_reads(lcatax_euk_ITS, taxon_reads_proto) %>%
-    mutate(method = "LCA", region = "ITS"),
+    select_taxon_reads(consensus_ITS, taxon_reads_proto) %>%
+    mutate(method = "Consensus", region = "ITS"),
 
   taxon_reads = {
     bind_rows(
@@ -1201,8 +1239,8 @@ plan2 <- drake_plan(
       mutate_at(
         "method",
         factor,
-        levels = c("PHYLOTAX", "combined", "LCA", "dada2", "sintax", "idtaxa"),
-        labels = c("PHYLOTAX", "PHYLOTAX", "LCA", "RDPC", "SINTAX", "IDTAXA")
+        levels = c("PHYLOTAX", "combined", "Consensus", "dada2", "sintax", "idtaxa"),
+        labels = c("PHYLOTAX", "PHYLOTAX", "Consensus", "RDPC", "SINTAX", "IDTAXA")
       ) %>%
       mutate_at(
         "reference",
@@ -1253,7 +1291,7 @@ plan2 <- drake_plan(
       cols = c("kingdom", "phylum", "class", "order", "family", "genus"),
       values_to = "taxon"
     ) %>%
-    filter(Algorithm != "LCA" | amplicon != "Short" | region == "short") %>%
+    filter(Algorithm != "Consensus" | amplicon != "Short" | region == "short") %>%
     select(label, amplicon, tech, Algorithm, reference, rank, taxon, reads) %>%
     unique() %>%
     group_by(amplicon, tech, Algorithm, reference, rank, ID = !is.na(taxon)) %>%
@@ -1549,7 +1587,7 @@ plan2 <- drake_plan(
                 mutate_at(x, rev(ranks)[i], ~"*")
               } else if (i > 1) {
                 mutate_at(x, rev(ranks)[i - 1], ~"*") %>%
-                mutate_at(rev(ranks)[i], ~paste0("(",., ")"))
+                  mutate_at(rev(ranks)[i], ~paste0("(",., ")"))
               } else {
                 mutate_at(x, rev(ranks)[i], ~paste0("(",., ")"))
               }
@@ -1685,7 +1723,7 @@ plan2 <- drake_plan(
                 mutate_at(x, rev(ranks)[i], ~"*")
               } else if (i > 1) {
                 mutate_at(x, rev(ranks)[i - 1], ~"*") %>%
-                mutate_at(rev(ranks)[i], ~paste0("(",., ")"))
+                  mutate_at(rev(ranks)[i], ~paste0("(",., ")"))
               } else {
                 mutate_at(x, rev(ranks)[i], ~paste0("(",., ")"))
               }
@@ -1828,13 +1866,13 @@ plan2 <- drake_plan(
     filter(reads > 0) %>%
     mutate_at("seq", chartr, old = "T", new = "U") %>%
     inner_join(
-       select(allseqs, seq = ITS2, short, long) %>%
-           mutate(ITS2 = seq) %>%
-           pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
-           filter(!is.na(consensus)) %>%
-           unique(),
-       by = "seq"
-      ) %>%
+      select(allseqs, seq = ITS2, short, long) %>%
+        mutate(ITS2 = seq) %>%
+        pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
+        filter(!is.na(consensus)) %>%
+        unique(),
+      by = "seq"
+    ) %>%
     mutate(length = nchar(consensus)) %>%
     group_by(seq_run, region, length) %>%
     summarize_at("reads", sum) %>%
@@ -3100,119 +3138,46 @@ plan2 <- drake_plan(
     )
   },
 
+  phylotax_fungi = phylotax::extract_taxon(
+    phylotax = phylotax_hybrid,
+    taxon = "Fungi",
+    true_members = sure_fungi
+  ),
+
   ## Output tree ----
-  tree_fig = {
-    charscale <- 0.015
-    rankgap <- 0.015
-    tip_taxa <-
-      phylotaxon_fungi$tip_taxa %>%
-      filter(rank != "kingdom") %>%
-      group_by(label, rank) %>%
-      filter(if (any("PHYLOTAX" == method)) method == "PHYLOTAX" else TRUE) %>%
-      group_by(label, rank) %>%
-      summarize(
-        taxon =  table(taxon) %>%
-          paste0(names(.), collapse = "/") %>%
-          gsub(pattern = "(.+/.+)", replacement = "<\\1>") %>%
-          gsub(pattern = "^\\d+", replacement = "")
-      ) %>% inner_join(
-        phylo_labeled_tree_fungi$tip.label %>%
-          gsub(pattern = "\"([a-f0-9]{8}).*", replacement = "\\1") %>%
-          enframe(name = "tip", value = "label"),
-        by = "label"
-      ) %>%
-      mutate(
-        depth = ape::node.depth.edgelength(
-          phylo_labeled_tree_fungi
-        )[tip]
-      ) %>%
-      group_by(label) %>%
-      arrange(desc(rank), .by_group = TRUE) %>%
-      mutate(width = nchar(taxon) * charscale + rankgap,
-             offset = cumsum(lag(width, default = 0)))
-    clade_annot <- list()
-    ranks <- c("genus", "family", "order", "class", "phylum")
-    for (i in seq_along(ranks)) {
-      rank_nodes <- phylotaxon_fungi$node_taxa %>%
-        filter(rank == ranks[i]) %>%
-        group_by(taxon) %>%
-        mutate(color = ifelse(n() > 1, "tomato", "black")) %>%
-        ungroup() %>%
-        mutate(tip = phangorn::Descendants(
-          phylo_labeled_tree_fungi,
-          node = node,
-          type = "tips"
-        )) %>%
-        unnest(tip) %>%
-        left_join(tip_taxa, by = c("rank", "tip", "taxon")) %>%
-        group_by(node, taxon, color) %>%
-        summarize(offset = max(depth + offset) - max(depth)) %>%
-        rename(label = taxon) %>%
-        bind_rows(
-          tip_taxa %>%
-            ungroup() %>%
-            filter(rank == ranks[i], startsWith(taxon, "<")) %>%
-            select(label = taxon, node = tip, offset) %>%
-            mutate(color = "steelblue")
-        )
-      clade_annot <- c(
-        clade_annot,
-        pmap(rank_nodes,
-             ggtree::geom_cladelabel,
-             align = FALSE,
-             fontsize = 1.5,
-             extend = 0.3)
-        )
-    }
-    (phylo_labeled_tree_fungi %>%
-        ggtree::ggtree(
-          aes(size = if_else(
-            !is.na(as.integer(label)) & as.integer(label) > 90,
-            0.5,
-            0.2
-          )),
-          lineend = "butt",
-          linejoin = "mitre"
-        ) %>%
-        reduce(clade_annot, `+`, .init = .) +
-        scale_size_identity() +
-        xlim(0, max(tip_taxa$offset + tip_taxa$width + tip_taxa$depth))) %T>%
-      ggsave(
-        filename = file_out(!!file.path("output", "supp_file_3.pdf")),
-        plot = .,
-        device = "pdf",
-        width = 8,
-        height = 20,
-        units = "in"
-      )
-  },
+  tree_fig = tree_figure(
+    phylotax = phylotax_fungi,
+    outfile = file_out(!!file.path("output", "supp_file_3.pdf")),
+    charscale = 0.015,
+    rankgap = 0.015
+  ),
 
   #### prepare submission materials for ENA ####
   soil_samples =
     readd(proto_physeq) %>%
-      phyloseq::sample_data() %>%
-      as("data.frame") %>%
-      dplyr::filter(sample_type == "Sample", tech == "PacBio") %>%
-      dplyr::left_join(
-        readRDS("config/tags/all.rds") %>%
-          tidyr::pivot_longer(
-            cols = matches("(primer|barcode|adapter)_(seq|tag)_(fwd|rev)"),
-            names_to = c(".value", "direction"),
-            names_pattern = "(.+)_(fwd|rev)"
-          ) %>%
-          tidyr::unite("seq", ends_with("seq"), sep = "") %>%
-          mutate_at(vars(ends_with("tag")), na_if, "unnamed") %>%
-          mutate(tag = dplyr::coalesce(barcode_tag, primer_tag)) %>%
-          dplyr::select(amplicon, well, direction, tag, seq) %>%
-          filter(nchar(seq) > 0) %>%
-          mutate_at("tag", str_replace, "its", "ITS") %>%
-          mutate_at("tag", str_replace, "lr", "LR") %>%
-          tidyr::unite("tag", tag, seq, sep = ": ") %>%
-          group_by(amplicon, well, direction) %>%
-          summarize(tag = paste(unique(tag), collapse = ", ")) %>%
-          group_by(amplicon, well) %>%
-          summarize(tag = paste(unique(tag), collapse = "; ")),
-        by = c("amplicon", "well"))%>%
+    phyloseq::sample_data() %>%
+    as("data.frame") %>%
+    dplyr::filter(sample_type == "Sample", tech == "PacBio") %>%
+    dplyr::left_join(
+      readRDS("config/tags/all.rds") %>%
+        tidyr::pivot_longer(
+          cols = matches("(primer|barcode|adapter)_(seq|tag)_(fwd|rev)"),
+          names_to = c(".value", "direction"),
+          names_pattern = "(.+)_(fwd|rev)"
+        ) %>%
+        tidyr::unite("seq", ends_with("seq"), sep = "") %>%
+        mutate_at(vars(ends_with("tag")), na_if, "unnamed") %>%
+        mutate(tag = dplyr::coalesce(barcode_tag, primer_tag)) %>%
+        dplyr::select(amplicon, well, direction, tag, seq) %>%
+        filter(nchar(seq) > 0) %>%
+        mutate_at("tag", str_replace, "its", "ITS") %>%
+        mutate_at("tag", str_replace, "lr", "LR") %>%
+        tidyr::unite("tag", tag, seq, sep = ": ") %>%
+        group_by(amplicon, well, direction) %>%
+        summarize(tag = paste(unique(tag), collapse = ", ")) %>%
+        group_by(amplicon, well) %>%
+        summarize(tag = paste(unique(tag), collapse = "; ")),
+      by = c("amplicon", "well"))%>%
     dplyr::mutate(
       sample_alias = glue::glue("OT-{substr(year, 3, 4)}-{site}-{x}-{substr(buffer, 1, 1)}-{substr(amplicon, 1, 1)}"),
       tax_id = "410658",
@@ -3267,16 +3232,16 @@ plan2 <- drake_plan(
         buffer == "LifeGuard" ~ "stored for approx. two months in LifeGuard Soil Preservation Solution (Quiagen)"
       )
     ),
-    ENA_soil_samples =  {
-      template_in <- file_in("config/ENA_soil_sample_template.tsv")
-      template_names <- names(read_tsv(template_in, skip = 2))
-      tsv_out <- file_out("output/ENA/ENA_soil_samples.tsv")
-      if (!dir.exists(dirname(tsv_out))) dir.create(dirname(tsv_out), recursive = TRUE)
-      file.copy(template_in, tsv_out, overwrite = TRUE)
-      soil_samples %>%
-        assertr::verify(template_names %in% names(.)) %>%
-        select_at(template_names) %>%
-        write_tsv(tsv_out, append = TRUE, col_names = FALSE)
+  ENA_soil_samples =  {
+    template_in <- file_in("config/ENA_soil_sample_template.tsv")
+    template_names <- names(read_tsv(template_in, skip = 2))
+    tsv_out <- file_out("output/ENA/ENA_soil_samples.tsv")
+    if (!dir.exists(dirname(tsv_out))) dir.create(dirname(tsv_out), recursive = TRUE)
+    file.copy(template_in, tsv_out, overwrite = TRUE)
+    soil_samples %>%
+      assertr::verify(template_names %in% names(.)) %>%
+      select_at(template_names) %>%
+      write_tsv(tsv_out, append = TRUE, col_names = FALSE)
   },
   control_samples =
     readd(proto_physeq) %>%
@@ -3580,8 +3545,11 @@ plan2 <- drake_plan(
       dplyr::select(., Taxonomy) %>%
         write_csv(file_out("output/env_taxa_ncbi.csv"))
     },
+  # transform = FALSE,
   trace = TRUE
 ) %>%
+  # bind_plans(plan2, .) %>%
+  # transform_plan() %>%
   dplyr::filter(ifelse(amplicon == '"Short"', metric != '"wunifrac"', TRUE) %|% TRUE)
 
 saveRDS(plan2, "data/plan/drake_light.rds")
@@ -3591,8 +3559,11 @@ options(clustermq.scheduler = "multicore")
 #if (interactive()) {
 cache_dir <- ".drake"
 cache <- drake_cache(cache_dir)
-# dconfig <- drake_config(plan2, cache = cache)
-# vis_drake_graph(dconfig)
+dconfig <- drake_config(plan2, cache = cache)
+vis_drake_graph(dconfig, targets_only = TRUE, from = "taxon_table_primary",
+                group = "step",
+                clusters = c("correlog", "variog", "variogST", "variofit2",
+                             "variofitST2", "physeq"))
 make(
   plan2,
   cache = cache,

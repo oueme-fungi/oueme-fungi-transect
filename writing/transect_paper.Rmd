@@ -260,14 +260,13 @@ and IDTAXA [@murali2018].
 A relatively lax confidence threshhold of 50% was used for all three algorithms.
 Each full-length ASV was thus given up to nine preliminary taxonomic assignments (three references $\times$ three algorithms).
 ASVs from the short-amplicon datasets for which no matching long-amplicon ASV could be reconstructed were taxonomically assigned using Unite and Warcup on the full length of the short amplicon.
-Conflicts between the assignments made by the different algorithms were later resolved using a phylogenetic method and a consensus method, which are described below.
 
-For the ASVs from the long amplicon dataset, the preliminary taxonomic assignments were refined using the phylogenetic tree (Figure\ \@ref(fig:phylotax) and Supplementary Methods).
+For full-length long-amplicon ASVs, the preliminary taxonomic assignments were refined using the phylogenetic tree (Figure\ \@ref(fig:phylotax) and Supplementary Methods).
 This refinement algorithm is referred to as "PHYLOTAX", available in the new R package `phylotax` at https://github.com/brendanf/phylotax.
 
-ASVs from the short amplicon datasets were refined using only the final strict consensus step, i.e., an assignment at a given rank was accepted if there was no conflict between the different assignment algorithms at greater than 50% confidence.
-This refinement method is referred to as "Consensus".
-Additionally, a hybrid method was applied to the short amplicon datasets, in which assignments from PHYLOTAX were used for ASVs which could be linked by an identical ITS2 region to a long amplicon, and assignments from Consensus were used for the remaining ASVs.
+ASVs which were not present in the tree, either because they were not represented in the long-amplicon dataset, or because full-length ASV reconstruction failed, were given refined taxonomic assignments using a strict consensus of the different preliminary assignments at each rank, resulting in a consensus assignment equivalent to the "last common ancestor" of the preliminary assignments.
+This algorithm has been used to assign a consensus taxonomy based on a list of top BLAST hits [LCAClassifier, @lanzen2012] or k-mer similarity scores [mothur's k-nearest neighbor method, @schloss2009], but here is used to resolve conflicts between assignments from different algorithms and databases.
+Strict consensus assignments were also generated for all ASVs, as a comparison to the PHYLOTAX assignments, and are referred to as "Consensus".
 
 ## Effect of sequencing strategy on recovered community
 

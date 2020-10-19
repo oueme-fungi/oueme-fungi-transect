@@ -39,39 +39,6 @@ combine_taxon_tables <- function(tables, allseqs) {
     )
 }
 
-#### taxon_labels ####
-# make labels summarizing the taxonomy of each sequence
-make_taxon_labels <- function(t) {
-    dplyr::group_by(t, label, rank, n_reads) %>%
-    dplyr::summarize(
-      taxon =
-        table(taxon) %>%
-        paste0(names(.), collapse = "/") %>%
-        gsub(pattern = "(.+/.+)", replacement = "<\\1>") %>%
-        gsub(pattern = "(mycota|mycetes|ales|aceae)", replacement = "") %>%
-        gsub(pattern = "incertae_sedis", replacement = "i_s") %>%
-        gsub(pattern = "Fungi\\b", replacement = "F") %>%
-        gsub(pattern = "Basidio\\b", replacement = "B") %>%
-        gsub(pattern = "Asco\\b", replacement = "A") %>%
-        gsub(pattern = "Chytridio\\b", replacement = "Chy") %>%
-        gsub(pattern = "Zygo\\b", replacement = "Z")
-    ) %>%
-    dplyr::group_by(label, n_reads) %>%
-    dplyr::arrange(rank) %>%
-    dplyr::summarize(tip_label = paste(label[1],
-                                       format(n_reads[1], width = 5),
-                                       paste0(taxon, collapse = "-")))
-}
-
-#### relabel_tree ####
-# replaces tree tip labels from old with labels from new
-relabel_tree <- function(tree, old, new, chimeras = character(0)) {
-  tree <- ape::drop.tip(tree, intersect(chimeras, tree$tip.label))
-  tree$tip.label <-
-    plyr::mapvalues(tree$tip.label, old, paste0('"', new, '"'), warn_missing = FALSE)
-  tree
-}
-
 #### Find ASVs with consistent kingdom-level assignments
 # i.e., at least min_n assignments with greater than min_confidence
 # confidence, and also no conflicting assignments at any confidence level
@@ -133,67 +100,10 @@ extract_bikonta <- function(kingdoms, tree) {
   bikonta
 }
 
-# calculate last common ancestor consensus
-# i.e., if multipe assignments disagree, take the last common ancestor
-# that does agree.
-# this is the same thing as strict consensus at each rank.
-lca_consensus <- function(
-  taxa, ranks = NULL,
-  method = if (utils::hasName(taxa, "method")) "LCA" else NULL
-) {
-  method <- phylotax:::check_method(taxa, method)
-  taxa <- dplyr::select(taxa, "label", dplyr::one_of(names(method)), "rank",
-                        "taxon")
-  taxa <- phylotax:::check_ranks(taxa, ranks)
-  taxa <- phylotax:::count_assignments(taxa)
-  tip_taxa <- dplyr::group_by_at(taxa, c("label", names(method))) %>%
-    dplyr::arrange(.data$rank) %>%
-    dplyr::filter(dplyr::cumall(.data$n_diff == 1)) %>%
-    dplyr::ungroup() %>%
-    dplyr::select(-dplyr::one_of(c(names(method), "n_diff", "n_tot"))) %>%
-    unique()
-  for (n in names(method)) {
-    tip_taxa[[n]] <- unname(method[n])
-  }
-  taxa <- dplyr::select(taxa, -"n_diff", -"n_tot")
-  structure(
-    list(
-      node_taxa = NULL,
-      tree = NULL,
-      tip_taxa = tip_taxa,
-      retained = dplyr::semi_join(taxa, tip_taxa, by = c("label", "rank")),
-      rejected = dplyr::anti_join(taxa, tip_taxa, by = c("label", "rank")),
-      missing = dplyr::filter(taxa, FALSE)
-    ),
-    class = "phylotax"
-  )
-}
-
-combotax <- function(phylotax, lca = NULL, method = if (utils::hasName(phylotax$tip_taxa, "method")) "PHYLOTAX" else NULL) {
-  method <- phylotax:::check_method(phylotax$tip_taxa, method)
-  assertthat::assert_that(methods::is(phylotax, "phylotax"))
-  if (is.null(lca)) {
-    lca <- lca_consensus(phylotax$missing, method = method)
-  } else {
-    for (n in names(method))
-      lca$tip_taxa[[n]] <- unname(method[n])
-  }
-  phylotax$tip_taxa <- dplyr::bind_rows(
-    phylotax$tip_taxa,
-    dplyr::anti_join(lca$tip_taxa, phylotax$tip_taxa, by = "label")
-  )
-  phylotax$rejected <- unique(dplyr::bind_rows(phylotax$rejected, lca$rejected))
-  phylotax$retained <- unique(dplyr::bind_rows(phylotax$retainsd, lca$retained))
-  phylotax$missing <- purrr::reduce(
-    list(phylotax$missing, phylotax$rejected, phylotax$retained),
-    dplyr::anti_join, by = names(method)
-  )
-  phylotax
-}
-
 # combine a set of taxon identifications and a set of sample read counts
-select_taxon_reads <- function(taxa, reads, ..., method = first(taxa$tip_taxa$method)) {
-  taxa$tip_taxa %>%
+select_taxon_reads <- function(taxa, reads, ...,
+                               method = first(taxa$assigned$method)) {
+  taxa$assigned%>%
     select("method", "label", "rank", "taxon", "region") %>%
     unique() %>%
     pivot_wider(names_from = "rank", values_from = "taxon") %>%
@@ -203,13 +113,13 @@ select_taxon_reads <- function(taxa, reads, ..., method = first(taxa$tip_taxa$me
            method = !!method)
 }
 
-# take only a particular taxon from a phylotax object
-select_taxon <- function(phylotax, rank, taxon) {
-  purrr::modify_if(
-    phylotax,
-    ~ utils::hasName(c("rank", "taxon", "label")),
-    ~ dplyr::group_by(., label) %>%
-      dplyr::filter(any(rank == !!rank), all(taxon == !!taxon | rank != !!rank)) %>%
-      dplyr::ungroup()
-  )
+# this function would be helpful in FUNGuildR
+widen_taxonomy <- function(taxa) {
+    dplyr::left_join(
+      tidyr::spread(taxa, key = rank, value = taxon),
+      dplyr::group_by(taxa, label) %>%
+        dplyr::filter(!is.na(taxon)) %>%
+        dplyr::summarize(Taxonomy = paste(taxon, collapse = ";")),
+      by = "label"
+    )
 }
