@@ -28,8 +28,8 @@ relabel_seqtable <- function(seqtable) {
     as.matrix
 }
 
-assemble_physeq <- function(platemap, datasets, seqtable, tree = NULL, chimeras) {
-  samp <- platemap %>%
+assemble_sample_data <- function(platemap, datasets) {
+  platemap %>%
     dplyr::mutate_at("primer_pair", tolower) %>%
     dplyr::left_join(
       datasets %>%
@@ -46,21 +46,19 @@ assemble_physeq <- function(platemap, datasets, seqtable, tree = NULL, chimeras)
     tidyr::unite("ID", seq_run, plate, well, sep = "", remove = FALSE) %>%
     tibble::column_to_rownames("ID") %>%
     phyloseq::sample_data()
+}
+
+assemble_otu_table <- function(samp, seqtable, drop) {
+  colnames(seqtable) <- tzara::seqhash(chartr("Tt", "Uu", colnames(seqtable)))
   asvs <- colnames(seqtable)
-  if (!is.null(tree)) asvs <- intersect(asvs, tree$tip.label)
-  asvs <- setdiff(asvs, chimeras)
+  asvs <- setdiff(asvs, drop)
   miss_samples <- setdiff(row.names(samp), row.names(seqtable))
   asvtab <- rbind(
     seqtable[,asvs, drop = FALSE],
-    matrix(0, nrow = length(miss_samples), ncol = length(asvs), dimnames = list(miss_samples, asvs))
+    matrix(0, nrow = length(miss_samples), ncol = length(asvs),
+           dimnames = list(miss_samples, asvs))
   ) %>%
     phyloseq::otu_table(taxa_are_rows = FALSE)
-  
-  if (is.null(tree)) {
-    phyloseq::phyloseq(samp, asvtab)
-  } else {
-    phyloseq::phyloseq(samp, asvtab, ape::keep.tip(tree, asvs))
-  }
 }
 
 
@@ -70,7 +68,7 @@ max_cophenetic <- function(tree) {
   max_coph[seq_along(tree$tip.label)] <- 0
   max_depth[seq_along(tree$tip.label)] <- 0
   max_length[seq_along(tree$tip.label)] <- 0
-  
+
   for (i in seq.int(length(max_coph), length(tree$tip.label) + 1, -1)) {
     edges <- which(tree$edge[,1] == i)
     if (length(edges) == 0) {

@@ -1422,7 +1422,7 @@ epa_decipher_full <- epa_ng(full_aln[names(long_aln)], raxml_decipher_long$bestT
 epa_decipher_full_graft <- gappa_graft(epa_decipher_full, threads = 4)
 
 loadd(taxon_labels, cache = cache)
-relabel_tree(epa_decipher_full_graft, taxon_labels$label, paste0('"', taxon_labels$tip_label, '"'), chimeras = readd(allchimeras_ITS2, cache = cache)) %>%
+phylotax::relabel_tree(epa_decipher_full_graft, taxon_labels$label, paste0('"', taxon_labels$tip_label, '"'), chimeras = readd(allchimeras_ITS2, cache = cache)) %>%
   castor::write_tree("data/trees/labeled_epa_decipher.tree")
 
 
@@ -1792,3 +1792,82 @@ ncbi_get_taxon_summary()%>%
   ) %>%
   paste("uncultured", .) %T>%
   writeLines("output/ENA/env_taxa.txt")
+
+charscale <- 0.015
+rankgap <- 0.015
+tip_taxa <-
+  phylotax_fungi$tip_taxa %>%
+  filter(rank != "kingdom") %>%
+  group_by(label, rank) %>%
+  filter(if (any("PHYLOTAX" == method)) method == "PHYLOTAX" else TRUE) %>%
+  group_by(label, rank) %>%
+  summarize(
+    taxon =  table(taxon) %>%
+      paste0(names(.), collapse = "/") %>%
+      gsub(pattern = "(.+/.+)", replacement = "<\\1>") %>%
+      gsub(pattern = "^\\d+", replacement = "")
+  ) %>% inner_join(
+    phylo_labeled_tree_fungi$tip.label %>%
+      gsub(pattern = "\"([a-f0-9]{8}).*", replacement = "\\1") %>%
+      enframe(name = "tip", value = "label"),
+    by = "label"
+  ) %>%
+  mutate(
+    depth = ape::node.depth.edgelength(
+      phylo_labeled_tree_fungi
+    )[tip]
+  ) %>%
+  group_by(label) %>%
+  arrange(desc(rank), .by_group = TRUE) %>%
+  mutate(width = nchar(taxon) * charscale + rankgap,
+         offset = cumsum(lag(width, default = 0)))
+clade_annot <- list()
+ranks <- c("genus", "family", "order", "class", "phylum")
+for (i in seq_along(ranks)) {
+  rank_nodes <- phylotax_fungi$node_taxa %>%
+    select(node, rank, taxon) %>%
+    filter(rank == ranks[i]) %>%
+    unique() %>%
+    group_by(taxon) %>%
+    mutate(color = ifelse(n() > 1, "tomato", "black")) %>%
+    ungroup() %>%
+    mutate(tip = phangorn::Descendants(
+      phylo_labeled_tree_fungi,
+      node = node,
+      type = "tips"
+    )) %>%
+    unnest(tip) %>%
+    left_join(tip_taxa, by = c("rank", "tip", "taxon")) %>%
+    group_by(node, taxon, color) %>%
+    summarize(offset = max(depth + offset) - max(depth)) %>%
+    rename(label = taxon) %>%
+    bind_rows(
+      tip_taxa %>%
+        ungroup() %>%
+        filter(rank == ranks[i], startsWith(taxon, "<")) %>%
+        select(label = taxon, node = tip, offset) %>%
+        mutate(color = "steelblue")
+    )
+  clade_annot <- c(
+    clade_annot,
+    pmap(rank_nodes,
+         ggtree::geom_cladelabel,
+         align = FALSE,
+         fontsize = 1.5,
+         extend = 0.3)
+  )
+}
+(phylo_labeled_tree_fungi %>%
+    ggtree::ggtree(
+      aes(size = if_else(
+        !is.na(as.integer(label)) & as.integer(label) > 90,
+        0.5,
+        0.2
+      )),
+      lineend = "butt",
+      linejoin = "mitre"
+    ) %>%
+    reduce(clade_annot, `+`, .init = .) +
+    scale_size_identity() +
+    xlim(0, max(tip_taxa$offset + tip_taxa$width + tip_taxa$depth)))
+
