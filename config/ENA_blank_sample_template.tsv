@@ -1,6 +1,5 @@
 #checklist_accession	ERC000011
-#unique_name_prefix	
-sample_alias	tax_id	scientific_name	common_name	sample_title	sample_description	environmental_sample	
-#template							
-#units						
-						
+#unique_name_prefix
+sample_alias	tax_id	scientific_name	common_name	sample_title	sample_description	isolation_source	geographic location (country and/or sea)	geographic location (region and locality)	project name	target gene	pcr primers	pcr conditions	sequencing method
+#template
+#units
