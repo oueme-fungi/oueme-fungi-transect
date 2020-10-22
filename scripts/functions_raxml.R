@@ -1,5 +1,9 @@
+# function to interface with RAxML
+# author Brendan Furneaux, modified from raxml function in ips package version
+# 0.0.11 by C. Heibl
+
 #' Call raxml from R
-#' 
+#'
 #' @source modified from raxml function in ips package version 0.0.11 by C. Heibl
 #' #'@title Maximum Likelihood Tree Estimation with RAxML
 #'@description Provides an interface to the C program \bold{RAxML} (see
@@ -7,7 +11,7 @@
 #'  branch lengths, rapid and conventional non-parametric bootstrapping, mapping
 #'  splits onto individual topologies, and a lot more. See the RAxML manual for
 #'  details, especially if you are a new user of RAxML.
-#'@param RNAaln A matrix of RNA sequences of class 
+#'@param RNAaln A matrix of RNA sequences of class
 #'  \code{\link[Biostrings]{RNAMultipleStringSet}}.
 #'@param m A vector of mode \code{"character"} defining a model of molecular
 #'  evolution; currently only GTR model available.
@@ -92,21 +96,21 @@
 #'@seealso \code{\link{raxml.partitions}} to store partitioning information in a
 #'  data frame suitable for input as \code{partitions} argument in \code{raxml}.
 raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
-                      weights, partitions, outgroup, backbone = NULL, 
+                      weights, partitions, outgroup, backbone = NULL,
                       file = paste0("fromR_", Sys.Date()), exec,
                       dir = tempdir(), threads){
-  
-  if (!inherits(RNAaln, "RNAMultipleAlignment")) stop("RNAaln is not of class 
+
+  if (!inherits(RNAaln, "RNAMultipleAlignment")) stop("RNAaln is not of class
                                                       'RNAMultipleAlignment'")
   if (!dir.exists(dir)) dir.create(dir, recursive = TRUE)
   olddir <- setwd(dir)
   on.exit(setwd(olddir))
-  
+
   # number of threads (PTHREADS only)
   # ---------------------------------
   if (!missing(threads))
     exec <- paste(exec, "-T", threads)
-  
+
   ## input file names
   ## ----------------
   rin <- c(s = paste("-s ", file, ".phy", sep = ""),
@@ -116,36 +120,36 @@ raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
            partition = paste0(file, "-partitions.txt"),
            secstr = paste0(file, "-secstr.txt"),
            tree = paste0(file, "-backbone.tre"))
-  
+
   # Clear previous runs with same tag
   # ---------------------------------
   unlink(rin)
-  unlink(list.files(pattern = paste0("RAxML_[[:alpha:]]+[.]", file))) 
-  
+  unlink(list.files(pattern = paste0("RAxML_[[:alpha:]]+[.]", file)))
+
   # Substitution model
   # ------------------
-  m <- match.arg(m, c("GTRCAT", "GTRCATX", 
+  m <- match.arg(m, c("GTRCAT", "GTRCATX",
                       "GTRCATI", "GTRCATIX",
-                      "ASC_GTRCAT", "ASC_GTRCATX", 
-                      "GTRGAMMA", "GTRGAMMAX", 
+                      "ASC_GTRCAT", "ASC_GTRCATX",
+                      "GTRGAMMA", "GTRGAMMAX",
                       "GTRGAMMAI", "GTRGAMMAIX",
                       "ASC_GTRGAMMA", "ASC_GTRGAMMAX"))
   m <- paste("-m", m)
-  
+
   # Secondary structure model
   # ------------------
   A <- match.arg(A, c("S6A", "S6B", "S6C", "S6D", "S6E",
                       "S7A", "S7B", "S7C", "S7D", "S7E", "S7F",
                       "S16", "S16A", "S16B"))
   A <- paste("-A", A)
-  
+
   ## Number of searches/replicates
   ## -----------------------------
   if (is.character(N)){
     N <- match.arg(N, c("autoFC", "autoMR", "autoMRE", "autoMRE_IGN"))
   }
   N <- paste("-N", N)
-  
+
   ## Random seeds
   ## ------------
   rs <- function(rseed, type = "p"){
@@ -154,17 +158,17 @@ raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
   }
   p <- rs(p)
   if (!missing(x)) x <- rs(x, type = "x")
-  
+
   ## Write sequences to input file
   ## -----------------------------
   Biostrings::write.phylip(RNAaln, paste(file, "phy", sep = "."))
-  
+
   ## rout: raxml output file names
   ## -----------------------------
   output.types <- c("info", "bestTree", "bootstrap", "bipartitions")
   rout <- paste("RAxML_", output.types, ".", file, sep = "")
   names(rout) <- output.types
-  
+
   ## Algorithms
   ## ----------
   if (missing(f)) f <- "d"
@@ -173,7 +177,7 @@ raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
   if (f == "a") alg <- paste(alg, x)
   if (!missing(b)) alg <- paste(alg, "-b", b)
   if (missing(N)) stop("the number of runs must be given (N)")
-  
+
   ## Outgroup
   ## --------
   if (missing(outgroup)){
@@ -188,7 +192,7 @@ raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
     o <- paste(outgroup, collapse = ",")
     o <- paste("-o", o)
   }
-  
+
   ## Columns weights
   ## ---------------
   if (!missing(weights)){
@@ -198,22 +202,22 @@ raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
   } else {
     weights <- ""
   }
-  
+
   # Write partition file
   ## ------------------
   if (!missing(partitions)) {
     if (is.character(partitions)){
       q <- partitions
     } else {
-      q <- paste(partitions$type, ", ", 
-                 partitions$locus, " = ", 
-                 partitions$begin, "-", 
+      q <- paste(partitions$type, ", ",
+                 partitions$locus, " = ",
+                 partitions$begin, "-",
                  partitions$end, sep = "")
     }
     write(q, rin["partition"])
     multipleModelFileName <- paste(" -q", rin["partition"], "")
   } else multipleModelFileName <- ""
-  
+
   ## Backbone tree
   ## -------------
   if (!is.null(backbone)){
@@ -222,7 +226,7 @@ raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
   } else {
     g <- " "
   }
-  
+
   ## Secondary structure
   ## -------------
   if (!missing(S) && !is.null(S)) {
@@ -231,28 +235,28 @@ raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
   } else {
     S <- ""
   }
-  
+
   ## Save branch lengths of bootstrap replicates
   ## -------------------------------------------
-  if (missing(k)) k <- FALSE 
+  if (missing(k)) k <- FALSE
   k <- ifelse(k, "-k", "")
-  
+
   ## Prepare and execute call
   ## ------------------------
   CALL <- paste(exec, alg, m, o, k,
-                weights, 
+                weights,
                 multipleModelFileName, N, g,
                 S,
                 rin["s"], rin["n"])
-  
+
   if (length(grep("MPI", exec))) system(paste("mpirun", CALL))
   print(CALL)
   system(CALL)
-  
+
   res <- scan(rout["info"], quiet = TRUE, what = "char", sep = "\n")
   if (length(grep("exiting", res)))
     stop("\n", paste(res, collapse = "\n"))
-  
+
   ## Read results
   ## ------------
   bestTree <- bipartitions <- bootstrap <- NULL
@@ -263,7 +267,7 @@ raxml_RNA <- function(RNAaln, m = "GTRCAT", f, N, p, b, x, k, S, A = "S16",
     bipartitions <- ape::read.tree(rout["bipartitions"])
   if (!missing(b) | !missing(x))
     bootstrap <- ape::read.tree(rout["bootstrap"])
-  
+
   obj <- list(info = info,
               bestTree = bestTree,
               bipartitions = bipartitions,

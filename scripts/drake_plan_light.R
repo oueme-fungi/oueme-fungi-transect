@@ -1,9 +1,30 @@
+##### drake plan for lightweight targets #####
+# Targets in this plan don't require the resources of a computing cluster
+# The whole plan should run in less than an hour on a modern desktop/laptop.
+# This plan is run after drake_plan_heavy.R, which does the heavyweight targets,
+# including region extraction, denoising, recombination, alignment,
+# ML phylogeny, and primary taxonomic assignments.
+# It performs statistical analyses on the results of the heavyweight targets,
+# and also generates tables, figures, and the PDF of the manuscript.
+#
+# author Brendan Furneaux
+
+#### Load config files ####
+# the main config file will be sent from Snakemake, but we can otherwise load it directly
 if (exists("snakemake")) {
   load(snakemake@input[["drakedata"]])
 } else {
-  load("data/plan/drake.Rdata")
+  load(here::here("data/plan/drake.Rdata"))
 }
+
+# ENTREZ key
+# I'm not sure this is used anymore, since relevant code was exported to
+# the reannotate project.
+# It's not included in the git repository, because it is a personal key.
+# Supply your own in the project root directory.
 if (file.exists("ENTREZ_KEY")) Sys.setenv(ENTREZ_KEY = readLines("ENTREZ_KEY"))
+
+# load packages quietly
 suppressPackageStartupMessages({
   library(drake)
   library(magrittr)
@@ -18,45 +39,29 @@ suppressPackageStartupMessages({
   library(futile.logger)
 })
 
-setup_log("drake_light")
-
-source(file.path(config$rdir, "dada.R"))
-source(file.path(config$rdir, "mantel.R"))
-source(file.path(config$rdir, "variogram.R"))
-source(file.path(config$rdir, "qstats.R"))
-source(file.path(config$rdir, "taxonomy.R"))
-source(file.path(config$rdir, "plate_check.R"))
-source(file.path(config$rdir, "output_functions.R"))
-
+# these files define our datasets, rDNA regions, and plate layout
 datasets <- read_csv(config$dataset, col_types = "cccccccicccccccccccicc")
 regions <- read_csv(config$regions, col_types = "cccciiiiic")
+platemap <- read_platemap(config$platemap, config$platemap_sheet)
 
-# we will calculate five sets of consensus taxonomy:
-# taxa_meta <- tribble(
-#   ~algorithm,  ~taxset,   ~region, ~ref_region,
-# # PHYLOTAX hybrid is the best taxonomy we can do; it uses all the available
-# # sequences plus the phylogeny.
-#   "PHYLOTAX",  "hybrid",  "All",   "All",
-# # Consensus hybrid is the same thing, but without using the phylogeny
-#   "Consensus", "hybrid",  "All",   "All",
-# # Consensus ITS does not use LSU-based assignments or the tree.  This is used
-# # for comparing the taxa recovered by long and short reads
-#   "Consensus", "ITS",     "All",   "ITS",
-# # Consensus short uses only the short amplicons; this is the best we would be
-# # able to do if we had only sequences short amplicons.
-#   "Consensus", "short",   "short", "ITS"
-# ) %>%
-#   mutate(
-#     tree = ifelse(algorithm == "Consensus", "null_tree", "rooted_tree"),
-#     taxon_table = glue::glue("taxon_table_{taxset}")
-#   ) %>%
-#   dplyr::mutate_at(c("tree", "taxon_table"), rlang::syms)
+# names of the LaTeX files and supporting directories required for manuscript
+# submission
+latexfiles <- c("transect_paper.tex", "transect_supplement.tex")
+latexdirs <- file.path(c("transect_paper_files", "transect_supplement_files"), "figure-latex")
 
-# Data frame for mapping between targets for guild assignment
-# guilds_meta <- tibble::tibble(
-#   taxa = rlang::syms(c("phylotax_hybrid", "consensus_short")),
-#   consensus = list(NULL, rlang::sym("consensus_short"))
-# )
+#### Load functions ####
+# I've tried to split code that takes more than a few lines out of the main plan
+# into one "functions_*.R" file per section of the plan.
+for (f in list.files(config$rdir, "functions_.+.R", full.names = TRUE)) source(f)
+
+# start logging
+setup_log("drake_light")
+
+#### meta plans ####
+# Sometimes drake's plan transformations are not enough to correctly link up
+# the dependencies between targets.
+# In those cases, they are defined using these metaplans, via
+# transform = map(.data = !![section]_meta, [...])
 
 # Data frame for mapping between targets for building phyloseq experiment objects
 physeq_meta <-
@@ -76,14 +81,12 @@ physeq_meta <-
     fungi = glue::glue("fungi_{algorithm}"),
     ecm = glue::glue("ecm_{algorithm}"),
     ecm2 = glue::glue("ecm2_{algorithm}"),
-    ecm3 = glue::glue("ecm3_{algorithm}")
+    ecm3 = glue::glue("ecm3_{algorithm}"),
+    taxa = glue::glue("{tolower(algorithm)}_hybrid")
   ) %>%
-  mutate_at(vars(starts_with("ecm"), starts_with("fungi")), compose(syms, make.names))
+  mutate_at(vars(starts_with("ecm"), starts_with("fungi"), "taxa"), compose(syms, make.names))
 
-latexfiles <- c("transect_paper.tex", "transect_supplement.tex")
-latexdirs <- file.path(c("transect_paper_files", "transect_supplement_files"), "figure-latex")
-
-# Drake plan
+#### Drake plan ####
 plan2 <- drake_plan(
   #### Import "heavy" targets from the first plan ####
   file_meta = target(
@@ -128,15 +131,9 @@ plan2 <- drake_plan(
     transform = map(.data = !!region_meta, .tag_in = step, .id = region)
   ),
 
-  # platemap
-  # Read the map between plate locations and samples
-  platemap = target(
-    read_platemap(file_in(!!config$platemap), !!config$platemap_sheet),
-    format = "fst"
-  ),
-
   # Output Supplementary tables
   # write out tables
+  # [tibble], creates file for supplement 2
   tagmap_long = platemap %>%
     filter(primer_pair == "ITS1_LR5") %>%
     select(year, site, buffer, x, sample_type, primer_pair, plate, well) %>%
@@ -162,6 +159,7 @@ plan2 <- drake_plan(
     dplyr::select(-"Illumina-f", -"Illumina-r", -"IonTorrent") %T>%
     write_tsv(file_out(!!file.path("output", "supp_file_2.tsv")), na = ""),
 
+  # [tibble], creates file for supplement 3
   tagmap_short = platemap %>%
     filter(primer_pair == "gITS7_ITS4") %>%
     select(year, site, buffer, x, sample_type, primer_pair, plate, well) %>%
@@ -192,12 +190,15 @@ plan2 <- drake_plan(
     select(sample_alias, year, site, buffer, x, sample_type, amplicon, everything()) %T>%
     write_tsv(file_out(!!file.path("output", "supp_file_1.tsv")), na = ""),
 
-  # Phylogeny ----
+  #### Phylogeny ####
   # Some of these targets depend on argets from the next (taxonomy) section
+
+  # [phylo object]
   unrooted_tree = raxml_decipher_unconst_long$bipartitions,
 
-  # Tulasnella is on a long branch because of a high divergence rate.
-  # it ends up with Metazoa in the tree.
+  # Tulasnella is on a long branch because of a high divergence rate,
+  # and its placement is highly unstable.
+  # [character vector] tip labels (ASV hashes)
   tulasnella =
     dplyr::filter(taxon_table_primary, rank == "family", taxon == "Tulasnellaceae") %$%
     label %>%
@@ -205,6 +206,7 @@ plan2 <- drake_plan(
 
   # find ASVs for which we can be confident of the kingdom assignment
   # at least 5 assignments with a confidence > 0.5
+  # [character vector] tip labels (ASV hashes)
   sure_kingdoms =
     identify_taxa(taxon_table_hybrid, unrooted_tree,
                   rank = "kingdom", confidence = 0.5, n = 5,
@@ -214,9 +216,11 @@ plan2 <- drake_plan(
   # in our dataset the confidently identified ones are all in Alveolata and
   # Viridiplantae, there are also some unconfident assignments for Rhizaria
   # and Stramenopila.
+  # [a character vector] tip labels (ASV hashes)
   sure_bikonts = extract_bikonta(sure_kingdoms, unrooted_tree),
 
   # root the tree with the bikonts
+  # [phylo object]
   rooted_tree = target(
     ape::root.phylo(
       unrooted_tree,
@@ -228,32 +232,28 @@ plan2 <- drake_plan(
   ),
 
   # find the sequences that were confidently identified as fungi
+  # [character vector]
   sure_fungi = dplyr::filter(sure_kingdoms, taxon == "Fungi")$label,
 
-  # Make a null tree; using this will cause phylotax to just calculate
-  # strict LCA consensus.
-  null_tree = target(
-    NULL,
-    transform = map(amplicon = "Short", .tag_out = tree, .id = FALSE)
-  ),
-
   # label the tree
+  # [phylo object], also writes file for inspection (should go in Dryad)
   labeled_tree =
     phylotax::relabel_tree(
       tree = rooted_tree,
-      old = taxon_labels$label,
-      new = taxon_labels$tip_label,
+      old = taxon_labels$old,
+      new = taxon_labels$new,
       chimeras = allchimeras_ITS2
     ) %T>%
     castor::write_tree(file_out(
       !!glue::glue("data/trees/labeled.tree", group = group)
     )),
 
+  # [phylo object], also writes file for inspection (should go in Dryad)
   phylo_labeled_tree =
     phylotax::relabel_tree(
       tree = rooted_tree,
-      old = phylotax_labels$label,
-      new = phylotax_labels$tip_label,
+      old = phylotax_labels$old,
+      new = phylotax_labels$new,
       drop = allchimeras_ITS2,
       quote = TRUE
     ) %T>%
@@ -264,6 +264,7 @@ plan2 <- drake_plan(
   #### Taxonomy ####
 
   # put together all the primary taxonomy assignments
+  # [tibble] as returned by phylotax::taxtable
   taxon_table_primary = target(
     drake_combine(taxon) %>%
       combine_taxon_tables(allseqs) %>%
@@ -278,8 +279,9 @@ plan2 <- drake_plan(
   # ),
 
   # only assignments which came from the short amplicons
+  # [tibble] as returned by phylotax::taxtable
   taxon_table_short = target(
-    dplyr::filter(taxon_table_primary, region == "short"),
+    dplyr::filter(taxon_table_primary, .data[["region"]] == "short"),
     transform = map(taxset = "short", region = "short", ref_region = "ITS",
                     .tag_out = taxon_table, .id = FALSE)
   ),
@@ -291,27 +293,31 @@ plan2 <- drake_plan(
   # Take the full-length ITS as likely to be the more accurate one
   # This version of the taxon table is used to make the best possible
   # assignments for the short reads.
+  # [tibble] as returned by phylotax::taxtable
   taxon_table_hybrid = target(
     dplyr::group_by(taxon_table_primary, label) %>%
-      dplyr::filter(!any(region == "ITS") | region != "short") %>%
+      dplyr::filter(!any(.data[["region"]] == "ITS") | .data[["region"]] != "short") %>%
       dplyr::ungroup(),
     transform = map(taxset = "hybrid", region = "All", ref_region = "All",
                     .tag_out = taxon_table, .id = FALSE)
   ),
 
   # Only ITS-based assignments. These are used for the metacoder trees
+  # [tibble] as returned by phylotax::taxtable
   taxon_table_ITS = target(
-    dplyr::filter(taxon_table_hybrid, region %in% c("ITS", "short")),
+    dplyr::filter(taxon_table_hybrid, .data[["region"]] %in% c("ITS", "short")),
     transform = map(taxset = "ITS", region = "All", ref_region = "ITS",
                     .tag_out = taxon_table, .id = FALSE)
   ),
 
   # Create labels for the tree(s) which show the assigned taxonomy before
   # refinement
+  # [tibble] columns "old" and "new", giving old and new tip labels
   taxon_labels =
     phylotax::make_taxon_labels(taxon_table_hybrid, "n_reads", TRUE),
 
   # calculate (phylogenetic) consensus taxonomy
+  # [phylotax object]
   phylotax_hybrid = target(
     phylotax::phylotax(
       tree = rooted_tree,
@@ -323,6 +329,7 @@ plan2 <- drake_plan(
                     .tag_in = step, .tag_out = taxa, .id = FALSE)
   ),
 
+  # [phylotax object]
   consensus = target(
     phylotax::phylotax(
       taxa = taxon_table,
@@ -334,158 +341,138 @@ plan2 <- drake_plan(
   ),
 
   # make labels for phylogenetic consensus taxa
+  # [tibble] columns "old" and "new", giving old and new tip labels
   phylotax_labels =
     taxa_PHYLOTAX_hybrid %$%
     bind_rows(assigned, retained) %>%
     phylotax::make_taxon_labels(),
 
-  # calculate strict consensus taxonomy
-  # lcatax_euk = target(
-  #   lca_consensus(
-  #     taxa = taxon_table,
-  #     method = c(region = taxset, reference = "All", ref_region = taxset,
-  #                method = "Consensus")
-  #   ),
-  #   transform = map(
-  #     taxon_table,
-  #     group = "euk",
-  #     algorithm = "Consensus",
-  #     .tag_in = step,
-  #     .tag_out = taxa,
-  #     .id = taxset
-  #   )
-  # ),
-  #
-  # # PHYLOTAX plus LCA.
-  # phylotaxlca_euk = target(
-  #   combotax(phylotax_euk, lcatax_euk,
-  #            method = c(region = "All", reference = "All", ref_region = taxset,
-  #                       method = "PHYLOTAX")),
-  #   transform = map(lcatax_euk, algorithm = "PHYLOTAX",
-  #                   .tag_in = step, .tag_out = taxa,
-  #                   .id = taxset)
-  # ),
-  #
-  # lcatax_fungi = target(
-  #   phylotax::keep_tips(lcatax_euk, sure_fungi, mrca = TRUE),
-  #   transform = map(lcatax_euk, group = "fungi",
-  #                   .tag_out = taxa,
-  #                   .tag_in = step, .id = taxset)
-  # ),
-  #
-  # phylotaxlca_fungi =  target(
-  #   combotax(phylotax_fungi, lcatax_fungi,
-  #            method = c(region = "All", reference = "All", ref_region = taxset,
-  #                       method = "PHYLOTAX")),
-  #   transform = map(lcatax_fungi, algorithm = "PHYLOTAX",
-  #                   .tag_in = step, .tag_out = taxa,
-  #                   .id = taxset)
-  # ),
-
   # Guild assignment ----
 
   # Download the FUNGuild database
+  # [tibble] as required by FUNGuildR::funguild_assign
   funguild_db = FUNGuildR::get_funguild_db(),
 
+  # [tibble] columns: name, region, reference, ref_region, method, label,
+  # confidence, n_reads, kingdom:genus, Taxonomy, taxon, taxonomicLevel,
+  # trophicMode, guild, growthForm, trait, confidenceRanking, notes,
+  # citationSource, ECM
   guilds_PHYLOTAX = target(
     phylotax::extract_taxon(phylotax_hybrid, "Fungi", true_members = sure_fungi) %$%
-      FUNGuildR::funguild_assign(widen_taxonomy(assigned), funguild_db),
+      FUNGuildR::funguild_assign(widen_taxonomy(assigned), funguild_db) %>%
+      dplyr::mutate(ECM = grepl("Ectomycorrhizal", guild)),
     transform = map(algorithm = "PHYLOTAX", .tag_out = guilds, .id = FALSE)
   ),
 
+  # [tibble] columns: name, region, reference, ref_region, method, label,
+  # confidence, n_reads, kingdom:genus, Taxonomy, taxon, taxonomicLevel,
+  # trophicMode, guild, growthForm, trait, confidenceRanking, notes,
+  # citationSource, ECM
   guilds_Consensus = target(
     phylotax::extract_taxon(consensus_short, "Fungi") %$%
-      FUNGuildR::funguild_assign(widen_taxonomy(assigned), funguild_db),
+      FUNGuildR::funguild_assign(widen_taxonomy(assigned), funguild_db) %>%
+      dplyr::mutate(ECM = grepl("Ectomycorrhizal", guild)),
     transform = map(algorithm = "Consensus", .tag_out = guilds, .id = FALSE)
   ),
 
   #should be a no-op
+  # [tibble] columns: name, region, reference, ref_region, method, label,
+  # confidence, n_reads, kingdom:genus, Taxonomy, taxon, taxonomicLevel,
+  # trophicMode, guild, growthForm, trait, confidenceRanking, notes,
+  # citationSource
   fungi = target(
     dplyr::filter(guilds, kingdom == "Fungi"),
     transform = map(guilds, .tag_in = step, .id = algorithm)
   ),
 
+  # [tibble] columns: name, region, reference, ref_region, method, label,
+  # confidence, n_reads, kingdom:genus, Taxonomy, taxon, taxonomicLevel,
+  # trophicMode, guild, growthForm, trait, confidenceRanking, notes,
+  # citationSource
+  # fungi_combined = target(
+  #   unique(dplyr::bind_rows(fungi)),
+  #   transform = combine(fungi)
+  # ),
+
+  # [tibble] columns: name, region, reference, ref_region, method, label,
+  # confidence, n_reads, kingdom:genus, Taxonomy, taxon, taxonomicLevel,
+  # trophicMode, guild, growthForm, trait, confidenceRanking, notes,
+  # citationSource
   ecm = target(
-    dplyr::filter(guilds, grepl("Ectomycorrhizal", guild)),
+    dplyr::filter(guilds, ECM),
     transform = map(guilds, .tag_in = step, .id = algorithm)
   ),
 
+  # [tibble] columns: name, region, reference, ref_region, method, label,
+  # confidence, n_reads, kingdom:genus, Taxonomy, taxon, taxonomicLevel,
+  # trophicMode, guild, growthForm, trait, confidenceRanking, notes,
+  # citationSource
+  # ecm_combined = target(
+  #   unique(dplyr::bind_rows(ecm)),
+  #   transform = combine(ecm)
+  # ),
+
+  # [tibble] columns: name, region, reference, ref_region, method, label,
+  # confidence, n_reads, kingdom:genus, Taxonomy, taxon, taxonomicLevel,
+  # trophicMode, guild, growthForm, trait, confidenceRanking, notes,
+  # citationSource
   ecm2 = target(
     dplyr::filter(ecm, !taxon %in% c("Peziza", "Pezizaceae", "Pyronemataceae")),
     transform = map(ecm, .tag_in = step, .id = algorithm)
   ),
 
+  # [tibble] columns: name, region, reference, ref_region, method, label,
+  # confidence, n_reads, kingdom:genus, Taxonomy, taxon, taxonomicLevel,
+  # trophicMode, guild, growthForm, trait, confidenceRanking, notes,
+  # citationSource
   ecm3 = target(
     dplyr::filter(ecm, confidenceRanking != "Possible"),
     transform = map(ecm, .tag_in = step, .id = algorithm)
   ),
 
   #### Phyloseq objects ####
+  # see functions_phyloseq.R
 
+  # [phyloseq::sample_data object]
   sample_data = assemble_sample_data(platemap, datasets),
 
+  # [phyloseq::otu_table object]
   physeq_otu_table =
     assemble_otu_table(sample_data, relabel_seqtable(big_seq_table_ITS2), allchimeras_ITS2),
 
+  # this phyloseq object contains all the data
+  # [phyloseq::phyloseq object]
   proto_physeq = phyloseq::phyloseq(sample_data, physeq_otu_table),
 
+  # trim down the phyloseq data to include only data from a single
+  # sequencing technology, amplicon length, and guild (ECM vs all fungi) as
+  # determined by taxonomic annotations from a particular algorithm.
+  # [phyloseq::phyloseq object]
   physeq = target(
-    {
-      physeq <-
-        phylotax::phylotax_to_phyloseq(
-          phylotax = taxa,
-          otu_table = phyloseq_otu_table,
-          sample_data,
-          use_tree = !is.null(taxa$tree) && amplicon == "Long"
-        ) %>%
-        phyloseq::subset_samples(sample_type == "Sample") %>%
-        phyloseq::subset_samples(buffer == "Xpedition") %>%
-        phyloseq::subset_samples(site == "Gan") %>%
-        phyloseq::prune_samples(
-          samples = rowSums(phyloseq::otu_table(.)) > 100
-        ) %>%
-        phyloseq::prune_samples(
-          samples = phyloseq::sample_data(.)[["tech"]] == tech
-        ) %>%
-        phyloseq::prune_samples(
-          samples = phyloseq::sample_data(.)[["amplicon"]] == amplicon
-        )
-
-      if (guild == "ecm") {
-        physeq <- phyloseq::prune_taxa(ecm$label, physeq) %>%
-          phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
-
-      } else if (guild == "ecm2") {
-        physeq <- phyloseq::prune_taxa(ecm2$label, physeq) %>%
-          phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
-
-      } else if (guild == "ecm3") {
-        physeq <- phyloseq::prune_taxa(ecm3$label, physeq) %>%
-          phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
-
-      } else if (guild == "fungi") {
-        physeq <- phyloseq::prune_taxa(fungi$label, physeq) %>%
-          phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 0)
-      }
-      phyloseq::transform_sample_counts(physeq, function(x) x / sum(x))
-    },
+    build_physeq(taxa, physeq_otu_table, sample_data,
+                 amplicon, tech, guild,
+                 fungi, ecm, ecm2, ecm3),
     transform = map(.data = !!physeq_meta, .tag_in = step,
                     .id = c(guild, tech, amplicon, algorithm))
   ),
-  #   trace = TRUE
-  # )
-  #
-  # # later targets mess up these earlier transforms, so transform them now,
-  # # then do the rest.
-  #
-  # plan2 <- drake_plan(
 
+  #### Correlogram ####
+  # see functions_mantel.R
+
+  # [vegan::mantel.correlog object]
   correlog = target(
     correlog(physeq, metric, timelag),
     transform = cross(physeq, metric = c("bray", "wunifrac"), timelag = c(0, 1),
-                      .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm, timelag))
+                      .tag_in = step,
+                      .id = c(guild, metric, tech, amplicon, algorithm, timelag))
   ),
 
+  #### Spatiotemportal variogram ####
+  # see functions_variogram.R
+
+  # empirical spatial variogram
+  # [tibble] columns: dist, gamma, bin
+  # each observation gets its own row.
   variog = target(
     variog(physeq, metric, breaks = c(1:25 - 0.5, 31000)),
     transform = cross(physeq, metric = c("bray", "wunifrac"),
@@ -493,38 +480,23 @@ plan2 <- drake_plan(
                       .id = c(guild, metric, tech, amplicon, algorithm))
   ),
 
+  # [list]
+  #   pars: [list]
+  #     nugget [numeric scalar]
+  #     sill   [numeric scalar]
+  #     range  [numeric scalar]
+  #   summary: [tibble] columns: term, estimate, std.error, statistic, p.value,
+  #                              conf.low, conf.high
+  #   predict: [tibble] columns: dist, timelag, gamma
   variofit2 = target(
-    variog %>%
-      as_variogram() %>%
-      stats::nls(
-        # this it reparameterized to give better convergence
-        # sill = 1 - (C0 + C1)
-        # nugget = C1 / (C0 + C1)
-        gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp(dist/range*log(0.05)),
-        data = .,
-        start = list(
-          nugget = min(.$gamma),
-          sill = 1 - max(.$gamma),
-          range = 30
-        ),
-        upper = list(nugget = 0.99, sill = 0.99, range = Inf),
-        lower = list(nugget = 0, sill = 0, range = 0.001),
-        algorithm = "port",
-        weights = pmin(.$np/.$dist, 1),
-        control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
-      ) %>% {
-        list(
-          pars = as.list(.$m$getPars()),
-          summary = variog_summary(.),
-          predict = variog_predict(
-            .,
-            newdata = expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
-          )
-        )
-      },
-    transform = map(variog, .tag_in = step,.id = c(guild, metric, tech, amplicon, algorithm))
+    fit_variogram(variog),
+    transform = map(variog, .tag_in = step,
+                    .id = c(guild, metric, tech, amplicon, algorithm))
   ),
 
+  # empirical soatiotemporal variogram
+  # [tibble] columns: dist, gamma, timelag, bin
+  # each observation gets its own row.
   variogST = target(
     variogST(physeq, metric, breaks = c(1:25 - 0.5, 30000)),
     transform = cross(physeq, metric = c("bray", "wunifrac"),
@@ -532,90 +504,39 @@ plan2 <- drake_plan(
                       .id = c(guild, metric, tech, amplicon, algorithm))
   ),
 
+  # [list]
+  #   pars: [list]
+  #     timerange [numeric scalar]
+  #     nugget    [numeric scalar]
+  #     sill      [numeric scalar]
+  #     range     [numeric scalar]
+  #   summary: [tibble] columns: term, estimate, std.error, statistic, p.value,
+  #                              conf.low, conf.high
+  #   predict: [tibble] columns: dist, timelag, gamma
   variofitST2 = target(
-    as_variogramST(variogST) %>%
-      stats::nls(
-        # this it reparameterized to give better convergence
-        # sill = 1 - (C0 + C1)
-        # nugget = C1 / (C0 + C1)
-        gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp((dist/range + timelag/timerange)*log(0.05)),
-        # add the parameters from the spatial-only fit.
-        data = .,
-        start = c(
-          list(timerange = 2),
-          variofit2$pars
-        ),
-        lower = c(
-          list(timerange = 0.001),
-          variofit2$pars
-        ),
-        algorithm = "port",
-        weights = pmin(.$np/.$dist, 1),
-        control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
-      ) %>% {
-        list(
-          pars = as.list(.$m$getPars()),
-          summary = variog_summary(.),
-          predict = variog_predict(
-            .,
-            newdata = expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
-          )
-        )
-      },
+    fit_variogramST(variogST, variofit2),
     transform = map(variogST, variofit2, .tag_in = step, .id = c(guild, metric, tech, amplicon, algorithm))
   ),
 
   ##### Tables and Figures #####################################################
-  # Targets below this point are intended to compile data in useful formats    #
-  # for making the tables, figures, and in-line results in the paper.          #
-  ##############################################################################
+  # Targets below intended to compile data in useful formats
+  # for making the tables, figures, and in-line results in the paper.
+  # see functions_figures.R
 
-  amplicon_plot =
-    readr::read_csv(file_in("writing/rDNA_amplicons.csv")) %>%
-    dplyr::mutate(xmid = (x + xend) / 2,
-                  label = tidyr::replace_na(label, "")) %>%
-    ggplot(aes(x = x, y = y, xend = xend, yend = yend, color = color,
-               linetype = linetype, size = size)) +
-    geom_segment(data = ~dplyr::filter(., !arrow)) +
-    geom_segment(
-      data = ~dplyr::filter(., arrow),
-      arrow = arrow(length = unit(0.1, "inches"))
-    ) +
-    geom_text(aes(x = xmid, y = y_label, label = label, color = labelcolor,
-                  size = size_label)) +
-    scale_linetype_identity() +
-    scale_color_identity() +
-    scale_size_identity() +
-    ylim(c(-19, 24)) +
-    coord_equal(ratio = 10) +
-    theme(axis.line = element_blank(),
-          panel.grid = element_blank(),
-          panel.border = element_blank(),
-          axis.text = element_blank(),
-          axis.ticks = element_blank(),
-          axis.title = element_blank()
-    ),
+  # draw the rDNA, primers, and amplicons (Fig1a)
+  amplicon_plot = draw_amplicon_plot(file_in("writing/rDNA_amplicons.csv")),
 
   # list of all sequences by region and sequencing run, along with number of
   # reads and sequence length
+  # [tibble] columns: seq_run, region, seq, reads, length
   reads_table = target(
-    list(big_seq_table) %>%
-      purrr::map(tibble::as_tibble, rownames = "sample") %>%
-      purrr::map_dfr(tidyr::pivot_longer, -"sample", names_to = "seq", values_to = "reads") %>%
-      dplyr::filter(reads > 0) %>%
-      tidyr::extract(
-        "sample",
-        c("seq_run", "plate", "well", "region"),
-        regex = "([piS][bsH][-_]\\d{3,4})_(\\d{3})_([A-H]1?\\d)_(.+)"
-      ) %>%
-      dplyr::group_by(seq_run, region, seq) %>%
-      dplyr::summarize(reads = sum(reads)) %>%
-      dplyr::mutate(length = nchar(seq)) %>%
-      dplyr::ungroup(),
+    compile_reads_table(big_seq_table),
     transform = combine(big_seq_table)
   ),
 
   # Summary information for each region
+  # [tibble] columns: seq_run, region, ASVs, length_min, length_q1, length_mean,
+  #                   length_med, length_q3, length_max, reads
   region_table = reads_table %>%
     dplyr::group_by(seq_run, region) %>%
     dplyr::summarize(
@@ -629,142 +550,53 @@ plan2 <- drake_plan(
       reads = sum(reads)
     ),
 
-  # plot of ASV diversity vs. denoising success vs. length
-  length_diversity_plot = region_table %>%
-    dplyr::filter(seq_run == "pb_500") %>%
-    mutate_at(
-      "reads",
-      divide_by,
-      sum(filter(readcounts, seq_run == "pb_500", step == "demux")$nreads)
-    ) %>%
-    dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
-    ggplot(aes(reads, ASVs, color = length_med, label = region)) +
-    geom_point() +
-    ggrepel::geom_text_repel() +
-    scale_color_gradientn(
-      colors = c("blue", "red", "green1"),
-      limits = c(30, 2000),
-      breaks = c(50, 150, 400, 1000),
-      trans = "log10",
-      name = "median length"
-    ) +
-    scale_x_continuous(name = "Fraction of reads mapped",limits = c(0, 1)) +
-    ylab("Unique ASVs"),
+  # plot of ASV richness vs. denoising success vs. length
+  length_richness_plot = draw_length_richness_plot(region_table, readcounts),
 
   # Table of reads per ASV for each sequencing run
-  asv_table = big_seq_table_ITS2 %>%
-    tibble::as_tibble(rownames = "filename") %>%
-    tidyr::gather(key = "seq", value = "reads", -1) %>%
-    dplyr::filter(reads >= 1) %>%
-    tidyr::extract(col = "filename",
-                   into = c("seq.run", "plate", "well", "dir", "region"),
-                   regex = "([a-zA-Z]+[-_]\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+") %>%
-    dplyr::group_by(seq.run, seq) %>%
-    dplyr::summarize(reads = sum(reads)) %>%
-    tidyr::spread(key = seq.run, value = reads, fill = 0) %>%
-    dplyr::ungroup(),
+  # [tibble] columns: seq, is_057, pb_483, pb_500, SH-2257
+  asv_table = compile_asv_table(big_seq_table_ITS2),
 
   # Table of reads per OTU for each sequencing run
-  otu_table = {
-    big_fasta_ITS2
-    read_tsv(
-      file_in("data/clusters/ITS2.table"),
-      col_types = cols(
-        .default = col_integer(),
-        `#OTU ID` = col_character()
-      )
-    ) %>%
-      column_to_rownames("#OTU ID") %>%
-      as.matrix() %>%
-      t() %>%
-      as_tibble(rownames = "sample") %>%
-      tidyr::extract(
-        col = "sample",
-        into = c("seq_run", "plate", "well"),
-        regex = "([a-zA-Z]{2}[-_]\\d{3,4})_(\\d{3})([A-H]1?\\d)"
-      ) %>%
-      tidyr::gather(key = "seq", value = "reads", -(1:3)) %>%
-      dplyr::filter(reads >= 1) %>%
-      dplyr::group_by(seq_run, seq) %>%
-      dplyr::summarize(reads = sum(reads)) %>%
-      tidyr::spread(key = seq_run, value = reads, fill = 0)
-  },
+  # [tibble] columns: seq, is_057, pb_483, pb_500, SH-2257
+  otu_table =
+   compile_otu_table(file_in("data/clusters/ITS2.table"), big_fasta_ITS2),
 
   # Find the central sequence for each 97% OTU
-  otu_map =
-    read_tsv(
-      file_in(here::here("data/clusters/ITS2.uc")),
-      col_names = paste0("V", 1:10),
-      col_types = "ciidfccccc",
-      na = c("", "NA", "*")
-    ) %>%
-    #filter(V1 == "H") %>%
-    select(identity = V4, ASVseq = V9, OTUseq = V10) %>%
-    mutate_all(str_replace, ";.*", "") %>%
-    mutate(OTUseq = coalesce(OTUseq, ASVseq),
-           identity = tidyr::replace_na(identity, 100)) %>%
-    unique(),
+  # [tibble] identity, ASVseq, OTUseq
+  # ASVseq and OTUseq are ASV sequence hashes.
+  otu_map = generate_otu_map(file_in(here::here("data/clusters/ITS2.uc"))),
 
-  # alpha diversity ----
+  #### Alpha diversity ####
+  # functions used in this section are in richness.R
 
   # for ASVs and OTUs, make inputs for iNEXT
   # the format is a list, where names are the sample names,
   # and values are integer vectors giving the number of reads
   # for all ASVs/OTUs with nonzero reads in that sample
+  # [list]
   pre_iNEXT_ASV = target(
-    big_seq_table_ITS2 %>%
-      tibble::as_tibble(rownames  = "file") %>%
-      tidyr::extract(
-        file,
-        c("seq_run", "plate", "well"),
-        regex = "([ipS][sbH][-_]\\d{3,4})_([0OT]{2}\\d)_([A-H]1?[0-9])_ITS2"
-      ) %>%
-      dplyr::semi_join(readd(platemap), by = c("plate", "well")) %>%
-      dplyr::select(-plate) %>%
-      dplyr::group_by(seq_run, well) %>%
-      dplyr::summarize_all(sum) %>%
-      tidyr::unite("sample", c(seq_run, well)) %>%
-      tidyr::pivot_longer(-sample, names_to = "ASV", values_to = "nread") %>%
-      dplyr::filter(nread > 0) %>%
-      dplyr::group_by(sample) %>%
-      dplyr::filter(sum(nread) >= 100) %>%
-      dplyr::ungroup() %>%
-      dplyr::select(sample, nread) %>%
-      tibble::deframe() %>%
-      split(names(.)),
+    nonzero_asv_counts(big_seq_table_ITS2, platemap),
     transform = map(cluster = "ASV", .tag_out = pre_iNEXT, .id = FALSE)
   ),
 
+  # [list]; see pre_iNEXT_ASV
   pre_iNEXT_OTU = target(
-    read_tsv(
-      file_in(here::here("data/clusters/ITS2.table")),
-      col_types =
-        cols(
-          .default = col_integer(),
-          `#OTU ID` = col_character()
-        )
-    ) %>%
-      dplyr::rename(OTU = `#OTU ID`) %>%
-      tidyr::pivot_longer(-OTU, names_to = "sample", values_to = "nread") %>%
-      dplyr::filter(nread > 0) %>%
-      tidyr::extract(
-        col = sample,
-        into = c("seq_run", "plate", "well"),
-        regex = "([piS][bsH][-_]\\d{3,4})_(\\d{3})([A-H]1?[0-9])"
-      ) %>%
-      dplyr::semi_join(readd(platemap), by = c("plate", "well")) %>%
-      tidyr::unite("sample", seq_run, well) %>%
-      dplyr::group_by(sample, OTU) %>%
-      dplyr::summarize_at("nread", sum) %>%
-      dplyr::group_by(sample) %>%
-      dplyr::filter(sum(nread) >= 100) %>%
-      dplyr::ungroup() %>%
-      dplyr::select(sample, nread) %>%
-      tibble::deframe() %>%
-      split(names(.)),
+    nonzero_otu_counts(file_in(here::here("data/clusters/ITS2.table")), platemap),
     transform = map(cluster = "OTU", .tag_out = pre_iNEXT, .id = FALSE)
   ),
 
+  # [list of data.frame] one data.frame per sample.
+  #    columns:
+  #     m: number of samples
+  #     method: interpolated, observed, or extrapolated
+  #     order; order of Hill number; 0 for richness
+  #     qD: estimated Hill number
+  #     qD.LCL: lower confidence limit for qD
+  #     qD.UCL: upper confidence limit for qD
+  #     SC: estimated sample coverage
+  #     SC.LCL: lower confidence interval for SC
+  #     SC.UCL: upper confidence interval for SC
   sample_iNEXT = target(
     lapply(pre_iNEXT, function(x) iNEXT:::iNEXT.Ind(
       x,
@@ -774,9 +606,11 @@ plan2 <- drake_plan(
     dynamic = map(pre_iNEXT)
   ),
 
+  # rarefied species (ASV/OTU) richness
   # iNEXT::estimateD causes problems when there is only one species
   # it also does more calculation than we actually need (i.e. Shannon and Simpson)
   # iNEXT:::iNEXT.Ind causes problem when there is only one value of m
+  # [list] rarefied richness for each sample
   sample_rarefy = target(
     lapply(pre_iNEXT, iNEXT:::iNEXT.Ind, m = c(1,100), q = 0) %>%
       vapply(magrittr::extract, 0, 2, "qD"),
@@ -784,121 +618,40 @@ plan2 <- drake_plan(
     dynamic = map(pre_iNEXT)
   ),
 
+  # matched richness values for different strategies in the same sample well
+  # [tibble] columns: well, strategy_x, value_x, strategy_y, value_y
   rarefy_data = target(
-    readd(sample_rarefy) %>%
-      purrr::map_dfr(tibble::enframe) %>%
-      tidyr::extract(
-        name,
-        c("seq_run", "well"),
-        regex = "([iSp][sHb][-_][0-9]+)_([A-H]1?[0-9])"
-      ) %>%
-      dplyr::left_join(datasets, by = "seq_run") %>%
-      dplyr::mutate(strategy = paste(tech, amplicon)) %>%
-      dplyr::mutate_at(
-        "strategy",
-        factor,
-        ordered = TRUE,
-        levels = c("Ion Torrent Short", "Illumina Short", "PacBio Short",
-                   "PacBio Long")
-      ) %>%
-      dplyr::select(well, strategy, value) %>%
-      dplyr::left_join(., ., by = "well", suffix = c("_x", "_y")) %>%
-      dplyr::filter(strategy_x < strategy_y),
+    reshape_rarefy_data(readd(sample_rarefy)),
     transform = map(sample_rarefy, .id = cluster)
   ),
 
+  # [tibble] strategy_x, strategy_y, slope, lower 0.95, upper 0.95, r_squared,
+  #          slope_label, r2_label
   demingfits = target(
-    rarefy_data %>%
-      dplyr::group_nest(strategy_x, strategy_y, .key = "deming") %>%
-      dplyr::mutate(
-        deming = purrr::map(
-          deming,
-          ~ deming::deming(value_y ~ value_x - 1, data = .) %$%
-            c(
-              list(slope = coefficients[2]),
-              as.list(ci[2,]),
-              list(r_squared = cor(model)[1,2])
-            ) %>%
-            tibble::as_tibble()
-        )
-      ) %>%
-      tidyr::unnest(deming) %>%
-      dplyr::mutate(
-        slope_label = sprintf("m==%.2f(%.2f-%.2f)",
-                              slope, `lower 0.95`, `upper 0.95`),
-        r2_label = sprintf("R^2==%.2f", r_squared)
-      ),
+    fit_deming_slope(rarefy_data),
     transform = map(rarefy_data, .id = cluster)
   ),
 
+  # plot of corresponding richness values for sifferent strategies.
+  # For ASVs as a main figure, for OTUS as supplementary
   alpha_plot = target(
-    ggplot(rarefy_data, aes(x = value_x, y = value_y)) +
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed",
-                  color = "gray50") +
-      geom_point(shape = 1, alpha = 0.8) +
-      geom_abline(
-        aes(slope = slope, intercept = 0),
-        color = "blue",
-        alpha = 0.7,
-        size = 1,
-        data = demingfits
-      ) +
-      geom_text(
-        aes(x = 0, y = 60, label = slope_label),
-        hjust = 0,
-        # color = "blue",
-        size = 2,
-        parse = TRUE,
-        data = demingfits
-      ) +
-      geom_text(
-        aes(x = 0, y = 52, label = r2_label),
-        hjust = 0,
-        # color = "blue",
-        size = 2,
-        parse = TRUE,
-        data = demingfits
-      ) +
-      facet_grid(strategy_y ~ strategy_x, switch = "both") +
-      theme_bw() +
-      coord_equal() +
-      theme(strip.background = element_blank(),
-            strip.placement = "outside") +
-      xlab(paste(cluster, "richness")) +
-      ylab(paste(cluster, "richness")),
+    make_alpha_plot(rarefy_data, demingfits, cluster),
     transform = map(demingfits, rarefy_data, cluster, .id = cluster)
   ),
 
+  # Species (OTU/ASV) accumulation plot
+  # ASVs as main figure, OTUs in supplement
   accum_plot = target(
-    readd(sample_iNEXT) %>%
-      purrr::flatten() %>%
-      dplyr::bind_rows(.id = "sample") %>%
-      tidyr::extract(
-        sample,
-        into = c("seq_run", "well"),
-        regex = "([ipS][sbH][-_][0-9]{3,4})_([A-H]1?[0-9])",
-        remove = FALSE
-      ) %>%
-      dplyr::left_join(datasets, by = "seq_run") %>%
-      dplyr::mutate(strategy = paste(tech, amplicon)) %>%
-      dplyr::filter(method != "extrapolated") %>%
-      ggplot(aes(x = m, y = qD, color = strategy)) +
-      # lines for each sample
-      geom_line(aes(group = sample), alpha = 0.08) +
-      # small points to represent the actual observed read depth and richness
-      geom_point(data = ~dplyr::filter(., method == "observed"),
-                 alpha = 0.8, size = 1, shape = 1) +
-      xlab("Number of rarefied reads") +
-      ylab(paste(cluster, "richness")) +
-      scale_color_strategy(name = NULL) +
-      scale_x_log10() +
-      scale_y_log10() +
-      theme_bw(),
+    make_accum_plot(readd(sample_iNEXT), cluster),
     transform = map(sample_iNEXT, cluster, .id = cluster)
   ),
 
-  ## Quality stats ----
+  #### Quality stats ####
+  # functions used in this section in qstats.R
 
+  # parse the sample names in the qstats
+  # [tibble] columns: seq_run, plate, well, read, step, stat, value, nreads, region
+  # (also a column for each stat, but these are there by accident)
   parsed_qstat = parse_qstat(qstats),
 
   demuxlength =  parsed_qstat %>%
@@ -915,7 +668,7 @@ plan2 <- drake_plan(
     summarize(value = round(weighted.mean(value, w = nreads, na.rm = TRUE), 4)) %>%
     deframe(),
 
-  readcounts = parsed_qstat %>% filter(is.na(read) | read != "_R2", stat == "n"),
+  readcounts = filter(parsed_qstat, is.na(read) | read != "_R2", stat == "n"),
 
   rawcounts = readcounts %>%
     filter(is.na(step) | step == "raw", is.na(well)) %>%
@@ -964,101 +717,12 @@ plan2 <- drake_plan(
     ) %>%
     deframe(),
 
-  asvcounts =
-    pivot_longer(asv_table, -1, names_to = "seq_run", values_to = "reads") %>%
-    filter(reads > 0) %>%
-    mutate_at("seq", chartr, old = "T", new = "U") %>%
-    inner_join(
-      select(allseqs, seq = ITS2, everything()) %>%
-        select(-hash, -nread) %>%
-        mutate(ITS2 = seq) %>%
-        pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
-        filter(!is.na(consensus)) %>%
-        select(-consensus) %>%
-        unique(),
-      by = "seq"
-    ) %>%
-    group_by(seq_run, region) %>%
-    summarize(reads = sum(reads, na.rm = TRUE), ASVs = n()) %>%
-    select(seq_run, reads, step = region, ASVs),
+  asvcounts = count_asvs(asv_table, allseqs),
 
-  bioinf_table = bind_rows(
-    enframe(rawcounts, name = "seq_run", value = "reads") %>%
-      mutate(
-        # reads = as.integer(gsub(" ", "", reads)),
-        step = "Raw"
-      ),
-    enframe(demuxcounts, name = "seq_run", value = "reads") %>%
-      mutate(
-        # reads = as.integer(gsub(" ", "", reads)),
-        step = "Trim"
-      ),
-    enframe(filtercounts_full, name = "seq_run", value = "reads") %>%
-      mutate(
-        # reads = as.integer(gsub(" ", "", reads)),
-        step = "Filter (full)"
-      ),
-    enframe(regioncounts, name = "seq_run", value = "reads") %>%
-      mutate(
-        # reads = as.integer(gsub(" ", "", reads)),
-        step = "LSUx"
-      ),
-    enframe(filtercounts_ITS2, name = "seq_run", value = "reads") %>%
-      mutate(
-        # reads = as.integer(gsub(" ", "", reads)),
-        step = "Filter (ITS2)"
-      ),
-    filter(region_table, region == "ITS2") %>%
-      select(seq_run, reads, step = region, ASVs),
-    pivot_longer(asv_table, -1, names_to = "seq_run", values_to = "reads") %>%
-      filter(reads > 0) %>%
-      mutate_at("seq", chartr, old = "T", new = "U") %>%
-      inner_join(
-        select(allseqs, seq = ITS2, long, short, ITS, LSU) %>%
-          pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
-          filter(!is.na(consensus)) %>%
-          select(-consensus) %>%
-          unique(),
-        by = "seq"
-      ) %>%
-      group_by(seq_run, region) %>%
-      summarize(reads = sum(reads, na.rm = TRUE), ASVs = n()) %>%
-      select(seq_run, reads, step = region, ASVs),
-    # pivot_longer(otu_table, -1, names_to = "seq_run", values_to = "reads") %>%
-    #   filter(reads > 0) %>%
-    #   mutate_at("seq", chartr, old = "T", new = "U") %>%
-    #   inner_join(
-    #     select(readd(allseqs, cache = cache), seq = ITS2, long, short, ITS, LSU) %>%
-    #       pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
-    #       filter(!is.na(consensus)) %>%
-    #       select(-consensus) %>%
-    #       unique(),
-    #     by = "seq"
-    #   ) %>%
-    #   group_by(seq_run, region) %>%
-    #   summarize(reads = sum(reads, na.rm = TRUE), OTUs = n()) %>%
-    #   select(seq_run, reads, step = region, OTUs)
-  ) %>%
-    left_join(select(datasets, seq_run, tech, amplicon), by = "seq_run") %>%
-    select(tech, amplicon, step, reads, ASVs) %>%
-    pivot_longer(c("reads", "ASVs"), names_to = "type", values_to = "count") %>%
-    filter(!is.na(count)) %>%
-    mutate(
-      step = factor(step, levels = c("Raw", "Trim", "Filter (full)", "LSUx", "Filter (ITS2)", "ITS2",
-                                     "short", "ITS", "LSU", "long")),
-      tech = factor(tech, levels = c("PacBio", "Ion Torrent", "Illumina")),
-      amplicon = factor(stringr::str_to_title(amplicon), levels = c("Long", "Short")),
-      type = factor(type, c("ASVs", "reads"))
-    ) %>%
-    arrange(tech, amplicon, type) %>%
-    filter(ifelse(amplicon == "Short", !step  %in% c("ITS", "LSU", "long"), step != "short")) %>%
-    pivot_wider(
-      id_cols = "step",
-      names_from = c("tech", "amplicon", "type"),
-      values_from = c("count")
-    ) %>%
-    arrange(step) %>%
-    column_to_rownames("step"),
+  bioinf_table = compile_bioinf_table(
+    rawcounts, demuxcounts, filtercounts_full, regioncounts, filtercounts_ITS2,
+    region_table, asv_table, allseqs, datasets
+  ),
 
   bioinf_header =
     tibble(name = names(bioinf_table)) %>%
@@ -1067,16 +731,22 @@ plan2 <- drake_plan(
       tech = paste(tech, plyr::mapvalues(tech, datasets$tech, datasets$machine, FALSE))
     ),
 
-  ## Venn diagrams ----
-  venn_ASV = venndata(asv_table, ASVs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
+  ##### Venn diagrams ####
+  # functions used in this section are in venn.R
 
-  vennplot_ASV = vennplot_data(venn_ASV, ASVs),
+  venn_ASV = venndata(asv_table, ASVs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
 
   venn_OTU = venndata(otu_table, OTUs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
 
-  vennplot_OTU = vennplot_data(venn_OTU, OTUs),
+  vennplot_tech_ASV = vennplot_tech(asv_table, ASVs, letter = "a"),
 
-  ## read count comparisons ----
+  vennplot_tech_OTU = vennplot_tech(otu_table, OTUs, letter = "b"),
+
+  vennplot_amplicon_ASV = vennplot_amplicon(asv_table, ASVs, letter = "c"),
+
+  vennplot_amplicon_OTU = vennplot_amplicon(otu_table, OTUs, letter = "d"),
+
+  ##### Read abundance comparisons ####
   big_table = {
     out <- bind_rows(
       mutate(asv_table, type = "ASV"),
@@ -1134,205 +804,84 @@ plan2 <- drake_plan(
       label = paste("R^2 ==", formatC(r.squared, format = "f", digits = 2))
     ),
 
-  ## Taxonomy charts and heat trees ----
+  ##### Taxonomy chart ####
+  # see functions_taxonomy.R
 
   # fraction of reads for each ASV in each sequencing run
-  taxon_reads_proto =
-    # Get the number of reads per sequencing run for each ASV
-    proto_physeq %>%
-    phyloseq::merge_samples(group = "seq_run") %>%
-    phyloseq::otu_table() %>%
-    t() %>%
-    as("matrix") %>%
-    as_tibble(rownames = "label") %>%
-    # Normalize reads to a fraction of the sequencing run.
-    mutate_if(is.numeric, ~./sum(.)) %>%
-    # Pivot so that each ASV/sequencing run combination is its own line, and remove 0's
-    pivot_longer(-1, names_to = "seq_run", values_to = "reads") %>%
-    filter(reads > 0) %>%
-    # Add the amplicon and technology used for each sequencing run
-    left_join(select(datasets, seq_run, amplicon, tech), by = "seq_run") %>%
-    # put the amplicon in title case for display
-    mutate_at("amplicon", stringr::str_to_title) ,
+  taxon_reads_proto = make_taxon_reads_proto(proto_physeq, datasets),
 
   taxon_reads_primary =
-    taxon_reads_proto %>%
-    # Make all valid combinations of reference, region, and method
-    expand_grid(
-      tibble(
-        reference = c("unite", "unite", "warcup", "warcup", "rdp_train"),
-        region = c("ITS", "short", "ITS", "short", "LSU")
-      ),
-      method = c("dada2", "idtaxa", "sintax")
-    ) %>%
-    filter(
-      ifelse(amplicon == "Short", region == "short", TRUE),
-      ifelse(amplicon == "Long", region %in% c("ITS", "LSU"), TRUE)
-    ) %>%
-    # Add the identifications from the taxon table.
-    # This will leave NAs where a method did not make an identification at a rank,
-    # Including full NA rows where no identification was made at all.
-    left_join(
-      taxon_table_primary %>%
-        mutate_at("taxon", na_if, "NA") %>%
-        select(label, method, reference, rank, taxon, region) %>%
-        pivot_wider(
-          names_from = "rank",
-          values_from = "taxon"
-        ) %>%
-        mutate(
-          family = ifelse(is.na(genus), family, coalesce(family, "incertae_sedis")),
-          order = ifelse(is.na(family), order, coalesce(order, "incertae_sedis")),
-          class = ifelse(is.na(order), class, coalesce(class, "incertae_sedis")),
-          phylum = ifelse(!is.na(class) & class == "Leotiomycetes", "Ascomycota", phylum)
-        ),
-      by = c("label", "reference", "region", "method")
-    ),
+    compile_primary_taxon_reads(taxon_reads_proto, taxon_table_primary) %>%
+    format_taxon_reads(funguild_db),
 
   # PHYLOTAX for long amplicon PacBio
   # region = NA, reference = NA, ref_region = NA; method = "PHYLOTAX"
   taxon_reads_long_phylotax =
-    select_taxon_reads(phylotax_hybrid, taxon_reads_proto, seq_run == "pb_500") %>%
-    mutate(method = "PHYLOTAX", region = "All"),
+    select_taxon_reads(phylotax_hybrid, taxon_reads_proto,
+                       seq_run == "pb_500") %>%
+    format_taxon_reads(funguild_db),
 
   # LCA consensus;
   # region = "All", reference = "All", ref_region = "All"; method = "Consensus"
   # Short and long amplicons;
   taxon_reads_hybrid_consensus =
-    select_taxon_reads(consensus_hybrid, taxon_reads_proto) %>%
-    mutate(method = "Consensus", region = "hybrid"),
+    select_taxon_reads(consensus_hybrid, taxon_reads_proto,
+                       region = "hybrid") %>%
+    format_taxon_reads(funguild_db),
 
   # LCA consensus calculated only on short amplicon region;
   # Apply only to Short amplicons
   # region = "short", reference = "All", ref_region = "ITS"; method = "Consensus"
   taxon_reads_short_consensus =
-    select_taxon_reads(consensus_short, taxon_reads_proto, amplicon == "Short") %>%
-    mutate(method = "Consensus", region = "short"),
+    select_taxon_reads(consensus_short, taxon_reads_proto, amplicon == "Short",
+                       region = "short") %>%
+    format_taxon_reads(funguild_db),
 
   # Phylotax if available; otherwise LCA consensus
   # Apply only to Short amplicons
   # region = "short", reference = "All", ref_region = "All", method = "combined"
   taxon_reads_hybrid_phylotax =
-    select_taxon_reads(phylotax_hybrid, taxon_reads_proto, amplicon == "Short") %>%
-    mutate(method = "PHYLOTAX", region = "hybrid"),
+    select_taxon_reads(phylotax_hybrid, taxon_reads_proto, amplicon == "Short",
+                       region = "hybrid") %>%
+    format_taxon_reads(funguild_db),
 
   # LCA consensus using only ITS references
   # region = "All", reference = "All", ref_region = "ITS", method = "Consensus"
   taxon_reads_ITS_consensus =
-    select_taxon_reads(consensus_ITS, taxon_reads_proto) %>%
-    mutate(method = "Consensus", region = "ITS"),
+    select_taxon_reads(consensus_ITS, taxon_reads_proto, region = "ITS") %>%
+    format_taxon_reads(funguild_db),
 
-  taxon_reads = {
-    bind_rows(
+  taxon_reads = bind_rows(
       taxon_reads_primary,
       taxon_reads_long_phylotax,
       taxon_reads_hybrid_consensus,
       taxon_reads_short_consensus,
       taxon_reads_hybrid_phylotax
-    ) %>%
-      mutate(
-        family = ifelse(is.na(genus), family, coalesce(family, "incertae_sedis")),
-        order = ifelse(is.na(family), order, coalesce(order, "incertae_sedis")),
-        class = ifelse(is.na(order), class, coalesce(class, "incertae_sedis")),
-        phylum = ifelse(!is.na(class) & class == "Leotiomycetes", "Ascomycota", phylum) # Not sure what happened here...
-      ) %>%
-      mutate_at(
-        "method",
-        factor,
-        levels = c("PHYLOTAX", "combined", "Consensus", "dada2", "sintax", "idtaxa"),
-        labels = c("PHYLOTAX", "PHYLOTAX", "Consensus", "RDPC", "SINTAX", "IDTAXA")
-      ) %>%
-      mutate_at(
-        "reference",
-        replace_na,
-        "All"
-      ) %>%
-      mutate_at(
-        "reference",
-        factor,
-        levels = c("All", "unite", "warcup", "rdp_train"),
-        labels = c("All", "Unite", "Warcup", "RDP")
-      ) %>%
-      mutate_at(
-        "reference",
-        replace_na,
-        "All"
-      ) %>%
-      mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
-      rename(Algorithm = method) %>%
-      mutate(
-        Taxonomy = paste(kingdom, phylum, class, order, family, genus, sep = ";") %>%
-          str_replace_all(";NA", "")
-      ) %>%
-      bind_cols(
-        FUNGuildR::funguild_assign(., funguild_db) %>%
-          mutate(
-            ECM = grepl("Ectomycorrhizal", guild) %>%
-              ifelse(paste(confidenceRanking, "ECM"),
-                     ifelse(is.na(guild), NA, "non-ECM")) %>%
-              ifelse(is.na(family), NA, .)) %>%
-          mutate_at(
-            "ECM",
-            factor,
-            levels = c(NA_character_, "non-ECM", "Possible ECM",
-                       "Probable ECM", "Highly Probable ECM"),
-            exclude = NULL,
-            ordered = TRUE
-          ) %>%
-          select(ECM)
-      ) %>%
-      select(-Taxonomy)
-  },
+    ),
 
-  tax_chart =
-    taxon_reads %>%
-    pivot_longer(
-      names_to = "rank",
-      cols = c("kingdom", "phylum", "class", "order", "family", "genus"),
-      values_to = "taxon"
-    ) %>%
-    filter(Algorithm != "Consensus" | amplicon != "Short" | region == "short") %>%
-    select(label, amplicon, tech, Algorithm, reference, rank, taxon, reads) %>%
-    unique() %>%
-    group_by(amplicon, tech, Algorithm, reference, rank, ID = !is.na(taxon)) %>%
-    summarize(reads = sum(reads), ASVs = n()) %>%
-    group_by(amplicon, tech, Algorithm, reference, rank) %>%
-    mutate(ASVs = ASVs / sum(ASVs)) %>%
-    ungroup() %>%
-    filter(ID) %>%
-    mutate_at("rank", factor,
-              levels = c("kingdom", "phylum", "class", "order", "family", "genus")
-    ) %>%
-    rename(Reads = reads) %>%
-    mutate_at("reference", as.character) %>%
-    mutate_at("reference", factor, levels = c("All", "Unite", "Warcup", "RDP")) %>%
-    pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac"),
+  # Fraction of reads and ASVs in each dataset which were assigned using the
+  # tree
+  phylotax_reads = group_by(taxon_reads_hybrid_phylotax, tech) %>%
+    mutate(ASVs = 1/n()) %>%
+    filter(label %in% phylotax_hybrid$tree$tip.label, amplicon != "Long") %>%
+    summarize_at(c("reads", "ASVs"), sum),
 
-  tax_chart_plot =
-    tax_chart %>%
-    # dplyr::filter(rank != "phylum") %>%
-    dplyr::arrange(rank) %>%
-    ggplot(aes(x = Algorithm, y = frac, ymax = frac, group = rank, fill = rank)) +
-    ggnomics::facet_nested(
-      tech + amplicon ~ type + reference,
-      resect = unit(1, "mm"),
-      nest_line = TRUE,
-      bleed = FALSE,
-      scales = "free_x",
-      space = "free_x"
-    ) +
-    # geom_ribbon(ymin = 0, alpha = 0.5) +
-    # geom_line(aes(color = Algorithm)) +
-    geom_col(position = "identity") +
-    scale_fill_brewer(type = "qual", palette = 2, direction = -1, guide = guide_legend(nrow = 1)) +
-    ylab("Fraction of reads assigned") +
-    xlab(NULL) +
-    theme(axis.text.x = element_text(vjust = 0.5, angle = 90),
-          legend.direction = "horizontal",
-          legend.position = "bottom",
-          strip.background = element_blank()),
+  taxon_chart = compile_taxon_chart(taxon_reads),
 
-  ## Stats for text about positive and negative controls ----
+  # show success of taxonomic assignment for different datasets
+  taxon_chart_plot = draw_taxon_chart(taxon_chart),
+
+  # show class composition of fungal community in different datasets
+  taxon_plot_fungi_class = draw_fungal_classes(taxon_reads, datasets),
+
+  # show kingdoms for reads with an extra-short ITS2
+  taxon_plot_short_kingdom =
+    draw_short_kingdoms(big_seq_table_ITS2, taxon_reads, datasets),
+
+  # show ECM status assignments for different datasets
+  taxon_plot_ecm = draw_ecm_assignment(taxon_reads, datasets),
+
+  #### Stats for text ####
   agaricus =
     taxon_table_primary %>%
     group_by(label, rank) %>%
@@ -1460,7 +1009,7 @@ plan2 <- drake_plan(
     apply(MARGIN = 1, order, decreasing = TRUE) %>%
     apply(MARGIN = 2, match, x = 1),
 
-  ## variogram plots ----
+  #### Variogram plots ####
   variog_data = target({
     rlang::quo(list(correlog, variog, variogST, variofit2, variofitST2))
     ignore(plan2) %>%
@@ -1566,14 +1115,14 @@ plan2 <- drake_plan(
         replace_na,
         "?"
       ) %>%
-      group_by_at(vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
+      group_by_at(vars(-one_of(ranks, "reads", "ASVs"))) %>%
       mutate(ASVs = ASVs / sum(ASVs))
     for (i in seq_along(ranks)) {
       out <- out %>%
         group_by_at(rev(ranks)[i:length(ranks)]) %>%
         group_map(
           function(x, y, i) {
-            d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
+            d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs"))) %>%
               summarize_at(c("reads", "ASVs"), sum)
             d2 <- group_by_at(d, "amplicon") %>% summarize_at(c("reads", "ASVs"), mean)
             reads <- select(d2, "amplicon", "reads") %>% deframe()
@@ -1828,376 +1377,39 @@ plan2 <- drake_plan(
     out
   },
 
-  # data for supplementary figures ####
-  phylotax_fig =
-    treeio::as.treedata(
-      ape::read.tree(text = "(A:1,((B:1,C:1):1,((E:1,F:1):1,D:1):1):1);")
-    ) %>%
-    tidytree::full_join(
-      tibble(label = LETTERS[1:6],
-             tax1 = c("unk", "Tax1", "Tax2", "Tax2", "unk", "unk"),
-             tax2 = c("unk", "Tax2", "Tax2", "Tax1", "unk", "Tax1")),
-      by = "label"
-    ) %>%
-    ggtree::ggtree() +
-    ggtree::geom_tiplab(x = 4, align = 2) +
-    xlim(0, 6) +
-    ggtree::geom_tiplab(
-      aes(color = tax1, label = tax1),
-      x = 4.7,
-      hjust = 0.5
-    ) +
-    ggtree::geom_tiplab(
-      aes(color = tax2, label = tax2),
-      x = 5.7,
-      hjust = 0.5
-    ) +
-    ggtree::geom_tiplab(x = 5.2, label = "/", hjust = 0.5) +
-    ggtree::geom_nodelab(aes(label = node - 6), geom = "label") +
-    ggtree::geom_hilight(node = 10, fill = "steelblue", extendto = 4) +
-    ggtree::geom_hilight(node = 9, fill = "tomato", extendto = 4) +
-    scale_color_manual(
-      values = c(Tax1 = "steelblue", Tax2 = "tomato", unk = "grey50")
-    ) +
-    scale_y_reverse(),
+  #### Supplementary figures ####
+  # functions for targets in this section are in functions_figures.R
 
-  length_table =
-    pivot_longer(asv_table, -1, names_to = "seq_run", values_to = "reads") %>%
-    filter(reads > 0) %>%
-    mutate_at("seq", chartr, old = "T", new = "U") %>%
-    inner_join(
-      select(allseqs, seq = ITS2, short, long) %>%
-        mutate(ITS2 = seq) %>%
-        pivot_longer(-1, names_to = "region", values_to = "consensus") %>%
-        filter(!is.na(consensus)) %>%
-        unique(),
-      by = "seq"
-    ) %>%
-    mutate(length = nchar(consensus)) %>%
-    group_by(seq_run, region, length) %>%
-    summarize_at("reads", sum) %>%
-    group_by(seq_run, region) %>%
-    arrange(length) %>%
-    mutate(reads = reads/sum(reads), ecdf = cumsum(reads)) %>%
-    dplyr::left_join(
-      dplyr::select(datasets, seq_run, tech, amplicon),
-      by = "seq_run"
-    ) %>%
-    dplyr::mutate_at("amplicon", factor, levels = c("Short", "Long")) %>%
-    dplyr::mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
-    arrange(tech, amplicon) %>%
-    mutate(group = paste(tech, amplicon) %>% factor(levels = unique(.))),
+  phylotax_fig = draw_phylotax_figure(),
 
-  full_dens_short = length_table %>%
-    filter(amplicon == "Short", region == "short") %>%
-    ggplot(aes(length, weight = reads, color = group, group = group)) +
-    stat_density(bw = 0.5, geom = "line", position = "identity") +
-    scale_color_strategy(guide = "none") +
-    scale_y_continuous(name = "Density") +
-    scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
-    ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
-    theme(strip.background = element_blank()),
+  length_table = compile_length_table(asv_table, allseqs, datasets),
 
-  full_dens_long = length_table %>%
-    filter(amplicon == "Long", region == "long") %>%
-    ggplot(aes(length, weight = reads, color = group, group = group)) +
-    stat_density(bw = 0.5, geom = "line", position = "identity") +
-    scale_color_strategy(guide = "none") +
-    scale_y_continuous(name = "Density") +
-    scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
-    ggnomics::facet_nested(rows = vars(tech), scales = "free_y") +
-    theme(strip.background = element_blank()),
+  full_dens_short = length_density_plot(length_table, tech ~ .,
+                                        amplicon == "Short", region == "short"),
 
-  full_ecdf_short = length_table %>%
-    filter(amplicon == "Short", region == "short") %>%
-    ggplot(aes(x = length, y = ecdf, color = group, group = group)) +
-    geom_step() +
-    scale_color_strategy(name = NULL) +
-    scale_y_continuous(name = "ECDF") +
-    scale_x_continuous(name = NULL) +
-    facet_grid( amplicon ~ ., scales = "free_x") +
-    theme(
-      legend.position = c(1, 0.02),
-      legend.justification = c(1, 0),
-      legend.background = element_blank(),
-      strip.background = element_blank()
-    ),
+  full_dens_long = length_density_plot(length_table, tech ~ .,
+                                       amplicon == "Long", region == "long"),
 
-  full_ecdf_long = length_table %>%
-    filter(amplicon == "Long", region == "long") %>%
-    ggplot(aes(x = length, y = ecdf, color = group, group = group)) +
-    geom_step() +
-    scale_color_strategy(name = NULL) +
-    scale_y_continuous(name = "ECDF") +
-    scale_x_continuous(name = "Length (bp)") +
-    facet_grid( amplicon ~ ., scales = "free_x") +
-    theme(
-      legend.position = c(1, 0.02),
-      legend.justification = c(1, 0),
-      legend.background = element_blank(),
-      strip.background = element_blank()
-    ),
+  full_ecdf_short = full_length_ecdf_plot(length_table, "Short"),
 
-  its2_dens = length_table %>%
-    filter(region == "ITS2") %>%
-    ggplot(aes(length, weight = reads, color = group, group = group)) +
-    stat_density(bw = 0.5, geom = "line", position = "identity") +
-    scale_color_strategy(guide = "none") +
-    scale_y_continuous(name = "Density") +
-    scale_x_continuous(name = NULL, labels = NULL, breaks = NULL) +
-    ggnomics::facet_nested(rows = vars(tech, amplicon), scales = "free_y",
-                           nest_line = TRUE) +
-    theme(strip.background = element_blank()),
+  full_ecdf_long = full_length_ecdf_plot(length_table, "Long", "Length (bp)"),
 
-  its2_ecdf = length_table %>%
-    filter(region == "ITS2") %>%
-    mutate(tech = "", amplicon = "") %>%
-    ggplot(aes(x = length, y = ecdf, color = group, group = group)) +
-    geom_step() +
-    scale_color_strategy(name = NULL) +
-    scale_y_continuous(name = "ECDF") +
-    scale_x_continuous(name = "ITS2 Length (bp)") +
-    facet_grid(rows = vars(tech, amplicon), scales = "free_y") +
-    theme(
-      strip.background = element_blank(),
-      legend.position = c(0.98, 0.02),
-      legend.justification = c(1, 0),
-      legend.background = element_blank()
-    ),
+  its2_dens = length_density_plot(length_table, tech + amplicon ~ .,
+                                  region == "ITS2"),
 
+  its2_ecdf = its2_length_ecdf_plot(length_table),
 
-  region_length_fig = {
-    baseregions <-
-      c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4")
+  region_length_fig = draw_region_length_figure(reads_table, regions),
 
-    region_limits <-
-      dplyr::filter(regions, region %in% baseregions) %>%
-      dplyr::mutate_at("region", factor, levels = baseregions) %>%
-      dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
-      tidyr::pivot_longer(
-        cols = c("min_length", "max_length"),
-        names_to = "limit",
-        names_pattern = "(min|max)_length",
-        values_to = "length"
-      )
+  heattree = draw_full_heattree(taxdata, file_out("temp/heattree.pdf")),
 
-    reads_table %>%
-      dplyr::filter(region %in% baseregions, seq_run == "pb_500") %>%
-      dplyr::mutate_at("region", factor, levels = baseregions) %>%
-      dplyr::mutate_at("region", fct_recode, "5.8S" = "5_8S") %>%
-      ggplot(aes(length, weight = reads)) +
-      stat_density(bw = 0.5, color = "#8da0cb", geom = "line") +
-      geom_vline(data = region_limits,
-                 aes(xintercept = length),
-                 linetype = "dashed", alpha = 0.5) +
-      facet_wrap(~region,ncol = 1, strip.position = "right", scales = "free_y") +
-      scale_y_continuous(breaks = NULL, labels = NULL, name = "Read density") +
-      scale_x_continuous(limits = c(0, 500), name = "Length (bp)")
-  },
+  heattree_length_compare =
+    draw_amplicons_heattree(taxdata, file_out("temp/heattree_amplicons.pdf")),
 
-  heattree = {
-    set.seed(4)
-    theme_update(panel.border = element_blank())
-    taxdata %>%
-      metacoder::heat_tree(
-        layout = "davidson-harel",
-        # initial_layout = "reingold-tilford",
-        node_size = rowMeans(.$data$tax_asv[,-1]),
-        node_color = rowMeans(.$data$tax_asv[,-1]),
-        node_label = replace_na(taxon_names, "unknown"),
-        node_size_range = c(0.002, .035),
-        node_size_axis_label = "ASV count",
-        node_color_axis_label = "ASV count",
-        node_label_size_range = c(0.01, 0.03),
-        edge_size = rowMeans(.$data$tax_read[,-1]),
-        edge_size_trans = "linear",
-        edge_size_axis_label = "Read abundance",
-        edge_size_range = c(0.001, 0.03),
-        edge_color = rowMeans(.$data$tax_read[,-1]),
-        edge_color_axis_label = "Read abundance",
-        aspect_ratio = 9/5,
-        make_node_legend = FALSE,
-        make_edge_legend = FALSE,
-        output_file = file_out("temp/heattree.pdf")
-      )
-  },
+  ecm_heattree =
+    draw_ecm_heattree(taxdata_ECM, file_out("temp/ecm_heattree.pdf")),
 
-  heattree_length_compare = {
-    taxdata2 <- taxdata
-    val_cols = names(taxdata2$data$tax_read) %>%
-      keep(str_detect, "reads_.+_.+_.+_Consensus")
-
-    taxdata2$filter_obs(
-      "tax_read",
-      rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
-      drop_taxa = TRUE,
-      drop_obs = TRUE,
-      supertaxa = TRUE,
-      reassign_obs = FALSE) %>%
-      invisible()
-
-    taxdata2$data$diff_read <- metacoder::compare_groups(
-      taxdata2,
-      data = "tax_read",
-      cols = val_cols,
-      groups = val_cols %>%
-        str_replace("reads_.+_(.+)_.+_.+", "\\1"),
-      func = log_read_ratio
-    )
-    taxdata2$data$diff_asv <- metacoder::compare_groups(
-      taxdata2,
-      data = "tax_asv",
-      cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
-      groups = names(taxdata2$data$tax_asv) %>%
-        keep(startsWith, "ASVs_") %>%
-        str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
-      func = log_ASV_ratio
-    )
-
-    set.seed(4)
-    theme_update(panel.border = element_blank())
-    taxdata2 %>%
-      metacoder::heat_tree(
-        layout = "davidson-harel",
-        # initial_layout = "reingold-tilford",
-
-        node_size = rowMeans(.$data$tax_asv[,-1]),
-        node_size_range = c(0.002, .035),
-        node_size_axis_label = "ASV richness",
-
-        node_color = ASV_ratio,
-        node_color_range = metacoder::diverging_palette(),
-        node_color_trans = "linear",
-        node_color_axis_label = "Log richness ratio",
-        node_color_interval = c(-1.5, 1.5),
-
-        edge_size = rowMeans(.$data$tax_read[,-1]),
-        edge_size_range = c(0.001, 0.03),
-        edge_size_trans = "linear",
-        edge_size_axis_label = "Read abundance",
-
-        edge_color = read_ratio,
-        edge_color_range = metacoder::diverging_palette(),
-        edge_color_trans = "linear",
-        edge_color_axis_label = "Log abundance ratio",
-        edge_color_interval = c(-3, 3),
-
-        node_label = ifelse(
-          pmax(abs(.$data$diff_read$read_ratio) > 0.5,
-               abs(.$data$diff_asv$ASV_ratio) > 0.25),
-          taxon_names,
-          ""
-        ),
-        # aspect_ratio = 3/2,
-        node_label_size_range = c(0.010, 0.03),
-        output_file = file_out("temp/heattree_amplicons.pdf")
-        # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2))
-      )
-  },
-
-  ecm_heattree = {
-    taxdata2 <- taxdata_ECM
-
-    val_cols <- names(taxdata2$data$tax_read) %>%
-      keep(str_detect, "reads_.+_.+_.+_Consensus")
-
-    taxdata2$filter_obs(
-      "tax_read",
-      rowSums(select_at(taxdata2$data$tax_read, val_cols)) > 0,
-      drop_taxa = TRUE,
-      drop_obs = TRUE,
-      supertaxa = TRUE,
-      reassign_obs = FALSE) %>%
-      invisible()
-
-    taxdata2$data$diff_read <- metacoder::compare_groups(
-      taxdata2,
-      data = "tax_read",
-      cols = val_cols,
-      groups = val_cols %>%
-        str_replace("reads_.+_(.+)_.+_Consensus", "\\1"),
-      func = log_read_ratio
-    )
-    taxdata2$data$diff_asv <- metacoder::compare_groups(
-      taxdata2,
-      data = "tax_asv",
-      cols = names(taxdata2$data$tax_asv) %>% keep(startsWith, "ASVs_"),
-      groups = names(taxdata2$data$tax_asv) %>%
-        keep(startsWith, "ASVs_") %>%
-        str_replace("ASVs_.+_(.+)_.+_.+", "\\1"),
-      func = log_ASV_ratio
-    )
-
-    taxdata2 <- taxdata2$filter_taxa(!is.nan(ASV_ratio), !is.nan(read_ratio))
-
-    set.seed(3)
-    theme_update(panel.border = element_blank())
-    taxdata2 %>%
-      metacoder::heat_tree(
-        layout = "davidson-harel",
-        initial_layout = "reingold-tilford",
-
-        node_size = rowMeans(.$data$tax_asv[,-1]),
-        node_size_range = c(0.002, .035),
-        node_size_axis_label = "ASV richness",
-
-        node_color = ASV_ratio,
-        node_color_range = metacoder::diverging_palette(),
-        node_color_trans = "linear",
-        node_color_axis_label = "Log richness ratio",
-        node_color_interval = c(-0.9, 0.9),
-
-        edge_size = rowMeans(.$data$tax_read[,-1]),
-        edge_size_range = c(0.001, 0.03),
-        edge_size_trans = "linear",
-        edge_size_axis_label = "Read abundance",
-
-        edge_color = read_ratio,
-        edge_color_range = metacoder::diverging_palette(),
-        edge_color_trans = "linear",
-        edge_color_axis_label = "Log abundance ratio",
-        edge_color_interval = c(-1.8, 1.8),
-
-        node_label = taxon_names,
-        node_label_size_range = c(0.02, 0.03),
-        # title = unique(paste(.$data$diff_read$treatment_1, "vs.", .$data$diff_read$treatment_2)),
-        aspect_ratio = 3/2,
-        output_file = file_out("temp/ecm_heattree.pdf")
-
-      )
-  },
-
-  buffer_compare_physeq = {
-    physeq <- proto_physeq %>%
-      phyloseq::`sample_data<-`(inset2(
-        phyloseq::sample_data(.),
-        "qual",
-        value = fct_collapse(phyloseq::sample_data(.)$qual, "-" = c("", "*"))
-      )) %>%
-      phyloseq::subset_samples(!is.na(site)) %>%
-      phyloseq::merge_samples(group = glue::glue_data(
-        phyloseq::sample_data(.),
-        "{year}_{buffer}_{tech}_{amplicon}"
-      ))
-
-    ranks <- c("root", "kingdom", "phylum", "class", "order", "family", "genus")
-    taxon_reads %>%
-      mutate(root = "Root") %>%
-      group_by(label) %>%
-      arrange(amplicon, reference, Algorithm, .by_group = TRUE) %>%
-      summarize_at(ranks, first) %>%
-      left_join(
-        tibble(label = phyloseq::taxa_names(physeq)),
-        .,
-        by = "label"
-      ) %>% {
-        split(select(., -label), .$label)
-      } %>%
-      lapply(unlist) %>%
-      phyloseq::build_tax_table() %>%
-      phyloseq::`tax_table<-`(physeq, .) %>%
-      phyloseq::tax_glom(taxrank = "family", NArm = FALSE)
-  },
+  buffer_compare_physeq = make_buffer_compare_physeq(proto_physeq, taxon_reads),
 
   buffer_compare_taxmap = {
     taxmap <- metacoder::parse_phyloseq(buffer_compare_physeq)
@@ -2206,130 +1418,25 @@ plan2 <- drake_plan(
     taxmap
   },
 
-  buffer_compare_long = {
-    taxmap <- buffer_compare_taxmap
-    value_cols <- names(taxmap$data$read_count) %>% keep(endsWith, "Long")
-    taxmap$data$read_diff <- metacoder::compare_groups(
-      taxmap,
-      "read_count",
-      cols = value_cols,
-      groups = value_cols %>%
-        str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
-          paste(.[,3], .[,2])
-        },
-      func = log_read_ratio,
-      combinations = list(
-        c("Xpedition 2016", "Xpedition 2015"),
-        c("Xpedition 2016", "LifeGuard 2016"),
-        c("Xpedition 2015", "LifeGuard 2016")
-      )
-    )
-    theme_update(panel.border = element_blank())
-    taxa::filter_taxa(
-      taxmap,
-      taxmap$data$read_count %>% select_at(value_cols) %>% apply(MARGIN = 1, FUN = max) > 0.001,
-      drop_obs = TRUE,
-      reassign_obs = FALSE
-    ) %>%
-      metacoder::heat_tree_matrix(
-        "read_diff",
-        node_label = taxon_names,
-        node_color = read_ratio,
-        node_size = rowMeans(.$data$read_count[-1]),
-        node_size_range = c(0.0001, 0.03),
-        node_size_axis_label = "Read abund.",
-        node_label_size_range = c(0.01, 0.05),
-        node_color_range = metacoder::diverging_palette(),
-        node_color_axis_label = "Log abund. ratio",
-        node_color_interval = c(-3, 3),
-        node_color_trans = "linear",
-        # edge_size = rowMeans(.$data$read_count[-1]),
-        # edge_size_axis_label = "Read abundance",
-        # edge_size_range = c(0.001, 0.03),
-        # edge_size_trans = "linear",
-        aspect_ratio = 1,
-        key_size = 0.6,
-        layout = "davidson-harel",
-        initial_layout = "reingold-tilford",
-        output_file = file_out("temp/compare_long.pdf")
-      )
-  },
+  buffer_compare_long =  draw_buffer_compare_heattree(
+    buffer_compare_taxmap,
+    amplicon = "Long",
+    file_out("temp/compare_long.pdf")
+  ),
 
-  buffer_compare_short = {
-    taxmap <- buffer_compare_taxmap
-    value_cols <- names(taxmap$data$read_count) %>% keep(endsWith, "Short")
-    taxmap$data$read_diff <- metacoder::compare_groups(
-      taxmap,
-      "read_count",
-      cols = value_cols,
-      groups = value_cols %>%
-        str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
-          paste(.[,3], .[,2])
-        },
-      func = log_read_ratio,
-      combinations = list(
-        c("Xpedition 2016", "Xpedition 2015"),
-        c("Xpedition 2016", "LifeGuard 2016"),
-        c("Xpedition 2015", "LifeGuard 2016")
-      )
-    )
-    theme_update(panel.border = element_blank())
-    taxa::filter_taxa(
-      taxmap,
-      taxmap$data$read_count %>% select_at(value_cols) %>% apply(MARGIN = 1, FUN = max) > 0.001,
-      drop_obs = TRUE,
-      reassign_obs = FALSE
-    ) %>%
-      metacoder::heat_tree_matrix(
-        "read_diff",
-        node_label = taxon_names,
-        node_color = read_ratio,
-        node_size = rowMeans(.$data$read_count[-1]),
-        node_size_range = c(0.0001, 0.03),
-        node_size_axis_label = "Read abund.",
-        node_label_size_range = c(0.01, 0.05),
-        node_color_range = metacoder::diverging_palette(),
-        node_color_axis_label = "Log abund. ratio",
-        node_color_interval = c(-3, 3),
-        node_color_trans = "linear",
-        # edge_size = rowMeans(.$data$read_count[-1]),
-        # edge_size_axis_label = "Read abundance",
-        # edge_size_range = c(0.001, 0.03),
-        # edge_size_trans = "linear",
-        aspect_ratio = 1,
-        layout = "davidson-harel",
-        initial_layout = "reingold-tilford",
-        output_file = file_out("temp/compare_short.pdf")
-      )
-  },
+  buffer_compare_short = draw_buffer_compare_heattree(
+    buffer_compare_taxmap,
+    amplicon = "Short",
+    file_out("temp/compare_short.pdf")
+  ),
 
   # Generate ASV table for comparisons between buffer solutions
-  buffer_asv_table =
-    proto_physeq %>%
-    # No Ion Torrent samples, because they are not completely demultiplexed
-    phyloseq::subset_samples(tech != "Ion Torrent") %>%
-    # Don't use QC samples
-    phyloseq::subset_samples(sample_type == "Sample") %>%
-    # Only include fungi
-    phyloseq::prune_taxa(taxa = fungi_combined$label) %>%
-    # Only use samples with more than 100 reads
-    phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
-    # Only use samples where there reads from all three tech×amplicon combinations
-    phyloseq::prune_samples(
-      samples = phyloseq::sample_data(.) %>%
-        as("data.frame") %>%
-        as_tibble(rownames = "sample") %>%
-        group_by(site, x, tech, amplicon) %>%
-        filter(n() >= 3) %>%
-        pull(sample) %>%
-        unique()
-    ),
+  buffer_asv_physeq = generate_buffer_asv_physeq(proto_physeq, fungi_PHYLOTAX$label),
 
   # Create distance matrix for the buffer solution comparison
   buffer_asv_bc_dist =
-    buffer_asv_table %>%
     # Normalize reads to 1
-    phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
+    phyloseq::transform_sample_counts(buffer_asv_physeq, function(x) x / sum(x)) %>%
     # Bray-Curtis distance
     phyloseq::distance("bray"),
 
@@ -2337,7 +1444,7 @@ plan2 <- drake_plan(
   buffer_adonis = target(
     vegan::adonis2(
       buffer_asv_bc_dist ~ paste(site, x) + paste(tech, amplicon) + buffer + year,
-      data = as(phyloseq::sample_data(buffer_asv_table), "data.frame"),
+      data = as(phyloseq::sample_data(buffer_asv_physeq), "data.frame"),
       by = "margin",
       permutations = 9999
     ) %>%
@@ -2350,64 +1457,22 @@ plan2 <- drake_plan(
   buffer_asv_pcoa =
     vegan::capscale(
       buffer_asv_bc_dist ~ 1,
-      data = as(phyloseq::sample_data(buffer_asv_table), "data.frame")
+      data = as(phyloseq::sample_data(buffer_asv_physeq), "data.frame")
     ),
 
   # Generate ASV table for comparisons between sequencing methods
-  tech_asv_table =
-    proto_physeq %>%
-    # Don't use Ion Torrent because it didn't multiplex properly
-    phyloseq::subset_samples(tech != "Ion Torrent") %>%
-    # Only use the Xpedition buffer
-    phyloseq::subset_samples(buffer == "Xpedition") %>%
-    # Don't use QC sample
-    phyloseq::subset_samples(sample_type == "Sample") %>%
-    # Only fungi
-    phyloseq::prune_taxa(taxa = fungi_combined$label),
+  tech_asv_physeq = generate_tech_asv_physeq(proto_physeq, fungi_PHYLOTAX$label),
 
   # Add taxonomy to the ASV table and cluster at the class level
-  tech_class_table =
-    phyloseq::`tax_table<-`(
-      tech_asv_table,
-      phyloseq::tax_table(
-        fungi_combined %>%
-          select(label, kingdom:genus) %>%
-          column_to_rownames("label") %>%
-          as.matrix()
-      )
-    ) %>%
-    phyloseq::tax_glom(taxrank = "class") %>%
-    phyloseq::`taxa_names<-`(phyloseq::tax_table(.)[,"class"]) %>%
-    # Only samples with at least 100 reads
-    phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
-    # Only soil samples with results from all three tech/amplicon combinations
-    phyloseq::prune_samples(
-      samples = phyloseq::sample_data(.) %>%
-        as("data.frame") %>%
-        as_tibble(rownames = "sample") %>%
-        group_by(site, x, year) %>%
-        filter(n() >= 3) %>%
-        pull(sample) %>%
-        unique()
-    ) %>%
-    # Normalize reads
-    phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
-    # Take only classes which represent at least 1% of reads in at least one sample.
-    phyloseq::prune_taxa(
-      taxa = (
-        phyloseq::otu_table(.) %>%
-          t() %>%
-          as.data.frame() %>%
-          do.call(what = pmax)
-      ) > 0.01
-    ),
+  tech_class_physeq =
+    generate_tech_class_physeq(tech_asv_physeq, fungi_PHYLOTAX),
 
   # Sample data for easy reference
   tech_class_sample_data =
-    as(phyloseq::sample_data(tech_class_table), "data.frame"),
+    as(phyloseq::sample_data(tech_class_physeq), "data.frame"),
 
   # Calculate Bray-Curtis distance for comparing technologies
-  tech_class_bc_dist = phyloseq::distance(tech_class_table, "bray"),
+  tech_class_bc_dist = phyloseq::distance(tech_class_physeq, "bray"),
 
   # PERMANOVA test for technologies
   tech_class_adonis = target(
@@ -2425,7 +1490,7 @@ plan2 <- drake_plan(
   # PCoA for technologies
   tech_class_pcoa =
     vegan::capscale(
-      phyloseq::otu_table(tech_class_table) ~ Condition(paste(site, x, year)),
+      phyloseq::otu_table(tech_class_physeq) ~ Condition(paste(site, x, year)),
       data = tech_class_sample_data,
       distance = "bray"
     ),
@@ -2441,85 +1506,28 @@ plan2 <- drake_plan(
     mutate(abbrev = substr(class, start = 1, stop = 2)),
 
   # PCoA plot
-  tech_class_pcoa_plot =
-    left_join(
-      vegan::scores(tech_class_pcoa, display = "sites") %>%
-        as_tibble(rownames = "sample"),
-      tech_class_sample_data %>%
-        as_tibble(rownames = "sample"),
-      by = "sample"
-    ) %>%
-    mutate(
-      group = paste(tech, "--", amplicon) %>%
-        factor(
-          levels = c("Illumina -- Short", "PacBio -- Short", "PacBio -- Long"),
-          ordered = TRUE
-        )
-    ) %>%
-    ggplot(aes(x = MDS1, y = MDS2, color = group, pch = group)) +
-    geom_vline(xintercept = 0, color = "gray80") +
-    geom_hline(yintercept = 0, color = "gray80") +
-    geom_point() +
-    geom_text(
-      aes(x = MDS1, y = MDS2, label = abbrev),
-      data = tech_class_pcoa_scores,
-      inherit.aes = FALSE
-    ) +
-    scale_color_discrete(name = NULL) +
-    scale_discrete_manual(aesthetics = "pch", name = NULL, values = 1:3) +
-    coord_equal() +
-    xlab("PCoA1") +
-    ylab("PCoA2"),
+  tech_class_pcoa_plot = draw_tech_class_pcoa_plot(
+    pcoa = tech_class_pcoa,
+    sample_data = tech_class_sample_data,
+    scores = tech_class_pcoa_scores
+  ),
 
   # Generate ASV table for comparisons between sequencing methods for ECM
-  tech_ecm_asv_table =
-    tech_asv_table %>%
+  tech_ecm_asv_physeq =
+    tech_asv_physeq %>%
     # Only ECM
-    phyloseq::prune_taxa(taxa = ecm_combined$label),
+    phyloseq::prune_taxa(taxa = ecm_PHYLOTAX$label),
 
   # Add taxonomy to the ECM ASV table and cluster at the family level
-  tech_ecm_fam_table =
-    phyloseq::`tax_table<-`(
-      tech_asv_table,
-      phyloseq::tax_table(
-        ecm_combined %>%
-          select(label, kingdom:genus) %>%
-          column_to_rownames("label") %>%
-          as.matrix()
-      )
-    ) %>%
-    phyloseq::tax_glom(taxrank = "family") %>%
-    phyloseq::`taxa_names<-`(phyloseq::tax_table(.)[,"family"]) %>%
-    # Only samples with at least 100 reads
-    phyloseq::prune_samples(samples = rowSums(phyloseq::otu_table(.)) > 100) %>%
-    # Only soil samples with results from all three tech/amplicon combinations
-    phyloseq::prune_samples(
-      samples = phyloseq::sample_data(.) %>%
-        as("data.frame") %>%
-        as_tibble(rownames = "sample") %>%
-        group_by(site, x, year) %>%
-        filter(n() >= 3) %>%
-        pull(sample) %>%
-        unique()
-    ) %>%
-    # Normalize reads
-    phyloseq::transform_sample_counts(function(x) x / sum(x)) %>%
-    # Take only classes which represent at least 1% of reads in at least one sample.
-    phyloseq::prune_taxa(
-      taxa = (
-        phyloseq::otu_table(.) %>%
-          t() %>%
-          as.data.frame() %>%
-          do.call(what = pmax)
-      ) > 0.01
-    ),
+  tech_ecm_fam_physeq =
+    generate_tech_ecm_fam_physeq(tech_asv_physeq, ecm_PHYLOTAX),
 
   # Sample data for easy reference
   tech_ecm_fam_sample_data =
-    as(phyloseq::sample_data(tech_ecm_fam_table), "data.frame"),
+    as(phyloseq::sample_data(tech_ecm_fam_physeq), "data.frame"),
 
   # Calculate Bray-Curtis distance for comparing technologies
-  tech_ecm_fam_bc_dist = phyloseq::distance(tech_ecm_fam_table, "bray"),
+  tech_ecm_fam_bc_dist = phyloseq::distance(tech_ecm_fam_physeq, "bray"),
 
   # PERMANOVA test for technologies
   tech_ecm_fam_adonis = target(
@@ -2537,7 +1545,7 @@ plan2 <- drake_plan(
   # PCoA for technologies
   tech_ecm_fam_pcoa =
     vegan::capscale(
-      phyloseq::otu_table(tech_ecm_fam_table) ~ Condition(paste(site, x, year)),
+      phyloseq::otu_table(tech_ecm_fam_physeq) ~ Condition(paste(site, x, year)),
       data = tech_ecm_fam_sample_data,
       distance = "bray"
     ),
@@ -2602,7 +1610,8 @@ plan2 <- drake_plan(
     ) %>%
     extract2("data") %>%
     extract2("tax_read") %>%
-    set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
+    set_names(names(.) %>%
+                str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
     unlist(),
 
   fungi_asv =
@@ -2614,7 +1623,8 @@ plan2 <- drake_plan(
     ) %>%
     extract2("data") %>%
     extract2("tax_asv") %>%
-    set_names(names(.) %>% str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
+    set_names(names(.) %>%
+                str_extract("(PacBio|Illumina|Ion.Torrent)_(Long|Short)")) %>%
     unlist(),
 
   ecm_counts =
@@ -2964,7 +1974,7 @@ plan2 <- drake_plan(
         file_in(!!file.path("writing", "all.bib"))
         knitr_in(!!file.path("writing", "transect_supplement.Rmd"))
         file_in(!!file.path("writing", "preamble_supplement.tex"))
-        file_in(!!file.path("scripts", "output_functions.R"))
+        file_in(!!file.path("scripts", "functions_output.R"))
         rmarkdown::render(
           "transect_supplement.Rmd",
           clean = FALSE
@@ -2981,7 +1991,7 @@ plan2 <- drake_plan(
     {
       knitr_in(!!file.path("writing", "transect_paper.Rmd"))
       file_in(!!file.path("writing", "preamble.tex"))
-      file_in(!!file.path("scripts", "output_functions.R"))
+      file_in(!!file.path("scripts", "functions_output.R"))
       rmarkdown::render(
         "transect_paper.Rmd",
         clean = FALSE
@@ -3138,13 +2148,14 @@ plan2 <- drake_plan(
     )
   },
 
+  # take only the fungi from the PHYLOTAX and Consensus calls
   phylotax_fungi = phylotax::extract_taxon(
     phylotax = phylotax_hybrid,
     taxon = "Fungi",
     true_members = sure_fungi
   ),
 
-  ## Output tree ----
+  #### Output tree ####
   tree_fig = tree_figure(
     phylotax = phylotax_fungi,
     outfile = file_out(!!file.path("output", "supp_file_3.pdf")),
@@ -3153,398 +2164,74 @@ plan2 <- drake_plan(
   ),
 
   #### prepare submission materials for ENA ####
-  soil_samples =
-    readd(proto_physeq) %>%
-    phyloseq::sample_data() %>%
-    as("data.frame") %>%
-    dplyr::filter(sample_type == "Sample", tech == "PacBio") %>%
-    dplyr::left_join(
-      readRDS("config/tags/all.rds") %>%
-        tidyr::pivot_longer(
-          cols = matches("(primer|barcode|adapter)_(seq|tag)_(fwd|rev)"),
-          names_to = c(".value", "direction"),
-          names_pattern = "(.+)_(fwd|rev)"
-        ) %>%
-        tidyr::unite("seq", ends_with("seq"), sep = "") %>%
-        mutate_at(vars(ends_with("tag")), na_if, "unnamed") %>%
-        mutate(tag = dplyr::coalesce(barcode_tag, primer_tag)) %>%
-        dplyr::select(amplicon, well, direction, tag, seq) %>%
-        filter(nchar(seq) > 0) %>%
-        mutate_at("tag", str_replace, "its", "ITS") %>%
-        mutate_at("tag", str_replace, "lr", "LR") %>%
-        tidyr::unite("tag", tag, seq, sep = ": ") %>%
-        group_by(amplicon, well, direction) %>%
-        summarize(tag = paste(unique(tag), collapse = ", ")) %>%
-        group_by(amplicon, well) %>%
-        summarize(tag = paste(unique(tag), collapse = "; ")),
-      by = c("amplicon", "well"))%>%
-    dplyr::mutate(
-      sample_alias = glue::glue("OT-{substr(year, 3, 4)}-{site}-{x}-{substr(buffer, 1, 1)}-{substr(amplicon, 1, 1)}"),
-      tax_id = "410658",
-      scientific_name = "soil metagenome",
-      common_name = "soil metagenome",
-      sample_title = sample_alias,
-      sample_description = glue::glue("Ouémé Supérieur soil transect {year}, {ifelse(site == 'Ang', 'Angaradebou', 'Gando')} sample #{x}, preserved with {buffer}, {amplicon} amplicon"),
-      "project name" = "ena-STUDY-UPPSALA UNIVERISTY-19-03-2020-10:28:50:771-6",
-      "experimental factor" = paste(x, "m from transect origin"),
-      "sample volume or weight for dna extraction" = 0.05,
-      "nucleic acid extraction" = "Zymo Research Xpedition Soil Microbe DNA MiniPrep D6202",
-      "target gene" = ifelse(amplicon == "Long", "ITS1, 5.8S, ITS2, LSU", "ITS2"),
-      "pcr primers" = tag,
-      "pcr conditions" = ifelse(
-        amplicon == "Long",
-        "initial denaturation:95degC_10min; denaturation:95degC_45s; annealing:59degC_45s; extension:72degC_90s; cycles:30; final extension:72degC_10min",
-        "initial denaturation:95degC_10min; denaturation:95degC_60s; annealing:56degC_45s; extension:72degC_50s; cycles:35; final extension:72degC_3min"
+  ENA_samples = target(
+    compile_samples(sample_data),
+    transform = map(
+      compile_samples = list(
+        compile_soil_samples,
+        compile_control_samples,
+        compile_blank_samples
       ),
-      "sequencing method" = ifelse(
-        amplicon == "Long",
-        "PACBIO_SMRT",
-        "ION_TORRENT, PACBIO_SMRT, ILLUMINA"
-      ),
-      "investigation type" = "metagenome",
-      "collection date" = case_when(
-        year == "2015" ~ "2015-05",
-        year == "2016" ~ "2016-06"
-      ),
-      "geographic location (country and/or sea)" = "Benin",
-      "geographic location (latitude)" = case_when(
-        site == "Ang" ~ "N 9.75456",
-        site == "Gan" ~ "N 9.75678"
-      ),
-      "geographic location (longitude)" = case_when(
-        site == "Ang" ~ "W 2.14064",
-        site == "Gan" ~ "W 2.31058"
-      ),
-      "geographic location (region and locality)" = case_when(
-        site == "Ang" ~ "Borgou department, N'Dali Commune, Forêt Classée de l'Ouémé Supérieur near Angaradebou village",
-        site == "Gan" ~ "Borgou department, N'Dali Commune, Forêt Classée de l'Ouémé Supérieur near Gando village"
-      ),
-      "soil environmental package" = "soil",
-      "geographic location (depth)" = "0-0.05",
-      "environment (biome)" = "tropical savannah ENVO:01000188",
-      "environment (feature)" = "ectomycorrhizal woodland",
-      "environment (material)" = "tropical soil ENVO:00005778",
-      "geographic location (elevation)" = "320",
-      "amount or size of sample collected" = "0.125 L",
-      "sample weight for dna extraction" = "0.25",
-      "storage conditions (fresh/frozen/other)" = case_when(
-        buffer == "Xpedition" ~ "field lysis by bead beating in Xpedition lysis solution (Zymo Research)",
-        buffer == "LifeGuard" ~ "stored for approx. two months in LifeGuard Soil Preservation Solution (Quiagen)"
-      )
-    ),
-  ENA_soil_samples =  {
-    template_in <- file_in("config/ENA_soil_sample_template.tsv")
-    template_names <- names(read_tsv(template_in, skip = 2))
-    tsv_out <- file_out("output/ENA/ENA_soil_samples.tsv")
-    if (!dir.exists(dirname(tsv_out))) dir.create(dirname(tsv_out), recursive = TRUE)
-    file.copy(template_in, tsv_out, overwrite = TRUE)
-    soil_samples %>%
-      assertr::verify(template_names %in% names(.)) %>%
-      select_at(template_names) %>%
-      write_tsv(tsv_out, append = TRUE, col_names = FALSE)
-  },
-  control_samples =
-    readd(proto_physeq) %>%
-    phyloseq::sample_data() %>%
-    as("data.frame") %>%
-    dplyr::filter(sample_type == "Pos", tech == "PacBio") %>%
-    dplyr::left_join(
-      readRDS("config/tags/all.rds") %>%
-        tidyr::pivot_longer(
-          cols = matches("(primer|barcode|adapter)_(seq|tag)_(fwd|rev)"),
-          names_to = c(".value", "direction"),
-          names_pattern = "(.+)_(fwd|rev)"
-        ) %>%
-        tidyr::unite("seq", ends_with("seq"), sep = "") %>%
-        mutate_at(vars(ends_with("tag")), na_if, "unnamed") %>%
-        mutate(tag = dplyr::coalesce(barcode_tag, primer_tag)) %>%
-        dplyr::select(amplicon, well, direction, tag, seq) %>%
-        filter(nchar(seq) > 0) %>%
-        mutate_at("tag", str_replace, "its", "ITS") %>%
-        mutate_at("tag", str_replace, "lr", "LR") %>%
-        tidyr::unite("tag", tag, seq, sep = ": ") %>%
-        group_by(amplicon, well, direction) %>%
-        summarize(tag = paste(unique(tag), collapse = ", ")) %>%
-        group_by(amplicon, well) %>%
-        summarize(tag = paste(unique(tag), collapse = "; ")),
-      by = c("amplicon", "well")) %>%
-    dplyr::mutate(
-      sample_alias = glue::glue("OT-control-{plate}-{substr(amplicon, 1, 1)}"),
-      tax_id = "5341",
-      scientific_name = "Agaricus bisporus",
-      common_name = "common button mushroom",
-      sample_title = sample_alias,
-      sample_description = glue::glue("commercially purchased button mushroom as positive control, {amplicon} amplicon"),
-      isolation_source = "purchased at local grocery store",
-      "geographic location (country and/or sea)" = "Sweden",
-      "geographic location (region and locality)" = "Uppsala",
-      "project name" = "ena-STUDY-UPPSALA UNIVERISTY-19-03-2020-10:28:50:771-6",
-      "target gene" = ifelse(amplicon == "Long", "ITS1, 5.8S, ITS2, LSU", "ITS2"),
-      "pcr primers" = tag,
-      "pcr conditions" = ifelse(
-        amplicon == "Long",
-        "initial denaturation:95degC_10min; denaturation:95degC_45s; annealing:59degC_45s; extension:72degC_90s; cycles:30; final extension:72degC_10min",
-        "initial denaturation:95degC_10min; denaturation:95degC_60s; annealing:56degC_45s; extension:72degC_50s; cycles:35; final extension:72degC_3min"
-      ),
-      "sequencing method" = ifelse(
-        amplicon == "Long",
-        "PACBIO_SMRT",
-        "ION_TORRENT, PACBIO_SMRT, ILLUMINA"
-      )
-    ),
-  ENA_control_samples = {
-    template_in <- file_in("config/ENA_control_sample_template.tsv")
-    template_names <- names(read_tsv(template_in, skip = 2))
-    tsv_out <- file_out("output/ENA/ENA_control_samples.tsv")
-    if (!dir.exists(dirname(tsv_out))) dir.create(dirname(tsv_out), recursive = TRUE)
-    file.copy(template_in, tsv_out, overwrite = TRUE)
-    control_samples %>%
-      assertr::verify(template_names %in% names(.)) %>%
-      select_at(template_names) %>%
-      write_tsv(tsv_out, append = TRUE, col_names = FALSE)
-  },
-  blank_samples =
-    readd(proto_physeq) %>%
-    phyloseq::sample_data() %>%
-    as("data.frame") %>%
-    dplyr::filter(sample_type == "Blank", tech == "PacBio") %>%
-    dplyr::left_join(
-      readRDS("config/tags/all.rds") %>%
-        tidyr::pivot_longer(
-          cols = matches("(primer|barcode|adapter)_(seq|tag)_(fwd|rev)"),
-          names_to = c(".value", "direction"),
-          names_pattern = "(.+)_(fwd|rev)"
-        ) %>%
-        tidyr::unite("seq", ends_with("seq"), sep = "") %>%
-        mutate_at(vars(ends_with("tag")), na_if, "unnamed") %>%
-        mutate(tag = dplyr::coalesce(barcode_tag, primer_tag)) %>%
-        dplyr::select(amplicon, well, direction, tag, seq) %>%
-        filter(nchar(seq) > 0) %>%
-        mutate_at("tag", str_replace, "its", "ITS") %>%
-        mutate_at("tag", str_replace, "lr", "LR") %>%
-        tidyr::unite("tag", tag, seq, sep = ": ") %>%
-        group_by(amplicon, well, direction) %>%
-        summarize(tag = paste(unique(tag), collapse = ", ")) %>%
-        group_by(amplicon, well) %>%
-        summarize(tag = paste(unique(tag), collapse = "; ")),
-      by = c("amplicon", "well")) %>%
-    dplyr::mutate(
-      sample_alias = glue::glue("OT-blank-{plate}-{substr(amplicon, 1, 1)}"),
-      tax_id = "2582415",
-      scientific_name = "blank sample",
-      common_name = "blank sample",
-      sample_title = sample_alias,
-      sample_description = "PCR blank",
-      isolation_source = "Nuclease free water",
-      "geographic location (country and/or sea)" = "Sweden",
-      "geographic location (region and locality)" = "Uppsala",
-      "project name" = "ena-STUDY-UPPSALA UNIVERISTY-19-03-2020-10:28:50:771-6",
-      "target gene" = ifelse(amplicon == "Long", "ITS1, 5.8S, ITS2, LSU", "ITS2"),
-      "pcr primers" = tag,
-      "pcr conditions" = ifelse(
-        amplicon == "Long",
-        "initial denaturation:95degC_10min; denaturation:95degC_45s; annealing:59degC_45s; extension:72degC_90s; cycles:30; final extension:72degC_10min",
-        "initial denaturation:95degC_10min; denaturation:95degC_60s; annealing:56degC_45s; extension:72degC_50s; cycles:35; final extension:72degC_3min"
-      ),
-      "sequencing method" = ifelse(
-        amplicon == "Long",
-        "PACBIO_SMRT",
-        "ION_TORRENT, PACBIO_SMRT, ILLUMINA"
-      )
-    ),
-  ENA_blank_samples = {
-    template_in <- file_in("config/ENA_control_sample_template.tsv")
-    template_names <- names(read_tsv(template_in, skip = 2))
-    tsv_out <- file_out("output/ENA/ENA_blank_samples.tsv")
-    if (!dir.exists(dirname(tsv_out))) dir.create(dirname(tsv_out), recursive = TRUE)
-    file.copy(template_in, tsv_out, overwrite = TRUE)
-    blank_samples %>%
-      assertr::verify(template_names %in% names(.)) %>%
-      select_at(template_names) %>%
-      write_tsv(tsv_out, append = TRUE, col_names = FALSE)
-  },
-  pacbio_ion_manifest =
-    dplyr::inner_join(
-      dplyr::bind_rows(
-        soil_samples,
-        control_samples,
-        blank_samples
-      ) %>% select(sample_alias, "project name", plate, well, amplicon, sample_type),
-      dplyr::bind_rows(
-        file_meta_gits7its4 %>%
-          mutate(plate = ifelse(tech == "Ion Torrent", list(c("001", "002")), as.list(plate))) %>%
-          unnest(plate),
-        readd(file_meta_its1lr5)
-      ),
-      by = c("plate", "well", "amplicon")
-    ) %>%
-    dplyr::transmute(
-      STUDY = `project name`,
-      SAMPLE = sample_alias,
-      NAME = paste(sample_alias, tech, direction, sep = "-") %>% str_replace("-$", "") %>% str_replace(" ", ""),
-      INSTRUMENT = paste(tech, machine) %>% str_replace("Ion S5", "S5"),
-      LIBRARY_SOURCE = dplyr::case_when(
-        sample_type == "Pos" ~ "GENOMIC",
-        sample_type == "Sample" ~ "METAGENOMIC",
-        sample_type == "Blank" ~ "OTHER"
-      ),
-      LIBRARY_SELECTION = "PCR",
-      LIBRARY_STRATEGY = "AMPLICON",
-      FASTQ = trim_file,
-      DESCRIPTION = case_when(
-        direction == "f" ~ "Reads originally in forward orientation",
-        direction == "r" ~ "Reads originally in reverse orientation",
-        TRUE ~ "")
-    ) %>%
-    chop(cols = c(SAMPLE, NAME, LIBRARY_SOURCE)) %>%
-    mutate_at("LIBRARY_SOURCE", map, unique) %>%
-    rowwise() %>%
-    group_split() %>%
-    walk(
-      function(d) {
-        d <- map(as.list(d), unlist)
-        d <- map(as.list(d), unique)
-        if (length(d$SAMPLE) > 1) {
-          d$DESCRIPTION <- paste("also contains samples from", d$SAMPLE[2], "due to incomplete multiplexing")
-          d$SAMPLE <- d$SAMPLE[1]
-          d$NAME <- d$NAME[1]
-          d$LIBRARY_SOURCE <- d$LIBRARY_SOURCE[1]
-        }
-        if (length(d$NAME) > 1) print(d)
-        sink(file.path("output", "ENA", paste0(d$NAME, ".manifest")), append = FALSE)
-        iwalk(d, ~ for (x in .x) {cat(.y, x); cat("\n")})
-        sink()
-      }
-    ),
+      sample_type = c("soil", "control", "blank"),
+      .id = sample_type
+    )
+  ),
 
-  illumina_manifest = dplyr::inner_join(
-    dplyr::bind_rows(
-      soil_samples,
-      control_samples,
-      blank_samples
-    ) %>%
-      select(sample_alias, "project name", plate, well, amplicon, sample_type),
-    illumina_group_SH.2257,
-    by = c("plate", "well", "amplicon")
-  ) %>%
-    dplyr::transmute(
-      STUDY = `project name`,
-      SAMPLE = sample_alias,
-      NAME = paste(sample_alias, tech, direction, sep = "-") %>% str_replace("-$", "") %>% str_replace(" ", ""),
-      INSTRUMENT = paste(tech, machine),
-      LIBRARY_SOURCE = dplyr::case_when(
-        sample_type == "Pos" ~ "GENOMIC",
-        sample_type == "Sample" ~ "METAGENOMIC",
-        sample_type == "Blank" ~ "OTHER"
-      ),
-      LIBRARY_SELECTION = "PCR",
-      LIBRARY_STRATEGY = "AMPLICON",
-      INSERT_SIZE = "350",
-      FASTQ = trim_file_R1,
-      FASTQ2 = trim_file_R2,
-      DESCRIPTION = case_when(
-        direction == "f" ~ "Reads in forward orientation",
-        direction == "r" ~ "Reads in reverse orientation",
-        TRUE ~ "")
-    ) %>%
-    rowwise() %>%
-    group_split() %>%
-    walk(
-      function(d) {
-        d <- as.list(d)
-        d$FASTQ <- c(d$FASTQ, d$FASTQ2)
-        d$FASTQ2 <- NULL
-        sink(file.path("output", "ENA", paste0(d$NAME, ".manifest")), append = FALSE)
-        iwalk(d, ~ for (x in .x) {cat(.y, x); cat("\n")})
-        sink()
-      }
+  write_samples = target(
+    write_ena_samples(
+      ENA_samples,
+      file_in(!!paste0("config/ENA_", sample_type, "_sample_template.tsv")),
+      file_out(!!paste0("output/ENA_", sample_type, "_samples.tsv"))
     ),
+    transform = map(ENA_samples, sample_typem, .id = sample_type)
+  ),
 
-  read_accnos =
-    list.files(path = file_in("output/ENA/reads"), pattern = "receipt.xml", recursive = TRUE) %>%
-    stringr::str_split_fixed("/", 3) %>%
-    magrittr::extract( , 1) %>%
-    set_names(., .) %>%
-    purrr::map_chr(get_reads_accno) %>%
-    tibble::enframe(name = "sample_alias", value = "accno") %>%
-    tidyr::extract(
-      "sample_alias",
-      into = c("sample_alias", "tech"),
-      regex = "(.+)-((?:Illumina|PacBio|IonTorrent)-?[fr]?)"
-    ) %>%
-    tidyr::pivot_wider(names_from = "tech", values_from = "accno"),
-  pretaxid =
-    wide_taxa_short_euk_combined %>%
-    dplyr::select(kingdom:genus, Taxonomy, label) %>%
-    dplyr::mutate_at("Taxonomy", stringi::stri_replace_all_fixed, ";NA", "") %>%
-    dplyr::mutate_at("Taxonomy", stringi::stri_replace_first_regex, ";[A-Za-z]+\\d+$", "") %>%
-    unique() %>%
-    tidyr::pivot_longer(cols = kingdom:genus, names_to = "rank", values_to = "taxon") %>%
-    dplyr::filter(complete.cases(.), !stringr::str_detect(taxon, "\\d")) %>%
-    dplyr::group_by(Taxonomy) %>%
-    dplyr::summarize(
-      taxon = dplyr::last(taxon),
-      rank = dplyr::last(rank),
-      label = paste(label, collapse = ",")
+  pacbio_ion_manifest = target(
+    generate_pacbio_ion_manifest(
+      dplyr::bind_rows(ENA_samples),
+      file_meta_gits7its4,
+      file_meta_its1lr5
     ),
+    transform = combine(ENA_samples)
+  ),
+
+  illumina_manifest = target(
+    generate_illumina_manifest(
+      dplyr::bind_rows(ENA_samples),
+      illumina_group_SH.2257
+    ),
+    transform = combine(ENA_samples)
+  ),
+
+  read_accnos = lookup_submitted_accnos(path = file_in("output/ENA/reads")),
+  pretaxid = target(
+    .fun(phylotax_hybrid),
+    transform = map(
+      .fun = list(group_by_taxon, group_by_taxon_env),
+      taxon_type = c("ind", "env"),
+      .id = taxon_type
+      )
+  ),
+
   taxid = target(
     do.call(lookup_ncbi_taxon, pretaxid),
+    transform = map(pretaxid, .id = taxon_type),
     dynamic = map(pretaxid),
     retries = 2
   ),
-  taxid_all = bind_rows(readd(taxid)) %T>%
-    write_csv(file_out("output/taxa.csv")) %T>% {
-      dplyr::select(., label, targetTaxonomy, targetRank) %>%
-        write_csv(file_out("output/taxa_target.csv"))
-    } %T>% {
-      dplyr::select(., label, Taxonomy, rank) %>%
-        write_csv(file_out("output/taxa_ncbi.csv"))
+
+  taxid_all = target(
+    {
+      taxids <- bind_rows(readd(taxid))
+      write_csv(file_out(!!sprintf("output/%s_taxa.csv", taxon_type)))
+      dplyr::select(taxids, label, targetTaxonomy, targetRank) %>%
+        write_csv(file_out(!!sprintf("output/%s_taxa_target.csv", taxon_type)))
+      dplyr::select(taxids, label, Taxonomy, rank) %>%
+        write_csv(file_out(!!sprintf("output/%s_taxa_ncbi.csv", taxon_type)))
+      taxids
     },
-  pretaxid_env =
-    wide_taxa_short_euk_combined %>%
-    dplyr::select(kingdom:order, label) %>%
-    dplyr::group_by_at(vars(kingdom:order)) %>%
-    dplyr::summarize(label = paste(label, collapse = ",")) %>%
-    tidyr::pivot_longer(cols = kingdom:order, names_to = "rank", values_to = "taxon") %>%
-    dplyr::filter(complete.cases(.), !stringr::str_detect(taxon, "\\d")) %>%
-    dplyr::group_by(label) %>%
-    dplyr::summarize(
-      Taxonomy = paste(taxon, collapse = ";"),
-      taxon = dplyr::last(taxon),
-      rank = dplyr::last(rank)
-    ) %>%
-    dplyr::group_by(Taxonomy, taxon, rank) %>%
-    dplyr::summarize(label = paste(label, collapse = ",")) %>%
-    dplyr::ungroup() %>%
-    dplyr::mutate_at(
-      "taxon",
-      stringi::stri_replace_all_regex,
-      c("Fungi", "Alveolata", "Gregarinasina", "Neogregarinorida", "NA", "Angiospermae", "Stramenopila",
-        "Kickxellomycota", "Zoopagomycota", "Monoblepharomycota", "Morteriellomycota", "Bryopsida",
-        "Chromerida", "Gigasporales", "Paraglomeromycetes", "Ichthyosporia"),
-      c("fungus", "alveolate", "gregarine", "gregarine", "eukaryote", "Magnoliophyta", "Stramenopile",
-        "Kickxellomycotina", "Zoopagomycotina", "Monoblepharidomycetes", "Morteriellomycotina", "Bryophyta",
-        "Colpodellida", "Diversisporales", "Paraglomerales", "Ichthyosporea"),
-      vectorize_all = FALSE
-    ) %>%
-    dplyr::mutate(taxon = ifelse(
-      grepl("(Streptophyta|Metazoa)", Taxonomy),
-      paste(taxon, "environmental sample"),
-      paste("uncultured", taxon)
-    )),
-  taxid_env = target(
-    do.call(lookup_ncbi_taxon, pretaxid_env),
-    dynamic = map(pretaxid_env),
-    retries = 2
+    transform = map(taxid, taxon_type, .id = taxon_type)
   ),
-  taxid_env_all = bind_rows(readd(taxid_env)) %T>%
-    write_csv(file_out("output/env_taxa.csv")) %T>% {
-      dplyr::select(., targetTaxonomy) %>%
-        write_csv(file_out("output/env_taxa_target.csv"))
-    } %T>% {
-      dplyr::select(., Taxonomy) %>%
-        write_csv(file_out("output/env_taxa_ncbi.csv"))
-    },
   # transform = FALSE,
   trace = TRUE
 ) %>%
@@ -3560,17 +2247,19 @@ options(clustermq.scheduler = "multicore")
 cache_dir <- ".drake"
 cache <- drake_cache(cache_dir)
 dconfig <- drake_config(plan2, cache = cache)
-vis_drake_graph(dconfig, targets_only = TRUE, from = "taxon_table_primary",
-                group = "step",
-                clusters = c("correlog", "variog", "variogST", "variofit2",
-                             "variofitST2", "physeq"))
+# vis_drake_graph(dconfig, targets_only = TRUE,
+#                 group = "step",
+#                 clusters = c("correlog", "variog", "variogST", "variofit2",
+#                              "variofitST2", "physeq", "big_seq_table",
+#                              "big_fasta", "taxon", "chimeras", "allchimeras"))
 make(
   plan2,
   cache = cache,
   parallelism = parallelism,
   jobs = njobs,
   # targets = c("article_pdf", "supplement_pdf", "article_diff_pdf", "supplement_diff_pdf", "wordcount"),
-  targets = c("tax_chart_plot", "tree_fig"),
+  targets = c("alpha_plot_ASV", "alpha_plot_OTU"),
+  # keep_going = TRUE,
   lazy_load = FALSE,
   memory_strategy = "autoclean",
   garbage_collection = TRUE,

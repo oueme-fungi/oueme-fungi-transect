@@ -1,3 +1,7 @@
+# functions for spatiotemporal variograms
+# inspired by the gstat package, but ultimately totally reimplemented
+# author Brendan Furneaux
+
 variogram_table <- function(eco_dist, sp_dist, breaks) {
   tibble::tibble(
     dist = unclass(sp_dist),
@@ -134,4 +138,66 @@ variog_summary = function(model) {
     )
   ) %>%
     tidyr::unnest(confint)
+}
+
+fit_variogram <- function(variog) {
+    as_variogram(variog) %>%
+    stats::nls(
+      # this it reparameterized to give better convergence
+      # sill = 1 - (C0 + C1)
+      # nugget = C1 / (C0 + C1)
+      gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp(dist/range*log(0.05)),
+      data = .,
+      start = list(
+        nugget = min(.$gamma),
+        sill = 1 - max(.$gamma),
+        range = 30
+      ),
+      upper = list(nugget = 0.99, sill = 0.99, range = Inf),
+      lower = list(nugget = 0, sill = 0, range = 0.001),
+      algorithm = "port",
+      weights = pmin(.$np/.$dist, 1),
+      control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
+    ) %>% {
+      list(
+        pars = as.list(.$m$getPars()),
+        summary = variog_summary(.),
+        predict = variog_predict(
+          .,
+          newdata = expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
+        )
+      )
+    }
+}
+
+fit_variogramST <- function(variogST, variofit2) {
+  as_variogramST(variogST) %>%
+    stats::nls(
+      # this it reparameterized to give better convergence
+      # sill = 1 - (C0 + C1)
+      # nugget = C1 / (C0 + C1)
+      gamma ~ (1 - sill) - (1 - sill) * (1 - nugget) * exp((dist/range + timelag/timerange)*log(0.05)),
+      # add the parameters from the spatial-only fit.
+      data = .,
+      start = c(
+        list(timerange = 2),
+        variofit2$pars
+      ),
+      lower = c(
+        list(timerange = 0.001),
+        variofit2$pars
+      ),
+      algorithm = "port",
+      weights = pmin(.$np/.$dist, 1),
+      control = list(warnOnly = TRUE, maxiter = 1000, minFactor = 1/4096)
+    ) %>% {
+      list(
+        pars = as.list(.$m$getPars()),
+        summary = variog_summary(.),
+        predict = variog_predict(
+          .,
+          newdata = expand_grid(dist = seq(1, 25, 0.5), timelag = 0:1)
+        )
+      )
+    }
 }

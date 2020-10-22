@@ -24,18 +24,7 @@ if (interactive()) {
 
 #### read scripts and configs ####
 # load various pipeline functions
-
-source(file.path(config$rdir, "dada.R"))
-source(file.path(config$rdir, "qstats.R"))
-source(file.path(config$rdir, "lsux.R"))
-source(file.path(config$rdir, "mantel.R"))
-source(file.path(config$rdir, "parallel_helpers.R"))
-source(file.path(config$rdir, "plate_check.R"))
-source(file.path(config$rdir, "raxml.R"))
-source(file.path(config$rdir, "taxonomy.R"))
-source(file.path(config$rdir, "utils.R"))
-source(file.path(config$rdir, "AlignSeqs.R"))
-source(file.path(config$rdir, "DECIPHER-utils.R"))
+for (f in list.files(config$rdir, "functions_.+.R", full.names = TRUE)) source(f)
 
 setup_log("drakeplan")
 

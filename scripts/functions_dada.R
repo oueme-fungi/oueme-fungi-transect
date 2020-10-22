@@ -1,3 +1,8 @@
+# functions for use in conjunction with DADA2 results
+# most functions originally here have been moved to the tzara package.
+# author Brendan Furneaux
+
+
 #' Combine consensus sequences and ASVs for different regions
 #'
 #' @param conseqs (list of \code{\link[tibble]{tibble}}) ASVs for one region

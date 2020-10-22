@@ -1,3 +1,6 @@
+# function to read in, check, and format the platemap
+# author Brendan Furneaux
+
 read_platemap <- function(filename, sheet, skip = 2) {
   # read cells individually
   cells <- tidyxl::xlsx_cells(filename, sheet)
@@ -9,7 +12,7 @@ read_platemap <- function(filename, sheet, skip = 2) {
     {names(.)[which.max(.)]} %>%
     as.integer
   # read the data
-  raw <- readxl::read_excel(filename, sheet = sheet, 
+  raw <- readxl::read_excel(filename, sheet = sheet,
                             skip = header_line - 1,
                             col_names = TRUE, .name_repair = "minimal")
   # the data is not "tidy"; we have groups of columns for the different
@@ -59,7 +62,7 @@ read_platemap <- function(filename, sheet, skip = 2) {
                               TRUE ~ NA_character_)
     ) %>%
     # For some site/years, coordinates were measured from the edge of
-    # the plot rather than numbered from 1--25 
+    # the plot rather than numbered from 1--25
     dplyr::group_by(year, site) %>%
     dplyr::mutate(x = x - if (!any(is.na(x)) && max(x) > 25) 12 else 0) %>%
     dplyr::ungroup() %>%

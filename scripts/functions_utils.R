@@ -1,3 +1,6 @@
+# utility functions, mostly related to drake
+# author Brendan Furneaux
+
 # make relative symlinks from all files in one directory tree to another
 # directory tree
 mirror_dir <- function(from, to) {
@@ -28,7 +31,7 @@ mirror_dir <- function(from, to) {
         ),
       ""
     )[dirname(todofiles)]
-  
+
     unlink(file.path(to, wrongfiles))
     file.symlink(
       file.path(reldirs, todofiles),
@@ -38,7 +41,7 @@ mirror_dir <- function(from, to) {
 }
 
 #### combine drake targets with their names ####
-drake_combine <- function(...) UseMethod("drake_combine")  
+drake_combine <- function(...) UseMethod("drake_combine")
 
 drake_combine.default <- function(...) {
   list <- list(...)

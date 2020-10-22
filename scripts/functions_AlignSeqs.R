@@ -1,3 +1,6 @@
+# updated version of AlignSeqs from DECIPHER package,
+# contributed by Eric Scott Wright (author of DECIPHER)
+
 AlignSeqs <- function(myXStringSet,
 	guideTree=NULL,
 	iterations=2,
@@ -12,7 +15,7 @@ AlignSeqs <- function(myXStringSet,
 	processors=1,
 	verbose=TRUE,
 	...) {
-	
+
 	# error checking
 	type <- switch(class(myXStringSet),
 		`DNAStringSet` = 1L,
@@ -111,7 +114,7 @@ AlignSeqs <- function(myXStringSet,
 	} else {
 		processors <- as.integer(processors)
 	}
-	
+
 	args <- list(...)
 	n <- names(args)
 	m <- character(length(n))
@@ -119,7 +122,7 @@ AlignSeqs <- function(myXStringSet,
 		m[i] <- match.arg(n[i],
 			names(formals(AlignProfiles)))
 	}
-	
+
 	if (length(gapOpening)==2) {
 		gapOpeningMin <- gapOpening[1]
 		gapOpeningMax <- gapOpening[2]
@@ -146,7 +149,7 @@ AlignSeqs <- function(myXStringSet,
 		stop("gapExtension[1] must be less than or equal to gapExtension[2].")
 	gapOpeningSlope <- gapOpeningMax - gapOpeningMin
 	gapExtensionSlope <- gapExtensionMax - gapExtensionMin
-	
+
 	# prepare structures and structure matrix
 	if (useStructures) {
 		if (type==3L) {
@@ -183,7 +186,7 @@ AlignSeqs <- function(myXStringSet,
 					stop("structures is not the same length as myXStringSet.")
 				if (typeof(structures) != "list")
 					stop("structures must be a list.")
-				
+
 				w <- which(m=="structureMatrix")
 				if (length(w) > 0) {
 					structureMatrix <- args[[w]]
@@ -231,7 +234,7 @@ AlignSeqs <- function(myXStringSet,
 		if (!is.null(structures))
 			stop("structures provided when useStructures is FALSE.")
 	}
-	
+
 	# prepare substitution matrix
 	if (type==3L) {
 		r <- strsplit(alphabet, "", fixed=TRUE)
@@ -260,7 +263,7 @@ AlignSeqs <- function(myXStringSet,
 			stop("More than one grouping of amino acids is required in the alphabet.")
 		sizeAA <- as.integer(floor(log(4294967295, sizeAA)))
 		alphabet <- alphabet - 1L
-		
+
 		subM <- TRUE
 		w <- which(m=="substitutionMatrix")
 		AAs <- c("A", "R", "N", "D", "C", "Q", "E", "G", "H", "I",
@@ -348,13 +351,13 @@ AlignSeqs <- function(myXStringSet,
 			diag(sM) <- PM
 		}
 	}
-	
+
 	if (length(args)==0)
 		args <- NULL
-	
+
 	if (verbose)
 		time.1 <- Sys.time()
-	
+
 	w.x <- width(myXStringSet)
 	if (type==3L) {
 		wordSize <- ceiling(log(100*quantile(w.x, 0.99),
@@ -376,7 +379,7 @@ AlignSeqs <- function(myXStringSet,
 		if (wordSize < 2)
 			wordSize <- 2
 	}
-	
+
 	if (is.null(guideTree)) {
 		if (verbose) {
 			cat("Determining distance matrix based on shared ",
@@ -388,7 +391,7 @@ AlignSeqs <- function(myXStringSet,
 		} else {
 			pBar <- NULL
 		}
-		
+
 		if (type==3L) {
 			v <- .Call("enumerateSequenceReducedAA",
 				myXStringSet,
@@ -401,7 +404,7 @@ AlignSeqs <- function(myXStringSet,
 				wordSize,
 				PACKAGE="DECIPHER")
 		}
-		
+
 		d <- .Call("matchOrder",
 			v,
 			verbose,
@@ -412,7 +415,7 @@ AlignSeqs <- function(myXStringSet,
 		attr(d, "Diag") <- TRUE
 		attr(d, "Upper") <- TRUE
 		class(d) <- "dist"
-		
+
 		if (verbose) {
 			setTxtProgressBar(pBar, 100)
 			close(pBar)
@@ -423,7 +426,7 @@ AlignSeqs <- function(myXStringSet,
 				units='secs'),
 				digits=2))
 		}
-		
+
 		if (verbose) {
 			cat("\nClustering into groups by similarity:\n")
 			flush.console()
@@ -435,7 +438,7 @@ AlignSeqs <- function(myXStringSet,
 			verbose=verbose,
 			processors=processors))
 	}
-	
+
 	if (verbose) {
 		time.1 <- Sys.time()
 		cat("Aligning Sequences:\n")
@@ -444,7 +447,7 @@ AlignSeqs <- function(myXStringSet,
 		before <- steps <- 0L
 		nsteps <- l - 1L
 	}
-	
+
 	.align <- function(guideTree) { # iteratively align sequences
 		# initialize a stack of maximum length (l)
 		stack <- vector("list", l)
@@ -457,7 +460,7 @@ AlignSeqs <- function(myXStringSet,
 			if (visit[pos]) { # ascending tree
 				visit[pos] <- FALSE # reset visit
 				dend <- stack[[pos]]
-				
+
 				# align subtrees
 				treeLengths <- numeric(length(dend))
 				inherit <- attr(dend, "inherit")
@@ -471,7 +474,7 @@ AlignSeqs <- function(myXStringSet,
 								processors,
 								PACKAGE="DECIPHER"),
 							u)
-						
+
 						if (verbose) {
 							steps <<- steps + 1L
 							percentComplete <- as.integer(100L*steps/nsteps)
@@ -481,14 +484,14 @@ AlignSeqs <- function(myXStringSet,
 							}
 						}
 					}
-					
+
 					if (length(dend) > 1) {
 						for (i in seq_len(length(dend))) {
 							h <- attr(dend[[i]], "treeLength")
 							if (!is.null(h))
 								treeLengths[i] <- h
 						}
-						
+
 						h <- attr(dend, "height")
 						for (i in seq_len(length(dend))) {
 							m <- unlist(dend[i])
@@ -507,7 +510,7 @@ AlignSeqs <- function(myXStringSet,
 						if (!is.null(h))
 							treeLengths[i] <- h
 					}
-					
+
 					h <- attr(dend, "height")
 					members <- vector("list", length(dend))
 					for (i in seq_len(length(dend))) {
@@ -517,16 +520,16 @@ AlignSeqs <- function(myXStringSet,
 						heights[m] <<- h
 						members[[i]] <- m
 					}
-					
+
 					h <- h*2 # total length of sub-tree
 					GO <- h*gapOpeningSlope + gapOpeningMin
 					GE <- h*gapExtensionSlope + gapExtensionMin
-					
+
 					for (i in 2:length(dend)) {
 						x <- unlist(members[1:(i - 1)])
 						y <- members[[i]]
 						combo <- c(x, y)
-						
+
 						p.weight <- weights[x]
 						w <- which(p.weight <= 0)
 						if (length(w) > 0)
@@ -537,10 +540,10 @@ AlignSeqs <- function(myXStringSet,
 						if (length(w) > 0)
 							s.weight[w] <- 1
 						s.weight <- s.weight/mean(s.weight)
-						
+
 						pattern <- .subset(seqs, x)
 						subject <- .subset(seqs, y)
-						
+
 						if (subM) {
 							if (useStructures) {
 								if (is.null(structures)) {
@@ -649,7 +652,7 @@ AlignSeqs <- function(myXStringSet,
 										args))
 							}
 						}
-						
+
 						if (h > LEVEL &&
 							length(temp) >= levels[6]) {
 							weight <- weights[combo]
@@ -657,7 +660,7 @@ AlignSeqs <- function(myXStringSet,
 							if (length(w) > 0)
 								weight[w] <- 1
 							weight <- weight/mean(weight)
-							
+
 							if (subM) {
 								temp <- FUN(temp,
 									substitutionMatrix=sM,
@@ -669,11 +672,11 @@ AlignSeqs <- function(myXStringSet,
 									processors=processors)
 							}
 						}
-						
+
 						seqs <<- .replace(seqs,
 							temp,
 							combo)
-						
+
 						if (verbose) {
 							steps <<- steps + 1L
 							percentComplete <- as.integer(100L*steps/nsteps)
@@ -688,7 +691,7 @@ AlignSeqs <- function(myXStringSet,
 				} else { # inherit from subtree
 					treeLengths[1] <- attr(dend[[1]], "treeLength")
 				}
-				
+
 				attr(stack[[pos]], "treeLength") <- sum(treeLengths)
 				# replace self in parent
 				if (parent[pos] > 0)
@@ -708,10 +711,10 @@ AlignSeqs <- function(myXStringSet,
 				}
 			}
 		}
-		
+
 		return(attr(stack[[1]], "treeLength"))
 	}
-	
+
 	.reorder <- function(dend) {
 		# initialize a stack of maximum length (l)
 		stack <- vector("list", l)
@@ -723,7 +726,7 @@ AlignSeqs <- function(myXStringSet,
 		while (pos > 0L) { # more nodes to visit
 			if (visit[pos]) { # ascending tree
 				visit[pos] <- FALSE # reset visit
-				
+
 				# sort tree by descending width
 				members <- lapply(stack[[pos]], unlist)
 				o <- order(sapply(members,
@@ -733,7 +736,7 @@ AlignSeqs <- function(myXStringSet,
 					sapply(members, min),
 					decreasing=TRUE)
 				stack[[pos]][] <- stack[[pos]][o]
-				
+
 				# replace self in parent
 				if (parent[pos] > 0)
 					stack[[parent[pos]]][[index[pos]]] <- stack[[pos]]
@@ -755,7 +758,7 @@ AlignSeqs <- function(myXStringSet,
 		return(stack[[1L]])
 	}
 	guideTree <- .reorder(guideTree)
-	
+
 	ns <- names(myXStringSet)
 	seqs <- myXStringSet
 	weights <- heights <- numeric(l)
@@ -765,7 +768,7 @@ AlignSeqs <- function(myXStringSet,
 		LEVEL <- levels[3]
 	}
 	treeLength <- .align(guideTree)
-	
+
 	if (refinements==0 && iterations==0) {
 		if (verbose) {
 			setTxtProgressBar(pBar, 100)
@@ -779,39 +782,39 @@ AlignSeqs <- function(myXStringSet,
 			flush.console()
 			cat("\n")
 		}
-		
+
 		names(seqs) <- ns
 		return(seqs)
 	}
-	
+
 	.RNAStructures <- function(seqs, weights) {
 		w <- which(weights <= 0)
 		if (length(w) > 0)
 			weights[w] <- 1
 		weights <- weights/mean(weights)
-		
+
 		if (replace) {
 			structureMatrix <- matrix(c(6, 0, 0, 0, 30, -6, 0, -6, 30),
 				nrow=3) # order is ., (, )
 			replace <- FALSE
 		}
-		
+
 		PredictDBN(seqs,
 			type="search",
 			weight=weights,
 			processors=processors,
 			verbose=verbose)
 	}
-	
+
 	minTreeLength <- levels[7]
-	
+
 	if (iterations > 0) {
 		if (type==3L) {
 			LEVEL <- levels[2]
 		} else {
 			LEVEL <- levels[4]
 		}
-		
+
 		.order <- function(dend) {
 			# initialize a stack of maximum length (l)
 			stack <- vector("list", l)
@@ -821,10 +824,10 @@ AlignSeqs <- function(myXStringSet,
 			while (pos > 0L) { # more nodes to visit
 				if (visit[pos]) { # ascending tree
 					visit[pos] <- FALSE # reset visit
-					
+
 					j <<- j + 1L
 					orders[[j]] <<- unlist(stack[[pos]])
-					
+
 					pos <- pos - 1L # pop off of stack
 				} else { # descending tree
 					visit[pos] <- TRUE
@@ -839,12 +842,12 @@ AlignSeqs <- function(myXStringSet,
 				}
 			}
 		}
-		
+
 		# record the alignment order in the original tree
 		j <- 0L
 		orders <- vector("list", l - 1L)
 		.order(guideTree)
-		
+
 		.compare <- function(dend) {
 			# initialize a stack of maximum length (l)
 			stack <- vector("list", l)
@@ -857,7 +860,7 @@ AlignSeqs <- function(myXStringSet,
 			while (pos > 0L) { # more nodes to visit
 				if (visit[pos]) { # ascending tree
 					visit[pos] <- FALSE # reset visit
-					
+
 					# replace self in parent
 					if (parent[pos] > 0)
 						stack[[parent[pos]]][[index[pos]]] <- stack[[pos]]
@@ -871,7 +874,7 @@ AlignSeqs <- function(myXStringSet,
 						o <- unlist(stack[[pos]])
 						j <<- j + 1L
 						orders[[j]] <<- o
-						
+
 						w <- which(ls==length(o))
 						for (i in seq_along(w)) {
 							if (all(orders_prev[[w[i]]]==o)) {
@@ -879,7 +882,7 @@ AlignSeqs <- function(myXStringSet,
 								break
 							}
 						}
-						
+
 						if (found[pos])
 							attr(stack[[pos]], "inherit") <- TRUE
 					}
@@ -900,12 +903,12 @@ AlignSeqs <- function(myXStringSet,
 			return(stack[[1L]])
 		}
 	}
-	
+
 	for (it in seq_len(iterations)) {
 		seqs_prev <- seqs
 		ls <- lengths(orders)
 		orders_prev <- orders
-		
+
 		if (verbose) {
 			setTxtProgressBar(pBar, 100)
 			close(pBar)
@@ -923,7 +926,7 @@ AlignSeqs <- function(myXStringSet,
 					":\n",
 					sep="")
 		}
-		
+
 		if (type==2L &&
 			treeLength >= minTreeLength &&
 			useStructures) {
@@ -932,23 +935,23 @@ AlignSeqs <- function(myXStringSet,
 			cat("\n")
 		}
 		minTreeLength <- levels[8]
-		
+
 		if (verbose) {
 			cat("Determining distance matrix based on alignment:\n")
 			flush.console()
 		}
-		
+
 		d <- DistanceMatrix(seqs,
 			type="dist",
 			verbose=verbose,
 			processors=processors,
 			includeTerminalGaps=TRUE)
-		
+
 		if (verbose) {
 			cat("Reclustering into groups by similarity:\n")
 			flush.console()
 		}
-		
+
 		orgTree <- guideTree
 		dimnames(d) <- NULL
 		suppressWarnings(guideTree <- IdClusters(d,
@@ -957,7 +960,7 @@ AlignSeqs <- function(myXStringSet,
 			collapse=0,
 			verbose=verbose,
 			processors=processors))
-		
+
 		if (verbose) {
 			time.1 <- Sys.time()
 			cat("Realigning Sequences:\n")
@@ -966,26 +969,26 @@ AlignSeqs <- function(myXStringSet,
 			before <- steps <- 0L
 			nsteps <- l - 1L
 		}
-		
+
 		j <- 0L
 		orders <- vector("list", l - 1L)
 		guideTree <- .reorder(guideTree)
 		guideTree <- .compare(guideTree)
-		
+
 		seqs <- myXStringSet
 		weights <- heights <- numeric(l)
 		treeLength <- .align(guideTree)
-		
+
 		if (it < iterations && all(seqs==seqs_prev))
 			break
 	}
-	
+
 	myXStringSet <- seqs
 	w <- which(weights <= 0)
 	if (length(w) > 0)
 		weights[w] <- 1
 	weights <- weights/mean(weights)
-	
+
 	if (verbose) {
 		setTxtProgressBar(pBar, 100)
 		close(pBar)
@@ -995,7 +998,7 @@ AlignSeqs <- function(myXStringSet,
 			time.1,
 			units='secs'),
 			digits=2))
-		
+
 		if (iterations > 0 && it < iterations) {
 			cat("\nAlignment converged - skipping remaining",
 				ifelse(iterations - it > 1,
@@ -1003,14 +1006,14 @@ AlignSeqs <- function(myXStringSet,
 					"iteration.\n"))
 		}
 	}
-	
+
 	if (refinements > 0) {
 		if (type==3L) {
 			functionCall <- "colScoresAA"
 		} else {
 			functionCall <- "colScores"
 		}
-		
+
 		GO <- gapOpeningMax/2 # applied at both ends
 		colScores <- function(seqs, structs, weights) {
 			scores <- .Call(functionCall,
@@ -1023,7 +1026,7 @@ AlignSeqs <- function(myXStringSet,
 				structureMatrix)
 			return(sum(scores))
 		}
-		
+
 		# define trustworthy groups
 		if (type==3L) { # AAStringSet
 			cutoff <- ifelse(iterations > 0,
@@ -1035,7 +1038,7 @@ AlignSeqs <- function(myXStringSet,
 				levels[3]/2) # (fraction ordered k-mers)/2
 		}
 		guideTree <- cut(guideTree, cutoff)$lower
-		
+
 		# refinement
 		n <- length(guideTree)
 		if (n > 2) { # more than 2 groups
@@ -1047,17 +1050,17 @@ AlignSeqs <- function(myXStringSet,
 			} else if (verbose) {
 				cat("\n")
 			}
-			
+
 			if (verbose) {
 				time.1 <- Sys.time()
 				cat("Refining the alignment:\n")
 				flush.console()
 				pBar <- txtProgressBar(style=ifelse(interactive(), 3, 1))
 			}
-			
+
 			score <- colScores(myXStringSet, structures, weights)
 			vec <- seq_along(myXStringSet)
-			
+
 			for (ref in seq_len(refinements)) {
 				org_score <- score
 				count <- 0L
@@ -1065,7 +1068,7 @@ AlignSeqs <- function(myXStringSet,
 					x <- unlist(guideTree[[i]])
 					y <- vec[-x]
 					o <- c(x, y)
-					
+
 					pattern <- .subset(myXStringSet, x)
 					pattern <- .Call("removeCommonGaps",
 						pattern,
@@ -1078,12 +1081,12 @@ AlignSeqs <- function(myXStringSet,
 						type,
 						processors,
 						PACKAGE="DECIPHER")
-					
+
 					p.weight <- weights[x]
 					p.weight <- p.weight/mean(p.weight)
 					s.weight <- weights[y]
 					s.weight <- s.weight/mean(s.weight)
-					
+
 					if (subM) {
 						if (useStructures) {
 							if (is.null(structures)) {
@@ -1148,22 +1151,22 @@ AlignSeqs <- function(myXStringSet,
 									args))
 						}
 					}
-					
+
 					if (useStructures) {
 						temp_score <- colScores(temp, structures[o], weights[o])
 					} else {
 						temp_score <- colScores(temp, NULL, weights[o])
 					}
-					
+
 					if (temp_score > score) {
 						score <- temp_score
 						myXStringSet <- .subset(temp, order(o))
-						
+
 						count <- count + 1L
 						if (count %% levels[5] ||
 							l < levels[6])
 							next # refine every nth change
-						
+
 						if (subM) {
 							temp <- FUN(myXStringSet,
 								substitutionMatrix=sM,
@@ -1175,22 +1178,22 @@ AlignSeqs <- function(myXStringSet,
 								processors=processors)
 						}
 						temp_score <- colScores(temp, structures, weights)
-						
+
 						if (temp_score > score) {
 							score <- temp_score
 							myXStringSet <- temp
 						}
 					}
-					
+
 					if (verbose)
 						setTxtProgressBar(pBar,
 							(i + n*(ref - 1))/(n*refinements))
 				}
-				
+
 				if (org_score==score) # no changes
 					break
 			}
-			
+
 			if (verbose) {
 				setTxtProgressBar(pBar, 1)
 				close(pBar)
@@ -1201,7 +1204,7 @@ AlignSeqs <- function(myXStringSet,
 					units='secs'),
 					digits=2))
 				cat("\n")
-				
+
 				if (refinements > 0 && ref < refinements)
 					cat("Alignment converged - skipping remaining",
 						ifelse(refinements - ref > 1,
@@ -1214,7 +1217,7 @@ AlignSeqs <- function(myXStringSet,
 	} else if (verbose) {
 		cat("\n")
 	}
-	
+
 	if (l >= levels[6]) {
 		# apply a final adjustment
 		if (subM) {
@@ -1228,8 +1231,8 @@ AlignSeqs <- function(myXStringSet,
 				processors=processors)
 		}
 	}
-	
+
 	names(myXStringSet) <- ns
-	
+
 	return(myXStringSet)
 }

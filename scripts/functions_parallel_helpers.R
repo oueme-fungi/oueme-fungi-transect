@@ -1,4 +1,5 @@
 #### parallel setup ####
+# author Brendan Furneaux
 
 # are we running slurm?
 is_slurm <- function() nchar(Sys.which("sbatch")) > 0

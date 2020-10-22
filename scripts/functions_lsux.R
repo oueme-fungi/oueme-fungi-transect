@@ -1,3 +1,7 @@
+# functions used in conjunction with LSUx
+# most of this has been moved to the LSUx package.
+# author Brendan Furneaux
+
 gather_regions <- function(pos) {
   starts <- dplyr::select(pos, -tidyselect::ends_with("_end"))
   starts <- tidyr::gather(starts, key = "region", value = "start", tidyselect::ends_with("_start"))

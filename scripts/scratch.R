@@ -1426,6 +1426,76 @@ phylotax::relabel_tree(epa_decipher_full_graft, taxon_labels$label, paste0('"', 
   castor::write_tree("data/trees/labeled_epa_decipher.tree")
 
 
+
+max_cophenetic <- function(tree) {
+  max_coph <- max_depth <- max_length <- numeric(length(tree$tip.label) + tree$Nnode)
+  # tips have no depth, length, or cophenetic distance
+  max_coph[seq_along(tree$tip.label)] <- 0
+  max_depth[seq_along(tree$tip.label)] <- 0
+  max_length[seq_along(tree$tip.label)] <- 0
+
+  for (i in seq.int(length(max_coph), length(tree$tip.label) + 1, -1)) {
+    edges <- which(tree$edge[,1] == i)
+    if (length(edges) == 0) {
+      max_coph[i] <- max_length[i] <- max_depth[i] <- 0
+    } else {
+      max_length[i] <- max(max_length[tree$edge[edges,2]] + tree$edge.length[edges])
+      max_depth[i] <- max(max_depth[tree$edge[edges,2]] + 1)
+      if (length(edges) == 1) {
+        max_coph[i] <- max_coph[tree$edge[edges,2]]
+      } else {
+        max_coph[i] <- max(
+          max_coph[tree$edge[edges,2]],
+          sum(
+            sort(
+              max_length[tree$edge[edges,2]] + tree$edge.length[edges],
+              decreasing = TRUE
+            )[1:2]
+          )
+        )
+      }
+    }
+  }
+  tibble::tibble(
+    max_depth,
+    max_length,
+    max_coph
+  )
+}
+
+tip_depth <- function(tree) {
+  d <- integer(ape::Ntip(tree) + ape::Nnode(tree))
+  d[ape::Ntip(tree) + 1] <- 0
+  for (i in seq.int(ape::Ntip(tree) + 1, length(d))) {
+    edges <- which(tree$edge[,1] == i)
+    for (j in edges) {
+      d[tree$edge[j, 2]] <- d[i] + 1
+    }
+  }
+  d[1:ape::Ntip(tree)]
+}
+
+depth_order <- function(tree, reverse = FALSE) {
+  stopifnot(ape::is.binary(tree))
+  tree <- reorder(tree, "postorder")
+  mc <- max_cophenetic(tree)
+  kids <- lapply(
+    phangorn::Children(tree, seq_len(ape::Nnode(tree)) + ape::Ntip(tree)),
+    sort
+  )
+  n_rotations <- 0
+  on.exit(cat("\nRotated", n_rotations, "nodes.\n"))
+  for (i in seq.int(ape::Nnode(tree) + ape::Ntip(tree), 1 + ape::Ntip(tree), -1)) {
+    k_depth <- mc$max_depth[kids[[i - ape::Ntip(tree)]]]
+    if (xor(is.unsorted(k_depth), reverse)) {
+      ape::rotate(tree, i)
+      n_rotations <- n_rotations + 1
+    }
+    if (i %% 100 == 0) cat(".")
+  }
+  tree
+}
+
 loadd(physeq_all, cache = cache)
 coph <- max_cophenetic(tree)[-seq_along(tree$tip.label),] %>%
   dplyr::arrange(max_coph) %>%

@@ -83,7 +83,7 @@ theme_set(theme_bw())
 
 datasets <- read_csv(here("config/datasets.csv"), col_types = "cccccccicccccccccccicc")
 regions <- read_csv(here("config/regions.csv"), col_types = "cccciiiiic")
-if (!exists("percent", mode = "function")) source(here::here("scripts", "output_functions.R"))
+if (!exists("percent", mode = "function")) source(here::here("scripts", "functions_output.R"))
 
 gethash <- function(...) purrr::map_chr(purrr::flatten(list(...)), drake_cache()$get_hash)
 ```
@@ -101,7 +101,7 @@ In some cases, this may be due to a poorly identified sequence "splitting" the g
 
 # Supplementary methods
 
-## Sampling
+## Sampling {#Sampling-supplement}
 
 Sampling was conducted at two sites (Ang: N 9.75456° E 2.14064°; Gan: N 9.75678° E 2.31058°) approximately 30\ km apart in the _Forêt Classée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
 Both sites were located in Soudanian savannah woodlands [@olson2001;@yorou2014] dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
@@ -116,7 +116,7 @@ An additional sample was collected at every sampling location (1-m spacing) in 2
 Sequencing results for these 50 samples differed significantly (PERMANOVA with 9999 permutations, $p < `r readd(buffer_adonis)["buffer","p.value"] %>% formatC(format = "f")`$, $R^2 = `r readd(buffer_adonis)["buffer","R2"] %>% formatC(format = "f", digits = 2)`$) from samples preserved using the Xpedition^TM^ lysis buffer (Figures \@ref(fig:buffer-pcoa), \@ref(fig:buffer-compare-long), and \@ref(fig:buffer-compare-short)); as such the LifeGuard preserved samples were excluded from our spatial analyses.
 However, reads from these samples were included in the full bioinformatics workflow, including ASV calling, OTU clustering, and phylogenetic trees.
 
-## DNA extraction, amplification, and sequencing
+## DNA extraction, amplification, and sequencing {#DNA-supplement}
 
 After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit (see above).
 Samples preserved using LifeGuard were first centrifuged at 10000\ g for 1\ minute, after which the supernatant was removed and DNA was extracted from the remaining soil using the Soil/Fecal Prep kit as for the other samples.
@@ -136,7 +136,7 @@ Each reaction was performed in three technical replicates as for short amplicons
 After pooling of technical replicates, amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically as above.
 An aliquot of 100\ ng of DNA from each sample (or the total PCR product if less than 100\ ng) was pooled into two libraries each for long and short amplicons.
 
-## Denoising and clustering
+## Denoising and clustering {#denoising-supplement}
 
 ### Denoising long-reads: the numbers are against us
 
@@ -190,7 +190,7 @@ The process of assigning consensus full-length ASVs was carried out using the ne
 The two packages are modular; `LSUx` can be used to extract domains from LSU for any purpose, and `tzara` can also be used to recombine denoised sequences which were originally separated using other approaches, most notably using the popular and well-established ITSx [@bengtsson-palme2013].
 However, for our dataset, the single LSU region which would be extracted by ITSx was still too long to be effectively denoised by DADA2 (Figure\ \@ref(fig:regions)b in main text).
 
-## Phylogenetic inference and taxonomy assignment
+## Phylogenetic inference and taxonomy assignment {#phylogeny-supplement}
 
 ### Uniform taxonomic classification for Unite, Warcup, and RDP
 
@@ -206,12 +206,12 @@ The phylogenetic tree was rooted based on sequences which were confidently assig
 Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset, and thus it cannot be used to directly assign kingdoms.
 Assignments were considered as reliable if at least five of the six remaining primary assignment methods (2 databases × 3 algorithms) resulted in the same kingdom-level assignment, with no conflicting assignments.
 Two sequences belonging to *Tulasnella*, which is known to have an accelerated rate of molecular evolution in the rDNA and often forms long, unstable branches in phylogenies [@moncalvo2006], were excluded at this step.
-This resulted in `r nrow(readd(sure_kingdoms))` confident kingdom assignments, with `r dplyr::count(read(sure_kingdoms), taxon) %>% glue::glue("{n} assigned to {taxon}, ", last = "and ")`.
+This resulted in `r nrow(readd(sure_kingdoms))` confident kingdom assignments, with `r dplyr::count(readd(sure_kingdoms), taxon) %>% glue::glue_data("{n} assigned to {taxon}, ") %>% glue::glue_collapse(last = "and ")`.
 Inspection of the tree verified that these four kingdoms were reciprocally monophyletic, and the clade containing Alveolata and Viridiplantae was used as an outgroup to root the tree.
 The kingdom Fungi was then identified as the minimal clade containing all ASVs which were confidently identified  as kingdom Fungi.
 ASVs falling outside this clade, including the excluded *Tulasnella* sequences, were not included in downstream fungal community analysis.
 
-### Refining taxonomic assignments with a phylogenetic tree: PHYLOTAX
+### Refining taxonomic assignments with a phylogenetic tree: `PHYLOTAX`
 
 PHYLOTAX refinements are based on (1) taxonomic assignments from other, primary assignment algorithms, and (2) a phylogenetic tree.
 Taxa at each rank are assigned to a node and all its descendants if that taxon is consistent with the reference-based taxonomic assignments for each of the descendants (Figure\ \@ref(fig:phylotax)).
@@ -221,7 +221,7 @@ First, it gives a taxonomic assignment to ASVs which were previously unassigned 
 Second, it resolves conflicts between the different reference-based algorithms, but only if one of the alternatives is consistent with the assignments of other ASVs in the same clade.
 PHYLOTAX is implemented in the new R package `phylotax` at https://github.com/brendanf/phylotax.
 
-## Effect of sequencing strategy on recovered community
+## Effect of sequencing strategy on recovered community {#sequencing-strategy-supplement}
 
 ASV and OTU accumulation curves were generated using the `iNEXT` package [@hsieh2016].
 Additionally, ASV and OTU richness was estimated for each sample by rarefying to 100 sequences per sample and taking the average of 100 repetitions.
@@ -246,7 +246,7 @@ All taxa which included "Ectomycorrhiza" in the guild assignment at any level of
 
 Overall community composition, and differences in composition between amplicon libraries, were visualized as heat trees using the `metacoder` package [@R-metacoder].
 
-## Spatiotemporal analysis
+## Spatiotemporal analysis {#spatiotemporal-supplement}
 
 Empirical distance-decay curves were generated by plotting mean community dissimilarity as a function of spatial distance, and fit to an exponential model of the form given by Legendre and Legendre (2012) using the nls function in R.
 Points in the empirical distance-decay curve were weighted by the number of comparisons within the distance class and the inverse of the distance for the purposes of model fitting.
@@ -267,7 +267,7 @@ plot(readd(buffer_asv_pcoa), type = "none", xlab = "PCoA1", ylab = "PCoA2")
 points(
   readd(buffer_asv_pcoa),
   select = with(
-    as_tibble(phyloseq::sample_data(readd(buffer_asv_table))),
+    as_tibble(phyloseq::sample_data(readd(buffer_asv_physeq))),
     buffer == "Xpedition" & year == "2015" 
   ),
   col = "green",
@@ -275,7 +275,7 @@ points(
 )
 points(
   readd(buffer_asv_pcoa),
-  select = with(as_tibble(phyloseq::sample_data(readd(buffer_asv_table))),
+  select = with(as_tibble(phyloseq::sample_data(readd(buffer_asv_physeq))),
                 buffer == "Xpedition" & year == "2016"
   ),
   col = "blue",
@@ -283,7 +283,7 @@ points(
 )
 points(
   readd(buffer_asv_pcoa),
-  select = with(as_tibble(phyloseq::sample_data(readd(buffer_asv_table))),
+  select = with(as_tibble(phyloseq::sample_data(readd(buffer_asv_physeq))),
                 buffer == "LifeGuard" & year == "2016"
   ),
   col = "red",
@@ -445,7 +445,7 @@ readd(accum_plot_OTU)
 
 (ref:alpha-compare-otu-s) Comparison of OTU richness between sequencing technologies
 
-(ref:alpha-compare-OTU) Each point represents the richness of one or two pooled samples, as determined by two different sequencing strategies. All values represent the average of 100 replicate rarefactions with a sample depth of 100 reads.  Because samples in the same well on different plates could not be demultiplexed in the Ion Torent dataset, these samples were also bioinformatically pooled in the other datasets prior to rarefaction. Blue line is a total least squares fit, with the given slope (and 95% confidence interval) and R^2^ value. Dashed diagonal line indicates a slope of 1.
+(ref:alpha-compare-OTU) Each point represents the richness of one or two pooled samples, as determined by two different sequencing strategies. All values represent the average of 100 replicate rarefactions with a sample depth of 100 reads.  Because samples in the same well on different plates could not be demultiplexed in the Ion Torent dataset, these samples were also bioinformatically pooled in the other datasets prior to rarefaction. Blue lines are total least squares fit with 95% confidence interval, with the given slope (and 95% confidence interval) and R^2^ value. Dashed diagonal line indicates ideal slope of 1.
 
 ```{r alpha-compare-otu, fig.scap="(ref:alpha-compare-otu-s)", fig.cap="(ref:alpha-compare-otu-s) (ref:alpha-compare)"}
 grid::grid.newpage()
@@ -490,19 +490,7 @@ theme_set(oldtheme)
 (ref:short-its) Vertical axis shows fraction of total reads $\le 140$ bp in each dataset.
 
 ```{r short-its, fig.cap = "(ref:short-its-s). (ref:short-its)", fig.scap = "(ref:short-its-s)", fig.width=7, cache=TRUE, extra.cache=gethash("big_seq_table_ITS2", "taxon_reads"), more.cache = datasets}
-readd(big_seq_table_ITS2) %>%
-  colSums() %>%
-  enframe(name = "ITS2", value = "nreads") %>%
-  mutate(length = nchar(ITS2)) %>%
-  filter(length <= 140) %>%
-  mutate_at("ITS2", ~tzara::seqhash(chartr("T", "U", .))) %>%
-  semi_join(readd(taxon_reads), ., by = c("label" = "ITS2")) %>%
-  group_by(tech, amplicon, Algorithm, reference) %>%
-  mutate(reads = reads/sum(reads)) %>%
-  ungroup() %>%
-  # group_by(ITS2) %>%
-  # filter(!"Short" %in% amplicon) %>%
-  taxon_plot(kingdom, y = reads, datasets = datasets)
+readd(taxon_plot_short_kingdom)
 ```
 
 (ref:ecm-s) Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic assignments
@@ -513,11 +501,7 @@ Height of each bar represents the fraction of reads represented by that bar.
 Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
 
 ```{r ecm, fig.cap = "(ref:ecm-s). (ref:ecm)", fig.scap = "(ref:ecm-s)", fig.width = 7, cache=TRUE, extra.cache=gethash("taxon_reads"), more.cache = datasets}
-  readd(taxon_reads) %>%
-  filter(ifelse(Algorithm == "Consensus", region == "All", TRUE)) %>%
-  mutate_at("reference", replace_na, "All") %>%
-  taxon_plot(ECM, kingdom == "Fungi", datasets = datasets) +
-  theme(legend.position = "bottom", legend.title = element_blank())
+readd(taxon_plot_ecm)
 ```
 
 (ref:ecm-heattree-s) Heat tree showing variation in read abundance and diversity for different amplicons, for ECM taxa only
