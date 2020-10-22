@@ -343,7 +343,7 @@ plan2 <- drake_plan(
   # make labels for phylogenetic consensus taxa
   # [tibble] columns "old" and "new", giving old and new tip labels
   phylotax_labels =
-    taxa_PHYLOTAX_hybrid %$%
+    phylotax_hybrid %$%
     bind_rows(assigned, retained) %>%
     phylotax::make_taxon_labels(),
 
@@ -861,10 +861,15 @@ plan2 <- drake_plan(
 
   # Fraction of reads and ASVs in each dataset which were assigned using the
   # tree
-  phylotax_reads = group_by(taxon_reads_hybrid_phylotax, tech) %>%
-    mutate(ASVs = 1/n()) %>%
-    filter(label %in% phylotax_hybrid$tree$tip.label, amplicon != "Long") %>%
-    summarize_at(c("reads", "ASVs"), sum),
+  phylotax_long_reads = group_by(taxon_reads_long_phylotax, tech, amplicon) %>%
+    mutate(ASVs = 1, ASV_frac = 1/n()) %>%
+    filter(label %in% phylotax_hybrid$tree$tip.label) %>%
+    summarize_at(c("reads", "ASVs", "ASV_frac"), sum),
+  phylotax_hybrid_reads = group_by(taxon_reads_hybrid_phylotax, tech, amplicon) %>%
+    mutate(ASVs = 1, ASV_frac = 1/n()) %>%
+    filter(label %in% phylotax_hybrid$tree$tip.label) %>%
+    summarize_at(c("reads", "ASVs", "ASV_frac"), sum),
+
 
   taxon_chart = compile_taxon_chart(taxon_reads),
 
@@ -1053,7 +1058,7 @@ plan2 <- drake_plan(
                 str_replace_all, "\"", "") %>%
       mutate(
         guild = plyr::mapvalues(guild, c("fungi", "ecm"), c("All Fungi", "ECM")),
-        metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UNIFRAC")),
+        metric = plyr::mapvalues(metric, c("bray", "wunifrac"), c("Bray-Curtis", "W-UniFrac")),
         amplicon = factor(
           amplicon,
           levels = c("Short", "Long")
@@ -1105,277 +1110,39 @@ plan2 <- drake_plan(
     unnest(params) %>%
     filter(term %in% c("range", "timerange")),
 
-  taxdata = {
-    ranks <- c("domain", "kingdom", "phylum", "class", "order", "family", "genus")
-    out <- taxon_reads_ITS_consensus %>%
-      mutate(domain = "Root", ASVs = 1) %>%
-      select(-region, -seq_run, -label) %>%
-      mutate_at(
-        ranks,
-        replace_na,
-        "?"
-      ) %>%
-      group_by_at(vars(-one_of(ranks, "reads", "ASVs"))) %>%
-      mutate(ASVs = ASVs / sum(ASVs))
-    for (i in seq_along(ranks)) {
-      out <- out %>%
-        group_by_at(rev(ranks)[i:length(ranks)]) %>%
-        group_map(
-          function(x, y, i) {
-            d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs"))) %>%
-              summarize_at(c("reads", "ASVs"), sum)
-            d2 <- group_by_at(d, "amplicon") %>% summarize_at(c("reads", "ASVs"), mean)
-            reads <- select(d2, "amplicon", "reads") %>% deframe()
-            ASVs <- select(d2, "amplicon", "ASVs") %>% deframe()
-            if (max(c((d$reads), (d$ASVs))) < 0.01) {
-              if (
-                (isTRUE(abs(log10(reads["Long"]) - log10(reads["Short"])) < 1) &
-                 isTRUE(abs(log10(ASVs["Long"]) - log10(ASVs["Short"])) < 1)) |
-                max(c((d$reads), (d$ASVs))) < 0.01
-              ) {
-                mutate_at(x, rev(ranks)[i], ~"*")
-              } else if (i > 1) {
-                mutate_at(x, rev(ranks)[i - 1], ~"*") %>%
-                  mutate_at(rev(ranks)[i], ~paste0("(",., ")"))
-              } else {
-                mutate_at(x, rev(ranks)[i], ~paste0("(",., ")"))
-              }
-            } else {
-              x
-            }
-          },
-          i = i,
-          keep = TRUE
-        ) %>%
-        bind_rows()
-    }
-    out <- group_by_at(out, vars(-one_of("reads", "ASVs", "ECM"))) %>%
-      summarize(reads = sum(reads), ASVs = sum(ASVs), ECM = min(ECM)) %>%
-      pivot_wider(
-        names_from = c("tech", "amplicon", "reference", "Algorithm"),
-        values_from = c("reads", "ASVs"),
-        values_fill = list(reads = 0, ASVs = 0),
-        names_repair = "universal"
-      ) %>%
-      taxa::parse_tax_data(
-        class_cols = ranks
-      ) %>%
-      taxa::filter_taxa(
-        taxon_names != "incertae_sedis",
-        drop_obs = TRUE,
-        reassign_obs = FALSE,
-        reassign_taxa = TRUE
-      )
+  #### Heat trees ####
+  # see functions_heat_trees.R
 
-    read_cols <- keep(names(out$data$tax_data), startsWith, "reads_")
-    asv_cols <- keep(names(out$data$tax_data), startsWith, "ASVs_")
+  taxdata = generate_taxdata(taxon_reads_ITS_consensus, asv_table),
 
-    out$data$asv_table <- metacoder::calc_obs_props(out, "tax_data", cols = asv_cols)
-    out$data$read_table <- metacoder::calc_obs_props(out, "tax_data", cols = read_cols)
-    out$data$tax_asv <- metacoder::calc_taxon_abund(out, "asv_table", cols = asv_cols)
-    out$data$tax_read <- metacoder::calc_taxon_abund(out, "read_table", cols = read_cols)
+  taxdata_ECM = generate_ecm_taxdata(taxon_reads_ITS_consensus, asv_table),
 
-    child_of_unknown <-  unlist(
-      out$supertaxa(
-        recursive = FALSE,
-        value = "taxon_names",
-        na = TRUE
-      )
-    ) %in% c("?", "*")
-    unknown_taxa <- out$taxon_names() %in% c("?", "*", "incertae_sedis")
-    out <- out$filter_taxa(
-      !(child_of_unknown & unknown_taxa) | taxon_names == "Root",
-      reassign_obs = FALSE
-    )
-    dangling_taxa <- map_lgl(
-      out$subtaxa(recursive = FALSE)[unlist(out$supertaxa(recursive = FALSE, na = TRUE))],
-      ~all(out$taxon_names()[.] %in% c("?", "*") | is.na(out$taxon_names()[.]))
-    )
-    out <- out$filter_taxa(
-      !dangling_taxa | taxon_names == "Root",
-      reassign_obs = FALSE
-    )
+  heattree = draw_full_heattree(taxdata, file_out("temp/heattree.pdf")),
 
-    retaxa_table <- tibble::tibble(
-      classification = out$classifications(),
-      id = out$taxon_ids()
-    ) %>%
-      group_by(classification) %>%
-      mutate(newid = first(id)) %>%
-      filter(id != newid)
-    for (n in names(out$data)) {
-      if ("taxon_id" %in% names(out$data[[n]]))
-        out$data[[n]]$taxon_id <- plyr::mapvalues(
-          out$data[[n]]$taxon_id,
-          retaxa_table$id,
-          retaxa_table$newid,
-          FALSE
-        )
-    }
-    for (n in c("asv_table", "read_table", "tax_asv", "tax_read")) {
-      out$data[[n]] <- out$data[[n]] %>%
-        group_by(taxon_id) %>%
-        summarize_all(sum)
-    }
-    out <- out$filter_taxa(!taxon_ids %in% retaxa_table$id, drop_obs = TRUE,
-                           reassign_obs = FALSE, reassign_taxa = FALSE)
+  heattree_length_compare =
+    draw_amplicons_heattree(taxdata, file_out("temp/heattree_amplicons.pdf")),
 
-    out$data$tax_read$mean = rowMeans(out$data$tax_read[,-1])
-    out$data$tax_read$max = do.call(pmax, out$data$tax_read[,-1])
-    out$data$tax_asv$mean = rowMeans(out$data$tax_asv[,-1])
-    out$data$tax_asv$mean = do.call(pmax, out$data$tax_asv[,-1])
+  ecm_heattree =
+    draw_ecm_heattree(taxdata_ECM, file_out("temp/ecm_heattree.pdf")),
 
-    out$data$diff_read <- metacoder::compare_groups(
-      out,
-      data = "tax_read",
-      cols = c(read_cols, "mean"),
-      groups = c(read_cols, "mean"),
-      combinations = lapply(read_cols, c, "mean")
-    )
-    out$data$diff_asv <- metacoder::compare_groups(
-      out,
-      data = "tax_read",
-      cols = c(read_cols, "mean"),
-      groups = c(read_cols, "mean"),
-      combinations = lapply(read_cols, c, "mean")
-    )
-    out
+  buffer_compare_taxmap = {
+    taxmap <- metacoder::parse_phyloseq(buffer_compare_physeq)
+    taxmap$data$otu_table <- metacoder::calc_obs_props(taxmap, "otu_table")
+    taxmap$data$read_count <- metacoder::calc_taxon_abund(taxmap, "otu_table")
+    taxmap
   },
-  taxdata_ECM = {
-    ranks <- c("kingdom", "phylum", "class", "order", "family", "genus")
-    out <- taxon_reads_ITS_consensus %>%
-      filter(!is.na(as.character(ECM)), ECM != "non-ECM") %>%
-      mutate(ASVs = 1) %>%
-      select(-region, -seq_run, -label) %>%
-      mutate_at(
-        ranks,
-        replace_na,
-        "?"
-      ) %>%
-      group_by_at(vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
-      mutate(ASVs = ASVs / sum(ASVs))
-    for (i in seq_along(ranks)) {
-      out <- out %>%
-        group_by_at(rev(ranks)[i:length(ranks)]) %>%
-        group_map(
-          function(x, y, i) {
-            d <- group_by_at(x, vars(-one_of(ranks, "reads", "ASVs", "ECM"))) %>%
-              summarize_at(c("reads", "ASVs"), sum)
-            d2 <- group_by_at(d, "amplicon") %>% summarize_at(c("reads", "ASVs"), mean)
-            reads <- select(d2, "amplicon", "reads") %>% deframe()
-            ASVs <- select(d2, "amplicon", "ASVs") %>% deframe()
-            if (max(c((d$reads), (d$ASVs))) < 0.01) {
-              if (
-                isTRUE(abs(log10(reads["Long"]) - log10(reads["Short"])) < 1) &
-                isTRUE(abs(log10(ASVs["Long"]) - log10(ASVs["Short"])) < 1)
-              ) {
-                mutate_at(x, rev(ranks)[i], ~"*")
-              } else if (i > 1) {
-                mutate_at(x, rev(ranks)[i - 1], ~"*") %>%
-                  mutate_at(rev(ranks)[i], ~paste0("(",., ")"))
-              } else {
-                mutate_at(x, rev(ranks)[i], ~paste0("(",., ")"))
-              }
-            } else {
-              x
-            }
-          },
-          i = i,
-          keep = TRUE
-        ) %>%
-        bind_rows()
-    }
-    out <- group_by_at(out, vars(-one_of("reads", "ASVs", "ECM"))) %>%
-      summarize(reads = sum(reads), ASVs = sum(ASVs), ECM = min(ECM)) %>%
-      pivot_wider(
-        names_from = c("tech", "amplicon", "reference", "Algorithm"),
-        values_from = c("reads", "ASVs"),
-        values_fill = list(reads = 0, ASVs = 0),
-        names_repair = "universal"
-      ) %>%
-      taxa::parse_tax_data(
-        class_cols = ranks
-      ) %>%
-      taxa::filter_taxa(
-        taxon_names != "incertae_sedis",
-        drop_obs = TRUE,
-        reassign_obs = FALSE,
-        reassign_taxa = TRUE
-      )
 
-    read_cols <- keep(names(out$data$tax_data), startsWith, "reads_")
-    asv_cols <- keep(names(out$data$tax_data), startsWith, "ASVs_")
+  buffer_compare_long =  draw_buffer_compare_heattree(
+    buffer_compare_taxmap,
+    amplicon = "Long",
+    file_out("temp/compare_long.pdf")
+  ),
 
-    out$data$asv_table <- metacoder::calc_obs_props(out, "tax_data", cols = asv_cols)
-    out$data$read_table <- metacoder::calc_obs_props(out, "tax_data", cols = read_cols)
-    out$data$tax_asv <- metacoder::calc_taxon_abund(out, "asv_table", cols = asv_cols)
-    out$data$tax_read <- metacoder::calc_taxon_abund(out, "read_table", cols = read_cols)
-
-    child_of_unknown <-  unlist(
-      out$supertaxa(
-        recursive = FALSE,
-        value = "taxon_names",
-        na = TRUE
-      )
-    ) %in% c("?", "*")
-    out <- out$filter_taxa(
-      !child_of_unknown | taxon_names == "Fungi",
-      reassign_obs = FALSE
-    )
-    dangling_taxa <- map_lgl(
-      out$subtaxa(recursive = FALSE)[unlist(out$supertaxa(recursive = FALSE, na = TRUE))],
-      ~all(out$taxon_names()[.] %in% c("?", "*") | is.na(out$taxon_names()[.]))
-    )
-    out <- out$filter_taxa(
-      !dangling_taxa | taxon_names == "Fungi",
-      reassign_obs = FALSE
-    )
-
-    retaxa_table <- tibble::tibble(
-      classification = out$classifications(),
-      id = out$taxon_ids()
-    ) %>%
-      group_by(classification) %>%
-      mutate(newid = first(id)) %>%
-      filter(id != newid)
-    for (n in names(out$data)) {
-      if ("taxon_id" %in% names(out$data[[n]]))
-        out$data[[n]]$taxon_id <- plyr::mapvalues(
-          out$data[[n]]$taxon_id,
-          retaxa_table$id,
-          retaxa_table$newid,
-          FALSE
-        )
-    }
-    for (n in c("asv_table", "read_table", "tax_asv", "tax_read")) {
-      out$data[[n]] <- out$data[[n]] %>%
-        group_by(taxon_id) %>%
-        summarize_all(sum)
-    }
-    out <- out$filter_taxa(!taxon_ids %in% retaxa_table$id, drop_obs = TRUE,
-                           reassign_obs = FALSE, reassign_taxa = FALSE)
-
-    out$data$tax_read$mean = rowMeans(out$data$tax_read[,-1])
-    out$data$tax_read$max = do.call(pmax, out$data$tax_read[,-1])
-    out$data$tax_asv$mean = rowMeans(out$data$tax_asv[,-1])
-    out$data$tax_asv$mean = do.call(pmax, out$data$tax_asv[,-1])
-
-    out$data$diff_read <- metacoder::compare_groups(
-      out,
-      data = "tax_read",
-      cols = c(read_cols, "mean"),
-      groups = c(read_cols, "mean"),
-      combinations = lapply(read_cols, c, "mean")
-    )
-    out$data$diff_asv <- metacoder::compare_groups(
-      out,
-      data = "tax_read",
-      cols = c(read_cols, "mean"),
-      groups = c(read_cols, "mean"),
-      combinations = lapply(read_cols, c, "mean")
-    )
-    out
-  },
+  buffer_compare_short = draw_buffer_compare_heattree(
+    buffer_compare_taxmap,
+    amplicon = "Short",
+    file_out("temp/compare_short.pdf")
+  ),
 
   #### Supplementary figures ####
   # functions for targets in this section are in functions_figures.R
@@ -1401,34 +1168,7 @@ plan2 <- drake_plan(
 
   region_length_fig = draw_region_length_figure(reads_table, regions),
 
-  heattree = draw_full_heattree(taxdata, file_out("temp/heattree.pdf")),
-
-  heattree_length_compare =
-    draw_amplicons_heattree(taxdata, file_out("temp/heattree_amplicons.pdf")),
-
-  ecm_heattree =
-    draw_ecm_heattree(taxdata_ECM, file_out("temp/ecm_heattree.pdf")),
-
   buffer_compare_physeq = make_buffer_compare_physeq(proto_physeq, taxon_reads),
-
-  buffer_compare_taxmap = {
-    taxmap <- metacoder::parse_phyloseq(buffer_compare_physeq)
-    taxmap$data$otu_table <- metacoder::calc_obs_props(taxmap, "otu_table")
-    taxmap$data$read_count <- metacoder::calc_taxon_abund(taxmap, "otu_table")
-    taxmap
-  },
-
-  buffer_compare_long =  draw_buffer_compare_heattree(
-    buffer_compare_taxmap,
-    amplicon = "Long",
-    file_out("temp/compare_long.pdf")
-  ),
-
-  buffer_compare_short = draw_buffer_compare_heattree(
-    buffer_compare_taxmap,
-    amplicon = "Short",
-    file_out("temp/compare_short.pdf")
-  ),
 
   # Generate ASV table for comparisons between buffer solutions
   buffer_asv_physeq = generate_buffer_asv_physeq(proto_physeq, fungi_PHYLOTAX$label),
@@ -2258,7 +1998,7 @@ make(
   parallelism = parallelism,
   jobs = njobs,
   # targets = c("article_pdf", "supplement_pdf", "article_diff_pdf", "supplement_diff_pdf", "wordcount"),
-  targets = c("alpha_plot_ASV", "alpha_plot_OTU"),
+  # targets = c("phylotax_long_reads", "phylotax_hybrid_reads", "bioinf_table"),
   # keep_going = TRUE,
   lazy_load = FALSE,
   memory_strategy = "autoclean",

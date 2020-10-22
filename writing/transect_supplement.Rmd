@@ -94,20 +94,20 @@ gethash <- function(...) purrr::map_chr(purrr::flatten(list(...)), drake_cache()
 
 **Supplementary file 3**: ML tree of all long metabarcoding ASVs (ITS1--5.8S--ITS2--LSU) assigned to kingdom Fungi.
 Thick branches represent rapid bootstrap values >90%.
-Taxonomic assignment by PHYLOTAX, based on assignments using RDPC, SINTAX, and IDTAXA, and Unite, Warcup, and RDP reference databases. 
+Taxonomic assignment by PHYLOTAX, based on assignments using RDPC, SINTAX, and IDTAXA, with Unite, Warcup, and RDP reference databases. 
 Taxon names in blue were not fully resolved with PHYLOTAX, and are given as a list of alternative assignments, along with the number of methods which gave each assignment (max 9).
 Taxon names in red were reconstructed as polyphyletic.
-In some cases, this may be due to a poorly identified sequence "splitting" the group (e.g., the single *Aspergillus* sequence nested in *Monascus*, Aspergillaceae and Trichocomaceae sequences nested in Onygenales), but in other cases, the tree has clearly failed to reconstruct groups which are generally considered to be monophyletic based on multi-gene trees (e.g., Dothidiomycetes, Cantharellales).
+In some cases, this may be due to a poorly identified sequence "splitting" the group (e.g., the single *Monascus* sequence nested in *Aspergillus*; Aspergillaceae and Trichocomaceae sequences nested in Onygenales), but in other cases, the tree has clearly failed to reconstruct groups which are generally considered to be monophyletic based on multi-gene trees (e.g., Dothidiomycetes, Cantharellales).
 
 # Supplementary methods
 
 ## Sampling {#Sampling-supplement}
 
 Sampling was conducted at two sites (Ang: N 9.75456° E 2.14064°; Gan: N 9.75678° E 2.31058°) approximately 30\ km apart in the _Forêt Classée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
-Both sites were located in Soudanian savannah woodlands [@olson2001;@yorou2014] dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
+Both sites were located in West Sudanian savannah woodlands [@olson2001;@yorou2014] dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
 At each site, 25\ soil samples were collected along a single 24 m linear transect at intervals of 1\ m in May 2015.
 One third of the sample locations (3\ m spacing) were resampled one year later in June 2016, for a total of 67 samples.
-For each sample, any coarse organic debris <!--Do you have any definition? Wider than 5 mm? MR-->was removed from the soil surface and a sample of approximately 5cm×5cm×5cm was extracted with a sterilized knife blade.
+For each sample, any coarse organic debris <!--Do you have any definition? Wider than 5 mm? MR-->was removed from the soil surface and a sample of approximately 5\ cm\ × 5\ cm\ × 5\ cm was extracted with a sterilized knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
 Approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0\ mL microtube containing 750\ mL of field lysis/preservation buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA).
 Due to the inavailability of refrigeration, extraction was initiated in the field according to the manufacturers instructions by lysis using a handheld bead-beater (TerraLyser^TM^; Zymo Research Corporation).
@@ -160,7 +160,7 @@ A reference alignment including conserved RNA base pairing between and within th
 A CM was generated from the alignment using `cmbuild` from Infernal.
 The fragment of each read beginning with the 5.8S rDNA was then aligned to the CM using `cmalign` from Infernal.
 The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved domains as shown in Figure\ \@ref(fig:regions),
-where LSU1-4 represent the conserved domains of LSU flanking the variable D1-3 domains [@michot1984].
+where LSU1--4 represent the conserved domains of LSU flanking the variable D1--3 domains [@michot1984].
 For short amplicons, only (partial) 5.8S, ITS2, and (partial) LSU1 were extracted.
 Code to extract the segments, including annotated seed alignments and CMs, is available in the new R package `LSUx`, available and documented at https://github.com/brendanf/LSUx.
 
@@ -601,18 +601,32 @@ regions %>%
 **Filter (ITS2)**: extracted ITS2 regions with a maximum of three expected errors;
 **ITS2**: ASVs obtained for the ITS2 region, and reads successfully mapped to an ITS2 ASV;
 **short**, **ITS**, **LSU**, **long**: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"long\" denote the full-length short and long amplicons, respectively.
+*Italicized* numbers represent mapping via ITS2 ASVs to amplicons originally sequenced by another technology.
 
 ```{r bioinfo, cache=TRUE, extra.cache=gethash("bioinf_table", "bioinf_header")}
-options(knitr.kable.NA = '–')
-
 readd(bioinf_table) %>%
+  rownames_to_column("step") %>%
+  mutate_if(is.numeric, prettyNum, big.mark = ",") %>%
+  mutate_all(str_replace, "NA", "–") %>%
+  mutate_at(
+    vars(contains("Short")),
+    kableExtra::cell_spec,
+    italic = .$step %in% c("ITS", "LSU", "long"),
+    escape = FALSE
+  ) %>%
+  mutate_at(
+    vars(contains("Long")),
+    kableExtra::cell_spec,
+    italic = .$step %in% c("short"),
+    escape = FALSE
+  ) %>%
+  column_to_rownames("step") %>%
   set_names(gsub(".*_", "", names(.))) %>%
   kable(
     booktabs = TRUE,
     caption = "(ref:readcounts-s). (ref:readcounts)",
     caption.short = "(ref:readcounts-s)",
     align = "rrrrrr",
-    format.args = list(big.mark = ","),
     linesep = c(
       rep("", 2),
       "\\addlinespace",
@@ -663,7 +677,7 @@ venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", capti
   mutate_at("conf.low", replace_na, 0) %>%
   mutate(value = ifelse(
     is.na(estimate) | is.na(conf.high) | mantel == FALSE,
-    "-",
+    "--",
     sprintf(
       "%s (%s–%s)",
       formatC(estimate, digits = 2, format = "fg"),
@@ -676,7 +690,7 @@ venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", capti
     names_from = "term",
     values_from = "value",
     id_cols = c("guild", "amplicon", "tech", "metric", "algorithm"),
-    values_fill = list(value = "-")
+    values_fill = list(value = "--")
   ) %>%
   select(Guild = guild, Amplicon = amplicon, Tech = tech, Algorithm = algorithm, Metric = metric, "Space Range (m)" = range, "Time Range (a)" = timerange) %>%
   arrange(Guild, Amplicon, Tech, Algorithm, Metric) %>%

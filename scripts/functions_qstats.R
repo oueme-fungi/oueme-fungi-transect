@@ -155,7 +155,7 @@ compile_bioinf_table <- function(rawcounts, demuxcounts, filtercounts_full,
       type = factor(type, c("ASVs", "reads"))
     ) %>%
     arrange(tech, amplicon, type) %>%
-    filter(ifelse(amplicon == "Short", !step  %in% c("ITS", "LSU", "long"), step != "short")) %>%
+    # filter(ifelse(amplicon == "Short", !step  %in% c("ITS", "LSU", "long"), step != "short")) %>%
     pivot_wider(
       id_cols = "step",
       names_from = c("tech", "amplicon", "type"),

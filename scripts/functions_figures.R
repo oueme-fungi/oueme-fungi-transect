@@ -318,55 +318,6 @@ make_buffer_compare_physeq <- function(proto_physeq, taxon_reads) {
     phyloseq::tax_glom(taxrank = "family", NArm = FALSE)
 }
 
-draw_buffer_compare_heattree <- function(taxmap, amplicon, outfile) {
-  {
-    value_cols <- names(taxmap$data$read_count) %>% keep(endsWith, amplicon)
-    taxmap$data$read_diff <- metacoder::compare_groups(
-      taxmap,
-      "read_count",
-      cols = value_cols,
-      groups = value_cols %>%
-        str_match("(2015|2016)_(Xpedition|LifeGuard)") %>% {
-          paste(.[,3], .[,2])
-        },
-      func = log_read_ratio,
-      combinations = list(
-        c("Xpedition 2016", "Xpedition 2015"),
-        c("Xpedition 2016", "LifeGuard 2016"),
-        c("Xpedition 2015", "LifeGuard 2016")
-      )
-    )
-    theme_update(panel.border = element_blank())
-    taxa::filter_taxa(
-      taxmap,
-      taxmap$data$read_count %>% select_at(value_cols) %>% apply(MARGIN = 1, FUN = max) > 0.001,
-      drop_obs = TRUE,
-      reassign_obs = FALSE
-    ) %>%
-      metacoder::heat_tree_matrix(
-        "read_diff",
-        node_label = taxon_names,
-        node_color = read_ratio,
-        node_size = rowMeans(.$data$read_count[-1]),
-        node_size_range = c(0.0001, 0.03),
-        node_size_axis_label = "Read abund.",
-        node_label_size_range = c(0.01, 0.05),
-        node_color_range = metacoder::diverging_palette(),
-        node_color_axis_label = "Log abund. ratio",
-        node_color_interval = c(-3, 3),
-        node_color_trans = "linear",
-        # edge_size = rowMeans(.$data$read_count[-1]),
-        # edge_size_axis_label = "Read abundance",
-        # edge_size_range = c(0.001, 0.03),
-        # edge_size_trans = "linear",
-        aspect_ratio = 1,
-        layout = "davidson-harel",
-        initial_layout = "reingold-tilford",
-        output_file =
-      )
-  }
-}
-
 generate_buffer_asv_physeq <- function(proto_physeq, fungi) {
     # No Ion Torrent samples, because they are not completely demultiplexed
     phyloseq::subset_samples(proto_physeq, tech != "Ion Torrent") %>%

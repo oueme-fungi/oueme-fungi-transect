@@ -178,16 +178,15 @@ compile_blank_samples <- function(sample_data) {
   )
 }
 
-write_ENA_samples <- function(soil_samples, template_file, output_file) {
+write_ena_samples <- function(samples, template_file, output_file) {
   template_names <- names(read_tsv(template_file, skip = 2))
   outdir <- dirname(output_file)
   if (!dir.exists(outdir)) {
     dir.create(outdir, recursive = TRUE)
   }
   file.copy(template_file, output_file, overwrite = TRUE)
-  soil_samples %>%
-    assertr::verify(template_names %in% names(.)) %>%
-    select_at(template_names) %>%
+  checkmate::assert_names(names(samples), must.include = template_names)
+  select_at(samples, template_names) %>%
     write_tsv(output_file, append = TRUE, col_names = FALSE)
 }
 
