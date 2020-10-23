@@ -476,3 +476,4 @@ dependencies:
   - zipp=3.3.0=py_0
   - zlib=1.2.11=h516909a_1010
   - zstd=1.4.5=h6597ccf_2
+prefix: /home/brendan/miniconda3/envs/oueme-dev

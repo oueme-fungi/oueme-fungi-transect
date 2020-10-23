@@ -252,7 +252,7 @@ generate_illumina_manifest <- function(samples, groups) {
   dplyr::inner_join(
     select(samples,
            sample_alias, "project name", plate, well, amplicon, sample_type),
-    illumina_group_SH.2257,
+    groups,
     by = c("plate", "well", "amplicon")
   ) %>%
     dplyr::transmute(

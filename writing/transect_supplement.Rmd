@@ -72,7 +72,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   external = TRUE,
-  out.width = "70%",
+  out.width = "100%",
   fig.align = "center"
 )
 
@@ -105,7 +105,7 @@ In some cases, this may be due to a poorly identified sequence "splitting" the g
 
 Sampling was conducted at two sites (Ang: N 9.75456° E 2.14064°; Gan: N 9.75678° E 2.31058°) approximately 30\ km apart in the _Forêt Classée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
 Both sites were located in West Sudanian savannah woodlands [@olson2001;@yorou2014] dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
-At each site, 25\ soil samples were collected along a single 24 m linear transect at intervals of 1\ m in May 2015.
+At each site, 25\ soil samples were collected along a single 24\ m linear transect at intervals of 1\ m in May 2015.
 One third of the sample locations (3\ m spacing) were resampled one year later in June 2016, for a total of 67 samples.
 For each sample, any coarse organic debris <!--Do you have any definition? Wider than 5 mm? MR-->was removed from the soil surface and a sample of approximately 5\ cm\ × 5\ cm\ × 5\ cm was extracted with a sterilized knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
@@ -119,16 +119,16 @@ However, reads from these samples were included in the full bioinformatics workf
 ## DNA extraction, amplification, and sequencing {#DNA-supplement}
 
 After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit (see above).
-Samples preserved using LifeGuard were first centrifuged at 10000\ g for 1\ minute, after which the supernatant was removed and DNA was extracted from the remaining soil using the Soil/Fecal Prep kit as for the other samples.
-DNA was quantified using fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
+Samples preserved using LifeGuard were first centrifuged at 10\ 000\ g for 1\ minute, after which the supernatant was removed and DNA was extracted from the remaining soil using the Soil/Fecal Prep kit as for the other samples.
+DNA was quantified fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
 
-The forward primers for the short amplicon included sample-specific indexes and adapters for multiplexing (Supplementary File 1).
+For the short amplicon, forward primers included sample-specific indexes and adapters for multiplexing (Supplementary File 1).
 Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200\ µM dNTP mix, 250\ µM indexed gITS7 primer,
 150µM ITS4m, 2mM MgCl~2~, 0.1\ U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7\ ng purified DNA in Dream *Taq* buffer.
 The reaction conditions were 10\ min at 95°, followed by 35\ cycles of 60\ s at 95°, 45\ s at 56°, and 50\ s at 72°, and finally 3\ min at 72°.
 Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity.
 
-Both forward and reverse primers for the long amplicon included indexes for combinatorical multiplexing (Supplementary File 2).
+For the long amplicon, both forward and reverse primers included indexes for combinatorical multiplexing (Supplementary File 2).
 PCR was performed as for the short amplicons, but with 500\ µM of each of the two primers.
 Reaction conditions were 10\ min at 95°, 30\ cycles of 45\ s at 95°, 45\ s at 59°, and 90\ s at 72°, and finally 10\ min at 72°.
 Each reaction was performed in three technical replicates as for short amplicons.
@@ -138,16 +138,16 @@ An aliquot of 100\ ng of DNA from each sample (or the total PCR product if less 
 
 ## Denoising and clustering {#denoising-supplement}
 
-### Denoising long-reads: the numbers are against us
+### Denoising long-reads: the numbers are against us {#long-numbers}
 
 The DADA2 algorithm requires that the seed sequence of each ASV be represented by at least two error-free reads [@callahan2016].
 If sequencing errors are uniformly distributed, then the probability that a given read will be error-free is $(1-\epsilon)^L$, where $\epsilon$ is the sequencing error rate and $L$ is the read length in base pairs.
 Then the number of reads of a given sequence that would be required to obtain two error-free reads in expectation is $2/(1-\epsilon)^L$.
-For the combination of long reads (median $L=`r readd(demuxlength)['pb_500']` \text{ bp}$ after trimming) and moderate error rate (mean $\epsilon= `r format(readd(demuxqual)['pb_500'], digits = 4)`$ based on ccs quality scores) for the long amplicon in this study, the expected number of reads required to achieve two error-free reads is `r format(as.integer(round(2/(1 - readd(demuxqual)['pb_500'])^readd(demuxlength)['pb_500'])), big.mark = ",")`.
-Given the high diversity relative to sequencing depth in this study (`r readd(region_table)$ASVs[readd(region_table)$seq_run == "pb_483" & readd(region_table)$region == "short"]` ASVs based on PacBio short amplicons, `r format(readd(demuxcounts)["pb_500"], format = "d", big.mark = ",")` trimmed long amplicon reads), this requirement could not have been met for the long amplicons except by the most abundant sequences.
+For the combination of long sequences (median $L=`r readd(demuxlength)['pb_500']` \text{ bp}$ after trimming) and moderate error rate (mean $\epsilon= `r format(readd(demuxqual)['pb_500'], digits = 4)`$ based on ccs quality scores) for the long amplicon in this study, the expected number of reads required to achieve two error-free reads is `r format(as.integer(round(2/(1 - readd(demuxqual)['pb_500'])^readd(demuxlength)['pb_500'])), big.mark = " ")`.
+Given the high diversity relative to sequencing depth in this study (`r readd(region_table)$ASVs[readd(region_table)$seq_run == "pb_483" & readd(region_table)$region == "short"]` ASVs based on PacBio short amplicons, `r format(readd(demuxcounts)["pb_500"], format = "d", big.mark = " ")` trimmed long amplicon reads), this requirement could not have been met for the long amplicons except by the most abundant sequences.
 In comparison, the equivalent requirement for the short amplicon ($L=`r readd(demuxlength)['pb_483']` \text{ bp}$, $\epsilon=`r readd(demuxqual)['pb_483']`$) is only `r round(2/(1 - readd(demuxqual)['pb_483'])^readd(demuxlength)['pb_483'], 1)` reads.
 
-In order to bypass this limitation, we implemented a workflow which divides the long rDNA amplicon into homologous domains (R package `LSUx`), denoises the domains individually using DADA2, and then recombines the denoised domains to form full-length denoised amplicons (R package `tzara`).
+In order to bypass this limitation, we implemented a workflow which divides the long rDNA amplicon into homologous domains (new R package `LSUx`), denoises the domains individually using DADA2, and then recombines the denoised domains to form full-length denoised amplicons (new R package `tzara`).
 The steps of this workflow are detailed below.
 
 ### Splitting the rDNA into regions with covariance models: `LSUx`
@@ -204,9 +204,9 @@ FASTA-format files for the RDP, Warcup, and Unite reference databases with unifi
 
 The phylogenetic tree was rooted based on sequences which were confidently assigned to kingdom based on the primary taxonomic assignments.
 Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset, and thus it cannot be used to directly assign kingdoms.
-Assignments were considered as reliable if at least five of the six remaining primary assignment methods (2 databases × 3 algorithms) resulted in the same kingdom-level assignment, with no conflicting assignments.
-Two sequences belonging to *Tulasnella*, which is known to have an accelerated rate of molecular evolution in the rDNA and often forms long, unstable branches in phylogenies [@moncalvo2006], were excluded at this step.
-This resulted in `r nrow(readd(sure_kingdoms))` confident kingdom assignments, with `r dplyr::count(readd(sure_kingdoms), taxon) %>% glue::glue_data("{n} assigned to {taxon}, ") %>% glue::glue_collapse(last = "and ")`.
+Assignments were considered reliable if at least five of the six remaining primary assignment methods (2 databases × 3 algorithms) resulted in the same kingdom-level assignment, with no conflicting assignments.
+Two ASVs belonging to *Tulasnella*, which is known to have an accelerated rate of molecular evolution in the rDNA and often forms long, unstable branches in phylogenies [@moncalvo2006], were excluded at this step.
+This resulted in `r nrow(readd(sure_kingdoms))` confident kingdom assignments, with `r dplyr::count(readd(sure_kingdoms), taxon) %>% glue::glue_data("{n} assigned to {taxon}") %>% glue::glue_collapse(", ", last = ", and ")`.
 Inspection of the tree verified that these four kingdoms were reciprocally monophyletic, and the clade containing Alveolata and Viridiplantae was used as an outgroup to root the tree.
 The kingdom Fungi was then identified as the minimal clade containing all ASVs which were confidently identified  as kingdom Fungi.
 ASVs falling outside this clade, including the excluded *Tulasnella* sequences, were not included in downstream fungal community analysis.
@@ -255,7 +255,11 @@ $$D = C_0 + C_1\left[1 - \exp\left(-3  \left(\frac{d}{a_d} + \frac{t}{a_t}\right
 where $D$, $d$, and $t$ represent the community dissimilarity, spatial distance, and time lag between samples, respectively, and the parameters are $C_0$, the community dissimilarity between replicate samples ("nugget"); $C_0 + C_1$, the community dissimilarity at long distances ("sill"); $a_d$ the spatial range at which the community dissimilarity has moved 95% of the way from "nugget" to "sill"; and $a_t$, the equivalent temporal range.
 The 95% confidence intervals were calculated for the spatial and temporal range parameters by profiling using the `MASS` package.
 
-# Supplementary Figures and Tables
+\newpage
+
+# Supplementary Figures
+
+\listoffigures
 
 (ref:buffer-pcoa-s) Unconstrained Principal Coordinate Analysis (PCoA) ordination of samples preserved with different buffers
 
@@ -348,7 +352,7 @@ theme_set(oldtheme)
 No taxon is assigned at node\ 1, because one of the child branches (A) is completely unassigned.
 No taxon is assigned at node\ 2, because the assignments at C and F are inconsistent.
 Node\ 3 is assigned to Tax2 because this is consistent with at least one of the assignments for both B and C.
-Node\ 4 (and thus also node\ 5) is assigned to Tax1 because this is consistent with at least one of the assignments for D and F, and because E is completely unassigned.
+Node\ 4 (and thus also node\ 5) is assigned to Tax1 because this is consistent with at least one of the assignments for D and F, and because E, which is nested within the clade defined by D and F, is completely unassigned.
 
 ```{r phylotax, fig.height = 2, fig.width = 3, fig.cap = "(ref:phylotax-s). (ref:phylotax)", fig.scap="(ref:phylotax-s)", cache = TRUE, extra.cache = gethash("phylotax_fig")}
 readd(phylotax_fig)
@@ -438,7 +442,11 @@ ggpubr::ggarrange(
 )
 ```
 
-```{r accum-OTU, fig.cap="OTU accumulation curves"}
+(ref:accum-OTU-s) OTU accumulation curves
+
+(ref:accum-OTU) Each curve represents rarefaction of a single sample or pooled pair of samples. Points at the end of each curve represent the actual read depth and observed OTU richness. Note logarithmic axes.
+
+```{r accum-OTU, fig.cap="(ref:accum-OTU-s). (ref:accum-OTU)", fig.scap = "(ref:accum-OTU-s)"}
 readd(accum_plot_OTU)
 ```
 
@@ -578,6 +586,16 @@ light_plan %>%
   theme(strip.background = element_blank())
 ```
 
+\FloatBarrier
+
+# Supplementary tables
+
+\listoftables
+
+\newpage
+
+\FloatBarrier
+
 ```{r region-limits}
 regions %>%
   select(Region = region, "Min. length" = min_length, "Max. length" = max_length) %>%
@@ -696,3 +714,5 @@ venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", capti
   arrange(Guild, Amplicon, Tech, Algorithm, Metric) %>%
   kable(booktabs = TRUE, caption = "(ref:variofit)", linesep = c(rep("", 5), "\\addlinespace"))
 ```
+
+\FloatBarrier

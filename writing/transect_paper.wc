@@ -2,9 +2,9 @@
 !!! Could not identify document class. !!!
 File: writing/transect_paper.tex
 Encoding: utf8
-Words in text: 7561
-Words in headers: 75
-Words outside text (captions, etc.): 618
+Words in text: 7590
+Words in headers: 74
+Words outside text (captions, etc.): 650
 Number of headers: 24
 Number of floats/tables/figures: 7
 Number of math inlines: 29
@@ -13,24 +13,24 @@ Subcounts:
   text+headers+captions (#headers/#floats/#inlines/#displayed)
   4+12+0 (1/0/0/0) _top_
   197+1+0 (1/0/0/0) Section: Abstract}\label{abstract}
-  1576+1+0 (1/0/0/0) Section: Introduction}\label{introduction}
+  1591+1+0 (1/0/0/0) Section: Introduction}\label{introduction}
   0+3+0 (1/0/0/0) Section: Materials and Methods}\label{materials-and-methods}
-  145+1+0 (1/0/0/0) Subsection: Sampling}\label{sampling}
-  325+5+0 (1/0/0/0) Subsection: DNA extraction, amplification, and sequencing}\label{dna-extraction-amplification-and-sequencing}
-  895+9+122 (3/1/1/0) Subsection: Bioinformatics}\label{bioinformatics}
+  157+1+0 (1/0/0/0) Subsection: Sampling}\label{sampling}
+  316+4+0 (1/0/0/0) Subsection: DNA amplification and sequencing}\label{dna-amplification-and-sequencing}
+  899+9+124 (3/1/1/0) Subsection: Bioinformatics}\label{bioinformatics}
   61+7+0 (1/0/0/0) Subsection: Effect of sequencing strategy on recovered community}\label{effect-of-sequencing-strategy-on-recovered-community}
   145+2+0 (1/0/0/0) Subsection: Spatiotemporal analysis}\label{spatiotemporal-analysis}
-  722+1+0 (1/0/8/0) Section: Results}\label{results}
-  469+7+214 (1/3/3/0) Subsection: Reproducibility of sequence capture using different technologies}\label{reproducibility-of-sequence-capture-using-different-technologies}
-  386+2+115 (1/2/12/0) Subsection: Taxonomic assignment}\label{taxonomic-assignment}
-  352+2+167 (1/1/2/0) Subsection: Spatial analysis}\label{spatial-analysis}
+  725+1+0 (1/0/8/0) Section: Results}\label{results}
+  468+7+246 (1/3/3/0) Subsection: Reproducibility of sequence capture using different technologies}\label{reproducibility-of-sequence-capture-using-different-technologies}
+  366+2+113 (1/2/12/0) Subsection: Taxonomic assignment}\label{taxonomic-assignment}
+  354+2+167 (1/1/2/0) Subsection: Spatial analysis}\label{spatial-analysis}
   0+1+0 (1/0/0/0) Section: Discussion}\label{discussion}
   122+7+0 (1/0/0/0) Subsection: Reconstruction of long amplicons from denoised subregions}\label{reconstruction-of-long-amplicons-from-denoised-subregions}
-  521+4+0 (1/0/0/0) Subsection: Comparison of sequencing strategies}\label{comparison-of-sequencing-strategies}
-  500+2+0 (1/0/0/0) Subsection: Taxonomic identification}\label{taxonomic-identification}
-  703+2+0 (1/0/3/0) Subsection: Turnover rate}\label{turnover-rate}
-  118+1+0 (1/0/0/0) Subsection: Conclusion}\label{conclusion}
-  120+1+0 (1/0/0/0) Section: Acknowledgements}\label{acknowledgements}
+  553+4+0 (1/0/0/0) Subsection: Comparison of sequencing strategies}\label{comparison-of-sequencing-strategies}
+  508+2+0 (1/0/0/0) Subsection: Taxonomic identification}\label{taxonomic-identification}
+  674+2+0 (1/0/3/0) Subsection: Turnover rate}\label{turnover-rate}
+  138+1+0 (1/0/0/0) Subsection: Conclusion}\label{conclusion}
+  112+1+0 (1/0/0/0) Section: Acknowledgements}\label{acknowledgements}
   146+2+0 (1/0/0/0) Section: Data Accessibility}\label{data-accessibility}
   54+2+0 (1/0/0/0) Section: Author Contributions}\label{author-contributions}
 

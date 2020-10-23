@@ -242,7 +242,7 @@ plan2 <- drake_plan(
       tree = rooted_tree,
       old = taxon_labels$old,
       new = taxon_labels$new,
-      chimeras = allchimeras_ITS2
+      drop = allchimeras_ITS2
     ) %T>%
     castor::write_tree(file_out(
       !!glue::glue("data/trees/labeled.tree", group = group)
@@ -1811,19 +1811,19 @@ plan2 <- drake_plan(
     }
   ),
 
-  supplement_diff_pdf = withr::with_dir(
-    "writing",
-    {
-      file_in(!!file.path("writing", "transect_supplement_diff.tex"))
-      file_in(!!file.path("writing", "transect_paper_diff.tex"))
-      file_out(!!file.path("writing", "transect_supplement_diff.pdf"))
-      tinytex::xelatex(
-        "transect_supplement_diff.tex",
-        bib_engine = "biber",
-        clean = FALSE
-      )
-    }
-  ),
+  # supplement_diff_pdf = withr::with_dir(
+  #   "writing",
+  #   {
+  #     file_in(!!file.path("writing", "transect_supplement_diff.tex"))
+  #     file_in(!!file.path("writing", "transect_paper_diff.tex"))
+  #     file_out(!!file.path("writing", "transect_supplement_diff.pdf"))
+  #     tinytex::xelatex(
+  #       "transect_supplement_diff.tex",
+  #       bib_engine = "biber",
+  #       clean = FALSE
+  #     )
+  #   }
+  # ),
 
   article_pdf = withr::with_dir(
     "writing",
@@ -1963,7 +1963,7 @@ plan2 <- drake_plan(
   taxid_all = target(
     {
       taxids <- bind_rows(readd(taxid))
-      write_csv(file_out(!!sprintf("output/%s_taxa.csv", taxon_type)))
+      write_csv(taxids, file_out(!!sprintf("output/%s_taxa.csv", taxon_type)))
       dplyr::select(taxids, label, targetTaxonomy, targetRank) %>%
         write_csv(file_out(!!sprintf("output/%s_taxa_target.csv", taxon_type)))
       dplyr::select(taxids, label, Taxonomy, rank) %>%
@@ -1987,11 +1987,11 @@ options(clustermq.scheduler = "multicore")
 cache_dir <- ".drake"
 cache <- drake_cache(cache_dir)
 dconfig <- drake_config(plan2, cache = cache)
-# vis_drake_graph(dconfig, targets_only = TRUE,
-#                 group = "step",
-#                 clusters = c("correlog", "variog", "variogST", "variofit2",
-#                              "variofitST2", "physeq", "big_seq_table",
-#                              "big_fasta", "taxon", "chimeras", "allchimeras"))
+vis_drake_graph(dconfig, targets_only = TRUE,
+                group = "step",
+                clusters = c("correlog", "variog", "variogST", "variofit2",
+                             "variofitST2", "physeq", "big_seq_table",
+                             "big_fasta", "taxon", "chimeras", "allchimeras"))
 make(
   plan2,
   cache = cache,
