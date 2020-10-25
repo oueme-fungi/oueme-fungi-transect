@@ -562,6 +562,9 @@ plan2 <- drake_plan(
   otu_table =
    compile_otu_table(file_in("data/clusters/ITS2.table"), big_fasta_ITS2),
 
+  otu_table_90 =
+    compile_otu_table(file_in("data/clusters/ITS2_90.table"), big_fasta_ITS2),
+
   # Find the central sequence for each 97% OTU
   # [tibble] identity, ASVseq, OTUseq
   # ASVseq and OTUseq are ASV sequence hashes.
@@ -738,13 +741,19 @@ plan2 <- drake_plan(
 
   venn_OTU = venndata(otu_table, OTUs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
 
+  venn_OTU_90 = venndata(otu_table_90, OTUs, cols = c("pb_500", "pb_483", "SH-2257", "is_057")),
+
   vennplot_tech_ASV = vennplot_tech(asv_table, ASVs, letter = "a"),
 
   vennplot_tech_OTU = vennplot_tech(otu_table, OTUs, letter = "b"),
 
+  vennplot_tech_OTU_90 = vennplot_tech(otu_table_90, OTUs, letter = "b"),
+
   vennplot_amplicon_ASV = vennplot_amplicon(asv_table, ASVs, letter = "c"),
 
   vennplot_amplicon_OTU = vennplot_amplicon(otu_table, OTUs, letter = "d"),
+
+  vennplot_amplicon_OTU_90 = vennplot_amplicon(otu_table_90, OTUs, letter = "d"),
 
   ##### Read abundance comparisons ####
   big_table = {
