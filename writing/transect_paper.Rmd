@@ -44,8 +44,7 @@ output:
     suppress-bibliography: true
   bookdown::word_document2: 
     keep_md: yes
-fontsize: 12pt
-geometry: ["left=2.5cm", "right=2.5cm", "top=3cm", "bottom=3cm"]
+fontsize: 10pt
 graphics: yes
 ---
 
@@ -594,11 +593,11 @@ Sequencing was also performed by the SNP&SEQ Technology Platform in Uppsala.
 The facility is part of the National Genomics Infrastructure (NGI) Sweden and Science for Life Laboratory.
 The SNP&SEQ Platform is also supported by the Swedish Research Council and the Knut and Alice Wallenberg Foundation.
 
-\singlespacing
+<!-- \singlespacing -->
 
-\printbibliography
+<!-- \printbibliography -->
 
-\doublespacing
+<!-- \doublespacing -->
 
 # Data Accessibility {-}
 
@@ -619,4 +618,4 @@ Scripts and R packages were written by BF.
 The manuscript was drafted by BF and MR.
 All authors contributed to and approved the final version of the manuscript.
 
-\processdelayedfloats
+<!-- \processdelayedfloats -->
