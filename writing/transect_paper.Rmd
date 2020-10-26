@@ -357,7 +357,7 @@ In particular, the majority of the `r sum(readd(venn_ASV)[c("1001","0001"),"ASVs
 ASVs unique to the Ion Torrent dataset made up `r percent(sum(as.numeric(readd(venn_ASV)[c("1001","0001"),"reads_frac_is_057"])))` of reads in that dataset, but only `r percent(sum(as.numeric(readd(venn_OTU)[c("1001","0001"),"reads_frac_is_057"])))` belonged to a unique OTU after clustering.
 In contrast, `r percent(readd(venn_ASV)["1000", "reads_frac_pb_500"])` of reads in the long PacBio dataset belonged to ASVs whose ITS2 region was unique to that dataset (Figure\ \@ref(fig:venn)c), and the fraction only reduced to `r percent(readd(venn_OTU)["1000", "reads_frac_pb_500"])` after clustering the ITS2 regions into OTUs (Figure\ \@ref(fig:venn)d).
 
-Read counts for shared ASVs and OTUs were highly correlated between strategies, with a minimum $R^2$ value of `r compR2("pb_500", "is_057", "ASV")` (Figure\ \@ref(fig:read-compare)).
+Read counts for shared ASVs were highly correlated between strategies, with a minimum $R^2$ value of `r compR2("pb_500", "is_057", "ASV")` (Figure\ \@ref(fig:read-compare-asv)).
 Correlations between read counts for the three technologies using the short amplicon library were increased by OTU clustering
 (`r compR2("pb_483", "SH-2257", "ASV")` to `r compR2("pb_483", "SH-2257", "OTU")`,
 `r compR2("pb_483", "is_057", "ASV")` to `r compR2("pb_483", "is_057", "OTU")`, and
@@ -365,7 +365,7 @@ Correlations between read counts for the three technologies using the short ampl
 for PacBio vs. Illumina, PacBio vs. Ion Torrent, and Illumina vs. Ion Torrent, respectively), but not between the long amplicon library and short amplicon library
 (`r compR2("pb_500", "pb_483", "ASV")` to `r compR2("pb_500", "pb_483", "OTU")`,
 `r compR2("pb_500", "SH-2257", "ASV")` to `r compR2("pb_500", "SH-2257", "OTU")`, and
-`r compR2("pb_500", "is_057", "ASV")` to `r compR2("pb_500", "is_057", "OTU")`, for PacBio long amplicon reads vs. PacBio, Illumina, and Ion Torrent short amplicon reads, respectively; Figure\ \@ref(fig:read-compare)).
+`r compR2("pb_500", "is_057", "ASV")` to `r compR2("pb_500", "is_057", "OTU")`, for PacBio long amplicon reads vs. PacBio, Illumina, and Ion Torrent short amplicon reads, respectively; Figure\ \@ref(fig:read-compare-otu)).
 
 ASV richness estimates after rarefaction were strongly correlated between the three sequencing technologies applied to the short amplicon library ($R^2 =$ `r dplyr::filter(readd(demingfits_ASV), endsWith(as.character(strategy_x), "Short"), endsWith(as.character(strategy_y), "Short"))$r_squared %>% range() %>% format(format = "f", digits = 2) %>% unique() %>% paste(collapse = " to ")`; Figure\ \@ref(fig:alpha-compare)).
 The slope of the relationship between PacBio and Illumina richness estimates was only slightly different from 1, indicating that these two technologies give highly comparable rarefied richness estimates, despite the approximately 200× difference in original sequencing depth.
@@ -497,10 +497,10 @@ The three sequencing technologies gave similar results for the short amplicon li
 Although a greater fraction of PacBio raw reads were ultimately mapped to ASVs (`r percent(readd(bioinf_table)["ITS2","PacBio_Short_reads"]/readd(rawcounts)["pb_483"], format = "f", digits = 0)`) compared to Illumina (`r percent(readd(bioinf_table)["ITS2","Illumina_Short_reads"]/readd(rawcounts)["SH-2257"], format = "f", digits = 0)`) or Ion Torrent (`r percent(readd(bioinf_table)["ITS2","Ion Torrent_Short_reads"]/readd(rawcounts)["is_057"], format = "f", digits = 0)`),
 the latter two technologies provided much greater sequencing depth for a similar cost, allowing a greater diversity of rare ASVs to be recovered, and were much closer to saturation of their respective species accumulation curves (Figure \@ref(fig:accum-ASV)).
 OTU read counts were strongly correlated between technologies (R^2^ = `r readd(comparisons) %>% filter(type == "OTU") %>% filter(x_amplicon == y_amplicon) %$% paste(format(range(r.squared), format = "f", digits = 2), collapse = "--")`),
-and even between primer pairs (R^2^ = `r readd(comparisons) %>% filter(type == "OTU") %>% filter(x_amplicon != y_amplicon) %$% paste(format(range(r.squared), format = "f", digits = 2), collapse = "--")`, Figure \@ref(fig:read-compare)b),
+and even between primer pairs (R^2^ = `r readd(comparisons) %>% filter(type == "OTU") %>% filter(x_amplicon != y_amplicon) %$% paste(format(range(r.squared), format = "f", digits = 2), collapse = "--")`, Figure \@ref(fig:read-compare-otu)),
 which we interpret as supporting the validity of abundance-based beta diversity measures in metabarcoding [but see @castano2020 and references therein].
 
-DADA2 denoising may perform differently on different technologies (or perhaps sequencing runs), indicated by the fact that clustering ASVs at 97% led to substantially higher correspondence between both the set of OTUs recovered from the same library by different technologies and the read counts for each OTU (Figure\ \@ref(fig:read-compare)).
+DADA2 denoising may perform differently on different technologies (or perhaps sequencing runs), indicated by the fact that clustering ASVs at 97% led to substantially higher correspondence between both the set of OTUs recovered from the same library by different technologies and the read counts for each OTU (Figure\ \@ref(fig:read-compare-otu)).
 ASV diversity appears to be artificially inflated in the Ion Torrent dataset relative to the Illumina and PacBio datasets, which gave remarkably similar ASV richness after rarefaction, despite a difference of around 200x in unrarefied sequencing depth (Figures\ \@ref(fig:venn) and \@ref(fig:alpha-compare)).
 This may be a result of the lower fraction of very high quality reads in the Ion Torrent dataset (Figure \@ref(fig:qual-check)).
 We used options for DADA2 intended to improve performance on technologies, like Ion Torrent, with higher rates of homopolymer indel errors [@callahan2020b], but our results suggest that this still does not result in performance comparable to that which DADA2 achieves on Illumina sequences, for which it was developed [@callahan2016].
