@@ -41,8 +41,7 @@ output:
       in_header: preamble_supplement.tex
     citation_package: biblatex
     suppress-bibliography: false
-    fontsize: 12pt
-    geometry: left=2.5cm, right=2.5cm, top=3cm, bottom=3cm
+    fontsize: 10pt
 ---
 
 ```{r setup, include=FALSE}
@@ -658,7 +657,8 @@ readd(bioinf_table) %>%
       "\\addlinespace",
       rep("", 4)
     ),
-    escape = FALSE
+    escape = FALSE,
+    table.envir = "sidewaystable"
     ) %>%
   kableExtra::add_header_above(
     header = c(
@@ -682,7 +682,7 @@ readd(bioinf_table) %>%
 
 ```{r venn-table-asv, cache=TRUE, extra.cache=gethash("venn_ASV"), more.cache=venn_table}
 readd(venn_ASV) %>%
-venn_table(ASVs, caption = "(ref:venn-table-asv-s). (ref:venn-table-asv)", caption.short = "(ref:venn-table-asv-s)")
+venn_table(ASVs, caption = "(ref:venn-table-asv-s). (ref:venn-table-asv)", caption.short = "(ref:venn-table-asv-s)", table.envir = "sidewaystable")
 ```
 
 (ref:venn-table-otu-s)  Correspondences between 97% OTUs found by different sequencing strategies
@@ -691,7 +691,7 @@ venn_table(ASVs, caption = "(ref:venn-table-asv-s). (ref:venn-table-asv)", capti
 
 ```{r venn-table-otu, cache=TRUE, extra.cache=gethash("venn_OTU"), more.cache=venn_table}
 readd(venn_OTU) %>%
-venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", caption.short = "(ref:venn-table-otu-s)")
+venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", caption.short = "(ref:venn-table-otu-s)", table.envir = "sidewaystable")
 ```
 
 (ref:variofit) Parameters for exponential distance-decay fits. Range: range at which exponential function is at 95% of its asymptotic value.
@@ -718,7 +718,7 @@ venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", capti
   ) %>%
   select(Guild = guild, Amplicon = amplicon, Tech = tech, Algorithm = algorithm, Metric = metric, "Space Range (m)" = range, "Time Range (a)" = timerange) %>%
   arrange(Guild, Amplicon, Tech, Algorithm, Metric) %>%
-  kable(booktabs = TRUE, caption = "(ref:variofit)", linesep = c(rep("", 5), "\\addlinespace"))
+  kable(booktabs = TRUE, caption = "(ref:variofit)", linesep = c(rep("", 5), "\\addlinespace"), table.envir = "sidewaystable")
 ```
 
 \FloatBarrier

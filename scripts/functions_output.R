@@ -187,7 +187,7 @@ reverselog_trans <- function(base = exp(1)) {
 
 
 # Present the results of venndata() as a table
-venn_table <- function(venndata, var, caption, caption.short) {
+venn_table <- function(venndata, var, caption, caption.short, ...) {
   var <- enquo(var)
 
   linesep <- venndata %>%
@@ -229,7 +229,8 @@ venn_table <- function(venndata, var, caption, caption.short) {
       linesep = linesep,
       align = ("rcrrcrrcrrcrr"),
       row.names = FALSE,
-      escape = FALSE
+      escape = FALSE,
+      ...
     ) %>%
     kableExtra::add_header_above(
       header = c(
