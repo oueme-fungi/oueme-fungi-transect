@@ -217,24 +217,36 @@ format_taxon_reads <- function(taxon_reads, funguild_db) {
       Taxonomy = paste(kingdom, phylum, class, order, family, genus, sep = ";") %>%
         str_replace_all(";NA", "")
     ) %>%
-    bind_cols(
-      FUNGuildR::funguild_assign(., funguild_db) %>%
-        mutate(
-          ECM = grepl("Ectomycorrhizal", guild) %>%
-            ifelse(paste(confidenceRanking, "ECM"),
-                   ifelse(is.na(guild), NA, "non-ECM")) %>%
-            ifelse(is.na(family), NA, .)) %>%
-        mutate_at(
-          "ECM",
-          factor,
-          levels = c(NA_character_, "non-ECM", "Possible ECM",
-                     "Probable ECM", "Highly Probable ECM"),
-          exclude = NULL,
-          ordered = TRUE
+    left_join(
+      FUNGuildR::funguild_assign(
+        unique(select(., Taxonomy)),
+        funguild_db
+      ) %>%
+        # Recent versions of FUNGuild (2021-2-3) have some taxa with two entries
+        # this combines them.
+        group_by(Taxonomy) %>%
+        summarize(
+          guild = str_c(unlist(strsplit(guild, "-")), collapse = "-"),
+          confidenceRanking = unique(confidenceRanking)
         ) %>%
-        select(ECM)
+        ungroup() %>%
+        select(Taxonomy, guild, confidenceRanking),
+      by = "Taxonomy"
     ) %>%
-    select(-Taxonomy)
+    mutate(
+      ECM = grepl("Ectomycorrhizal", guild) %>%
+        ifelse(paste(confidenceRanking, "ECM"),
+               ifelse(is.na(guild), NA, "non-ECM")) %>%
+        ifelse(is.na(family), NA, .)) %>%
+    mutate_at(
+      "ECM",
+      factor,
+      levels = c(NA_character_, "non-ECM", "Possible ECM",
+                 "Probable ECM", "Highly Probable ECM"),
+      exclude = NULL,
+      ordered = TRUE
+    ) %>%
+    select(-Taxonomy, -guild, -confidenceRanking)
 }
 
 compile_taxon_chart <- function(taxon_reads) {
