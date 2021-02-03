@@ -8,28 +8,30 @@ author:
   - Anna Rosling^4^,
   - Nourou S. Yorou^5^,
   - Martin Ryberg^1^
-  - ^1^Program in Systematic Biology,
-    Department of Organismal Biology,
-    Uppsala University,
-  - Uppsala, Sweden
-  - ^2^Department of Ecology,
-    Swedish University of Agricultural Sciences,
-    Uppsala, Sweden
-  - ^3^Institute of Ecology and Earth Sciences,
-    University of Tartu,
-    Tartu, Estonia
-  - ^4^Program in Evolutionary Biology,
-    Department of Ecology and Genetics,
-    Uppsala University,
-  - Uppsala, Sweden
-  - ^5^Research Unit in Tropical Mycology and Plant-Fungi Interactions,
-    LEB,
-  - University of Parakou,
-    Parakou, Benin
+date: |
+      | ^1^Program in Systematic Biology,
+        Department of Organismal Biology,
+        Uppsala University,
+        Uppsala, Sweden
+      | ^2^Department of Ecology,
+        Swedish University of Agricultural Sciences,
+        Uppsala, Sweden
+      | ^3^Institute of Ecology and Earth Sciences,
+        University of Tartu,
+        Tartu, Estonia
+      | ^4^Program in Evolutionary Biology,
+        Department of Ecology and Genetics,
+        Uppsala University,
+        Uppsala, Sweden
+      | ^5^Research Unit in Tropical Mycology and Plant-Fungi Interactions,
+        LEB,
+        University of Parakou,
+        Parakou, Benin
 bibliography:
   - "all.bib"
   - "R.bib"
-biblio-style: apa
+biblio-style: authoryear-comp
+biblatexoptions: [giveninits=true, maxbibnames=999, maxcitenames=2, mincitenames=1, uniquename=false, uniqueprimaryauthor=false, uniquelist=false, date=year, url=false, isbn=false, eprint=false, doi=true]
 always_allow_html: true
 output:
   bookdown::pdf_document2:
@@ -61,8 +63,8 @@ tryCatch(
 tinytex::tlmgr_install(setdiff("pdfcrop", tinytex::tl_pkgs()))
 
 knitr::opts_chunk$set(
-  dev = "cairo_pdf",
-  # dev.args = list(pointsize=32),
+  dev = "pdf",
+  dpi = 600,
   echo = FALSE,
   # results = 'asis',
   # fig.show = 'asis',
@@ -322,7 +324,7 @@ The two Xpedition datasets (blue-green colors in top right and center right tree
 while the LifeGuard samples (red-orange colors in top right and center right trees) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, and also Geminibasidiomycetes.
 Differences between the two Xpedition datasets (top center tree) are less pronounced.
 
-```{r buffer-compare-long, fig.scap = "(ref:buffer-compare-long-s)", fig.cap = "(ref:buffer-compare-long-s). (ref:buffer-compare-long)", fig.width = 10, fig.height = 10, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_long"), dev = "pdf"}
+```{r buffer-compare-long, fig.scap = "(ref:buffer-compare-long-s)", fig.cap = "(ref:buffer-compare-long-s). (ref:buffer-compare-long)", fig.width = 10, fig.height = 10, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_long")}
 oldtheme <- theme_update(panel.border = element_blank())
 readd(buffer_compare_long)
 theme_set(oldtheme)
@@ -338,7 +340,7 @@ The two Xpedition datasets (blue-green colors in top right and center right tree
 while the LifeGuard samples (red-orange colors in top right and center right trees) showed greater relative abundance of Ascomycota in general, especially Aspergillaceae, as well as Geminibasidiomycetes.
 Differences between the two Xpedition datasets (top center tree) are less pronounced.
 
-```{r buffer-compare-short, fig.scap="(ref:buffer-compare-short-s)", fig.cap = "(ref:buffer-compare-short-s). (ref:buffer-compare-short)", fig.width = 10, fig.height = 10, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_short"), dev = "pdf"}
+```{r buffer-compare-short, fig.scap="(ref:buffer-compare-short-s)", fig.cap = "(ref:buffer-compare-short-s). (ref:buffer-compare-short)", fig.width = 10, fig.height = 10, out.width = "100%", cache = TRUE, extra.cache = gethash("buffer_compare_short")}
 oldtheme <- theme_update(panel.border = element_blank())
 readd(buffer_compare_short)
 theme_set(oldtheme)
@@ -364,10 +366,14 @@ Sequencing reads which were filtered out during quality control are colored dark
 Dotted horizontal line at 100\ reads indicates cutoff for inclusion in community analysis.
 2016 samples were preserved using two different methods (LifeGuard, Xpedition), while 2015 samples were preserved only using Xpedition.
 
-```{r sample-depth, fig.cap = "(ref:sample-depth)", fig.scap = "(ref:sample-depth-s)", fig.env = "sidewaysfigure", fig.width = 9, fig.height = 5, out.width = "100%", cache = TRUE, extra.cache = gethash("conc_plot", "reads_plot")}
+\captionsetup{width=0.9\textheight}
+
+```{r sample-depth, fig.cap = "(ref:sample-depth)", fig.scap = "(ref:sample-depth-s)", fig.env = "sidewaysfigure", fig.width = 8, fig.height = 5, out.width = "100%", cache = TRUE, extra.cache = gethash("conc_plot", "reads_plot"), results='asis'}
 ggpubr::ggarrange(readd(conc_plot), readd(reads_plot), ncol = 2, common.legend = TRUE) +
   theme(panel.spacing = unit(0, "mm"))
 ```
+
+\captionsetup{width=0.9\textwidth}
 
 (ref:qual-check-s) Read quality profiles
 
@@ -460,7 +466,7 @@ readd(accum_plot_OTU)
 
 (ref:alpha-compare-OTU) Each point represents the richness of one or two pooled samples, as determined by two different sequencing strategies. All values represent the average of 100 replicate rarefactions with a sample depth of 100 reads.  Because samples in the same well on different plates could not be demultiplexed in the Ion Torent dataset, these samples were also bioinformatically pooled in the other datasets prior to rarefaction. Blue lines are total least squares fit with 95% confidence interval, with the given slope (and 95% confidence interval) and R^2^ value. Dashed diagonal line indicates ideal slope of 1.
 
-```{r alpha-compare-otu, fig.scap="(ref:alpha-compare-otu-s)", fig.cap="(ref:alpha-compare-otu-s) (ref:alpha-compare)"}
+```{r alpha-compare-otu, fig.scap="(ref:alpha-compare-otu-s)", fig.cap="(ref:alpha-compare-otu-s) (ref:alpha-compare-OTU)"}
 grid::grid.newpage()
 grid::grid.draw(remove_empty_facets(readd(alpha_plot_OTU)))
 ```
@@ -476,11 +482,15 @@ ASV richness and read abundance are displayed as the mean across sequencing runs
 Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
 The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
 
-```{r taxa, fig.cap = "(ref:taxa-s). (ref:taxa)", fig.scap="(ref:taxa-s)", fig.width = 9, fig.height = 5, out.width="100%", fig.env = "sidewaysfigure", cache=TRUE, extra.cache=gethash("heattree")}
+\captionsetup{width=0.9\textheight}
+
+```{r taxa, fig.cap = "(ref:taxa-s). (ref:taxa)", fig.scap="(ref:taxa-s)", fig.width = 8, fig.height = 5, out.width="100%", fig.env = "sidewaysfigure", cache=TRUE, extra.cache=gethash("heattree")}
 theme <- theme_update(panel.border = element_blank())
 readd(heattree)
 theme_set(theme)
 ```
+
+\captionsetup{width=0.9\textwidth}
 
 (ref:heattree-length-compare-s) Variation in read abundance and diversity for different amplicons across the taxonomic tree
 
@@ -626,6 +636,8 @@ regions %>%
 **short**, **ITS**, **LSU**, **long**: ITS2-based ASVs mapped to consensus ASVs for longer regions, where \"short\" and \"long\" denote the full-length short and long amplicons, respectively.
 *Italicized* numbers represent mapping via ITS2 ASVs to amplicons originally sequenced by another technology.
 
+\captionsetup{width=0.9\textheight}
+
 ```{r bioinfo, cache=TRUE, extra.cache=gethash("bioinf_table", "bioinf_header")}
 readd(bioinf_table) %>%
   rownames_to_column("step") %>%
@@ -722,3 +734,14 @@ venn_table(OTUs, caption = "(ref:venn-table-otu-s). (ref:venn-table-otu)", capti
 ```
 
 \FloatBarrier
+
+\renewcommand{\bibname}{References}
+\renewcommand{\bibfont}{\normalfont\footnotesize}
+\renewbibmacro*{volume+number+eid}{%
+  \printfield{volume}%
+%  \setunit*{\adddot}% DELETED
+  \setunit*{\addnbthinspace}% NEW (optional); there's also \addnbthinspace
+  \printfield{number}%
+  \setunit{\addcomma\space}%
+  \printfield{eid}}
+\DeclareFieldFormat[article]{number}{\mkbibparens{#1}}

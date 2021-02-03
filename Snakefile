@@ -109,6 +109,70 @@ rule bax2bam:
     shell:
          "bax2bam {input} -o {params.prefix} &> {log}"
 
+# merge movies which belong to the same plate
+rule mergebam:
+    output:
+        "{mergedir}/{{seqplate}}.subreads.bam".format_map(config)
+    input:
+        lambda wildcards: expand("{moviedir}/{movie}.subreads.bam",
+                                  moviedir = config['moviedir'],
+                                  movie = moviefiles[wildcards.seqplate])
+    shadow: "shallow"
+    conda: "config/conda/samtools.yaml"
+    group: "pacbio"
+    resources:
+        walltime=5
+    log: "{logdir}/mergebam_{{seqplate}}.log".format_map(config)
+    shell: "samtools merge {output} {input}"
+
+# demultiplex pacbio subreads using lima
+rule lima:
+    output:
+        "{demuxbamdir}/{{seqplate}}.subreads.bam".format_map(config)
+    input:
+        bam = "{mergedir}/{{seqplate}}.subreads.bam".format_map(config),
+        tags = "{tagdir}/its1_lr5_barcodes.fasta".format_map(config)
+    shadow: "shallow"
+    conda: "config/conda/pacbiodemux.yaml"
+    group: "pacbio"
+    resources:
+        walltime=20
+    log: "{logdir}/lima_{{seqplate}}.log".format_map(config)
+    shell: "lima {input.bam} {input.tags} {output} --different --peek-guess"
+
+# find haplotypes (ASVs) from pacbio subreads
+rule laa:
+    output:
+        result="{laadir}/{{seqplate}}.fastq".format_map(config),
+        junk="{laadir}/{{seqplate}}.chimera_noise.fastq".format_map(config),
+        report="{laadir}/{{seqplate}}.report.csv".format_map(config),
+        pcr="{laadir}/{{seqplate}}.pcr.csv".format_map(config),
+        prefix="{laadir}/{{seqplate}}".format_map(config)
+    input: "{mergedir}/{{seqplate}}.subreads.bam".format_map(config)
+    shadow: "shallow"
+    conda: "config/conda/pacbiolaa.yaml"
+    envmodules:
+        "bioinfo-tools",
+        "SMRT/5.0.1"
+    group: "pacbio"
+    resources:
+        walltime=240
+    log: "{logdir}/laa_{{seqplate}}.log".format_map(config)
+    shell:
+        """
+        laa {input}\\
+            --maxReads 10000\\
+            --maxClusteringReads 10000\\
+            --minLength 1000\\
+            --minClusterSize 3\\
+            --resultFile {output.result}\\
+            --junkFile {output.junk}\\
+            --reportFile {output.report}\\
+            --inputReportFile {output.pcr}\\
+            --subreadsReportPrefix {output.prefix}
+        """
+        
+
 # generate a circular consensus sequence from raw PacBio reads
 rule ccs:
     output:
@@ -775,13 +839,13 @@ rule lightplan:
         "{outdir}/supp_file_2.tsv".format_map(config),
         "{outdir}/supp_file_3.pdf".format_map(config)
     input:
-        "{rdir}/dada.R".format_map(config),
-        "{rdir}/mantel.R".format_map(config),
-        "{rdir}/variogram.R".format_map(config),
-        "{rdir}/qstats.R".format_map(config),
-        "{rdir}/taxonomy.R".format_map(config),
-        "{rdir}/plate_check.R".format_map(config),
-        "{rdir}/output_functions.R".format_map(config),
+        "{rdir}/functions_dada.R".format_map(config),
+        "{rdir}/functions_mantel.R".format_map(config),
+        "{rdir}/functions_variogram.R".format_map(config),
+        "{rdir}/functions_qstats.R".format_map(config),
+        "{rdir}/functions_taxonomy.R".format_map(config),
+        "{rdir}/functions_platemap.R".format_map(config),
+        "{rdir}/functions_output.R".format_map(config),
         "{clusterdir}/ITS2.table".format_map(config),
         "{clusterdir}/short.table".format_map(config),
         "{rmddir}/preamble.tex".format_map(config),

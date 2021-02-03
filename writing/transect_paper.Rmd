@@ -29,7 +29,8 @@ date: |
 bibliography:
   - "all.bib"
   - "R.bib"
-biblio-style: apa
+biblio-style: authoryear-comp
+biblatexoptions: [giveninits=true, maxbibnames=999, maxcitenames=2, mincitenames=1, uniquename=false, uniqueprimaryauthor=false, uniquelist=false, date=year, url=false, isbn=false, eprint=false, doi=true]
 always_allow_html: true
 output:
   bookdown::pdf_document2:
@@ -66,7 +67,8 @@ tryCatch(
 tinytex::tlmgr_install(setdiff("pdfcrop", tinytex::tl_pkgs()))
 
 knitr::opts_chunk$set(
-  dev = "cairo_pdf",
+  dev = "pdf",
+  dpi = 600,
   # dev.args = list(pointsize=32),
   echo = FALSE,
   # results = 'asis',
@@ -618,4 +620,14 @@ Scripts and R packages were written by BF.
 The manuscript was drafted by BF and MR.
 All authors contributed to and approved the final version of the manuscript.
 
+\renewcommand{\bibname}{References}
+\renewcommand{\bibfont}{\normalfont\footnotesize}
+\renewbibmacro*{volume+number+eid}{%
+  \printfield{volume}%
+%  \setunit*{\adddot}% DELETED
+  \setunit*{\addnbthinspace}% NEW (optional); there's also \addnbthinspace
+  \printfield{number}%
+  \setunit{\addcomma\space}%
+  \printfield{eid}}
+\DeclareFieldFormat[article]{number}{\mkbibparens{#1}}
 <!-- \processdelayedfloats -->
