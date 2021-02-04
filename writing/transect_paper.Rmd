@@ -162,12 +162,13 @@ Additionally, methods exist to place OTUs on a simplified tree based on taxonomi
 assignment method is SAP (statistical assignment package, Munch et al., 2008a Syst Biol 57: 750
 and Munch et al., 2008b Phil Trans Roy Soc B 363: 3997), another lowest common ancestor
 approach MEGAN (metagenomic analysis) Huson et al., 2016 PLoS Comp Biol 12: e1004957 that
-can parse BLAST reports or RDP Classifier reports.Near L114 - More refs to consider: See Ashelford et al., 2005 Appl Env Microbiol 71: 7724,
-Bidartondo et al., 2008 Science 319:1616, but also LeRay et al., 2019 PNAS 116: 22651 for a
-more recent take-->
+can parse BLAST reports or RDP Classifier reports.-->
 
 Assignment of taxonomic identities to environmental sequences is dependent on both the reference database and the algorithm used.
 Although the public INSDC databases [@karsch-mizrachi2018] are often used for sequence identification, the open nature of submission to these databases results in a substantial fraction of incorrect taxonomic annotations [@nilsson2006;@steinegger2020] as well as sequences of poor technical quality [@nilsson2012].
+<!--R4: Near L114 - More refs to consider: See Ashelford et al., 2005 Appl Env Microbiol 71: 7724,
+Bidartondo et al., 2008 Science 319:1616, but also LeRay et al., 2019 PNAS 116: 22651 for a
+more recent take-->
 Consequently <!--R5: add comma--> taxonomic assignments based on these databases may be incorrect or inconsistent.
 Several curated databases also exist which attempt to address these issues and which cover the whole fungal kingdom.
 <!--R4: see Nilsson et al., 2005 BMC Bioinformtics 6: 178-->
