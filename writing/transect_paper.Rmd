@@ -66,6 +66,10 @@ tryCatch(
 
 tinytex::tlmgr_install(setdiff("pdfcrop", tinytex::tl_pkgs()))
 
+onecolwidth = "80mm"
+twothirdwidth = "112mm"
+twocolwidth = "169mm"
+
 knitr::opts_chunk$set(
   dev = "cairo_pdf",
   # dev.args = list(pointsize=32),
@@ -77,7 +81,7 @@ knitr::opts_chunk$set(
   message = FALSE,
   warning = FALSE,
   external = TRUE,
-  out.width = "70%",
+  out.width = twothirdwidth,
   fig.align = "center"
 )
 
@@ -391,7 +395,7 @@ number or read abundance’. Is this figure based on rarefied, normalized data? 
 Text.-->
 <!--R5: again, were these analyses conducted on the entire (i.e. fungal and non-fungal) dataset, or just the fungal community?-->
 
-```{r venn, fig.cap="(ref:venn)", fig.scap = "(ref:venn-s)", fig.show="hold", out.width = "70%", fig.height = 4, fig.align="center", results="asis"}
+```{r venn, fig.cap="(ref:venn)", fig.scap = "(ref:venn-s)", fig.show="hold", fig.height = 4, fig.align="center", results="asis"}
 ggpubr::ggarrange(readd(vennplot_tech_ASV), readd(vennplot_tech_OTU), ncol = 2)
 grid::grid.legend(
   labels =  c("PacBio Short", "Illumina", "Ion Torrent"),
@@ -487,7 +491,7 @@ phylogeny-based methods tend to be more computationally intensive compared to BL
 RDP ex. shown for fungal ITS (Porter and Golding, 2011 New Phyt 192: 775 ) and fungal LSU
 (Porter and Golding, 2012 PLoS ONE 7: e35749).-->
 
-```{r taxon-chart, fig.cap = "(ref:taxon-chart)", fig.scap = "(ref:taxon-chart-s)", out.width = "100%"}
+```{r taxon-chart, fig.cap = "(ref:taxon-chart)", fig.scap = "(ref:taxon-chart-s)", out.width = twocolwidth}
 readd(taxon_chart_plot)
 ```
 
