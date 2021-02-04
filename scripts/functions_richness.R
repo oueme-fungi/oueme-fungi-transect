@@ -155,6 +155,8 @@ make_accum_plot <- function(sample_iNEXT, cluster_type) {
     dplyr::mutate(strategy = paste(tech, amplicon)) %>%
     dplyr::filter(method != "extrapolated") %>%
     ggplot(aes(x = m, y = qD, color = strategy)) +
+    # line for rarefaction
+    geom_vline(xintercept = 100, color = "gray50", linetype = "dashed") +
     # lines for each sample
     geom_line(aes(group = sample), alpha = 0.15) +
     # small points to represent the actual observed read depth and richness
@@ -164,7 +166,8 @@ make_accum_plot <- function(sample_iNEXT, cluster_type) {
     ylab(paste(cluster_type, "richness")) +
     scale_color_strategy(name = NULL) +
     ggforce::facet_zoom(
-      xy = startsWith(strategy, "PacBio"),
+      xlim = c(0, 3500),
+      ylim = c(0, 350),
       zoom.size = 1
     ) +
     theme_bw() +

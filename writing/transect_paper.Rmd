@@ -448,10 +448,10 @@ Despite the fact that experiment-wide OTU richness was lower than ASV richness (
 
 (ref:accum-ASV-s) ASV accumulation curves
 
-(ref:accum-ASV) Each curve represents rarefaction of a single sample or pooled pair of samples. Points at the end of each curve represent the actual read depth and observed ASV richness. Panel at left has enlarged scale to show PacBio more clearly.
-<!--R4: If you normalized your dataset by rarefying your samples to the lowest library size, it
-would be helpful if you added a vertical line to the plot indicating ASV richness after
-Normalization.-->
+(ref:accum-ASV) Each curve represents rarefaction of a single sample or pooled pair of samples.
+Points at the end of each curve represent the actual read depth and observed ASV richness.
+Panel at left has enlarged scale to show PacBio more clearly.
+Vertical dashed line at 100 reads indicates rarefaction level for ASV richness comparisons.
 <!--R5: again, were these analyses conducted on the entire (i.e. fungal and non-fungal) dataset, or just the fungal community?-->
 
 ```{r accum-ASV, fig.cap="(ref:accum-ASV-s). (ref:accum-ASV)", fig.scap = "(ref:accum-ASV-s)"}
@@ -610,9 +610,6 @@ Issue.-->
 
 DADA2 denoising may perform differently on different technologies (or perhaps sequencing runs), indicated by the fact that clustering ASVs at 97% led to substantially higher correspondence between both the set of OTUs recovered from the same library by different technologies and the read counts for each OTU (Figure\ \@ref(fig:read-compare)).
 ASV diversity appears to be artificially inflated in the Ion Torrent dataset relative to the Illumina and PacBio datasets, which gave remarkably similar ASV richness after rarefaction, despite a difference of around 200x in unrarefied sequencing depth (Figures\ \@ref(fig:venn) and \@ref(fig:alpha-compare)).
-<!--R4: I’m uncertain how to interpret your rarefaction curves since both axes are on a log scale.
-Does adequate read depth, saturated sampling, plateau in the same way that you would expect
-curves to on regular axes as this is normally plotted? Please clarify in the main text.-->
 This may be a result of the lower fraction of very high quality reads in the Ion Torrent dataset (Figure \@ref(fig:qual-check)).
 We used options for DADA2 intended to improve performance on technologies, like Ion Torrent, with higher rates of homopolymer indel errors [@callahan2020b], but our results suggest that this still does not result in performance comparable to that which DADA2 achieves on Illumina sequences, for which it was developed [@callahan2016].
 

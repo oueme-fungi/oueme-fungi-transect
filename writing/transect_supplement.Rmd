@@ -444,7 +444,10 @@ ggpubr::ggarrange(
 
 (ref:accum-OTU-s) 97% OTU accumulation curves
 
-(ref:accum-OTU) Each curve represents rarefaction of a single sample or pooled pair of samples. Points at the end of each curve represent the actual read depth and observed OTU richness. Panel at left has enlarged scale to show PacBio more clearly.
+(ref:accum-OTU) Each curve represents rarefaction of a single sample or pooled pair of samples.
+Points at the end of each curve represent the actual read depth and observed OTU richness.
+Panel at left has enlarged scale to show PacBio more clearly.
+Vertical dashed line at 100 reads indicates rarefaction level for OTU richness comparisons.
 
 ```{r accum-OTU, fig.cap="(ref:accum-OTU-s). (ref:accum-OTU)", fig.scap = "(ref:accum-OTU-s)"}
 readd(accum_plot_OTU)
