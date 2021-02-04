@@ -156,14 +156,17 @@ make_accum_plot <- function(sample_iNEXT, cluster_type) {
     dplyr::filter(method != "extrapolated") %>%
     ggplot(aes(x = m, y = qD, color = strategy)) +
     # lines for each sample
-    geom_line(aes(group = sample), alpha = 0.08) +
+    geom_line(aes(group = sample), alpha = 0.15) +
     # small points to represent the actual observed read depth and richness
     geom_point(data = ~dplyr::filter(., method == "observed"),
                alpha = 0.8, size = 1, shape = 1) +
     xlab("Number of rarefied reads") +
     ylab(paste(cluster_type, "richness")) +
     scale_color_strategy(name = NULL) +
-    scale_x_log10() +
-    scale_y_log10() +
-    theme_bw()
+    ggforce::facet_zoom(
+      xy = startsWith(strategy, "PacBio"),
+      zoom.size = 1
+    ) +
+    theme_bw() +
+    theme(legend.position = "top")
 }

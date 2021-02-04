@@ -54,6 +54,7 @@ dependencies:
   - r-ggpubr=0.2.5
   - r-ggnomics=0.1.1
   - r-ggrepel=0.8.2
+  - r-ggforce=0.3.1
   - bioconductor-ggtree=1.16.0
   - r-eulerr=6.1.0
   - r-metacoder=0.3.4

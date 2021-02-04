@@ -448,7 +448,7 @@ Despite the fact that experiment-wide OTU richness was lower than ASV richness (
 
 (ref:accum-ASV-s) ASV accumulation curves
 
-(ref:accum-ASV) Each curve represents rarefaction of a single sample or pooled pair of samples. Points at the end of each curve represent the actual read depth and observed ASV richness. Note logarithmic axes.
+(ref:accum-ASV) Each curve represents rarefaction of a single sample or pooled pair of samples. Points at the end of each curve represent the actual read depth and observed ASV richness. Panel at left has enlarged scale to show PacBio more clearly.
 <!--R4: If you normalized your dataset by rarefying your samples to the lowest library size, it
 would be helpful if you added a vertical line to the plot indicating ASV richness after
 Normalization.-->
