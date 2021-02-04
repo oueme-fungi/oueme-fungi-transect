@@ -174,7 +174,7 @@ Several curated databases also exist which attempt to address these issues and w
 <!--R4: see Nilsson et al., 2005 BMC Bioinformtics 6: 178-->
 The Unite database is a more curated <!--More curated?-->attempt to include all publically available ITS sequences (800\ 000 as of release 8.0), originally targetting fungi but now expanded to include all eukaryotes [@nilsson2019a], where efforts have been made to correct incorrect annotations and exclude low-quality sequences [@abarenkov2018a].
 The Ribosomal Data Project [RDP, @cole2014] hosts two manually curated fungal barcode sequence databases, which are specifically intended for use in taxonomic assignment of sequences:
-the Warcup ITS database, containing 18\ 000 manually curated fungal ITS sequences [@deshpande2016], and the RDP fungal LSU training set, containing 8000 manually curated LSU sequences from fungi and 3000 from other eukaryotic groups [@liu2012].
+the Warcup ITS training set, containing 18\ 000 manually curated fungal ITS sequences [@deshpande2016], and the RDP fungal LSU training set, containing 8000 manually curated LSU sequences from fungi and 3000 from other eukaryotic groups [RDP-LSU, @liu2012].
 Although the quality of sequences and taxonomic annotations is undoubtedly higher in these more curated databases, they are inherently limited in taxonomic coverage and do not include the most recently published sequences.
 
 Assigning taxonomy to unknown sequences using BLAST requires *a priori* choice of similarity thresholds for different taxonomic ranks.
@@ -198,12 +198,8 @@ Turnover scale varies between different ecosystems and taxonomic groups,
 and can be measured by the range at which a Mantel correlogram indicates significant autocorrelation,
 or by fitting a function to an empirical distance-decay curve of community dissimilarity vs. distance [@legendre2012].
 
-We compare three different sequencing platforms (PacBio RS II, Illumina MiSeq, Ion Torrent Ion S5), long and short amplicons, three different taxonomic assignment algorithms (RDP classifier, SINTAX, IDTAXA)
-with three different reference databases (Unite, Warcup, RDP),
-<!--R4: RDP reference sets include UNITE ITS and Warcup ITS as well as an LSU reference set
-(Liu et al. 2012). I think it would be more clear to replace ...(Unite, Warcup, RDP) to (UNITE ITS,
-Warcup ITS, Liu LSU)? As ‘RDP’ generally refers to the better-known prokaryote SSU rRNA gene
-reference set.-->
+We compare three different sequencing platforms (PacBio RS II, Illumina MiSeq, Ion Torrent Ion S5), long and short amplicons, three different taxonomic assignment algorithms (RDPC, SINTAX, IDTAXA)
+with three different reference databases (Unite, Warcup, RDP-LSU),
 and both non-phylogenetic and phylogenetic community distance measures.
 We also present new algorithms for dividing the LSU into domains, combining denoising results from multiple domains as a strategy to capture more ASVs from long amplicons in diverse commmunities, and incorporating phylogenetic information into taxonomic assignments.
 
@@ -299,12 +295,10 @@ An ML tree was produced using RAxML version 8.2.12 [@stamatakis2014] using the G
 The tree was rooted outside kingdom Fungi and non-Fungi were removed based on taxonomic assignments (see below and Supplementary methods).
 <!--R5: I realize that is covered in the Supp. methods in more detail but I would at least give one sentence about how you chose some reference sequences to parameterize the tree here-->
 
-Taxonomic annotations of the RDP LSU fungal training set version 11.5 [@cole2014] and Warcup ITS training set [@deshpande2016] were mapped to a uniform taxonomic classification system (see Supplementary Methods).
-Preliminary taxonomic assignment was performed to genus level separately on the ITS region using Unite and Warcup and on the LSU region using RDP, respectively, as taxonomic references.
-<!--R4: ...LSU region using RDP. I suggest you refer to the RDP LSU reference set (Liu et al., 2012)
-instead of just to RDP which is better known for its prokaryote SSU rRNA gene classifier.-->
+Taxonomic annotations of the RDP-LSU training set version 11.5 [@liu2012;@cole2014] and Warcup ITS training set [@deshpande2016] were mapped to a uniform taxonomic classification system (see Supplementary Methods).
+Preliminary taxonomic assignment was performed to genus level separately on the ITS region using Unite and Warcup and on the LSU region using RDP-LSU, respectively, as taxonomic references.
 For each region/reference combination, taxonomy was assigned using three popular algorithms:
-the RDP Naïve Bayesian Classifier [RDPC, @wang2007] as implemented in DADA2;
+the RDPC [@wang2007] as implemented in DADA2;
 SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016];
 and IDTAXA [@murali2018].
 A relatively lax confidence threshhold of 50% was used for all three algorithms.
@@ -483,9 +477,9 @@ At most taxonomic ranks, the RDPC algorithm assigned the greatest fraction of re
 
 (ref:taxon-chart-s) Summary of taxonomic assignments
 
-(ref:taxon-chart) Fraction of ASVs (left) and reads (right) assigned to each taxonomic rank, for different sequencing technologies (PacBio RS II, Illumina MiSeq, Ion Torrent Ion S5), amplicons (Long, Short), reference databases (Unite, Warcup, RDP), and assignment algorithms (PHYLOTAX, Consensus, RDPC, SINTAX, IDTAXA).
+(ref:taxon-chart) Fraction of ASVs (left) and reads (right) assigned to each taxonomic rank, for different sequencing technologies (PacBio RS II, Illumina MiSeq, Ion Torrent Ion S5), amplicons (Long, Short), reference databases (Unite, Warcup, RDP-LSU), and assignment algorithms (PHYLOTAX, Consensus, RDPC, SINTAX, IDTAXA).
 Consensus and PHYLOTAX assignments are based on the consensus of RDPC, SINTAX, and IDTAXA, using all available databases and, in the case of PHYLOTAX, phylogenetic information.
-<!--R4: This figure needs a ‘short’ title. Suggest you change RDP to RDP LSU training set. I’d
+<!--R4: This figure needs a ‘short’ title. I’d
 be interested in seeing a comparison of run times for each taxonomic assignment or a sentence
 added to the main text comparing run times. In the discussion you may want to indicate that
 phylogeny-based methods tend to be more computationally intensive compared to BLAST or
@@ -633,14 +627,11 @@ We assert that, for studies targeting ECM fungi in particular, more complete cap
 
 Assignment of ecological function to environmental fungal sequences is dependent on accurate taxonomic identification, especially at the genus level or below [@nguyen2016funguild].
 However, different combinations of algortihms and reference datasets vary in their performance at confidently assigning taxonomy to sequences.
-Although the RDP fungal training set and Unite performed comparably at taxonomic placement of long amplicon sequences, the Warcup database placed notably fewer sequences at all taxonomic levels for all datasets (Figure \@ref(fig:taxon-chart)).
+Although RDP-LSU and Unite performed comparably at taxonomic placement of long amplicon sequences, the Warcup database placed notably fewer sequences at all taxonomic levels for all datasets (Figure \@ref(fig:taxon-chart)).
 This is probably due to two factors.
 First, the Warcup database does not include any non-fungi, so it cannot place any non-fungal sequences.
 Second, due to its low-density coverage of the fungal kingdom (18\ 000 sequences vs. 800\ 000 for Unite), it is likely that many ITS sequences, especially from uncultured tropical soil fungi, have no close match in the Warcup database, and so cannot be placed.
-<!-- R4: replace ‘RDP fungal training set’ with RDP LSU training set (Liu et al., 2012) as the RDP
-has 3 fungal training sets (UNITE ITS, Warcup ITS, LSU) in addition to the better-known
-prokaryote training set SSU rRNA.-->
-The RDP fungal training set, which has even fewer sequences (8000 fungi plus 3000 other eukaryotes), is probably more successful due to higher sequence conservation in LSU.
+RDP-LSU, which has even fewer sequences (8000 fungi plus 3000 other eukaryotes), is probably more successful due to higher sequence conservation in LSU.
 @heeger2019 also found that a more conserved region, in their case 5.8S, outperformed ITS at placing sequences without close database matches.
 Of the three algorithms tested, IDTAXA placed fewer sequences than RDPC or SINTAX with all databases, as expected given its more well-calibrated and conservative confidence scores [@murali2018a], but this was particularly dramatic when paired with the Warcup database, where IDTAXA placed <25% of ASVs even to phylum.
 <!--R5: This discussion of placement is good. However, it suffers from one serious weakness. It seems to assume that when things are placed that they are placed CORRECTLY. In my experience some things are obviously incorrectly placed. You should explicitly say whether you actually dealt with his problem or not. If not, at least give some caveats here!-->
@@ -737,7 +728,7 @@ The SNP&SEQ Platform is also supported by the Swedish Research Council and the K
  - R packages `LSUx`, `tzara`, `phylotax`, and `FUNGuildR` are available on Github at https://github.com/brendanf/LSUx, https://github.com/brendanf/tzara, https://github.com/brendanf/phylotax, and https://github.com/brendanf/FUNGuildR.
 These packages are currently being prepared for submission to CRAN/Bioconductor.
 If they are not accepted prior to final publication, snapshots will be archived at Dryad.
- - FASTA-format files for the RDP, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper will be archived at Dryad prior to publication.
+ - FASTA-format files for the RDP fungal LSU training set, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper will be archived at Dryad prior to publication.
  - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect.
 
 # Author Contributions {-}

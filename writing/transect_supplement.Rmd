@@ -94,7 +94,7 @@ gethash <- function(...) purrr::map_chr(purrr::flatten(list(...)), drake_cache()
 
 **Supplementary file 3**: ML tree of all long metabarcoding ASVs (ITS1--5.8S--ITS2--LSU) assigned to kingdom Fungi.
 Thick branches represent rapid bootstrap values >90%.
-Taxonomic assignment by PHYLOTAX, based on assignments using RDPC, SINTAX, and IDTAXA, with Unite, Warcup, and RDP reference databases. 
+Taxonomic assignment by PHYLOTAX, based on assignments using RDPC, SINTAX, and IDTAXA, with Unite, Warcup, and RDP-LSU reference databases. 
 Taxon names in blue were not fully resolved with PHYLOTAX, and are given as a list of alternative assignments, along with the number of methods which gave each assignment (max 9).
 Taxon names in red were reconstructed as polyphyletic.
 In some cases, this may be due to a poorly identified sequence "splitting" the group (e.g., the single *Monascus* sequence nested in *Aspergillus*; Aspergillaceae and Trichocomaceae sequences nested in Onygenales), but in other cases, the tree has clearly failed to reconstruct groups which are generally considered to be monophyletic based on multi-gene trees (e.g., Dothidiomycetes, Cantharellales).
@@ -192,13 +192,13 @@ However, for our dataset, the single LSU region which would be extracted by ITSx
 
 ## Phylogenetic inference and taxonomy assignment {#phylogeny-supplement}
 
-### Uniform taxonomic classification for Unite, Warcup, and RDP
+### Uniform taxonomic classification for Unite, Warcup, and RDP-LSU
 
 The taxonomic classification system is based on the Unite database version 8 [@nilsson2019a].
 In particular, the classification for fungi was according to @tedersoo2018, and for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c as described in [@tedersoodata2017].
 Although the latter system is not formally published, it is consistent with the annotations for non-fungal eukaryotes in the Unite database.
 Additionally, it is a system with both purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as that of the International Society of Protistologists [@adl2019], which utilizes hierarchical nameless ranks.
-FASTA-format files for the RDP, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate.
+FASTA-format files for the RDP-LSU, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate.
 
 ### Rooting the fungal tree
 
@@ -472,7 +472,7 @@ Groups which are not represented by at least 1% of reads or 1% of ASVs in any da
 ASVs which could not be further assigned are labelled "?".
 ASV richness and read abundance are displayed as the mean across sequencing runs.
 Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
-The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
+The RDP-LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
 
 ```{r taxa, fig.cap = "(ref:taxa-s). (ref:taxa)", fig.scap="(ref:taxa-s)", fig.width = 9, fig.height = 5, out.width="100%", fig.env = "sidewaysfigure", cache=TRUE, extra.cache=gethash("heattree")}
 theme <- theme_update(panel.border = element_blank())
@@ -509,7 +509,7 @@ readd(taxon_plot_short_kingdom)
 (ref:ecm) Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
 "unidentified" denotes ASVs which were assigned to kingdom Fungi, but could not be identified to family level or could not be assigned ECM status based on the available identification.
 Height of each bar represents the fraction of reads represented by that bar.
-Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
+Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP-LSU; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
 
 ```{r ecm, fig.cap = "(ref:ecm-s). (ref:ecm)", fig.scap = "(ref:ecm-s)", fig.width = 7, cache=TRUE, extra.cache=gethash("taxon_reads"), more.cache = datasets}
 readd(taxon_plot_ecm)
@@ -522,7 +522,7 @@ Values are log~10~ of the ratio of mean values across all sequencing technologie
 Groups which are not represented by at least 1% of reads or 1% of ASVs in any dataset are collapsed into nodes labeled "*".
 ASVs which could not be further assigned are labelled "?".
 Taxonomic assignment is by strict consensus of multiple ITS databases (Unite, Warcup) and assignment algorithms (RDPC, SINTAX, IDTAXA).
-The RDP LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
+The RDP-LSU database was not included, to ensure consistent assignment between long and short amplicon libraries.
 
 ```{r ecm-heattree, fig.cap = "(ref:ecm-heattree-s). (ref:ecm-heattree)", fig.scap = "(ref:ecm-heattree-s)", out.width = "100%", , cache=TRUE, extra.cache=gethash("ecm_heattree")}
 oldtheme <- theme_update(panel.border = element_blank())

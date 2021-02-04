@@ -208,7 +208,7 @@ format_taxon_reads <- function(taxon_reads, funguild_db) {
       "reference",
       factor,
       levels = c("All", "unite", "warcup", "rdp_train"),
-      labels = c("All", "Unite", "Warcup", "RDP")
+      labels = c("All", "Unite", "Warcup", "RDP-LSU")
     ) %>%
     mutate_at("reference", replace_na, "All") %>%
     mutate_at("tech", factor, levels = c("PacBio", "Illumina", "Ion Torrent")) %>%
@@ -270,7 +270,7 @@ compile_taxon_chart <- function(taxon_reads) {
     ) %>%
     rename(Reads = reads) %>%
     mutate_at("reference", as.character) %>%
-    mutate_at("reference", factor, levels = c("All", "Unite", "Warcup", "RDP")) %>%
+    mutate_at("reference", factor, levels = c("All", "Unite", "Warcup", "RDP-LSU")) %>%
     pivot_longer(cols = c("Reads", "ASVs"), names_to = "type", values_to = "frac")
 }
 
