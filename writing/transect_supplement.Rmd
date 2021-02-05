@@ -156,7 +156,7 @@ Raw reads were divided into shorter regions by matching to covariance models (CM
 First, the 5.8S rDNA was located in each read by searching for Rfam model RF0002 [@kalvari2018] using `cmsearch` from Infernal 1.1.2 [@nawrocki2013], and all bases before the 5.8S were assigned to ITS1.
 No attempt was made to remove the approximately 12\ bp fragment of the SSU from the 5' end of ITS1 in the long amplicons; it was too short to be reliably detected by a CM or the HMMs employed by ITSx [@bengtsson-palme2013].
 <!--This approach was able to identify both the 5' and 3' ends of the 5.8S rDNA more consistently and quickly than ITSx [@bengtsson-palme2013, data not shown].-->
-A reference alignment including conserved RNA base pairing between and within the 5.8S and relevant portions of LSU was generated from the fungal 28S RNA seed alignment from RDP release 11.5 [@glockner2017; @cole2014] by truncating after the LR5 primer site and using the reference line to annotate the variable regions *sensu* @michot1984 and @raue1988.
+A reference alignment including conserved RNA base pairing between and within the 5.8S and relevant portions of LSU was generated from the fungal LSU RNA seed alignment from RDP release 11.5 [@glockner2017; @cole2014] by truncating after the LR5 primer site and using the reference line to annotate the variable regions *sensu* @michot1984 and @raue1988.
 A CM was generated from the alignment using `cmbuild` from Infernal.
 The fragment of each read beginning with the 5.8S rDNA was then aligned to the CM using `cmalign` from Infernal.
 The annotation line in the CM alignment for each read was then used to split the reads into alternating more-conserved and less-conserved domains as shown in Figure\ \@ref(fig:regions),
@@ -192,7 +192,7 @@ However, for our dataset, the single LSU region which would be extracted by ITSx
 
 ## Phylogenetic inference and taxonomy assignment {#phylogeny-supplement}
 
-### Uniform taxonomic classification for Unite, Warcup, and RDP-LSU
+### Uniform taxonomic classification for Unite, Warcup, and RDP-LSU {#reannotate}
 
 The taxonomic classification system is based on the Unite database version 8 [@nilsson2019a].
 In particular, the classification for fungi was according to @tedersoo2018, and for non-fungal eukaryotes was according to the proposed system of @tedersoo2017c as described in [@tedersoodata2017].
@@ -200,7 +200,7 @@ Although the latter system is not formally published, it is consistent with the 
 Additionally, it is a system with both purportedly monophyletic taxa and a uniform set of taxon ranks, which make it more appropriate for sequence-based taxonomic assignment algorithms than more accepted classification systems such as that of the International Society of Protistologists [@adl2019], which utilizes hierarchical nameless ranks.
 FASTA-format files for the RDP-LSU, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate.
 
-### Rooting the fungal tree
+### Rooting the fungal tree {#rooting}
 
 The phylogenetic tree was rooted based on sequences which were confidently assigned to kingdom based on the primary taxonomic assignments.
 Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset, and thus it cannot be used to directly assign kingdoms.
@@ -211,7 +211,7 @@ Inspection of the tree verified that these four kingdoms were reciprocally monop
 The kingdom Fungi was then identified as the minimal clade containing all ASVs which were confidently identified  as kingdom Fungi.
 ASVs falling outside this clade, including the excluded *Tulasnella* sequences, were not included in downstream fungal community analysis.
 
-### Refining taxonomic assignments with a phylogenetic tree: `PHYLOTAX`
+### Refining taxonomic assignments with a phylogenetic tree: `PHYLOTAX` {#phylotax}
 
 PHYLOTAX refinements are based on (1) taxonomic assignments from other, primary assignment algorithms, and (2) a phylogenetic tree.
 Taxa at each rank are assigned to a node and all its descendants if that taxon is consistent with the reference-based taxonomic assignments for each of the descendants (Figure\ \@ref(fig:phylotax)).
