@@ -1830,6 +1830,7 @@ plan2 <- drake_plan(
     {
       file_in(!!file.path("writing", "transect_paper.tex"))
       file_in(!!file.path("writing", "transect_supplement.tex"))
+      file_in(!!file.path("writing", "transect_supplement.pdf"))
       file_out(!!file.path("writing", "transect_paper.pdf"))
       tinytex::xelatex(
         "transect_paper.tex",
@@ -1844,6 +1845,7 @@ plan2 <- drake_plan(
     {
       file_in(!!file.path("writing", "transect_paper_diff.tex"))
       file_in(!!file.path("writing", "transect_supplement_diff.tex"))
+      file_in(!!file.path("writing", "transect_supplement_diff.pdf"))
       file_out(!!file.path("writing", "transect_paper_diff.pdf"))
       tinytex::xelatex(
         "transect_paper_diff.tex",
