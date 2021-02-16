@@ -511,7 +511,7 @@ readd(taxon_plot_short_kingdom)
 Height of each bar represents the fraction of reads represented by that bar.
 Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP-LSU; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
 
-```{r ecm, fig.cap = "(ref:ecm-s). (ref:ecm)", fig.scap = "(ref:ecm-s)", fig.width = 7, cache=TRUE, extra.cache=gethash("taxon_reads"), more.cache = datasets}
+```{r ecm, fig.cap = "(ref:ecm-s). (ref:ecm)", fig.scap = "(ref:ecm-s)", fig.width = 7, cache=TRUE, extra.cache=gethash("taxon_plot_ecm"), more.cache = datasets}
 readd(taxon_plot_ecm)
 ```
 
