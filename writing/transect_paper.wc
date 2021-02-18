@@ -2,7 +2,7 @@
 !!! Could not identify document class. !!!
 File: writing/transect_paper.tex
 Encoding: utf8
-Words in text: 7979
+Words in text: 8248
 Words in headers: 74
 Words outside text (captions, etc.): 749
 Number of headers: 24
@@ -15,8 +15,8 @@ Subcounts:
   197+1+0 (1/0/0/0) Section: Abstract}\label{abstract}
   1601+1+0 (1/0/0/0) Section: Introduction}\label{introduction}
   0+3+0 (1/0/0/0) Section: Materials and Methods}\label{materials-and-methods}
-  180+1+0 (1/0/0/0) Subsection: Sampling}\label{sampling}
-  317+4+0 (1/0/0/0) Subsection: DNA amplification and sequencing}\label{dna-amplification-and-sequencing}
+  198+1+0 (1/0/0/0) Subsection: Sampling}\label{sampling}
+  568+4+0 (1/0/0/0) Subsection: DNA amplification and sequencing}\label{dna-amplification-and-sequencing}
   986+9+190 (3/1/1/0) Subsection: Bioinformatics}\label{bioinformatics}
   66+7+0 (1/0/0/0) Subsection: Effect of sequencing strategy on recovered community}\label{effect-of-sequencing-strategy-on-recovered-community}
   265+2+0 (1/0/0/0) Subsection: Spatiotemporal analysis}\label{spatiotemporal-analysis}

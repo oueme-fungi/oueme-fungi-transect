@@ -101,40 +101,18 @@ In some cases, this may be due to a poorly identified sequence "splitting" the g
 
 # Supplementary methods
 
-## Sampling {#Sampling-supplement}
+## Sample preservation and extraction {#Sampling-supplement}
 
-Sampling was conducted at two sites (Ang: N 9.75456° E 2.14064°; Gan: N 9.75678° E 2.31058°) approximately 30\ km apart in the _Forêt Classée de l'Ouémé Supérieur_ (Upper Ouémé Forest Reserve) in central Benin.
-Both sites were located in West Sudanian savannah woodlands [@olson2001;@yorou2014] dominated by the ECM host tree _Isoberlinia doka_ (Caesalpinioideae).
-At each site, 25\ soil samples were collected along a single 24\ m linear transect at intervals of 1\ m in May 2015.
-One third of the sample locations (3\ m spacing) were resampled one year later in June 2016, for a total of 67 samples.
-For each sample, any coarse organic debris <!--Do you have any definition? Wider than 5 mm? MR-->was removed from the soil surface and a sample of approximately 5\ cm\ × 5\ cm\ × 5\ cm was extracted with a sterilized knife blade.
-Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
-Approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and placed into a separate 2.0\ mL microtube containing 750\ mL of field lysis/preservation buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA).
+Soil samples described in the main text were placed into separate 2.0\ mL microtubes containing 750\ mL of field lysis/preservation buffer and lysis beads (Xpedition^TM^ Soil/Fecal DNA miniprep, Zymo Research Corporation, Irvine, California, USA).
 Due to the inavailability of refrigeration, extraction was initiated in the field according to the manufacturers instructions by lysis using a handheld bead-beater (TerraLyser^TM^; Zymo Research Corporation).
 
 An additional sample was collected at every sampling location (1-m spacing) in 2016 using LifeGuard^TM^ Soil Preservation Solution (MO BIO, Carlsbad, CA; USA) for preservation, without field lysis.
 Sequencing results for these 50 samples differed significantly (PERMANOVA with 9999 permutations, $p < `r readd(buffer_adonis)["buffer","p.value"] %>% formatC(format = "f")`$, $R^2 = `r readd(buffer_adonis)["buffer","R2"] %>% formatC(format = "f", digits = 2)`$) from samples preserved using the Xpedition^TM^ lysis buffer (Figures \@ref(fig:buffer-pcoa), \@ref(fig:buffer-compare-long), and \@ref(fig:buffer-compare-short)); as such the LifeGuard preserved samples were excluded from our spatial analyses.
 However, reads from these samples were included in the full bioinformatics workflow, including ASV calling, OTU clustering, and phylogenetic trees.
 
-## DNA extraction, amplification, and sequencing {#DNA-supplement}
-
-After field lysis, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit (see above).
+After returning to the laboratory, DNA was extracted using the Xpedition^TM^ Soil/Fecal Prep kit (see above).
 Samples preserved using LifeGuard were first centrifuged at 10\ 000\ g for 1\ minute, after which the supernatant was removed and DNA was extracted from the remaining soil using the Soil/Fecal Prep kit as for the other samples.
 DNA was quantified fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
-
-For the short amplicon, forward primers included sample-specific indexes and adapters for multiplexing (Supplementary File 1).
-Amplification was performed by polymerase chain reaction (PCR) in 20µl reactions containing 200\ µM dNTP mix, 250\ µM indexed gITS7 primer,
-150µM ITS4m, 2mM MgCl~2~, 0.1\ U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7\ ng purified DNA in Dream *Taq* buffer.
-The reaction conditions were 10\ min at 95°, followed by 35\ cycles of 60\ s at 95°, 45\ s at 56°, and 50\ s at 72°, and finally 3\ min at 72°.
-Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity.
-
-For the long amplicon, both forward and reverse primers included indexes for combinatorical multiplexing (Supplementary File 2).
-PCR was performed as for the short amplicons, but with 500\ µM of each of the two primers.
-Reaction conditions were 10\ min at 95°, 30\ cycles of 45\ s at 95°, 45\ s at 59°, and 90\ s at 72°, and finally 10\ min at 72°.
-Each reaction was performed in three technical replicates as for short amplicons.
-
-After pooling of technical replicates, amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically as above.
-An aliquot of 100\ ng of DNA from each sample (or the total PCR product if less than 100\ ng) was pooled into two libraries each for long and short amplicons.
 
 ## Denoising and clustering {#denoising-supplement}
 

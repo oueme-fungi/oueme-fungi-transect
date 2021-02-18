@@ -197,16 +197,31 @@ Sampling was conducted at two sites, near the villages of Angaradebou (Ang: N 9.
 Both sites were located in West Sudanian savannah woodlands [@olson2001;@yorou2014] dominated by the ECM host tree _Isoberlinia doka_ (Fabaceae tr. Amherstieae).
 At each site, 25\ soil samples were collected along a single 24\ m linear transect at intervals of 1\ m in May 2015.
 One third of the sample locations (3\ m spacing) were resampled one year later in June 2016, for a total of 67 samples.
-For each sample, coarse organic debris was removed from the soil surface and a sample of approximately 5\ cm\ × 5\ cm\ × 5\ cm was extracted with an ethanol sterilized knife blade and homogenized by manually breaking up clumps and mixing inside a plastic zipper bag.
-A subsample of approximately 250\ mg was stored in DNA-preservation buffer and returned to the laboratory for extraction (see Supplementary Methods \@ref(DNA-supplement) for preservation and extraction methods).
+For each sample, coarse organic debris was removed from the soil surface and a sample of approximately 5\ cm\ × 5\ cm\ × 5\ cm was extracted with an ethanol sterilized knife blade.
+Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
+A subsample of approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and stored in DNA-preservation buffer before return to the laboratory for extraction (see Supplementary Methods \@ref(Sampling-supplement) for preservation and extraction methods).
 
 ## DNA amplification and sequencing
+
 DNA extracts were sequenced using four distinct strategies, with two different amplicon lengths (long and short; Figure\ \@ref(fig:regions)a) and three different technologies (PacBio, Ion Torrent, and Illumina) for the short amplicon.
 Due to length limitations of Ion Torrent and Illumina sequencing, long amplicons were only sequenced with PacBio.
 The short amplicon (approximately 300\ bp) targeted the full ITS2 region as well as parts of the flanking 5.8S and large subunit (LSU) rDNA, using gITS7 [@ihrmark2012] as the forward primer and an equimolar mix of ITS4 [@white1990amplification] and ITS4a [@urbina2016] as the reverse primer.
 The long amplicon (approximately 1500\ bp) targeted the full ITS region including the 5.8S rDNA and approximately 950\ bp at the 5' end of the LSU, including the first three variable regions (Figure\ \@ref(fig:regions)a), using ITS1 [@white1990amplification] as the forward primer and LR5 [@vilgalys1990] as the reverse primer.
 Each PCR run also included a blank sample and a positive control consisting of freshly extracted DNA from a commercially purchased fruitbody of *Agaricus bisporus*.
-See Supplementary Methods \@ref(DNA-supplement) for PCR and library preparation protocols.
+
+For the short amplicon, forward primers included sample-specific indexes and adapters for multiplexing (Supplementary File 1).
+PCR amplification was performed in 20µl reactions containing 200\ µM dNTP mix, 250\ µM indexed gITS7 primer,
+150µM ITS4m, 2mM MgCl~2~, 0.1\ U *Taq* polymerase (Dream *Taq*, Thermo Fisher Scientific, Waltham, MA, USA) and 3--7\ ng purified DNA in Dream *Taq* buffer.
+The reaction conditions were 10\ min at 95°, followed by 35\ cycles of 60\ s at 95°, 45\ s at 56°, and 50\ s at 72°, and finally 3\ min at 72°.
+Each reaction was conducted in three technical replicates to reduce the effect of PCR stochasticity.
+
+For the long amplicon, both forward and reverse primers included indexes for combinatorial multiplexing (Supplementary File 2).
+PCR was performed as for the short amplicons, but with 500\ µM of each of the two primers.
+Reaction conditions were 10\ min at 95°, 30\ cycles of 45\ s at 95°, 45\ s at 59°, and 90\ s at 72°, and finally 10\ min at 72°.
+Each reaction was performed in three technical replicates as for short amplicons.
+
+After pooling of technical replicates, amplicons were purified using SPRI beads [@vesterinen2016] and quantified fluorometrically using Quant-iT^TM^ PicoGreen^TM^ dsDNA (Thermo Fisher Scientific, Waltham, MA, USA) fluorescent indicator dye on a Infinite F200 plate spectrofluorometer (Tecan Trading AG, Männedorf, Switzerland) according to the manufacturer's protocol.
+An aliquot of 100\ ng of DNA from each sample (or the total PCR product if less than 100\ ng) was pooled into two libraries each for long and short amplicons.
 
 Each library was sequenced on a PacBio RS II sequencer at the Uppsala Genome Center (UGC; Uppsala Genome Center, Science
 for Life Laboratory, Dept. of Immunology, Genetics and Pathology, Uppsala University, BMC, Box 815, SE-752\ 37 UPPSALA, Sweden).
