@@ -198,7 +198,7 @@ Both sites were located in West Sudanian savannah woodlands [@olson2001;@yorou20
 At each site, 25\ soil samples were collected along a single 24\ m linear transect at intervals of 1\ m in May 2015.
 One third of the sample locations (3\ m spacing) were resampled one year later in June 2016, for a total of 67 samples.
 For each sample, coarse organic debris was removed from the soil surface and a sample of approximately 5\ cm\ × 5\ cm\ × 5\ cm was extracted with an ethanol sterilized knife blade and homogenized by manually breaking up clumps and mixing inside a plastic zipper bag.
-A subsample of approximately 250\ mg was preserved and returned to the laboratory for extraction (see Supplementary Methods \@ref(DNA-supplement) for preservation and extraction methods).
+A subsample of approximately 250\ mg was stored in DNA-preservation buffer and returned to the laboratory for extraction (see Supplementary Methods \@ref(DNA-supplement) for preservation and extraction methods).
 
 ## DNA amplification and sequencing
 DNA extracts were sequenced using four distinct strategies, with two different amplicon lengths (long and short; Figure\ \@ref(fig:regions)a) and three different technologies (PacBio, Ion Torrent, and Illumina) for the short amplicon.
@@ -231,8 +231,10 @@ Read pairs where the primers were found in reverse orientation were kept in sepa
 All amplicons were denoised using DADA2 version `r packageVersion("dada2")` according to the ITS pipeline workflow [@callahan2016;@callahan2020], with technology-specific modifications for Ion Torrent [@callahan2020b] and PacBio [@callahan2019].
 Although this was successful for the short amplicons on all technologies, only `r readd(region_table)$ASVs[readd(region_table)$region=="long"]` ASVs were obtained for the long amplicons, representing `r percent(readd(region_table)$reads[readd(region_table)$region == "long"]/as.integer(gsub(" ", "", readd(demuxcounts)["pb_500"])), format = "d")` of the trimmed reads.
 
-We conclude that this poor performance was due to a combination of long amplicon length and low sequencing depth relative to community diversity (see Supplementary Methods \@ref(long-numbers)).
-We therefore developed a new workflow to assemble ASVs from the long amplicons by splitting the reads into homologous domains, including the two ITS regions, 5.8S, the variable D1--3 regions of LSU [@michot1984], and the conserved LSU regions between the D regions, here referred to as LSU1--4 (Figure\ \@ref(fig:regions)a), followed by independently denoising reads from each domain, concatenating the denoised domains, and finally forming consensus sequences based on ITS2 identity.
+We conclude that this poor performance was due to a combination of long amplicon length and low sequencing depth relative to community diversity, which lead to most biological variants being represented only by a cluster of reads differing by a small number of unique sequencing errors (for calculations see Supplementary Methods \@ref(long-numbers)).
+We therefore developed a new workflow to assemble ASVs from the long amplicons by splitting the reads into homologous domains, including the two ITS regions, 5.8S, the variable D1--3 regions of LSU [@michot1984], and the conserved LSU regions between the D regions, here referred to as LSU1--4 (Figure\ \@ref(fig:regions)a).
+We then independently denoised reads from each domain and concatenating the denoised domains for each read.
+Finally denoised reads were clustered based on 100% ITS2 identity, and a consensus ASV was calculated for each cluster.
 We used this method, implemented in the new R packages `LSUx` (splitting reads into homologous regions; https://github.com/brendanf/LSUx) and `tzara` (reassembling regions and generating full-length consensus ASVs; https://github.com/brendanf/tzara) and detailed in Supplementary Methods \@ref(denoising-supplement), for all of the PacBio and Ion Torrent datasets.
 Because the `LSUx` plus `tzara` method as currently implemented is not applicable to Illumina paired-end reads, the ASVs generated from the Illumina dataset according to the standard DADA2 workflow were used.
 The ITS2 region was extracted from the ASVs using `LSUx` for comparison to the results from the other technologies.
@@ -257,7 +259,7 @@ ggpubr::ggarrange(
 Full length long amplicon ASVs were aligned using DECIPHER [@wright2015] with up to 10\ iterations of alternating progressive alignment and conserved RNA secondary structure calculation, followed by 10\ refinement iterations.
 This alignment was truncated at a position after the D3 region corresponding to base 907 of the *Saccharomyces cerevisiae* S288C reference sequence for LSU, because several sequences had introns after this position, as also observed in several fungal species by @holst-jensen1999.
 An ML tree was produced using RAxML version 8.2.12 [@stamatakis2014] using the GTR+GAMMA model and rapid bootstrapping with the MRE_IGN stopping criterion.
-Sequences confidently assigned outside kingdom Fungi by at least five of the primary taxonomic identification methods were used to root the tree, and sequences outside the clade defined by confidently identified Fungi were removed (see below and Supplementary Methods \@ref(rooting)).
+Sequences confidently (i.e., by at least five of the primary taxonomic identification methods) assigned outside kingdom Fungi  were used to root the tree, and sequences outside the clade defined by confidently identified Fungi were removed (see below and Supplementary Methods \@ref(rooting)).
 
 Taxonomic annotations of the RDP-LSU training set version 11.5 [@liu2012;@cole2014] and Warcup ITS training set [@deshpande2016] were mapped to a uniform taxonomic classification system (see Supplementary Methods \@ref(reannotate)).
 Primary taxonomic assignment was performed to genus level separately on the ITS region using Unite and Warcup and on the LSU region using RDP-LSU, respectively, as taxonomic references.
@@ -270,7 +272,7 @@ Each full-length ASV was thus given up to nine primary taxonomic assignments (th
 ASVs from the short-amplicon datasets for which no matching long-amplicon ASV could be reconstructed were taxonomically assigned using Unite and Warcup on the full length of the short amplicon.
 
 For full-length long-amplicon ASVs, the primary taxonomic assignments were refined with the new algorithm PHYLOTAX.
-The PHYLOTAX algorithm resolves conflictsm one or more primary assignment methods (see Figure\ \@ref(fig:phylotax) and Supplementary Methods \@ref(phylotax)).
+The PHYLOTAX algorithm resolves conflicts among one or more primary assignment methods (see Figure\ \@ref(fig:phylotax) and Supplementary Methods \@ref(phylotax)).
 It is available in the new R package `phylotax` at https://github.com/brendanf/phylotax.
 
 ASVs which were not present in the tree, either because they were not represented in the long-amplicon dataset, or because full-length ASV reconstruction failed, were given refined taxonomic assignments using a strict consensus of the different primary assignments at each rank, resulting in a consensus assignment equivalent to the "last common ancestor" of the primary assignments [@huson2007].
@@ -293,6 +295,8 @@ Each of the distance matrices was used to calculate a Mantel correlogram with a 
 Separate correlograms were drawn for samples taken during the same year and samples separated in time by one year, in order to assess the degree to which the soil community changes over the course of one year.
 Additionally, empirical spatiotemporal distance-decay curves were generated by plotting mean community dissimilarity as a function of spatial distance and time lag, and fit to an exponential model of the form given by @legendre2012 using the `nls` function in R (Supplementary Methods \@ref(spatiotemporal-supplement)).
 Spatiotemporal analyses were performed on the full recovered fungal community after removal of non-fungal sequences, and on the ECM community.
+Sequences were assigned as ECM based on taxonomic assignments using the FUNGuild database [@nguyen2016funguild] via the R package `FUNGuildR` (https://github.com/brendanf/FUNGuildR).
+All taxa which included "Ectomycorrhiza" in the guild assignment at any level of confidence were included.
 
 # Results
 
@@ -344,7 +348,7 @@ For short amplicons in *c* and *d*, ASV/OTU counts reflect detection by any of t
 ```{r venn, fig.cap="(ref:venn)", fig.scap = "(ref:venn-s)", fig.show="hold", fig.height = 4, fig.align="center", results="asis"}
 line = ggplot() +
   geom_vline(xintercept = 0) +
-  theme_pubclean() +
+  ggpubr::theme_pubclean() +
   theme(axis.title = element_text(color = "white"),
         axis.text = element_blank(),
         axis.ticks = element_blank(),

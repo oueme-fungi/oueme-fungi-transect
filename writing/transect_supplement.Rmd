@@ -204,7 +204,7 @@ FASTA-format files for the RDP-LSU, Warcup, and Unite reference databases with u
 
 The phylogenetic tree was rooted based on sequences which were confidently assigned to kingdom based on the primary taxonomic assignments.
 Assignments based on Warcup were not used at this step because non-Fungi are not included in the dataset, and thus it cannot be used to directly assign kingdoms.
-Assignments were considered reliable if at least five of the six remaining primary assignment methods (2 databases × 3 algorithms) resulted in the same kingdom-level assignment, with no conflicting assignments.
+Assignments were considered confident if at least five of the six remaining primary assignment methods (2 databases × 3 algorithms) resulted in the same kingdom-level assignment, with no conflicting assignments.
 Two ASVs belonging to *Tulasnella*, which is known to have an accelerated rate of molecular evolution in the rDNA and often forms long, unstable branches in phylogenies [@moncalvo2006], were excluded at this step.
 This resulted in `r nrow(readd(sure_kingdoms))` confident kingdom assignments, with `r dplyr::count(readd(sure_kingdoms), taxon) %>% glue::glue_data("{n} assigned to {taxon}") %>% glue::glue_collapse(", ", last = ", and ")`.
 Inspection of the tree verified that these four kingdoms were reciprocally monophyletic, and the clade containing Alveolata and Viridiplantae was used as an outgroup to root the tree.
