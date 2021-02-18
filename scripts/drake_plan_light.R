@@ -349,9 +349,10 @@ plan2 <- drake_plan(
 
   # Guild assignment ----
 
-  # Download the FUNGuild database
+  # Load the FUNGuild database
+  # Downloaded Feb 10, 2020
   # [tibble] as required by FUNGuildR::funguild_assign
-  funguild_db = FUNGuildR::get_funguild_db(),
+  funguild_db = readRDS(file_in(!!file.path("reference", "funguild.rds"))),
 
   # [tibble] columns: name, region, reference, ref_region, method, label,
   # confidence, n_reads, kingdom:genus, Taxonomy, taxon, taxonomicLevel,
@@ -1749,7 +1750,7 @@ plan2 <- drake_plan(
     "writing",
     {
       file_in(!!file.path("writing", "transect_supplement_original.tex"))
-      file_in(!!file.path("writing", "transect_supplement.tex"))
+      file_in(!!file.path("writing", "transect_supplement_rev1.tex"))
       file_out(!!file.path("writing", "transect_supplement_diff.tex"))
       tinytex::tlmgr_install(setdiff(c("latexdiff", "listings"), tinytex::tl_pkgs()))
       system2(
@@ -1760,7 +1761,7 @@ plan2 <- drake_plan(
           '"FLOATENV=sidewaysfigure"',
           "--graphics-markup=2",
           "transect_supplement_original.tex",
-          "transect_supplement.tex"
+          "transect_supplement_rev1.tex"
         ),
         stdout = TRUE
       ) %>%
@@ -1772,11 +1773,38 @@ plan2 <- drake_plan(
     }
   ),
 
+  supplement_diff2_tex = withr::with_dir(
+    "writing",
+    {
+      file_in(!!file.path("writing", "transect_supplement_rev1.tex"))
+      file_in(!!file.path("writing", "transect_supplement.tex"))
+      file_out(!!file.path("writing", "transect_supplement_diff2.tex"))
+      tinytex::tlmgr_install(setdiff(c("latexdiff", "listings"), tinytex::tl_pkgs()))
+      system2(
+        command = "latexdiff",
+        args = list(
+          "--type=CFONT",
+          "--add-to-config",
+          '"FLOATENV=sidewaysfigure"',
+          "--graphics-markup=2",
+          "transect_supplement_rev1.tex",
+          "transect_supplement.tex"
+        ),
+        stdout = TRUE
+      ) %>%
+        stringr::str_replace_all(
+          "transect_paper",
+          "transect_paper_diff2"
+        ) %>%
+        writeLines("transect_supplement_diff2.tex")
+    }
+  ),
+
   article_diff_tex = withr::with_dir(
     "writing",
     {
       file_in(!!file.path("writing", "transect_paper_original.tex"))
-      file_in(!!file.path("writing", "transect_paper.tex"))
+      file_in(!!file.path("writing", "transect_paper_rev1.tex"))
       file_out(!!file.path("writing", "transect_paper_diff.tex"))
       tinytex::tlmgr_install(setdiff(c("latexdiff", "listings"), tinytex::tl_pkgs()))
       system2(
@@ -1784,7 +1812,7 @@ plan2 <- drake_plan(
         args = list(
           "--type=CFONT",
           "transect_paper_original.tex",
-          "transect_paper.tex"
+          "transect_paper_rev1.tex"
         ),
         stdout = TRUE
       ) %>%
@@ -1793,6 +1821,30 @@ plan2 <- drake_plan(
           "transect_supplement_diff"
         ) %>%
         writeLines("transect_paper_diff.tex")
+    }
+  ),
+
+  article_diff2_tex = withr::with_dir(
+    "writing",
+    {
+      file_in(!!file.path("writing", "transect_paper_rev1.tex"))
+      file_in(!!file.path("writing", "transect_paper.tex"))
+      file_out(!!file.path("writing", "transect_paper_diff2.tex"))
+      tinytex::tlmgr_install(setdiff(c("latexdiff", "listings"), tinytex::tl_pkgs()))
+      system2(
+        command = "latexdiff",
+        args = list(
+          "--type=CFONT",
+          "transect_paper_rev1.tex",
+          "transect_paper.tex"
+        ),
+        stdout = TRUE
+      ) %>%
+        stringr::str_replace_all(
+          "transect_supplement",
+          "transect_supplement_diff2"
+        ) %>%
+        writeLines("transect_paper_diff2.tex")
     }
   ),
 
@@ -1825,6 +1877,20 @@ plan2 <- drake_plan(
   #   }
   # ),
 
+  supplement_diff2_pdf = withr::with_dir(
+    "writing",
+    {
+      file_in(!!file.path("writing", "transect_supplement_diff2.tex"))
+      file_in(!!file.path("writing", "transect_paper_diff2.tex"))
+      file_out(!!file.path("writing", "transect_supplement_diff2.pdf"))
+      tinytex::xelatex(
+        "transect_supplement_diff2.tex",
+        bib_engine = "biber",
+        clean = FALSE
+      )
+    }
+  ),
+
   article_pdf = withr::with_dir(
     "writing",
     {
@@ -1849,6 +1915,21 @@ plan2 <- drake_plan(
       file_out(!!file.path("writing", "transect_paper_diff.pdf"))
       tinytex::xelatex(
         "transect_paper_diff.tex",
+        bib_engine = "biber",
+        clean = FALSE
+      )
+    }
+  ),
+
+  article_diff2_pdf = withr::with_dir(
+    "writing",
+    {
+      file_in(!!file.path("writing", "transect_paper_diff2.tex"))
+      file_in(!!file.path("writing", "transect_supplement_diff2.tex"))
+      file_in(!!file.path("writing", "transect_supplement_diff2.pdf"))
+      file_out(!!file.path("writing", "transect_paper_diff2.pdf"))
+      tinytex::xelatex(
+        "transect_paper_diff2.tex",
         bib_engine = "biber",
         clean = FALSE
       )
