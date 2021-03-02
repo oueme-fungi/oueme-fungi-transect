@@ -115,7 +115,7 @@ The fungi provide nutrients and protection from pathogens in exchange for carbon
 Approximately 8% of described fungal species are thought to take part in ECM symbiosis [@ainsworth2008ainsworth;@Rinaldi2008].
 Although only about 2% of land plant species form ECM, these include ecologically and economically important stand-forming trees belonging to both temperate and boreal groups such as Pinaceae and Fagaceae, and tropical groups such as Dipterocarpaceae, *Uapaca* (Phyllanthaceae) and Fabaceae tr. Amherstieae [@brundrett2017a], together representing approximately 60% of tree stems globally [@steidinger2019].
 
-Although ECM fungi form many well-known mushrooms (e.g., *Amanita*, *Cantharellus*, *Boletus*), some instead produce inconspicuous (e.g., *Tomentella*) or no (e.g., *Cenococcum*) fruit bodies.
+Although ECM fungi form many well-known mushrooms (e.g., *Amanita*, *Cantharellus*, *Boletus*), some instead produce inconspicuous (e.g., *Tomentella*) or no (e.g., *Cenococcum*) fruitbodies.
 Even when fruitbodies are large, they are ephemeral, so study of ECM communities is facilitated by sampling of vegetative structures [@horton2001].
 Unlike many saprotrophic fungi which grow easily in axenic culture, ECM fungi are usually difficult to culture, so DNA barcoding is increasingly used to investigate vegetative structures in the field.
 The advent of high-throughput sequencing (HTS) has facilitated such studies by providing enough sequencing depth for metabarcoding of bulk environmental samples such as soils [@Lindahl2013].
@@ -127,18 +127,17 @@ which are the standard molecular barcode for fungi, providing sufficient resolut
 In some groups such as arbuscular mycorrhizal fungi, variable regions of the rDNA small subunit (SSU) are the barcode of choice [@opik2010], and variable regions of the rDNA large subunit (LSU) have also been used for barcoding [e.g., @kurtzman1998;@tedersoo2015;@house2016].
 The resulting sequencing reads are clustered by sequence similarity to form operational taxonomic units (OTUs), which are then used as the units for further community analysis [@Lindahl2013].
 If taxonomic identification is desired in order to put OTUs in a wider context and associate functional information, it has usually been performed by database searches using BLAST [@altschul1990;@Lindahl2013] with public databases such as GenBank [@benson2013] and Unite [@nilsson2019a].
-However, this approach comes with some potential weaknesses, discussed below.
-<!--R5: Awk -->
+However, there is potential to improve this approach at several stages, including sequencing technology, amplicon choice, clustering, and taxonomic assignment.
 
 Different sequencing technologies have different capabilities in terms of sequencing depth and read length, as well as differing quality profiles and potential biases [@yang2013].
 The rapid development of new HTS technologies, as well as subsequent iterative improvements in sequencing chemistry and read capacity, means that the technologies used in metabarcoding studies, along with any associated biases, change frequently.
 As an example, the first study using HTS metabarcoding of soil fungi was published in 2009 [@buee2009] using 454 Pyrosequencing; production of 454 sequencers was subsequently discontinued in 2015, and sales of reagents stopped in 2016 [@hollmer2013].
 This brings into question the comparability of studies conducted only a few years apart.
-<!-- R5: Seems like this section below could use some references to studies that have tested communities with multiple methods. There are a bunch of citations like this but none featured here. For example:
-Smith, Dylan P., and Kabir G. Peay. "Sequence depth, not PCR replication, improves ecological inference from next generation DNA sequencing." PloS one 9.2 (2014): e90234. --> 
+Existing studies which sequenced the same environmental samples using different HTS technologies [e.g., @claesson2010;@smith2014;@divoll2018;@Kennedy2018;@speranskaya2018;@Tedersoo2018] have found that most differences in results seem to be attributable to differences in sequencing depth or different primer biases, rather than differences in the technologies themselves.
+Only a few of these studies have controlled for primer biases by using the same primer pairs in each technology [@claesson2010;@divoll2018;@speranskaya2018], and to our knowledge none have sequenced the same PCR products using multiple HTS technologies.
 
 ITS1 and ITS2 often have suitable variation to distinguish species, although closely related species may share identical ITS sequences in certain groups such as various Pezizomycotina [@schoch2012],
-but this variablity means that they cannot be reliably aligned over the fungal kingdom [@Lindahl2013;@Tedersoo2018].
+but this variability means that they cannot be reliably aligned over the fungal kingdom [@Lindahl2013;@Tedersoo2018].
 <!-- R5: citation formatting-->
 Additionally, the wide range of length variation of these regions may introduce bias in recovery of different taxa [@ihrmark2012;@tedersoo2015;@palmer2018].
 Further bias is introduced by variation in the 5.8S region which separates the two ITS regions, as well as in the 5' end of LSU, which makes it difficult to design primers that are suitable for all fungi [@tedersoo2015].
@@ -159,7 +158,7 @@ Assignment of taxonomic identities to environmental sequences is dependent on bo
 Although the public INSDC databases [@karsch-mizrachi2018] are often used for sequence identification, the open nature of submission to these databases results in a substantial fraction of incorrect taxonomic annotations [@bidartondo2008;@nilsson2006;@steinegger2020] as well as sequences of poor technical quality [@ashelford2006;@nilsson2012].
 Consequently, taxonomic assignments based on these databases may be incorrect or inconsistent [@nilsson2005]. 
 Several curated databases also exist which attempt to address these issues and which cover the whole fungal kingdom.
-The Unite database is an attempt to include all publically available high-quality ITS sequences (800\ 000 as of release 8.0), originally limited to fungi but now expanded to include all eukaryotes [@nilsson2019a], where efforts have been made to correct incorrect annotations and exclude low-quality sequences [@abarenkov2018a].
+The Unite database is an attempt to include all publicly available high-quality ITS sequences (800\ 000 as of release 8.0), originally limited to fungi but now expanded to include all eukaryotes [@nilsson2019a], where efforts have been made to correct incorrect annotations and exclude low-quality sequences [@abarenkov2018a].
 The Ribosomal Data Project [RDP, @cole2014] hosts two additional manually curated fungal barcode sequence databases, which are specifically intended for use in taxonomic assignment of sequences:
 the Warcup ITS training set, containing 18\ 000 manually curated fungal ITS sequences [@deshpande2016], and the RDP fungal LSU training set, containing 8000 manually curated LSU sequences from fungi and 3000 from other eukaryotic groups [RDP-LSU, @liu2012].
 Although the quality of sequences and taxonomic annotations is undoubtedly higher in these more curated databases, they are inherently limited in taxonomic coverage and do not include the most recently published sequences.
@@ -172,6 +171,7 @@ However, all sequence-similarity based approaches are dependent on high taxonomi
 Recent long-read HTS technologies such as Pacific Biosciences (PacBio) Single Molecule Real Time (SMRT) sequencing  enable sequencing longer amplicons which include both the ITS regions and the flanking, more highly conserved SSU and/or LSU regions.
 This can improve taxonomic placement of sequences that lack close database matches and allow the alignment of metabarcoding reads for subsequent phylogenetic analysis [@Tedersoo2018].
 Information from phylogenetic trees produced from long-amplicon metabarcoding has the potential to both improve taxonomic assignment and provide alternative measures of community alpha and beta diversity.
+PacBio sequencing has also been shown to recover longer variants of variable-length regions such as ITS1 and ITS2, which are excluded by other technologies [@castano2020].
 However, long-read technologies are currently more expensive per read compared to short-read sequencing, and so their use entails a trade-off with sequencing depth and/or sample number [@Kennedy2018].
 
 Because of the variety of sequencing platforms and analytical pipelines which have been used in metabarcoding studies, comparisons between studies may be difficult.
@@ -185,9 +185,11 @@ or by fitting a function to an empirical distance-decay curve of community dissi
 We compare three different sequencing platforms (PacBio RS II, Illumina MiSeq, Ion Torrent Ion S5), long and short amplicons, three different taxonomic assignment algorithms (RDPC, SINTAX, IDTAXA)
 with three different reference databases (Unite, Warcup, RDP-LSU),
 and both non-phylogenetic and phylogenetic community distance measures.
-We also present new algorithms for dividing the LSU into domains, combining denoising results from multiple domains as a strategy to capture more ASVs from long amplicons in diverse commmunities, and incorporating phylogenetic information into taxonomic assignments.
-
-<!--R5: I realize that this paper is strongly methods-based and is focused on figuring out which approaches might work best for understanding the fungi. However, I think there are likely some underlying questions and hypotheses. This is the place where I would spend a few sentences exploring the hypotheses. For example, what do you you expect to find with the new tree-based and distance-based approaches? Do you expect to find more diversity in the long read technology because the primers are more general, etc.?-->
+We also present new algorithms for dividing the LSU into domains, combining denoising results from multiple domains as a strategy to capture more ASVs from long amplicons in diverse communities, and incorporating phylogenetic information into taxonomic assignments.
+We hypothesize that (a) PacBio sequencing of the short amplicon gives less bias against longer ITS2 amplicons than Illumina and Ion Torrent, both qualitatively (recovering amplicons missed by the others) and quantitatively (greater fraction of reads in longer amplicons);
+(b) our long amplicons (ITS1-LR5) recover a more complete view of the fungal community than our short amplicons (gITS7-ITS4), due to reduced length and primer biases;
+(c) these differences lead to differing results for ecological metrics, specifically OTU/ASV richness and turnover distance;
+and (d) incorporating LSU in the long amplicon allows for better taxonomic assignment.
 
 # Materials and Methods
 
@@ -199,7 +201,7 @@ At each site, 25\ soil samples were collected along a single 24\ m linear transe
 One third of the sample locations (3\ m spacing) were resampled one year later in June 2016, for a total of 67 samples.
 For each sample, coarse organic debris was removed from the soil surface and a sample of approximately 5\ cm\ × 5\ cm\ × 5\ cm was extracted with an ethanol sterilized knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
-A subsample of approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and stored in DNA-preservation buffer before return to the laboratory for extraction (see Supplementary Methods \@ref(Sampling-supplement) for preservation and extraction methods).
+A subsample of approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and stored in a DNA preservation buffer before return to the laboratory for extraction (see Supplementary Methods \@ref(Sampling-supplement) for preservation and extraction methods).
 
 ## DNA amplification and sequencing
 
@@ -248,9 +250,9 @@ Although this was successful for the short amplicons on all technologies, only `
 
 We conclude that this poor performance was due to a combination of long amplicon length and low sequencing depth relative to community diversity, which lead to most biological variants being represented only by a cluster of reads differing by a small number of unique sequencing errors (for calculations see Supplementary Methods \@ref(long-numbers)).
 We therefore developed a new workflow to assemble ASVs from the long amplicons by splitting the reads into homologous domains, including the two ITS regions, 5.8S, the variable D1--3 regions of LSU [@michot1984], and the conserved LSU regions between the D regions, here referred to as LSU1--4 (Figure\ \@ref(fig:regions)a).
-We then independently denoised reads from each domain and concatenating the denoised domains for each read.
-Finally denoised reads were clustered based on 100% ITS2 identity, and a consensus ASV was calculated for each cluster.
-We used this method, implemented in the new R packages `LSUx` (splitting reads into homologous regions; https://github.com/brendanf/LSUx) and `tzara` (reassembling regions and generating full-length consensus ASVs; https://github.com/brendanf/tzara) and detailed in Supplementary Methods \@ref(denoising-supplement), for all of the PacBio and Ion Torrent datasets.
+We then independently denoised reads from each domain and concatenated the denoised domains for each read.
+Finally denoised reads were clustered based on 100% ITS2 identity, and a full-length consensus ASV was calculated for each cluster.
+This method, implemented in the new R packages `LSUx` (splitting reads into homologous regions; https://github.com/brendanf/LSUx) and `tzara` (reassembling regions and generating full-length consensus ASVs; https://github.com/brendanf/tzara) and detailed in Supplementary Methods \@ref(denoising-supplement), was used for all of the PacBio and Ion Torrent datasets.
 Because the `LSUx` plus `tzara` method as currently implemented is not applicable to Illumina paired-end reads, the ASVs generated from the Illumina dataset according to the standard DADA2 workflow were used.
 The ITS2 region was extracted from the ASVs using `LSUx` for comparison to the results from the other technologies.
 To account for intra-species variation and the possibility of different denoising performance between the different sequencing strategies, the pooled ITS2-ASVs from all sequencing strategies were also clustered into operational taxonomic units (OTUs) at 97% similarity using VSEARCH v2.9.1 [@rognes2016].
@@ -282,12 +284,12 @@ For each region/reference combination, taxonomy was assigned using three popular
 the RDPC [@wang2007] as implemented in DADA2;
 SINTAX [@edgar2016a] as implemented in VSEARCH v2.9.1 [@rognes2016];
 and IDTAXA [@murali2018].
-A relatively lax confidence threshold of 50% was used for all three algorithms, in order to increase the amount of input for  consensus algorithms.
+A relatively lax confidence threshold of 50% was used for all three algorithms, in order to increase the amount of input for consensus algorithms.
 Each full-length ASV was thus given up to nine primary taxonomic assignments (three references $\times$ three algorithms).
 ASVs from the short-amplicon datasets for which no matching long-amplicon ASV could be reconstructed were taxonomically assigned using Unite and Warcup on the full length of the short amplicon.
 
-For full-length long-amplicon ASVs, the primary taxonomic assignments were refined with the new algorithm PHYLOTAX.
-The PHYLOTAX algorithm resolves conflicts among one or more primary assignment methods (see Figure\ \@ref(fig:phylotax) and Supplementary Methods \@ref(phylotax)).
+For full-length long-amplicon ASVs, the primary taxonomic assignments were refined based on the ML phylogenetic tree generated above using the new algorithm PHYLOTAX.
+The PHYLOTAX algorithm resolves conflicts among one or more primary assignment methods using a supplied phylogenetic tree (see Figure\ \@ref(fig:phylotax) and Supplementary Methods \@ref(phylotax)).
 It is available in the new R package `phylotax` at https://github.com/brendanf/phylotax.
 
 ASVs which were not present in the tree, either because they were not represented in the long-amplicon dataset, or because full-length ASV reconstruction failed, were given refined taxonomic assignments using a strict consensus of the different primary assignments at each rank, resulting in a consensus assignment equivalent to the "last common ancestor" of the primary assignments [@huson2007].
@@ -310,7 +312,7 @@ Each of the distance matrices was used to calculate a Mantel correlogram with a 
 Separate correlograms were drawn for samples taken during the same year and samples separated in time by one year, in order to assess the degree to which the soil community changes over the course of one year.
 Additionally, empirical spatiotemporal distance-decay curves were generated by plotting mean community dissimilarity as a function of spatial distance and time lag, and fit to an exponential model of the form given by @legendre2012 using the `nls` function in R (Supplementary Methods \@ref(spatiotemporal-supplement)).
 Spatiotemporal analyses were performed on the full recovered fungal community after removal of non-fungal sequences, and on the ECM community.
-Sequences were assigned as ECM based on taxonomic assignments using the FUNGuild database [@nguyen2016funguild] via the R package `FUNGuildR` (https://github.com/brendanf/FUNGuildR).
+Sequences were assigned as ECM based on taxonomic assignments using the FUNGuild database [as of 20 Feb, 2020\;@nguyen2016funguild] via the R package `FUNGuildR` (https://github.com/brendanf/FUNGuildR).
 All taxa which included "Ectomycorrhiza" in the guild assignment at any level of confidence were included.
 
 # Results
@@ -520,7 +522,7 @@ Community dissimilarities are calculated using the Bray-Curtis dissimilarity for
 The left column represents the full fungal community, and the right column only sequences identified as ECM.
 The color of each circle represents the time lag between samples being compared (0 or 1\ year), and the size represents the number of comparisons for that spatial distance and time lag.
 Lines are the best-fit lines for an exponential decay to max model.
-The model was only fit for datasets where the Mantel test indicated a significant relationship between community dissimilarity and spatial (for the 0\ year timelag) or spatiotemporal (for the 1\ year time lag) distance.
+The model was only fit for datasets where the Mantel test indicated a significant relationship between community dissimilarity and spatial (for the 0\ year time lag) or spatiotemporal (for the 1\ year time lag) distance.
 
 ```{r spatio, fig.cap = "(ref:spatio-s). (ref:spatio)", fig.scap = "(ref:spatio-s)"}
 readd(variog_empir) %>%
@@ -633,13 +635,14 @@ Neither dataset from the short amplicon library showed significant temporal auto
 Weighted UniFrac did not reliably detect spatial structure within this relatively ecologically homogeneous community.
 Although the Mantel test did show a small but significant positive autocorrelation in the fungal community at the smallest size category (1\ m; Figure\ \@ref(fig:correlog)), the distance-decay plot in Figure\ \@ref(fig:spatio) does not show any clear relationship.
 The functional fit showed poor convergence, with a 95% confidence interval for spatial range of 0--`r round(filter(readd(variofit_table), metric == "W-UniFrac", guild == "All Fungi", timelag == 0)$conf.high, -1)`\ m, indicating little evidence of spatial structure.
-This is probably because the majority of community turnover in this system, especially among ECM fungi, is between closely related species or individuals of the same species, while the presence of major clades (e.g., ECM lineages *sensu* @Tedersoo2010) are more spatially constant.
+This is probably because the majority of community turnover in this system, especially among ECM fungi, is between closely related species or individuals of the same species, while the presence of major clades [e.g., ECM lineages \textit{sensu} @Tedersoo2010] are more spatially constant.
 This is also reflected in the generally smaller sample-to-sample dissimilarities measured by UniFrac (0.4--0.6) as compared to Bray-Curtis (0.8--1.0) in Figure \@ref(fig:spatio).
 UniFrac analysis would be more suited at larger spatial scales and/or larger ecological gradients.
 
 ## Conclusion
 
-The choice of amplicon and sequencing technology did not affect the results of the spatial analysis, provided sufficient sequencing depth.
+Contrary to our hypothesis, we found that Illumina and Ion Torrent sequencing of real environmental samples resulted in neither qualitative nor quantitative bias against longer ITS2 amplicons, relative to PacBio.
+Furthermore, although we did find an increased ability to detect certain fungal groups using the more universal ITS1-LR5 primer pair, the choice of amplicon and sequencing technology did not affect the results of the spatial analysis, provided sufficient sequencing depth.
 Alpha diversity estimates were strongly correlated between methods, but somewhat inflated for Ion Torrent relative to the other technologies.
 However, the addition of long amplicon reads did allow the construction of a phylogenetic tree directly from the metabarcoding reads, which allowed refinement of taxonomic assignments using our new tool PHYLOTAX.
 DADA2 ASV yield was initially poor for long amplicons, but this was improved by developing a workflow for extraction of subregions, separate denoising, and then reconstruction of full-length unique sequences.
