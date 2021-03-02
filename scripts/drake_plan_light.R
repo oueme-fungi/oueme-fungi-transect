@@ -2006,7 +2006,7 @@ plan2 <- drake_plan(
       file_in(!!paste0("config/ENA_", sample_type, "_sample_template.tsv")),
       file_out(!!paste0("output/ENA_", sample_type, "_samples.tsv"))
     ),
-    transform = map(ENA_samples, sample_typem, .id = sample_type)
+    transform = map(ENA_samples, sample_type, .id = sample_type)
   ),
 
   pacbio_ion_manifest = target(
@@ -2031,14 +2031,15 @@ plan2 <- drake_plan(
     .fun(phylotax_hybrid),
     transform = map(
       .fun = list(group_by_taxon, group_by_taxon_env),
+      .lookupfun = list(lookup_ncbi_taxon, lookup_ena_taxon),
       taxon_type = c("ind", "env"),
       .id = taxon_type
       )
   ),
 
   taxid = target(
-    do.call(lookup_ncbi_taxon, pretaxid),
-    transform = map(pretaxid, .id = taxon_type),
+    do.call(.lookupfun, pretaxid),
+    transform = map(pretaxid, .lookupfun, .id = taxon_type),
     dynamic = map(pretaxid),
     retries = 2
   ),
@@ -2050,7 +2051,7 @@ plan2 <- drake_plan(
       dplyr::select(taxids, label, targetTaxonomy, targetRank) %>%
         write_csv(file_out(!!sprintf("output/%s_taxa_target.csv", taxon_type)))
       dplyr::select(taxids, label, Taxonomy, rank) %>%
-        write_csv(file_out(!!sprintf("output/%s_taxa_ncbi.csv", taxon_type)))
+        write_csv(file_out(!!sprintf("output/%s_taxa_ena.csv", taxon_type)))
       taxids
     },
     transform = map(taxid, taxon_type, .id = taxon_type)

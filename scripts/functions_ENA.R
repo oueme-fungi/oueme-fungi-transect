@@ -330,6 +330,35 @@ group_by_taxon <- function(phylotax) {
     )
 }
 
+# conversions for certain higher level taxa into the term used in the ENA
+# taxonomy for environmental sequences
+ena_taxon_replacements <- tibble::tribble(
+  ~"original",          ~"ENA",
+  "Fungi",              "fungus",
+  "Alveolata",          "alveolate",
+  "Apicomplexa",        "apicomplexan",
+  "Gregarinasina",      "gregarine",
+  "Neogregarinorida",   "gregarine",
+  "Ciliophora",         "ciliate",
+  "Haptorida",          "haptorid ciliate",
+  "NA",                 "eukaryote",
+  "Angiospermae",       "Magnoliophyta",
+  "Stramenopila",       "Stramenopile",
+  "Kickxellomycota",    "Kickxellomycotina",
+  "Zoopagomycota",      "Zoopagomycotina",
+  "Monoblepharomycota", "Monoblepharidomycetes",
+  "Mortierellomycota",  "Mortierellomycotina",
+  "Glomeromycota",      "Glomeromycotina",
+  "Rozellomycota",      "Cryptomycota",
+  "Bryopsida",          "Bryophyta",
+  "Chromerida",         "Colpodellida",
+  "Orbiliomycetes",     "Orbiliales",
+  "Gigasporales",       "Diversisporales",
+  "Paraglomeromycetes", "Paraglomerales",
+  "Ichthyosporia",      "Ichthyosporea",
+  "Symphyla",           "Arthropoda"
+)
+
 group_by_taxon_env <- function(phylotax) {
   widen_taxonomy(phylotax$assigned) %>%
     dplyr::select(kingdom:order, label) %>%
@@ -349,16 +378,12 @@ group_by_taxon_env <- function(phylotax) {
     dplyr::mutate_at(
       "taxon",
       stringi::stri_replace_all_regex,
-      c("Fungi", "Alveolata", "Gregarinasina", "Neogregarinorida", "NA", "Angiospermae", "Stramenopila",
-        "Kickxellomycota", "Zoopagomycota", "Monoblepharomycota", "Morteriellomycota", "Bryopsida",
-        "Chromerida", "Gigasporales", "Paraglomeromycetes", "Ichthyosporia"),
-      c("fungus", "alveolate", "gregarine", "gregarine", "eukaryote", "Magnoliophyta", "Stramenopile",
-        "Kickxellomycotina", "Zoopagomycotina", "Monoblepharidomycetes", "Morteriellomycotina", "Bryophyta",
-        "Colpodellida", "Diversisporales", "Paraglomerales", "Ichthyosporea"),
+      ena_taxon_replacements$original,
+      ena_taxon_replacements$ENA,
       vectorize_all = FALSE
     ) %>%
     dplyr::mutate(taxon = ifelse(
-      grepl("(Streptophyta|Metazoa)", Taxonomy),
+      grepl("(Streptophyta|Metazoa)", Taxonomy) | taxon == "Viridiplantae",
       paste(taxon, "environmental sample"),
       paste("uncultured", taxon)
     ))
@@ -393,4 +418,38 @@ lookup_ncbi_taxon <- function(taxon, Taxonomy, rank, label, ...) {
   #   }
   # }
   uid
+}
+
+ena_taxon_url <- "https://www.ebi.ac.uk/ena/taxonomy/rest/scientific-name/"
+
+lookup_ena_taxon <- function(taxon, Taxonomy, rank, label, ...) {
+  url <- paste0(ena_taxon_url, curl::curl_escape(taxon))
+  result <- httr::GET(url)
+  result <- tryCatch(httr::content(result), error = function(e) NULL)
+  if (is.null(result)) {
+    return(
+      tibble::tibble(
+        label = label,
+        taxon = taxon,
+        targetTaxonomy = Taxonomy,
+        targetRank = rank
+      )
+    )
+  }
+  result <- dplyr::bind_rows(result)
+  result$label <- label
+  result$taxon <- taxon
+  result$targetTaxonomy <- Taxonomy
+  result$targetRank <- rank
+  result <- dplyr::rename(result, Taxonomy = lineage)
+  result$Taxonomy <- stringr::str_replace_all(result$Taxonomy, "; ", ";")
+  result$Taxonomy <- stringr::str_c(result$Taxonomy, result$scientificName)
+  result$dist <- stringdist::stringdist(
+    result$Taxonomy,
+    Taxonomy,
+    method = "jaccard",
+    q = 5
+  )
+  result <- dplyr::arrange(result, dist)
+  head(result, 1)
 }
