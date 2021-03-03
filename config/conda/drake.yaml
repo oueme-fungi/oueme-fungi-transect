@@ -36,7 +36,7 @@ dependencies:
   - r-inferrnal=0.99.5
   - r-lsux=0.99.6
   - r-tzara=0.0.9
-  - r-phylotax=0.0.3
+  - r-phylotax=0.0.4
   - r-funguildr=0.1=r351_0
   - r-inext=2.0.20=r35h6115d3f_0
   - r-ips=0.0.11=r35h6115d3f_0
