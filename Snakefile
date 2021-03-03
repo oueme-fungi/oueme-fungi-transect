@@ -775,13 +775,7 @@ rule lightplan:
         "{outdir}/supp_file_2.tsv".format_map(config),
         "{outdir}/supp_file_3.pdf".format_map(config)
     input:
-        "{rdir}/dada.R".format_map(config),
-        "{rdir}/mantel.R".format_map(config),
-        "{rdir}/variogram.R".format_map(config),
-        "{rdir}/qstats.R".format_map(config),
-        "{rdir}/taxonomy.R".format_map(config),
-        "{rdir}/plate_check.R".format_map(config),
-        "{rdir}/output_functions.R".format_map(config),
+        glob("{rdir}/functions_*.R".format_map(config)),
         "{clusterdir}/ITS2.table".format_map(config),
         "{clusterdir}/short.table".format_map(config),
         "{rmddir}/preamble.tex".format_map(config),
