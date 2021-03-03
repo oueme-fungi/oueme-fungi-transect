@@ -32,3 +32,4 @@ cache
 *.md
 *.bcf
 *.blg
+transect_supplement_cache

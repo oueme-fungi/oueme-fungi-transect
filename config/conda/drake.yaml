@@ -35,7 +35,7 @@ dependencies:
   - r-dada2=1.12.1=r351hf484d3e_0
   - r-inferrnal=0.99.5
   - r-lsux=0.99.6
-  - r-tzara=0.0.9
+  - r-tzara=0.0.10
   - r-phylotax=0.0.4
   - r-funguildr=0.1=r351_0
   - r-inext=2.0.20=r35h6115d3f_0
