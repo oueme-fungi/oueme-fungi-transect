@@ -49,9 +49,11 @@ make_allseq_table <- function(conseqs, seq_tables,
 
   seq_tables <- purrr::compact(seq_tables)
 
-  seq_tables <- purrr::imap(seq_tables,
-                            ~ tibble::tibble(x = colnames(.x)) %>%
-                              set_colnames(.y))
+  seq_tables <- purrr::imap(
+    seq_tables,
+    ~ tibble::tibble(x = chartr("T", "U", colnames(.x))) %>%
+      set_colnames(.y)
+  )
 
   conseqs <-
     purrr::reduce(seq_tables,
