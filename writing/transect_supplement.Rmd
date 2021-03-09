@@ -482,15 +482,22 @@ theme_set(oldtheme)
 readd(taxon_plot_short_kingdom)
 ```
 
-(ref:ecm-s) Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic assignments
+(ref:ppcoa-short) Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding strategies
 
-(ref:ecm) Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
-"unidentified" denotes ASVs which were assigned to kingdom Fungi, but could not be identified to family level or could not be assigned ECM status based on the available identification.
-Height of each bar represents the fraction of reads represented by that bar.
-Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP-LSU; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
+(ref:ppcoa) for all fungi (**a**) and ECM fungi (**b**).
+Ordination based on the residual variation after spatio-temporal variation (i.e., variation between different soil samples) has been accounted for.
+Only samples with at least 100 reads for all three strategies are included.
+ASVs are clustered by taxonomic class for all fungi, and by family for ECM fungi.
+Abbreviations represent the approximate direction of increase for the classes and families with the highest scores: `r glue::glue_data(readd(tech_class_pcoa_scores), "**{abbrev}**: {class}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`; `r glue::glue_data(readd(tech_ecm_fam_pcoa_scores), "**{abbrev}**: {family}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`.
 
-```{r ecm, fig.cap = "(ref:ecm-s). (ref:ecm)", fig.scap = "(ref:ecm-s)", fig.width = 7, cache=TRUE, extra.cache=gethash("taxon_plot_ecm"), more.cache = datasets}
-readd(taxon_plot_ecm)
+```{r ppcoa, fig.cap = "(ref:ppcoa-short), (ref:ppcoa)", fig.scap = "(ref:ppcoa-short)", cache=TRUE, extra.cache=gethash("tech_class_pcoa_plot", "tech_ecm_fam_pcoa_plot")}
+ggpubr::ggarrange(
+  readd(tech_class_pcoa_plot),
+  readd(tech_ecm_fam_pcoa_plot),
+  common.legend = TRUE,
+  legend = "bottom",
+  labels = "auto"
+)
 ```
 
 (ref:ecm-heattree-s) Heat tree showing variation in read abundance and diversity for different amplicons, for ECM taxa only
@@ -508,22 +515,15 @@ readd(ecm_heattree)
 theme_set(oldtheme)
 ```
 
-(ref:ppcoa-short) Partial Principal Coordinates Analysis (PPCoA) of fungal community using different metabarcoding strategies
+(ref:ecm-s) Assignment of ECM status to fungal ASVs using FUNGuild database and taxonomic assignments
 
-(ref:ppcoa) for all fungi (**a**) and ECM fungi (**b**).
-Ordination based on the residual variation after spatio-temporal variation (i.e., variation between different soil samples) has been accounted for.
-Only samples with at least 100 reads for all three strategies are included.
-ASVs are clustered by taxonomic class for all fungi, and by family for ECM fungi.
-Abbreviations represent the approximate direction of increase for the classes and families with the highest scores: `r glue::glue_data(readd(tech_class_pcoa_scores), "**{abbrev}**: {class}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`; `r glue::glue_data(readd(tech_ecm_fam_pcoa_scores), "**{abbrev}**: {family}") %>% glue::glue_collapse(sep = ", ", last = ", and ")`.
+(ref:ecm) Reads which were not identified to kingdom, or which were identified as a non-Fungi kingdom, are not included.
+"unidentified" denotes ASVs which were assigned to kingdom Fungi, but could not be identified to family level or could not be assigned ECM status based on the available identification.
+Height of each bar represents the fraction of reads represented by that bar.
+Results are shown for different sequencing technologies, amplicons (Long, Short), reference databases (Unite, Warcup, RDP-LSU; "All" denotes algorithms which combine results from multiple databases), and taxonomic assignment algorithms.
 
-```{r ppcoa, fig.cap = "(ref:ppcoa-short), (ref:ppcoa)", fig.scap = "(ref:ppcoa-short)", cache=TRUE, extra.cache=gethash("tech_class_pcoa_plot", "tech_ecm_fam_pcoa_plot")}
-ggpubr::ggarrange(
-  readd(tech_class_pcoa_plot),
-  readd(tech_ecm_fam_pcoa_plot),
-  common.legend = TRUE,
-  legend = "bottom",
-  labels = "auto"
-)
+```{r ecm, fig.cap = "(ref:ecm-s). (ref:ecm)", fig.scap = "(ref:ecm-s)", fig.width = 7, cache=TRUE, extra.cache=gethash("taxon_plot_ecm"), more.cache = datasets}
+readd(taxon_plot_ecm)
 ```
 
 (ref:correlog-cap-s) Mantel correlograms for community dissimilarities and spatio-temporal distance
