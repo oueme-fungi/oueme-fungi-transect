@@ -49,6 +49,7 @@ if (length(targets) > 0) {
     targets = targets,
     memory_strategy = "preclean",
     console_log_file = get_logfile("consensus"),
+    recover = TRUE,
     cache = cache
   )
   tictoc::toc()

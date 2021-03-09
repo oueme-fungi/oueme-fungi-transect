@@ -48,6 +48,11 @@ trim_LSU_intron <- function(aln) {
   IRanges::narrow(aln, start = 1, end = site)
 }
 
+# add a column called "out_col" to a region table by concatenating the sequences
+# from the columns "regions" in order.  If out_col is already a column in the
+# table, its current value is used as a backup in case one of the "regions" is
+# NA.  If "key_col" is given, then it is required that the sequence in "key_col"
+# is a subsequence of "out_col", or "out_col" will be NA.
 region_concat <- function(table, out_col, regions, key_col = NULL) {
   if (!out_col %in% names(table)) return(table)
   table[[out_col]] <- dplyr::coalesce(
@@ -61,5 +66,34 @@ region_concat <- function(table, out_col, regions, key_col = NULL) {
       NA_character_
     )
   }
+  table
+}
+
+# as region_concat, but the final sequence is "seeded" with the key column,
+# and extended in each direction only until it reaches an NA sequence
+stepwise_region_concat <- function(table, out_col, regions, key_col) {
+  # regions occuring before the key, in reverse order
+  preregions <- rev(regions[!dplyr::cumany(regions == key_col)])
+  # regions occurring after the key, in forward order
+  postregions <- rev(rev(regions)[!dplyr::cumany(rev(regions) == key_col)])
+  # temporary column; make sure its name is unique
+  pre_col <- dplyr::last(make.names(c(names(table), "pre"), unique = TRUE))
+  # initialize with the key column
+  table[[pre_col]] <- table[[key_col]]
+  table[[out_col]] <- table[[pre_col]]
+  # extend the 5' end of the key column
+  # pre_col will be NA after the first time an NA region is encountered.
+  for (r in preregions) {
+    table[[pre_col]] <- stringr::str_c(table[[r]], table[[pre_col]])
+    table[[out_col]] <- dplyr::coalesce(table[[pre_col]], table[[out_col]])
+  }
+  # extend the 3' end of the key column
+  # pre_col will be NA after the first time an NA region is encountered.
+  table[[pre_col]] <- table[[out_col]]
+  for (r in postregions) {
+    table[[pre_col]] <- stringr::str_c(table[[pre_col]], table[[r]])
+    table[[out_col]] <- dplyr::coalesce(table[[pre_col]], table[[out_col]])
+  }
+  table[[pre_col]] <- NULL
   table
 }

@@ -182,7 +182,8 @@ err_meta <- dada_meta %>%
 
 flog.info("Making conseq_meta.")
 conseq_meta <- dada_meta %>%
-  filter(region %in% c("ITS1", "ITS", "LSU", "32S", "long", "short")) %>%
+  filter(region != "ITS2",
+         !(region %in% c("5_8S", "LSU1") & primer_ID == "gits7its4")) %>%
   select(region, primer_ID, preconseq) %>%
   left_join(regions %>% select(region, min_length), by = "region") %>%
   unique() %>%
@@ -812,22 +813,10 @@ plan <- drake_plan(
 
   conseq = target(
     dplyr::bind_rows(preconseq, preconseq_illumina) %>%
-      # for LSU1 and 5.8S, use only long reads if there are enough
-      # if there are not enough, use short reads
-      dplyr::mutate(
-        !! region := if (region %in% c("5_8S", "LSU1")) {
-        if (sum(nread[seq_run == "pb_500" && !is.na(.data[[region]])] >= 3)) {
-          ifelse(seq_run == "pb_500", .data[[region]], NA_character_)
-        } else {
-          ifelse(seq_run == "pb_500", NA_character_, .data[[region]])
-        }
-      } else {
-        .data[[region]]
-      }  ) %>%
       dplyr::filter(sum(nread[!is.na(.data[[region]])]) >= 3) %>%
-      dplyr::group_by_at(c("ITS2", !!region)) %>%
+      dplyr::group_by_at(c("ITS2", !!region, "primer_ID")) %>%
       dplyr::summarize(nread = sum(nread)) %>%
-      dplyr::group_by(ITS2) %>%
+      dplyr::group_by_at(c("ITS2", "primer_ID")) %>%
       dplyr::summarize(
         !! region := as.character(
           tzara::cluster_consensus(
@@ -858,7 +847,20 @@ plan <- drake_plan(
     make_allseq_table(list(conseq),
                       drake_combine(big_seq_table)) %>%
       dplyr::filter(!is.na(ITS2)) %>%
-      dplyr::mutate(full = dplyr::coalesce(long, short)),
+      # "best" is the longest sequence that can be constructed for each read,
+      # by concatenating as many reconstructed regions as we can without
+      # introducing gaps.
+      stepwise_region_concat(
+        out_col = "best",
+        regions = c("ITS1", "5_8S", "ITS2",
+                    "LSU1", "D1", "LSU2", "D2", "LSU3", "D3", "LSU4"),
+        key_col = "ITS2"
+      ) %>%
+      # "full" is the entire amplicon
+      dplyr::mutate(
+        full = dplyr::coalesce(long, short),
+        best = dplyr::coalesce(full, best)
+      ),
     transform = combine(conseq, big_seq_table),
     trigger = trigger(condition = !skip_allseqs, mode = "blacklist")
   ),

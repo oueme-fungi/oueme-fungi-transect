@@ -34,8 +34,7 @@ make_allseq_table <- function(conseqs, seq_tables,
                               conseq_key = "ITS2",
                               seq_table_prefix = "big_seq_table_") {
   conseqs <- purrr::reduce(conseqs,
-                           dplyr::full_join,
-                           by = c(conseq_key, "nread"))
+                           dplyr::full_join)
 
   names(seq_tables) <- stringr::str_replace(names(seq_tables),
                                             seq_table_prefix,
