@@ -226,9 +226,10 @@ taxonomy_meta <- dada_meta %>%
          reference_file = glue("{config$ref_root}/{reference}.{refregion}.{methodfile}.fasta.gz"),
          refdb = glue("refdb_{method}_{reference}_{refregion}"),
          tax_ID = glue("{region}_{reference}_{refregion}_{method}"),
-         big_seq_table = glue("big_seq_table_{region}")) %>%
+         big_seq_table = glue("big_seq_table_{region}"),
+         taxonseqs = glue("taxonseqs_{region}")) %>%
   arrange(tax_ID) %>%
-  mutate_at(c("big_seq_table", "refdb"), syms)
+  mutate_at(c("big_seq_table", "refdb", "taxonseqs"), syms)
 
 #### ref_meta ####
 # ref_meta has one row per (region specific) reference database.
@@ -886,20 +887,26 @@ plan <- drake_plan(
                     .tag_out = refdb,
                     .id = ref_ID)),
 
-  # Assign taxonomy to each ASV
-  taxon = target({
-    seqs <- dplyr::select(allseqs, region, "hash") %>%
+  # Generate the lists of sequences to use for taxonomy
+  # this is in a seperate rule to avoid reassigning taxonomy when allseqs
+  # changes in an inconsequential way.
+  taxonseqs = target(
+    dplyr::select(allseqs, region, "hash") %>%
       dplyr::filter(complete.cases(.)) %>%
       unique() %>%
-      {set_names(.[[region]], .$hash)}
+      {set_names(.[[region]], .$hash)},
+    transform = map(region = !!unique(taxonomy_meta$region))
+  ),
+
+  # Assign taxonomy to each ASV
+  taxon = target(
     phylotax::taxonomy(
-      seq = seqs,
+      seq = taxonseqs,
       reference = refdb,
       method = method,
       multithread = ignore(ncpus)
     ) %>%
-      phylotax::taxtable(names = names(seqs))
-    },
+      phylotax::taxtable(names = names(taxonseqs)),
     transform = map(.data = !!taxonomy_meta, .tag_in = step, .id = tax_ID)
   ),
 
