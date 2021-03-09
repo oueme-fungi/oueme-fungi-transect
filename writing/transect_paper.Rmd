@@ -201,7 +201,7 @@ At each site, 25\ soil samples were collected along a single 24\ m linear transe
 One third of the sample locations (3\ m spacing) were resampled one year later in June 2016, for a total of 67 samples.
 For each sample, coarse organic debris was removed from the soil surface and a sample of approximately 5\ cm\ × 5\ cm\ × 5\ cm was extracted with an ethanol sterilized knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
-A subsample of approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and stored in a DNA preservation buffer before return to the laboratory for extraction (see Supplementary Methods \@ref(Sampling-supplement) for preservation and extraction methods).
+A subsample of approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and stored in a DNA preservation buffer before return to the laboratory for extraction (see Supplementary Methods \@ref(Sampling-supplement), as well as Figures \@ref(buffer-pcoa), \@ref(buffer-compare-long), and \@ref(buffer-compare-short), for preservation and extraction methods).
 
 ## DNA amplification and sequencing
 
