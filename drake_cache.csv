@@ -14,7 +14,7 @@ add53ced6ee9cfa2,target,allchimeras_LSU
 8d50fcd8c9c9d105,target,allchimeras_LSU3
 5eb72cfbe97547b1,target,allchimeras_LSU4
 26836d070c3f975c,target,allchimeras_short
-aa29f976b904feef,target,allseqs
+f4bb55a12cf8542b,target,allseqs
 066fcf5273f11890,target,aln_decipher_long
 8acee07f6481783b,target,aln_decipher_long_trim
 5ad1c690e5a78c69,target,big_fasta_32S
@@ -72,12 +72,20 @@ fc826f4c07687a6e,target,chimeras_pb_500_LSU4
 47e1e2162e22a2ad,target,chimeras_SH.2257_ITS2
 cee265662a55cfdd,target,chimeras_SH.2257_short
 e6d6587d6a49ed91,import,combine_dynamic_diskframe
-e5c2ed2487c8e095,target,conseq_gits7its4_short
-cf15cd8c4b7a4959,target,conseq_its1lr5_32S
-99f272c81fe4ada2,target,conseq_its1lr5_ITS
-530ec2429b1e62e0,target,conseq_its1lr5_ITS1
-b9b76a65c6ff497a,target,conseq_its1lr5_long
-4dcea753466b37df,target,conseq_its1lr5_LSU
+d94246eccff423ed,target,conseq_gits7its4_short
+4ff0aa01ed7c8885,target,conseq_its1lr5_32S
+0839b68ee465fdcd,target,conseq_its1lr5_5_8S
+d86ab3d9be68fcf5,target,conseq_its1lr5_D1
+c06c4f8687e63dae,target,conseq_its1lr5_D2
+3044b26c2707365e,target,conseq_its1lr5_D3
+6c3f3e98ffddf1bb,target,conseq_its1lr5_ITS
+820aac7f3d6ddb42,target,conseq_its1lr5_ITS1
+99a9168ab54f9ec0,target,conseq_its1lr5_long
+132f9c054db527e2,target,conseq_its1lr5_LSU
+20b8dfb1c9a496dc,target,conseq_its1lr5_LSU1
+98d9d0d15c6f11b0,target,conseq_its1lr5_LSU2
+3e1815cdaccd99ad,target,conseq_its1lr5_LSU3
+5595399219927be8,target,conseq_its1lr5_LSU4
 befea7e00f103f33,target,dada_illumina_SH.2257_R1
 e8c13d6e3500c690,target,dada_illumina_SH.2257_R2
 64ccd29d50e2802f,target,dada_is_057_5_8S
@@ -6257,7 +6265,8 @@ fa05290f0dd4d2ae,target,err_illumina_SH.2257_R1
 da04d160c77d9564,target,err_is_057_short
 2dd52fdbd236ccbb,target,err_pb_483_short
 5dd0f11bc514df66,target,err_pb_500_5_8S
-85ced6d711db3ac0,import,extract_and_derep
+387d2afd67798f1f,import,extract_and_derep
+f76cd12b5f6c3004,import,f
 55ec14d1f95fd3ba,target,file_meta_gits7its4
 0984b3cb87117c58,target,file_meta_its1lr5
 50f7ce8063974c16,import,filter_and_derep_pairs
@@ -6820,7 +6829,7 @@ ff9f661ef00f1b66,target,lsux_its1lr5_dfa7cb8b
 b77fc1e65d5277d4,target,lsux_its1lr5_ffe0176b
 39a8e48cf9b48516,target,lsux_pos_gits7its4
 d6cbda9c750b44dd,target,lsux_pos_its1lr5
-33d02bfea841f154,import,make_allseq_table
+315273fa74d0c164,import,make_allseq_table
 7502c0a3f372524c,target,merge_SH.2257
 e8e45a15f7edf751,import,multidada
 daaf1ff60b024531,import,Biostrings::AA_ALPHABET
@@ -6908,6 +6917,7 @@ b105e8acc8917d80,import,dplyr::bind_rows
 14aa291172acde95,import,dplyr::coalesce
 c83dde1b50316bf0,import,dplyr::collect
 9874372ba8b06362,import,dplyr::cumall
+98864e94ccb9e13d,import,dplyr::cumany
 2e6e8d9083aedff5,import,dplyr::case_when
 ad27dc26f0ff4d3b,import,dplyr::do
 ea44ed324d2df9b1,import,dplyr::desc
@@ -6924,6 +6934,7 @@ d1687d1edcd94326,import,dplyr::group_by
 98ce77bc35b094d2,import,dplyr::group_by_at
 057f01acbd82fe3f,import,dplyr::inner_join
 dbed607a93e8f6f6,import,dplyr::if_else
+f31b53df597b6ded,import,dplyr::last
 744b2eb65b9980e0,import,dplyr::lead
 3ca11e3c1e0f9604,import,dplyr::left_join
 b660243a2b7c9957,import,dplyr::rowwise
@@ -6985,9 +6996,9 @@ de5cba1781c45c13,import,phyloseq::sample_data
 32bdb30afbf1d48d,import,phyloseq::taxa_names
 3ea8d2dc9b9879ac,import,phyloseq::train_idtaxa
 3256306e84b8ddba,import,phyloseq::transform_sample_counts
-acb02e3260b0fada,import,phylotax::taxonomy
+f65df766babcf59e,import,phylotax::taxonomy
 0a0738b5336c5362,import,phylotax::taxtable
-9b10903f0da565b3,import,phylotax::train_idtaxa
+68d68b7f3611b63e,import,phylotax::train_idtaxa
 f42dc1952ca10410,import,phytools::force.ultrametric
 a9a15ccf6a5ed98b,import,plyr::mapvalues
 6ba2c47790ed7ffd,import,readr::AccumulateCallback
@@ -7028,7 +7039,7 @@ a005db5a984bdd42,import,tzara::add_derep_names
 622b8cc0737c596d,import,tzara::combine_derep
 496456ee4c036afa,import,tzara::cluster_consensus
 61db3582b29af5fb,import,tzara::dadamap
-7b8660e68f273710,import,tzara::extract_region
+7b8046aef6667684,import,tzara::extract_region
 5319edf5184c3c46,import,tzara::has_alphabet
 0f1f907f447d8497,import,tzara::seqhash
 bfb306a06e667af2,import,taxa::get_data_frame
@@ -7068,7 +7079,7 @@ a0e6461cee67ceaf,target,file data/clusters/LSU4.fasta.gz
 090be8d247f80ae7,target,file data/clusters/32S.fasta.gz
 314335445e2b90ce,target,file data/clusters/5_8S.fasta.gz
 1c2eb3a16a6b3710,import,file raw_data/short-illumina
-4da01eb71c594bfd,import,file raw_data/short-ion
+60a1d21b5d699c5e,import,file raw_data/short-ion
 7092149b53fe0713,import,file reference/RF00002.cm
 9be6ac5ddd7e926d,import,file reference/fungi_32S_LR5.cm
 4a35359341b22a20,import,file reference/warcup.ITS.dada2.fasta.gz
@@ -7835,7 +7846,7 @@ f804dab2348793e7,target,preconseq_illumina_SH.2257
 4a181260703bcf7d,import,q_stats.character
 2fcb3fe444434cdd,import,q_stats.QualityScaledDNAStringSet
 4c6d35a008c40363,import,q_stats.ShortReadQ
-12a9c4473538a9e4,target,qstats
+eb81961bb09c2021,target,qstats
 fe86e6c1c3b9fd95,target,qstats_demux
 c81dd67a9fb8de1e,target,qstats_demux_0065edb2
 c652c87b16dbfcae,target,qstats_demux_00ebf10c
@@ -11785,7 +11796,7 @@ cc3714a67704fe30,target,qstats_illumina_fcc1b25e
 7d954e473e6e24fa,target,qstats_illumina_fddcc67c
 8991af6574863d4e,target,qstats_illumina_fe5a1757
 65f16850df27b52d,target,qstats_illumina_ff22ab4d
-b9b9ad75c55a0311,target,qstats_raw
+40c2c9d9f65fedbb,target,qstats_raw
 7e73bdd12376141b,target,qstats_raw_2c84718b
 7f83243d0cefe5b2,target,qstats_raw_5c682d49
 a98e19f3c3c00946,target,qstats_raw_9f7f7ddb
@@ -11795,7 +11806,7 @@ a0f0649bf7f5865e,target,qstats_raw_bb04bda5
 6ed6b5f312d510ff,target,qstats_raw_cdc6c217
 3a0fbf5223afb738,target,qstats_raw_def21425
 ba7700ec3af19269,target,qstats_raw_ed863526
-6725959ec08d224e,target,raw_fastq
+f0b909923dd9ce70,target,raw_fastq
 b84716866accb188,target,raxml_decipher_unconst_long
 4d0959f49eb1df4c,import,readd_list
 dd6799b588959660,target,refdb_dada2_rdp_train_LSU
@@ -11841,25 +11852,29 @@ be50607ced342113,target,seq_table1_pb_500_LSU2
 c7411b0b7d941e95,target,seq_table1_pb_500_LSU4
 9a8ef9a1e34663ba,target,shard
 9882e97b88564731,import,skip_allseqs
+04e0a0200c0f4cfb,import,stepwise_region_concat
 407c1e93afa06dd2,import,symbols_to_values
 4036c9721f87b193,import,t
-54af94ba8e4dc968,target,taxon_ITS_unite_ITS_dada2
-01008f303e93f859,target,taxon_ITS_unite_ITS_idtaxa
-cea9b01413225677,target,taxon_ITS_unite_ITS_sintax
-be58c277c2505808,target,taxon_ITS_warcup_ITS_dada2
-62dde326eb914af3,target,taxon_ITS_warcup_ITS_idtaxa
-219ccbf970a3e098,target,taxon_ITS_warcup_ITS_sintax
-364613d379e62229,target,taxon_LSU_rdp_train_LSU_dada2
-4109a8aa080d2a12,target,taxon_LSU_rdp_train_LSU_idtaxa
-432142ce8551bbf7,target,taxon_LSU_rdp_train_LSU_sintax
-db70111f3d4d96dd,target,taxon_short_unite_ITS_dada2
-eadc454aa2c3b902,target,taxon_short_unite_ITS_idtaxa
-bda6efc539e7d538,target,taxon_short_unite_ITS_sintax
-517e73395fc3037d,target,taxon_short_warcup_ITS_dada2
-16a2a34becfeb8fa,target,taxon_short_warcup_ITS_idtaxa
-cebcb6fcdaadb0ff,target,taxon_short_warcup_ITS_sintax
+4f97aeea04c9a422,target,taxon_ITS_unite_ITS_dada2
+85a2d3f9f645254b,target,taxon_ITS_unite_ITS_idtaxa
+c0cfd62459b6d3ad,target,taxon_ITS_unite_ITS_sintax
+9fa9a7c8c8dc07bc,target,taxon_ITS_warcup_ITS_dada2
+5dd8d0cb8fc6bd7d,target,taxon_ITS_warcup_ITS_idtaxa
+bc0e2293e2dc6cba,target,taxon_ITS_warcup_ITS_sintax
+c9df0683024fd77e,target,taxon_LSU_rdp_train_LSU_dada2
+9c61770bef87ec65,target,taxon_LSU_rdp_train_LSU_idtaxa
+3e9792ef334b47d0,target,taxon_LSU_rdp_train_LSU_sintax
+f9973d60f1d5d9af,target,taxon_short_unite_ITS_dada2
+97bd4370f1763c44,target,taxon_short_unite_ITS_idtaxa
+dc74a1f691caa5f3,target,taxon_short_unite_ITS_sintax
+e72c5c049cce354d,target,taxon_short_warcup_ITS_dada2
+0e759305684271be,target,taxon_short_warcup_ITS_idtaxa
+9766325ffe5beb01,target,taxon_short_warcup_ITS_sintax
 bfdd414886a3afa1,target,taxon_table
+b3a78f080aaeae28,target,taxonseqs_ITS
+c568dde01bffccb6,target,taxonseqs_LSU
+fcd987d166ec9202,target,taxonseqs_short
 55ec14d1f95fd3ba,target,trace1_gits7its4
 0984b3cb87117c58,target,trace1_its1lr5
 a77a2183ab39a78e,import,trim_LSU_intron
-fbfd18bf80dcaed8,import,write_big_fasta
+e3dd01a07ace2646,import,write_big_fasta
