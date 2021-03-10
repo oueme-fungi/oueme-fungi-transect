@@ -58,7 +58,7 @@ rule all:
     input:
         "{rmddir}/transect_paper.pdf".format_map(config),
         "{rmddir}/transect_supplement.pdf".format_map(config),
-        "{outdir}/taxa.csv".format_map(config),
+        "{outdir}/ind_taxa.csv".format_map(config),
         "{outdir}/env_taxa.csv".format_map(config),
         "{outdir}/supp_file_1.tsv".format_map(config),
         "{outdir}/supp_file_2.tsv".format_map(config),
@@ -769,8 +769,10 @@ rule lightplan:
     output:
         "{rmddir}/transect_paper.pdf".format_map(config),
         "{rmddir}/transect_supplement.pdf".format_map(config),
-        "{outdir}/taxa.csv".format_map(config),
-        "{outdir}/env_taxa.csv".format_map(config),
+        expand("{outdir}/{taxon_type}_taxa{which}.csv",
+               outdir = config['outdir'],
+               taxon_type = ['env', 'ind'],
+               which = ['', '_target', '_ena']),
         "{outdir}/supp_file_1.tsv".format_map(config),
         "{outdir}/supp_file_2.tsv".format_map(config),
         "{outdir}/supp_file_3.pdf".format_map(config)
