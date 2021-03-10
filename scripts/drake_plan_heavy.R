@@ -798,8 +798,7 @@ plan <- drake_plan(
       region_concat("short", c("5_8S", "ITS2", "LSU1"), "ITS2") %>%
       region_concat("32S", c("5_8S", "ITS2", "LSU"), "ITS2") %>%
       region_concat("conserv", c("5_8S", "LSU1", "LSU2", "LSU3", "LSU4")) %>%
-      dplyr::group_by(ITS2) %>%
-      dplyr::filter(sum(nread) >= 3)
+      dplyr::group_by(ITS2)
   },
   transform = combine(
     dada, derep2, derep2_length,
