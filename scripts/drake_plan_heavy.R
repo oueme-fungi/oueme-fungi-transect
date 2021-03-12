@@ -998,7 +998,7 @@ plan <- drake_plan(
     ),
     list.files(
       file_in(!!file.path(config$rawdir, datasets$dataset[datasets$tech == "Ion Torrent"])),
-      pattern = "^rawlib.basecaller.bam",
+      pattern = "^rawlib.basecaller.(bam|sam.genozip)",
       full.names = TRUE,
       recursive = TRUE
     )
@@ -1007,7 +1007,7 @@ plan <- drake_plan(
   qstats_raw = target(
     q_stats(raw_fastq, step = "raw") %>%
       dplyr::mutate(
-        file = ifelse(basename(file) == "rawlib.basecaller.bam", "is_057-001", file)
+        file = ifelse(startsWith(basename(file), "rawlib.basecaller"), "is_057-001", file)
       ) %>%
       as.data.frame(),
     dynamic = map(raw_fastq),

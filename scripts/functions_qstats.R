@@ -56,6 +56,7 @@ q_stats.character <- function(sreadq, ..., qualityType = "FastqQuality") {
   )
   infile <- sreadq
   if (endsWith(sreadq, ".bam")) infile <- pipe(paste("samtools", "fastq", shQuote(sreadq)))
+  if (endsWith(sreadq, ".sam.genozip")) infile <- pipe(paste("genocat", shQuote(sreadq), "| samtools fastq" ))
   fqs <- ShortRead::FastqStreamer(infile, n = 100000)
   on.exit(close(fqs))
   out <- tibble::tibble()

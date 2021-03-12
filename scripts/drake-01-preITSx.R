@@ -2,7 +2,7 @@ if (exists("snakemake")) {
   snakemake@source(".Rprofile", echo = FALSE)
   load(snakemake@input[["drakedata"]])
 } else {
-  load("drake.Rdata")
+  load("data/plan/drake.Rdata")
 }
 
 library(magrittr)
@@ -42,14 +42,14 @@ if (length(preitsx_targets)) {
     cache = cache
   )
 
-  dod <- drake::outdated(dconfig)
+  # dod <- drake::outdated(dconfig)
 
   drake::make(config = dconfig)
 
-  tictoc::toc()
-  if (any(dod %in% drake::failed())) {
-    if (interactive()) stop() else quit(status = 1)
-  }
+  # tictoc::toc()
+  # if (any(dod %in% drake::failed())) {
+  #   if (interactive()) stop() else quit(status = 1)
+  # }
   flog.info("Recalculating outdated targets...")
   od <- drake::outdated(
     drake::drake_config(

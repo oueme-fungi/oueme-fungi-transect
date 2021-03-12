@@ -47,6 +47,7 @@ dependencies:
   - vsearch=2.9.1=h96824bc_0
   - raxml=8.2.12=h516909a_2
   - samtools=1.10=h2e538c0_3
+  - genozip=11.0.8=h6ca4f20_0
   - snakemake-minimal=5.5.4
   - pandas=0.25.1=py37hb3f55d8_0
   # Plotting
