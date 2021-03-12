@@ -2027,8 +2027,9 @@ plan2 <- drake_plan(
   ),
 
   read_accnos = lookup_submitted_accnos(path = file_in("output/ENA/reads")),
+
   pretaxid = target(
-    .fun(phylotax_hybrid),
+    .fun(phylotax_hybrid, c(ENA_ASVs_long, ENA_ASVs_short)),
     transform = map(
       .fun = list(group_by_taxon, group_by_taxon_env),
       .lookupfun = list(lookup_ncbi_taxon, lookup_ena_taxon),
@@ -2056,6 +2057,37 @@ plan2 <- drake_plan(
     },
     transform = map(taxid, taxon_type, .id = taxon_type)
   ),
+
+  ENA_ASVs_long = allseqs %>%
+    dplyr::filter(primer_ID == "its1lr5") %$%
+    hash %>%
+    setdiff(phyloseq::taxa_names(agaricus_reads)),
+
+  ENA_ASVs_short = proto_physeq %>%
+    phyloseq::subset_samples(dataset %in% c("short-pacbio", "short-illumina")) %>%
+    phyloseq::otu_table() %>%
+    colSums() %>%
+    magrittr::extract(. > 0) %>%
+    names() %>%
+    setdiff(phyloseq::taxa_names(agaricus_reads)) %>%
+    setdiff(ENA_ASVs_long),
+
+  write_ENA_ASVs_short = write_ENA_ASVs(
+    seqs = dplyr::filter(allseqs, primer_ID == "gits7its4"),
+    which_asvs = ENA_ASVs_short,
+    taxids = taxid_all_env,
+    file = file_out("output/ENA/ENA_ASVs_short.tsv"),
+    is_short = TRUE
+  ),
+
+  write_ENA_ASVs_long = write_ENA_ASVs(
+    seqs = dplyr::filter(allseqs, primer_ID == "its1lr5"),
+    which_asvs = ENA_ASVs_long,
+    taxids = taxid_all_env,
+    file = file_out("output/ENA/ENA_ASVs_long.tsv"),
+    is_short = FALSE
+  ),
+
   # transform = FALSE,
   trace = TRUE
 ) %>%

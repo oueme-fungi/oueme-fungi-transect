@@ -314,9 +314,10 @@ lookup_submitted_accnos <- function(path) {
     tidyr::pivot_wider(names_from = "tech", values_from = "accno")
 }
 
-group_by_taxon <- function(phylotax) {
+group_by_taxon <- function(phylotax, all_labels = character(0)) {
   widen_taxonomy(phylotax$assigned) %>%
     dplyr::select(kingdom:genus, Taxonomy, label) %>%
+    dplyr::full_join(tibble::tibble(label = all_labels), by = "label") %>%
     dplyr::mutate_at("Taxonomy", stringi::stri_replace_all_fixed, ";NA", "") %>%
     dplyr::mutate_at("Taxonomy", stringi::stri_replace_first_regex, ";[A-Za-z]+\\d+$", "") %>%
     unique() %>%
@@ -341,7 +342,7 @@ ena_taxon_replacements <- tibble::tribble(
   "Neogregarinorida",   "gregarine",
   "Ciliophora",         "ciliate",
   "Haptorida",          "haptorid ciliate",
-  "NA",                 "eukaryote",
+  "NA",                 "soil eukaryote",
   "Angiospermae",       "Magnoliophyta",
   "Stramenopila",       "Stramenopile",
   "Kickxellomycota",    "Kickxellomycotina",
@@ -359,17 +360,18 @@ ena_taxon_replacements <- tibble::tribble(
   "Symphyla",           "Arthropoda"
 )
 
-group_by_taxon_env <- function(phylotax) {
+group_by_taxon_env <- function(phylotax, all_labels = character(0)) {
   widen_taxonomy(phylotax$assigned) %>%
     dplyr::select(kingdom:order, label) %>%
+    dplyr::full_join(tibble::tibble(label = all_labels), by = "label") %>%
     dplyr::group_by_at(vars(kingdom:order)) %>%
     dplyr::summarize(label = paste(label, collapse = ",")) %>%
     tidyr::pivot_longer(cols = kingdom:order, names_to = "rank", values_to = "taxon") %>%
-    dplyr::filter(complete.cases(.), !stringr::str_detect(taxon, "\\d")) %>%
+    dplyr::filter(complete.cases(.) | rank == "kingdom", !stringr::str_detect(taxon, "\\d") | is.na(taxon)) %>%
     dplyr::group_by(label) %>%
     dplyr::summarize(
       Taxonomy = paste(taxon, collapse = ";"),
-      taxon = dplyr::last(taxon),
+      taxon = dplyr::last(paste(taxon)),
       rank = dplyr::last(rank)
     ) %>%
     dplyr::group_by(Taxonomy, taxon, rank) %>%
@@ -452,4 +454,51 @@ lookup_ena_taxon <- function(taxon, Taxonomy, rank, label, ...) {
   )
   result <- dplyr::arrange(result, dist)
   head(result, 1)
+}
+
+write_ENA_ASVs <- function(seqs, which_asvs, taxids, file, is_short) {
+  # copy over the template to match the header
+  writeLines("#template_accession ERT000009", file)
+  # get all the labels and corresponding IDs.
+  dplyr::select(taxids, label, taxId) %>%
+    tidyr::separate_rows(label) %>%
+    # choose only ASV labels belonging to this set
+    dplyr::filter(label %in% which_asvs) %>%
+    # add sequences
+    dplyr::left_join(seqs, by = c("label" = "hash")) %>%
+    dplyr::arrange(label) %>%
+    # generate the submission data
+    dplyr::transmute(
+      ENTRYNUMBER = seq.int(nrow(.)),
+      ORGANISM = taxId,
+      CLONE = label,
+      ENVSAM = "yes",
+      ISOSOURCE = "soil",
+      COUNTRY = "Benin",
+      AREA = "Borgou",
+      LOCALITY = "Foret Classee de l'Oueme Superieur",
+      LATLON = "9.75 N 2.2 E",
+      COLDATE = "2016",
+      COLBY = "Brendan Furneaux",
+      # sequences from the long amplicon will have ITS1 or LSU (and usually both)
+      PFNAME1 = if (is_short) "gITS7" else "ITS1",
+      PFSEQ1 = if (is_short) "GTGARTCATCGARTCTTTG" else "TCCGTAGGTGAACCTGC",
+      PRNAME1 = if (is_short) "ITS4" else "LR5",
+      PRSEQ1 = if (is_short) "TCCTCCGCTTATTGATATGC" else "TCCTGAGGGAAACTTCG",
+      PRNAME2 = if (is_short) "ITS4A" else NULL,
+      PRSEQ2 = if (is_short) "TCCTCGCCTTATTGATATGC" else NULL,
+      # include the longest possible sequence
+      SEQUENCE = chartr("U", "T", best),
+      # which regions are present?
+      `18S` = ifelse(is.na(ITS1) | is_short, "no", "yes"),
+      ITS1 = ifelse(is.na(ITS1) | is_short, "no", "yes"),
+      `5.8S` = ifelse(is.na(`5_8S`) & is.na(short), "no", "yes"),
+      ITS2 = "yes",
+      `28S` = ifelse(is.na(LSU1) & is.na(short), "no", "yes")
+    ) %>%
+    dplyr::filter(nchar(SEQUENCE) > 100) %>%
+    # put SEQUENCE at the end where it belongs
+    # (it needed to be calculated before ITS2 was changed from the ITS2 sequence to "yes")
+    dplyr::select(!SEQUENCE, SEQUENCE) %T>%
+    readr::write_delim(file, delim = "\t", append = TRUE, col_names = TRUE)
 }
