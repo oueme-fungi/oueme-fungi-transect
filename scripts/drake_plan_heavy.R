@@ -844,7 +844,8 @@ plan <- drake_plan(
   # make a data frame of all consensus sequences and ASVs; each row is an ITS2 ASV
   allseqs = target(
     make_allseq_table(list(conseq),
-                      drake_combine(big_seq_table)) %>%
+                      drake_combine(big_seq_table),
+                      datasets = datasets) %>%
       dplyr::filter(!is.na(ITS2)) %>%
       # "best" is the longest sequence that can be constructed for each read,
       # by concatenating as many reconstructed regions as we can without

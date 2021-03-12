@@ -14,7 +14,7 @@ add53ced6ee9cfa2,target,allchimeras_LSU
 8d50fcd8c9c9d105,target,allchimeras_LSU3
 5eb72cfbe97547b1,target,allchimeras_LSU4
 26836d070c3f975c,target,allchimeras_short
-d2b4a26f4cbc1ef7,target,allseqs
+c88c7addd84b06c0,target,allseqs
 066fcf5273f11890,target,aln_decipher_long
 8acee07f6481783b,target,aln_decipher_long_trim
 5ad1c690e5a78c69,target,big_fasta_32S
@@ -110,6 +110,7 @@ b84a2281cc535027,target,dada_pb_500_D1
 3e73d34d6dd21078,target,dada_pb_500_LSU2
 bcfa2bb26a47a527,target,dada_pb_500_LSU3
 5d2a854c6512d3bc,target,dada_pb_500_LSU4
+21e40bbf6bf7dec7,import,datasets
 44251937eb8f242f,target,derep_by_is_057
 1b448dc05681192d,target,derep_by_pb_483
 f17b98f648c39bf4,target,derep_by_pb_500
@@ -6829,7 +6830,7 @@ ff9f661ef00f1b66,target,lsux_its1lr5_dfa7cb8b
 b77fc1e65d5277d4,target,lsux_its1lr5_ffe0176b
 39a8e48cf9b48516,target,lsux_pos_gits7its4
 d6cbda9c750b44dd,target,lsux_pos_its1lr5
-315273fa74d0c164,import,make_allseq_table
+9d8d57cddc8f5d87,import,make_allseq_table
 7502c0a3f372524c,target,merge_SH.2257
 e8e45a15f7edf751,import,multidada
 daaf1ff60b024531,import,Biostrings::AA_ALPHABET
@@ -6945,6 +6946,7 @@ b660243a2b7c9957,import,dplyr::rowwise
 4a050d9b616a34b5,import,dplyr::summarise_all
 a5c64da13a2d5fbc,import,dplyr::sample_n
 36f9439f5abf9401,import,dplyr::select
+bad124194ff2dde1,import,dplyr::transmute
 228d59069eeaafde,import,dplyr::ungroup
 8f5fc29390b9929b,import,dplyr::vars
 ace9af5c782e411a,import,drake::drake_tempfile
@@ -11854,6 +11856,7 @@ c7411b0b7d941e95,target,seq_table1_pb_500_LSU4
 9a8ef9a1e34663ba,target,shard
 9882e97b88564731,import,skip_allseqs
 04e0a0200c0f4cfb,import,stepwise_region_concat
+038fc8d0fb550345,import,summarize_seq_table
 407c1e93afa06dd2,import,symbols_to_values
 4036c9721f87b193,import,t
 10d82684e38d6dc3,target,taxon_ITS_unite_ITS_dada2
@@ -11875,6 +11878,7 @@ bfdd414886a3afa1,target,taxon_table
 36a1e8de04ced3e1,target,taxonseqs_ITS
 95ab964facefc80b,target,taxonseqs_LSU
 a99665487b7e80a3,target,taxonseqs_short
+afd8b7d196e1ac0d,import,tidy_seq_table
 55ec14d1f95fd3ba,target,trace1_gits7its4
 0984b3cb87117c58,target,trace1_its1lr5
 a77a2183ab39a78e,import,trim_LSU_intron

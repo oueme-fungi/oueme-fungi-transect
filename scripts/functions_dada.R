@@ -19,8 +19,7 @@
 #' @param seq_table_prefix (character of length one) A regular expression which
 #'   be removed from the names of \code{seq_tables}.  It does not actually
 #'   have to be a prefix.
-#' @param label_order (character) regions in order of priority for naming the
-#'   ASV.
+#' @param datasets (data.frame) definitions of the different data sets
 #'
 #' @return A tibble with columns for each of the regions in \code{conseqs} and
 #'  \code{seq_tables}, where each row corresponds to sequences which match the
@@ -32,7 +31,8 @@
 #' @export
 make_allseq_table <- function(conseqs, seq_tables,
                               conseq_key = "ITS2",
-                              seq_table_prefix = "big_seq_table_") {
+                              seq_table_prefix = "big_seq_table_",
+                              datasets) {
   conseqs <- purrr::reduce(conseqs,
                            dplyr::full_join)
 
@@ -50,8 +50,13 @@ make_allseq_table <- function(conseqs, seq_tables,
 
   seq_tables <- purrr::imap(
     seq_tables,
-    ~ tibble::tibble(x = chartr("T", "U", colnames(.x))) %>%
-      set_colnames(.y)
+    tidy_seq_table,
+    datasets = datasets
+  )
+
+  seq_tables <- purrr::imap(
+    seq_tables,
+    summarize_seq_table
   )
 
   conseqs <-
@@ -62,6 +67,37 @@ make_allseq_table <- function(conseqs, seq_tables,
   dplyr::mutate(conseqs,
                 hash = tzara::seqhash(.data[[conseq_key]]) %>%
                     unname())
+}
+
+# turn a seq_table (int matrix with sequences as column names and samples as row names)
+# into a tidy tibble (one row per non-zero element of the matrix, columns for
+# parsed sample information and sequence)
+# also add a column for primer_ID
+tidy_seq_table <- function(seq_table, region = "seq", datasets) {
+  tibble::as_tibble(seq_table, rownames = "filename") %>%
+    tidyr::gather(key = !!region, value = "nread", -1) %>%
+    dplyr::filter(nread >= 1) %>%
+    tidyr::extract(
+      col = "filename",
+      into = c("seq_run", "plate", "well", "region", "dir"),
+      regex = "([a-zA-Z]+[-_]\\d+)_(\\d+)_([A-H]1?[0-9])([fr]?)_([:alnum:]+).+"
+    ) %>%
+    dplyr::left_join(
+      dplyr::transmute(
+        datasets,
+        seq_run = seq_run,
+        primer_ID = paste0(stringr::str_replace(forward, "_tag.*$", ""),
+                           stringr::str_replace(reverse, "_tag.*$", ""))
+      ),
+      by = "seq_run"
+    ) %>%
+    dplyr::mutate_at(region, chartr, old = "Tt", new = "Uu")
+}
+
+summarize_seq_table <- function(seq_table, region = "seq") {
+  dplyr::group_by_at(seq_table, c("primer_ID", region)) %>%
+    dplyr::summarize_at("nread", sum) %>%
+    dplyr::ungroup()
 }
 
 # write the sequences from a dada2-style sequence table to a fasta file for
