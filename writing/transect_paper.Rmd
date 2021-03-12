@@ -201,7 +201,7 @@ At each site, 25\ soil samples were collected along a single 24\ m linear transe
 One third of the sample locations (3\ m spacing) were resampled one year later in June 2016, for a total of 67 samples.
 For each sample, coarse organic debris was removed from the soil surface and a sample of approximately 5\ cm\ × 5\ cm\ × 5\ cm was extracted with an ethanol sterilized knife blade.
 Each sample was sealed in a plastic zipper bag and homogenized by shaking and manually breaking apart soil aggregations.
-A subsample of approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and stored in a DNA preservation buffer before return to the laboratory for extraction (see Supplementary Methods \@ref(Sampling-supplement), as well as Figures \@ref(buffer-pcoa), \@ref(buffer-compare-long), and \@ref(buffer-compare-short), for preservation and extraction methods).
+A subsample of approximately 250\ mg total of soil was collected from two locations in the homogenized soil sample and stored in a DNA preservation buffer before return to the laboratory for extraction (see Supplementary Methods \@ref(Sampling-supplement), as well as Figures \@ref(fig:buffer-pcoa), \@ref(fig:buffer-compare-long), and \@ref(fig:buffer-compare-short), for preservation and extraction methods).
 
 ## DNA amplification and sequencing
 
@@ -668,14 +668,13 @@ The SNP&SEQ Platform is also supported by the Swedish Research Council and the K
 
 # Data Accessibility {-}
 
- - Trimmed, demultiplexed sequencing reads have been deposited at the European Nucleotide Archive (ERA) under Project accession number PRJEB37385. Accession numbers are given in Supplementary Files 1 and 2.
- - Consensus ASV sequences will also be deposited at ENA prior to publication.
+ - Trimmed, demultiplexed sequencing reads are deposited at the European Nucleotide Archive (ENA) under Project accession number PRJEB37385. Accession numbers are given in Supplementary Files 1 and 2.
+ - Consensus ASV sequences from the PacBio and Illumina datasets are deposited at ENA under Project accession number PRJEN37385, accession numbers HG995461-HG996435 (ASVs detected in the long amplicon dataset) and FR984199-FR988025 (ASVs only detected in the short amplicon dataset). Because of concern that the Ion Torrent dataset may contain many ASVs with uncorrected sequencing errors, we elected not to submit ASVs which were only detected in the Ion Torrent dataset. However, these sequences, along with all other consensus ASVs, are available in Dryad repository XXXXXXXX [@furneauxdata2020].
  - Nucleotide alignment and ML tree will be deposited at Dryad prior to final publication [@furneauxdata2020].
  - R packages `LSUx`, `tzara`, `phylotax`, and `FUNGuildR` are available on Github at https://github.com/brendanf/LSUx, https://github.com/brendanf/tzara, https://github.com/brendanf/phylotax, and https://github.com/brendanf/FUNGuildR.
-These packages are currently being prepared for submission to CRAN/Bioconductor.
-If they are not accepted prior to final publication, snapshots will be archived at Dryad.
- - FASTA-format files for the RDP fungal LSU training set, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper will be archived at Dryad prior to publication.
- - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect.
+Snapshots of the versions used in this paper are archived in Zenodo repository XXXXXX
+ - FASTA-format files for the RDP fungal LSU training set, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper are archived in Dryad repository XXXXXXX [@furneauxdata2020].
+ - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect, and archived in Zenodo repository XXXXXXX.
 
 # Author Contributions {-}
 
