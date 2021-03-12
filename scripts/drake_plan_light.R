@@ -2088,6 +2088,30 @@ plan2 <- drake_plan(
     is_short = FALSE
   ),
 
+  dryad_fasta = target(
+    dplyr::select(allseqs, hash, seq = !!region) %>%
+      dplyr::filter(!is.na(seq)) %>%
+      dplyr::group_by(hash) %>%
+      dplyr::arrange(nchar(seq)) %>%
+      dplyr::summarize_at("seq", dplyr::last) %>%
+      tibble::deframe() %>%
+      chartr(old = "Uu", new = "Tt") %>%
+      Biostrings::DNAStringSet() %T>%
+      Biostrings::writeXStringSet(
+        file_out(!!paste0("output/", region, ".fasta.gz")),
+        compress = TRUE
+      ),
+    transform = map(region = c("ITS1", "5_8S", "ITS2", "LSU1", "D1", "LSU2",
+                               "D2", "LSU3", "D3", "LSU4", "ITS", "LSU", "32S",
+                               "long", "short", "full", "best"))
+  ),
+
+  dryad_biom = biomformat::make_biom(
+    data = phyloseq::otu_table(proto_physeq),
+    sample_metadata = phyloseq::sample_data(proto_physeq)
+  ) %>%
+    biomformat::write_biom(file_out("output/ASVs.biom")),
+
   # transform = FALSE,
   trace = TRUE
 ) %>%

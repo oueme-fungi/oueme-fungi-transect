@@ -773,6 +773,12 @@ rule lightplan:
                outdir = config['outdir'],
                taxon_type = ['env', 'ind'],
                which = ['', '_target', '_ena']),
+        expand("{outdir}/{region}.fasta.gz",
+               outdir = config['outdir'],
+               region = ['ITS1', '5_8S', 'ITS2', 'LSU1', 'D1', 'LSU2', 'D2',
+                         'LSU3', 'D3', 'LSU4', 'ITS', 'LSU', '32S', 'long',
+                         'short', 'full', 'best']),
+        "{outdir}/ASVs.biom".format_map(config),
         "{outdir}/supp_file_1.tsv".format_map(config),
         "{outdir}/supp_file_2.tsv".format_map(config),
         "{outdir}/supp_file_3.pdf".format_map(config)
