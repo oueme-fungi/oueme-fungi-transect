@@ -669,12 +669,12 @@ The SNP&SEQ Platform is also supported by the Swedish Research Council and the K
 # Data Accessibility {-}
 
  - Trimmed, demultiplexed sequencing reads are deposited at the European Nucleotide Archive (ENA) under Project accession number PRJEB37385. Accession numbers are given in Supplementary Files 1 and 2.
- - Consensus ASV sequences from the PacBio and Illumina datasets are deposited at ENA under Project accession number PRJEN37385, accession numbers HG995461-HG996435 (ASVs detected in the long amplicon dataset) and FR984199-FR988025 (ASVs only detected in the short amplicon dataset). Because of concern that the Ion Torrent dataset may contain many ASVs with uncorrected sequencing errors, we elected not to submit ASVs which were only detected in the Ion Torrent dataset. However, these sequences, along with all other consensus ASVs, are available in Dryad repository XXXXXXXX [@furneauxdata2020].
- - Nucleotide alignment and ML tree will be deposited at Dryad prior to final publication [@furneauxdata2020].
+ - Consensus ASV sequences from the PacBio and Illumina datasets are deposited at ENA under Project accession number PRJEN37385, accession numbers HG995461-HG996435 (ASVs detected in the long amplicon dataset) and FR984199-FR988025 (ASVs only detected in the short amplicon dataset). Because of concern that the Ion Torrent dataset may contain many ASVs with uncorrected sequencing errors, we elected not to submit ASVs which were only detected in the Ion Torrent dataset. However, these sequences, along with all other consensus ASVs, are archived in Dryad [@furneauxdata2021].
+ - Nucleotide alignment and ML tree are archived at Dryad [@furneauxdata2021].
  - R packages `LSUx`, `tzara`, `phylotax`, and `FUNGuildR` are available on Github at https://github.com/brendanf/LSUx, https://github.com/brendanf/tzara, https://github.com/brendanf/phylotax, and https://github.com/brendanf/FUNGuildR.
-Snapshots of the versions used in this paper are archived in Zenodo repository XXXXXX
- - FASTA-format files for the RDP fungal LSU training set, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper are archived in Dryad repository XXXXXXX [@furneauxdata2020].
- - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect, and archived in Zenodo repository XXXXXXX.
+Snapshots of the versions used in this paper are archived in Dryad [@furneauxdata2021]
+ - FASTA-format files for the RDP fungal LSU training set, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper are archived in Dryad [@furneauxdata2021].
+ - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect, and archived in Dryad [@furneauxdata2021].
 
 # Author Contributions {-}
 
