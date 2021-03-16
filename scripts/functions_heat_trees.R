@@ -498,7 +498,7 @@ draw_buffer_compare_heattree <- function(taxmap, amplicon, outfile) {
         aspect_ratio = 1,
         layout = "davidson-harel",
         initial_layout = "reingold-tilford",
-        output_file =
+        output_file = outfile
       )
   }
 }
