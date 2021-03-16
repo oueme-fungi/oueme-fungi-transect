@@ -157,7 +157,8 @@ plan2 <- drake_plan(
     )  %>%
     dplyr::left_join(read_accnos) %>%
     dplyr::select(-"Illumina-f", -"Illumina-r", -"IonTorrent") %T>%
-    write_tsv(file_out(!!file.path("output", "supp_file_2.tsv")), na = ""),
+    write_tsv(file_out(!!file.path("output", "supp_file_2.tsv")), na = "") %T>%
+    openxlsx::write.xlsx(file_out(!!file.path("output", "supp_file_2.xlsx"))),
 
   # [tibble], creates file for supplement 3
   tagmap_short = platemap %>%
@@ -188,7 +189,8 @@ plan2 <- drake_plan(
       )
     } %>%
     select(sample_alias, year, site, buffer, x, sample_type, amplicon, everything()) %T>%
-    write_tsv(file_out(!!file.path("output", "supp_file_1.tsv")), na = ""),
+    write_tsv(file_out(!!file.path("output", "supp_file_1.tsv")), na = "") %T>%
+    openxlsx::write.xlsx(file_out(!!file.path("output", "supp_file_1.xlsx"))),
 
   #### Phylogeny ####
   # Some of these targets depend on argets from the next (taxonomy) section

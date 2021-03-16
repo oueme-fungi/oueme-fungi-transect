@@ -13,6 +13,7 @@ dependencies:
   - r-tidyxl=1.0.4=r35h0357c0b_1
   - r-glue=1.3.1=r35hcdcec82_1
   - r-assertr=2.6=r35h6115d3f_1
+  - r-openxlsx=4.1.4=r35h0357c0b_0
   # Drake and friends
   - r-drake=7.8.0=r35hcdcec82_0
   - r-fst=0.9.0=r351h0357c0b_0
