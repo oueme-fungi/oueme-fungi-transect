@@ -252,7 +252,7 @@ We conclude that this poor performance was due to a combination of long amplicon
 We therefore developed a new workflow to assemble ASVs from the long amplicons by splitting the reads into homologous domains, including the two ITS regions, 5.8S, the variable D1--3 regions of LSU [@michot1984], and the conserved LSU regions between the D regions, here referred to as LSU1--4 (Figure\ \@ref(fig:regions)a).
 We then independently denoised reads from each domain and concatenated the denoised domains for each read.
 Finally denoised reads were clustered based on 100% ITS2 identity, and a full-length consensus ASV was calculated for each cluster.
-This method, implemented in the new R packages `LSUx` (splitting reads into homologous regions; https://github.com/brendanf/LSUx) and `tzara` (reassembling regions and generating full-length consensus ASVs; https://github.com/brendanf/tzara) and detailed in Supplementary Methods \@ref(denoising-supplement), was used for all of the PacBio and Ion Torrent datasets.
+This method, implemented in the new R packages `LSUx` (splitting reads into homologous regions; https://github.com/brendanf/LSUx) and `tzara` (reassembling regions and generating full-length consensus ASVs; https://github.com/brendanf/tzara) and detailed in Supplementary Methods \@ref(denoising-supplement) and Table \@ref(tab:region-limits), was used for all of the PacBio and Ion Torrent datasets.
 Because the `LSUx` plus `tzara` method as currently implemented is not applicable to Illumina paired-end reads, the ASVs generated from the Illumina dataset according to the standard DADA2 workflow were used.
 The ITS2 region was extracted from the ASVs using `LSUx` for comparison to the results from the other technologies.
 To account for intra-species variation and the possibility of different denoising performance between the different sequencing strategies, the pooled ITS2-ASVs from all sequencing strategies were also clustered into operational taxonomic units (OTUs) at 97% similarity using VSEARCH v2.9.1 [@rognes2016].
@@ -669,12 +669,12 @@ The SNP&SEQ Platform is also supported by the Swedish Research Council and the K
 # Data Accessibility {-}
 
  - Trimmed, demultiplexed sequencing reads are deposited at the European Nucleotide Archive (ENA) under Project accession number PRJEB37385. Accession numbers are given in Supplementary Files 1 and 2.
- - Consensus ASV sequences from the PacBio and Illumina datasets are deposited at ENA under Project accession number PRJEN37385, accession numbers HG995461-HG996435 (ASVs detected in the long amplicon dataset) and FR984199-FR988025 (ASVs only detected in the short amplicon dataset). Because of concern that the Ion Torrent dataset may contain many ASVs with uncorrected sequencing errors, we elected not to submit ASVs which were only detected in the Ion Torrent dataset. However, these sequences, along with all other consensus ASVs, are archived in Dryad [@furneauxdata2021].
- - Nucleotide alignment and ML tree are archived at Dryad [@furneauxdata2021].
+ - Consensus ASV sequences from the PacBio and Illumina datasets are deposited at ENA under Project accession number PRJEN37385, accession numbers HG995461-HG996435 (ASVs detected in the long amplicon dataset) and FR984199-FR988025 (ASVs only detected in the short amplicon dataset). Because of concern that the Ion Torrent dataset may contain many ASVs with uncorrected sequencing errors, we elected not to submit ASVs which were only detected in the Ion Torrent dataset. However, these sequences, along with all other consensus ASVs, are archived in Dryad [@furneauxdata2021\; https://doi.org/10.5061/dryad.6wwpzgmvf].
+ - Nucleotide alignment and ML tree are archived at Dryad [@furneauxdata2021\; https://doi.org/10.5061/dryad.6wwpzgmvf].
  - R packages `LSUx`, `tzara`, `phylotax`, and `FUNGuildR` are available on Github at https://github.com/brendanf/LSUx, https://github.com/brendanf/tzara, https://github.com/brendanf/phylotax, and https://github.com/brendanf/FUNGuildR.
-Snapshots of the versions used in this paper are archived in Dryad [@furneauxdata2021]
- - FASTA-format files for the RDP fungal LSU training set, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper are archived in Dryad [@furneauxdata2021].
- - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect, and archived in Dryad [@furneauxdata2021].
+Snapshots of the versions used in this paper are archived in Dryad [@furneauxdata2021\; https://doi.org/10.5061/dryad.6wwpzgmvf].
+ - FASTA-format files for the RDP fungal LSU training set, Warcup, and Unite reference databases with unified classifications, as well as scripts used to generate them, are available at https://github.com/brendanf/reannotate. The versions used in this paper are archived in Dryad [@furneauxdata2021\; https://doi.org/10.5061/dryad.6wwpzgmvf].
+ - Bioinformatics pipeline and analysis scripts are available at https://github.com/oueme-fungi/oueme-fungi-transect, and archived in Dryad [@furneauxdata2021\; https://doi.org/10.5061/dryad.6wwpzgmvf].
 
 # Author Contributions {-}
 

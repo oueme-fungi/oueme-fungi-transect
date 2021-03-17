@@ -451,6 +451,7 @@ dd55fcb2f4b75570,import,futile.logger::flog.warn
 553406a544f4066e,import,forcats::fct_relevel
 a72bb2597467663a,import,forcats::fct_collapse
 4d09017a40d2853e,import,forcats::fct_explicit_na
+e04dc35ed32ebd69,import,openxlsx::write.xlsx
 92f4612081266210,import,httr::GET
 7d4577e1a9dc3766,import,httr::content
 802fae9ccb171c11,import,iNEXT:::iNEXT.Ind
@@ -640,7 +641,7 @@ d7a545e479f82877,target,file data/trees/labeled.tree
 b89e7afdf4389796,target,file data/trees/labeled_phylotax.tree
 46645b8f2c361e24,target,file output/32S.fasta.gz
 83cdff203933f62f,target,file output/5_8S.fasta.gz
-5d42d7050cbe2068,target,file output/ASVs.biom
+98777fe207ff5802,target,file output/ASVs.biom
 ab42889a4b81de27,target,file output/D1.fasta.gz
 0db19f5260cea12b,target,file output/D2.fasta.gz
 5a5adaeeda743adf,target,file output/D3.fasta.gz
@@ -674,19 +675,21 @@ be96c62849a9aab4,target,file output/ind_taxa_target.csv
 aebf1bfc9cf16d32,target,file output/ind_taxa_ncbi.csv
 3a2fdb60d336e935,target,file output/long.fasta.gz
 2955b4e6ffdcfb96,target,file output/long_primers.tsv
-dd8f34506af2eef3,target,file output/latex.tar.gz
+54ec9cd50b87f0d5,target,file output/latex.tar.gz
 fada090e151ca075,target,file output/short.fasta.gz
 0b5ac1a5686af843,target,file output/short_primers.tsv
 36c78101e7247479,target,file output/supp_file_1.tsv
+dcfa0228fd82f368,target,file output/supp_file_1.xlsx
 15b2fb388e327389,target,file output/supp_file_2.tsv
-ec70c5ca927e9f32,target,file output/supp_file_3.pdf
+82d4ddad34c05c6e,target,file output/supp_file_2.xlsx
+2fec28ff52fef511,target,file output/supp_file_3.pdf
 1f2355afdb5d784a,import,file writing/preamble.tex
 133f133f844fba09,import,file writing/preamble_supplement.tex
 843f584e6b5fe90e,import,file writing/rDNA_amplicons.csv
-d1db57fa5b24e664,target,file writing/transect_paper.pdf
-d5a85adc6f0caebf,target,file writing/transect_paper.wc
-5f97024886a9e4df,target,file writing/transect_paper.tex
-c7c5ada2815e22df,import,file writing/transect_paper.Rmd
+99f1cdc5fc4adf1f,target,file writing/transect_paper.pdf
+c37d1c5c7492e49f,target,file writing/transect_paper.wc
+447cc39a76e84949,target,file writing/transect_paper.tex
+fb1f81ef1c0b129a,import,file writing/transect_paper.Rmd
 20210bf506e22f80,target,file writing/transect_paper.aux
 b1bcd086aec80fca,target,file writing/transect_paper.bbl
 a51a8c9c15dbfeeb,import,file writing/transect_paper_original.tex
@@ -696,10 +699,10 @@ e77c75f9c9110e3b,target,file writing/transect_paper_diff.pdf
 31ef09842327270f,target,file writing/transect_paper_diff.tex
 f1520463ba20076e,target,file writing/transect_paper_diff2.pdf
 d2fdbd12bb4aeafa,target,file writing/transect_paper_diff2.tex
-62e838c039c19fb2,target,file writing/transect_paper_diff3.pdf
-4b7b57e2339e8146,target,file writing/transect_paper_diff3.tex
-dc3575d0ab641a86,import,file writing/transect_paper_files/figure-latex
-f9ab51e8c3bf0822,target,file writing/transect_supplement.pdf
+b66e309e9b3b8e2e,target,file writing/transect_paper_diff3.pdf
+82d78c63da515076,target,file writing/transect_paper_diff3.tex
+d91146d8d3675fc3,import,file writing/transect_paper_files/figure-latex
+fb963bedbc9d437c,target,file writing/transect_supplement.pdf
 aae44ccf5928d074,target,file writing/transect_supplement.tex
 783be025aecad3cc,import,file writing/transect_supplement.Rmd
 06b90030a5f345ef,target,file writing/transect_supplement.aux
@@ -710,9 +713,9 @@ e1449cbb613dbfb6,import,file writing/transect_supplement_diff.pdf
 d76ac310d6e83efd,target,file writing/transect_supplement_diff.tex
 d473d875162b583d,target,file writing/transect_supplement_diff2.pdf
 3924142f977ce4d0,target,file writing/transect_supplement_diff2.tex
-4458eeee929749aa,target,file writing/transect_supplement_diff3.pdf
+8b1bed2ac9042881,target,file writing/transect_supplement_diff3.pdf
 26f97fb559f83c9a,target,file writing/transect_supplement_diff3.tex
-c1b11f8628e7e48f,import,file writing/transect_supplement_files/figure-latex
+28328db4241c6056,import,file writing/transect_supplement_files/figure-latex
 321d8da12dd8996d,import,file writing/all.bib
 7092149b53fe0713,import,file reference/RF00002.cm
 9be6ac5ddd7e926d,import,file reference/fungi_32S_LR5.cm
